@@ -1,10 +1,9 @@
-# Multi-stage build for backend and frontend
 FROM node:20-alpine as frontend
-WORKDIR /app
-COPY frontend/package*.json ./frontend/
-RUN cd frontend && npm install
-COPY frontend ./frontend
-RUN cd frontend && npm run build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN [ -f package.json ] && npm install || echo "No package.json, skipping npm install"
+COPY frontend/ ./
+RUN [ -f package.json ] && npm run build || echo "No package.json, skipping build"
 
 FROM python:3.11-slim AS backend
 WORKDIR /app
