@@ -9,7 +9,10 @@ def load_config():
     if not os.path.exists(CONFIG_PATH):
         return get_default_config()
     with LOCK, open(CONFIG_PATH, "r") as f:
-        return yaml.safe_load(f) or get_default_config()
+        cfg = yaml.safe_load(f) or get_default_config()
+        if "mam_ip" not in cfg:
+            cfg["mam_ip"] = ""
+        return cfg
 
 def save_config(cfg):
     with LOCK, open(CONFIG_PATH, "w") as f:
@@ -19,7 +22,7 @@ def get_default_config():
     return {
         "mam": {
             "mam_id": "",
-            "session_type": "ip",  # or "asn"
+            "session_type": "ip",
             "buffer": 52000,
             "wedge_hours": 168,
             "vip_enabled": False,
@@ -53,5 +56,6 @@ def get_default_config():
                 }
             },
             "webhooks": []
-        }
+        },
+        "mam_ip": ""
     }

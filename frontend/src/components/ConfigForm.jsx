@@ -2,22 +2,31 @@ import React, { useState, useEffect } from "react";
 
 function ConfigForm() {
   const [config, setConfig] = useState(null);
+  const [detectedPublicIp, setDetectedPublicIp] = useState("");
 
   useEffect(() => {
     fetch("/api/config")
       .then(res => res.json())
       .then(setConfig);
+
+    fetch("/api/status")
+      .then(res => res.json())
+      .then(status => setDetectedPublicIp(status.detected_public_ip || ""));
   }, []);
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target;
-    setConfig(cfg => ({
-      ...cfg,
-      mam: {
-        ...cfg.mam,
-        [name]: type === "checkbox" ? checked : value
-      }
-    }));
+    if (name === "mam_ip") {
+      setConfig(cfg => ({ ...cfg, mam_ip: value }));
+    } else {
+      setConfig(cfg => ({
+        ...cfg,
+        mam: {
+          ...cfg.mam,
+          [name]: type === "checkbox" ? checked : value
+        }
+      }));
+    }
   }
 
   function handleSave(e) {
@@ -27,6 +36,12 @@ function ConfigForm() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(config)
     }).then(() => alert("Config saved!"));
+  }
+
+  function handleCopyIp() {
+    if (detectedPublicIp) {
+      setConfig(cfg => ({ ...cfg, mam_ip: detectedPublicIp }));
+    }
   }
 
   if (!config) return <section><h2>Configuration</h2><p>Loading...</p></section>;
@@ -59,6 +74,47 @@ function ConfigForm() {
             <input type="checkbox" name="vip_enabled" checked={config.mam.vip_enabled} onChange={handleChange} />
             Enable VIP Auto Purchase
           </label>
+        </div>
+        <div>
+          <label>
+            MaM IP (override):&nbsp;
+            <input
+              type="text"
+              name="mam_ip"
+              value={config.mam_ip || ""}
+              onChange={handleChange}
+              placeholder="e.g. 203.0.113.99"
+              style={{ width: "160px" }}
+            />
+            <span title="Copy detected public IP">
+              {detectedPublicIp && (
+                <>
+                  <button type="button" onClick={handleCopyIp} style={{
+                    marginLeft: "8px",
+                    padding: "2px 8px",
+                    fontSize: "0.9em"
+                  }}>
+                    Use Detected Public IP
+                  </button>
+                  <span
+                    style={{
+                      cursor: "pointer",
+                      marginLeft: "8px",
+                      fontSize: "1.1em",
+                      verticalAlign: "middle"
+                    }}
+                    onClick={() => navigator.clipboard.writeText(detectedPublicIp)}
+                    title="Copy detected public IP to clipboard"
+                  >📋</span>
+                </>
+              )}
+            </span>
+          </label>
+          <div style={{ fontSize: "0.9em", color: "#666" }}>
+            Detected Public IP: <b>{detectedPublicIp || "N/A"}</b>
+            <br />
+            Leave blank to use detected IP, or enter your VPN/public IP if you want MouseTrap to override.
+          </div>
         </div>
         <button type="submit">Save</button>
       </form>
