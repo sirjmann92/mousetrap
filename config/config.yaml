@@ -1,0 +1,32 @@
+mam:
+  mam_id: ""
+  session_type: "ip"    # or "asn"
+  buffer: 52000
+  wedge_hours: 168
+  vip_enabled: false
+  auto_purchase:
+    wedge: true
+    vip: false
+    upload: true
+  min_points: 55000
+  dont_spend_below: 50000
+
+automation:
+  refresh_minutes: 30
+
+notifications:
+  email:
+    enabled: false
+    smtp:
+      server: ""
+      port: 587
+      username: ""
+      password: ""
+      sender: ""
+      recipient: ""
+    events:
+      wedge_purchase: true
+      ip_changed: true
+      cookie_updated: true
+      points_below_threshold: true
+  webhooks: []
