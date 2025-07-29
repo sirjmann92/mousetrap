@@ -1,0 +1,28 @@
+# Perk automation configuration for MyAnonamouse
+perks:
+  upload_credit:
+    enabled: true                       # Toggle automation for upload credit purchases
+    min_points: 60000                   # Minimum points before buying upload credit
+    buffer: 55000                       # Points buffer to maintain after purchases
+    chunk_sizes: [100, 20, 5, 2.5, 1]   # GB increments to purchase, largest first
+    max_purchase_gb: 1000               # Cap max purchase to avoid overspending (optional)
+    cooldown_minutes: 10                # Optional: delay after a purchase before buying again
+
+  vip_status:
+    enabled: true                       # Toggle automation for VIP purchases
+    min_points: 1250                    # Minimum points per week of VIP
+    max_weeks: 12.8                     # Maximum weeks of VIP to hold
+    cooldown_hours: 24                  # Optional: delay between VIP purchases
+    require_power_user: true            # Only purchase if Power User or VIP (best practice)
+
+  freeleech_wedge:
+    enabled: true                       # Toggle automation for wedge purchases
+    min_points: 50000                   # Minimum points to purchase via points
+    min_cheese: 5                       # Minimum cheese to purchase via cheese
+    cooldown_hours: 4                   # Minimum hours between wedge purchases
+    method: "points"                    # "points", "cheese", or "auto" (auto = whichever is available/preferred)
+    prefer_cheese: false                # If true, always use cheese if enough is available
+
+general:
+  check_interval_minutes: 15            # How often to check and run automation
+  log_level: "info"                     # Logging verbosity

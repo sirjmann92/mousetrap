@@ -9,7 +9,7 @@ FROM python:3.11-slim AS backend
 WORKDIR /app
 COPY backend/ ./backend/
 COPY config/ ./config/
-RUN pip install fastapi[all] pyyaml uvicorn
+RUN pip install --no-cache-dir -r ./backend/requirements.txt
 COPY --from=frontend /app/frontend/build ./frontend
 
 EXPOSE 39842
