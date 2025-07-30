@@ -1,2 +1,10 @@
 node_modules/
 .cache/
+build/
+dist/
+*.pyc
+__pycache__/
+.env
+.DS_Store
+frontend/node_modules/
+frontend/.cache/
