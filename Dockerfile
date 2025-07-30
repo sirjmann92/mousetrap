@@ -10,10 +10,11 @@ RUN npm run build
 FROM python:3.11 AS backend
 WORKDIR /app
 
+# Copy backend code
 COPY backend/ /app/backend/
 COPY backend/app.py /app/app.py
 
-# Copy frontend build output to the expected path
+# Copy frontend build output to /app/frontend/build
 COPY --from=frontend-build /frontend/build /frontend/build
 
 COPY backend/requirements.txt /app/requirements.txt
