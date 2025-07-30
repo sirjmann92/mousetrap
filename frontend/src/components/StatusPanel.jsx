@@ -10,7 +10,7 @@ function StatusPanel({ status }) {
     <section>
       <h2>Status</h2>
       <ul>
-        <li>MaM Cookie: {status.mam_cookie_exists ? "Present" : "Missing"}</li>
+        <li>MaM Cookie: {status.mam_cookie_exists ? "OK" : "Missing"}</li>
         <li>
           Points:{" "}
           {status.points !== undefined && status.points !== null
@@ -18,16 +18,16 @@ function StatusPanel({ status }) {
             : <span style={{color: "#888"}}>N/A</span>}
         </li>
         <li>
-          Wedge:{" "}
-          {status.wedge_active === null || status.wedge_active === undefined
-            ? <span style={{color: "#888"}}>N/A</span>
-            : status.wedge_active ? "Active" : "Inactive"}
+          Wedge Automation:{" "}
+          {status.wedge_automation || <span style={{color: "#888"}}>N/A</span>}
         </li>
         <li>
-          VIP:{" "}
-          {status.vip_active === null || status.vip_active === undefined
-            ? <span style={{color: "#888"}}>N/A</span>
-            : status.vip_active ? "Active" : "Inactive"}
+          VIP Automation:{" "}
+          {status.vip_automation || <span style={{color: "#888"}}>N/A</span>}
+        </li>
+        <li>
+          Upload Automation:{" "}
+          {status.upload_automation || <span style={{color: "#888"}}>N/A</span>}
         </li>
         <li>
           Current IP: {status.current_ip || <span style={{color: "#888"}}>N/A</span>}

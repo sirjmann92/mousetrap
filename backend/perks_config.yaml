@@ -13,7 +13,6 @@ perks:
     min_points: 1250                    # Minimum points per week of VIP
     max_weeks: 12.8                     # Maximum weeks of VIP to hold
     cooldown_hours: 24                  # Optional: delay between VIP purchases
-    require_power_user: true            # Only purchase if Power User or VIP (best practice)
 
   freeleech_wedge:
     enabled: true                       # Toggle automation for wedge purchases

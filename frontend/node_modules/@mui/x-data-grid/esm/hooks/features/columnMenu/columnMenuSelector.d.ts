@@ -1,0 +1,2 @@
+import { GridStateCommunity } from "../../../models/gridStateCommunity.js";
+export declare const gridColumnMenuSelector: import("@mui/x-data-grid").OutputSelector<GridStateCommunity, unknown, import("@mui/x-data-grid").GridColumnMenuState>;

@@ -1,0 +1,2 @@
+import { DateOrTimeViewWithMeridiem, PickerOrientation } from "../../../models/index.js";
+export declare function useOrientation(views: readonly DateOrTimeViewWithMeridiem[], customOrientation: PickerOrientation | undefined): PickerOrientation;

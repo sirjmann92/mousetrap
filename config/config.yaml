@@ -3,15 +3,15 @@ automation:
 mam:
   auto_purchase:
     upload: true
-    vip: false
+    vip: true
     wedge: true
   buffer: 52000
   dont_spend_below: 50000
   mam_id: DcjvP0n1IDx1cjiiT-Qq0lGC3aBDOEAUW_f_UaDsY558pky9_z5IPJZIpooSOB6GKZ7txY7JNWcDNJXf3rtI_GAiF5CiTCHwkJrfj0Jffmo8G6SAfyYXQ62pej2iHpubnXKVESSWDptpf_2DbfJVPqOhoWsyP_QuG2QgdeURePtEFVRheDxF1QZU1-icDvz5WgqBJNc54YdbPIJ_h8MelleyYzUdu60MVoqxHQQxcvMuvwUywCxPzQUpKA8brRu4e3zc-_bkUUpqTRJKm7HtNXeunpuTlwUGOoot
   min_points: 55000
   session_type: asn
-  vip_enabled: false
   wedge_hours: 168
+mam_ip: ''
 notifications:
   email:
     enabled: false

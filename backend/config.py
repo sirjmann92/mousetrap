@@ -2,7 +2,7 @@ import yaml
 import os
 import threading
 
-CONFIG_PATH = "/config/config.yaml"
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml")
 LOCK = threading.Lock()
 
 def load_config():
@@ -25,7 +25,6 @@ def get_default_config():
             "session_type": "ip",
             "buffer": 52000,
             "wedge_hours": 168,
-            "vip_enabled": False,
             "auto_purchase": {
                 "wedge": True,
                 "vip": False,

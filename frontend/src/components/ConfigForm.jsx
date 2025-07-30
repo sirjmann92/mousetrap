@@ -29,6 +29,20 @@ function ConfigForm() {
     }
   }
 
+  function handleAutoPurchaseChange(e) {
+    const { name, checked } = e.target;
+    setConfig(cfg => ({
+      ...cfg,
+      mam: {
+        ...cfg.mam,
+        auto_purchase: {
+          ...cfg.mam.auto_purchase,
+          [name]: checked
+        }
+      }
+    }));
+  }
+
   function handleSave(e) {
     e.preventDefault();
     fetch("/api/config", {
@@ -60,20 +74,6 @@ function ConfigForm() {
             <option value="ip">IP Locked</option>
             <option value="asn">ASN Locked</option>
           </select>
-        </div>
-        <div>
-          <label>Buffer:</label>
-          <input type="number" name="buffer" value={config.mam.buffer} onChange={handleChange} />
-        </div>
-        <div>
-          <label>Wedge Hours:</label>
-          <input type="number" name="wedge_hours" value={config.mam.wedge_hours} onChange={handleChange} />
-        </div>
-        <div>
-          <label>
-            <input type="checkbox" name="vip_enabled" checked={config.mam.vip_enabled} onChange={handleChange} />
-            Enable VIP Auto Purchase
-          </label>
         </div>
         <div>
           <label>
@@ -116,6 +116,67 @@ function ConfigForm() {
             Leave blank to use detected IP, or enter your VPN/public IP if you want MouseTrap to override.
           </div>
         </div>
+
+        <h3 style={{ marginTop: "2em" }}>Perk Automation Options</h3>
+        <div style={{ marginLeft: "1em" }}>
+          <div>
+            <label>Buffer (points to keep):</label>
+            <input type="number" name="buffer" value={config.mam.buffer} onChange={handleChange} />
+            <span style={{ fontSize: "0.9em", color: "#666", marginLeft: "8px" }}>
+              Points to maintain as safety buffer
+            </span>
+          </div>
+          <div>
+            <label>Wedge Hours (frequency):</label>
+            <input type="number" name="wedge_hours" value={config.mam.wedge_hours} onChange={handleChange} />
+            <span style={{ fontSize: "0.9em", color: "#666", marginLeft: "8px" }}>
+              Hours between wedge purchases
+            </span>
+          </div>
+          <div>
+            <label>
+              <input 
+                type="checkbox" 
+                name="wedge" 
+                checked={config.mam.auto_purchase?.wedge || false} 
+                onChange={handleAutoPurchaseChange} 
+              />
+              Enable Wedge Auto Purchase
+            </label>
+            <span style={{ fontSize: "0.9em", color: "#666", marginLeft: "8px" }}>
+              Automatically purchase freeleech wedges
+            </span>
+          </div>
+          <div>
+            <label>
+              <input 
+                type="checkbox" 
+                name="vip" 
+                checked={config.mam.auto_purchase?.vip || false} 
+                onChange={handleAutoPurchaseChange} 
+              />
+              Enable VIP Auto Purchase
+            </label>
+            <span style={{ fontSize: "0.9em", color: "#666", marginLeft: "8px" }}>
+              Automatically purchase VIP status
+            </span>
+          </div>
+          <div>
+            <label>
+              <input 
+                type="checkbox" 
+                name="upload" 
+                checked={config.mam.auto_purchase?.upload || false} 
+                onChange={handleAutoPurchaseChange} 
+              />
+              Enable Upload Credit Auto Purchase
+            </label>
+            <span style={{ fontSize: "0.9em", color: "#666", marginLeft: "8px" }}>
+              Automatically purchase upload credits
+            </span>
+          </div>
+        </div>
+
         <button type="submit">Save</button>
       </form>
     </section>

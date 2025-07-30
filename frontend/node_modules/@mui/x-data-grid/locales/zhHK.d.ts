@@ -1,0 +1,1 @@
+export declare const zhHK: import("../internals/index.js").Localization;
