@@ -1,0 +1,1 @@
+export declare const hrHR: import("../internals/index.js").Localization;

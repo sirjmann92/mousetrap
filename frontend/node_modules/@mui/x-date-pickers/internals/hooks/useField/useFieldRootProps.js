@@ -1,0 +1,157 @@
+"use strict";
+
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.useFieldRootProps = useFieldRootProps;
+var _useEventCallback = _interopRequireDefault(require("@mui/utils/useEventCallback"));
+var _useTimeout = _interopRequireDefault(require("@mui/utils/useTimeout"));
+var _useFieldRootHandleKeyDown = require("./useFieldRootHandleKeyDown");
+var _utils = require("../../utils/utils");
+var _syncSelectionToDOM = require("./syncSelectionToDOM");
+/**
+ * Generate the props to pass to the root element of the field.
+ * It is not used by the non-accessible DOM structure (with an <input /> element for editing).
+ * It should be used in the MUI accessible DOM structure and the Base UI implementation.
+ * @param {UseFieldRootPropsParameters} parameters The parameters of the hook.
+ * @returns {UseFieldRootPropsReturnValue} The props to forward to the root element of the field.
+ */
+function useFieldRootProps(parameters) {
+  const {
+    manager,
+    focused,
+    setFocused,
+    domGetters,
+    stateResponse,
+    applyCharacterEditing,
+    internalPropsWithDefaults,
+    stateResponse: {
+      // States and derived states
+      parsedSelectedSections,
+      sectionOrder,
+      state,
+      // Methods to update the states
+      clearValue,
+      setCharacterQuery,
+      setSelectedSections,
+      updateValueFromValueStr
+    },
+    internalPropsWithDefaults: {
+      disabled = false,
+      readOnly = false
+    }
+  } = parameters;
+
+  // TODO: Inline onContainerKeyDown once the old DOM structure is removed
+  const handleKeyDown = (0, _useFieldRootHandleKeyDown.useFieldRootHandleKeyDown)({
+    manager,
+    internalPropsWithDefaults,
+    stateResponse
+  });
+  const containerClickTimeout = (0, _useTimeout.default)();
+  const handleClick = (0, _useEventCallback.default)(event => {
+    if (disabled || !domGetters.isReady()) {
+      return;
+    }
+    setFocused(true);
+    if (parsedSelectedSections === 'all') {
+      containerClickTimeout.start(0, () => {
+        const cursorPosition = document.getSelection().getRangeAt(0).startOffset;
+        if (cursorPosition === 0) {
+          setSelectedSections(sectionOrder.startIndex);
+          return;
+        }
+        let sectionIndex = 0;
+        let cursorOnStartOfSection = 0;
+        while (cursorOnStartOfSection < cursorPosition && sectionIndex < state.sections.length) {
+          const section = state.sections[sectionIndex];
+          sectionIndex += 1;
+          cursorOnStartOfSection += `${section.startSeparator}${section.value || section.placeholder}${section.endSeparator}`.length;
+        }
+        setSelectedSections(sectionIndex - 1);
+      });
+    } else if (!focused) {
+      setFocused(true);
+      setSelectedSections(sectionOrder.startIndex);
+    } else {
+      const hasClickedOnASection = domGetters.getRoot().contains(event.target);
+      if (!hasClickedOnASection) {
+        setSelectedSections(sectionOrder.startIndex);
+      }
+    }
+  });
+  const handleInput = (0, _useEventCallback.default)(event => {
+    if (!domGetters.isReady() || parsedSelectedSections !== 'all') {
+      return;
+    }
+    const target = event.target;
+    const keyPressed = target.textContent ?? '';
+    domGetters.getRoot().innerHTML = state.sections.map(section => `${section.startSeparator}${section.value || section.placeholder}${section.endSeparator}`).join('');
+    (0, _syncSelectionToDOM.syncSelectionToDOM)({
+      focused,
+      domGetters,
+      stateResponse
+    });
+    if (keyPressed.length === 0 || keyPressed.charCodeAt(0) === 10) {
+      clearValue();
+      setSelectedSections('all');
+    } else if (keyPressed.length > 1) {
+      updateValueFromValueStr(keyPressed);
+    } else {
+      if (parsedSelectedSections === 'all') {
+        setSelectedSections(0);
+      }
+      applyCharacterEditing({
+        keyPressed,
+        sectionIndex: 0
+      });
+    }
+  });
+  const handlePaste = (0, _useEventCallback.default)(event => {
+    if (readOnly || parsedSelectedSections !== 'all') {
+      event.preventDefault();
+      return;
+    }
+    const pastedValue = event.clipboardData.getData('text');
+    event.preventDefault();
+    setCharacterQuery(null);
+    updateValueFromValueStr(pastedValue);
+  });
+  const handleFocus = (0, _useEventCallback.default)(() => {
+    if (focused || disabled || !domGetters.isReady()) {
+      return;
+    }
+    const activeElement = (0, _utils.getActiveElement)(document);
+    setFocused(true);
+    const isFocusInsideASection = domGetters.getSectionIndexFromDOMElement(activeElement) != null;
+    if (!isFocusInsideASection) {
+      setSelectedSections(sectionOrder.startIndex);
+    }
+  });
+  const handleBlur = (0, _useEventCallback.default)(() => {
+    setTimeout(() => {
+      if (!domGetters.isReady()) {
+        return;
+      }
+      const activeElement = (0, _utils.getActiveElement)(document);
+      const shouldBlur = !domGetters.getRoot().contains(activeElement);
+      if (shouldBlur) {
+        setFocused(false);
+        setSelectedSections(null);
+      }
+    });
+  });
+  return {
+    // Event handlers
+    onKeyDown: handleKeyDown,
+    onBlur: handleBlur,
+    onFocus: handleFocus,
+    onClick: handleClick,
+    onPaste: handlePaste,
+    onInput: handleInput,
+    // Other
+    contentEditable: parsedSelectedSections === 'all',
+    tabIndex: parsedSelectedSections === 0 ? -1 : 0 // TODO: Try to set to undefined when there is a section selected.
+  };
+}

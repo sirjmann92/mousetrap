@@ -1,0 +1,3 @@
+import { UseFieldParameters, UseFieldProps, UseFieldReturnValue } from "./useField.types.js";
+import { PickerValidValue } from "../../models/index.js";
+export declare const useFieldV7TextField: <TValue extends PickerValidValue, TError, TValidationProps extends {}, TProps extends UseFieldProps<true>>(parameters: UseFieldParameters<TValue, true, TError, TValidationProps, TProps>) => UseFieldReturnValue<true, TProps>;

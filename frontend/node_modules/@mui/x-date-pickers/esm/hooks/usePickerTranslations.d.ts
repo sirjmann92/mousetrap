@@ -1,0 +1,1 @@
+export declare const usePickerTranslations: () => import("../index.js").PickersLocaleText;

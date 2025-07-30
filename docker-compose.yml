@@ -1,9 +1,14 @@
-version: '3'
+version: "3.9"
 services:
-  mousetrap:
-    build: .
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "39842:39842"
     volumes:
-      - ./config:/config
-    restart: unless-stopped
+      # Optional: Uncomment to hot-reload backend code during development
+       - ./backend:/app/backend
+       - ./frontend/build:/app/frontend/build
+    environment:
+      - PYTHONUNBUFFERED=1

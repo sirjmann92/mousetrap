@@ -1,0 +1,2 @@
+import { UseDateFieldProps } from "./DateField.types.js";
+export declare const useDateField: <TEnableAccessibleFieldDOMStructure extends boolean, TProps extends UseDateFieldProps<TEnableAccessibleFieldDOMStructure>>(props: TProps) => import("../internals/index.js").UseFieldReturnValue<TEnableAccessibleFieldDOMStructure, TProps>;

@@ -1,0 +1,1 @@
+export declare const ptPT: import("../internals/index.js").Localization;

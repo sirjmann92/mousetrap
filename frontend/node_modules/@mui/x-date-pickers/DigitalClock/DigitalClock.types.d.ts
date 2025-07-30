@@ -1,0 +1,54 @@
+import * as React from 'react';
+import { SlotComponentProps } from '@mui/utils/types';
+import MenuItem from '@mui/material/MenuItem';
+import { DigitalClockClasses } from "./digitalClockClasses.js";
+import { BaseClockProps, DigitalClockOnlyProps, ExportedBaseClockProps } from "../internals/models/props/time.js";
+import { PickerOwnerState, TimeView, PickerValidDate } from "../models/index.js";
+export interface ExportedDigitalClockProps extends ExportedBaseClockProps, DigitalClockOnlyProps {}
+export interface DigitalClockSlots {
+  /**
+   * Component responsible for rendering a single digital clock item.
+   * @default MenuItem from '@mui/material'
+   */
+  digitalClockItem?: React.JSXElementConstructor<DigitalClockItemProps>;
+}
+export interface DigitalClockSlotProps {
+  digitalClockItem?: SlotComponentProps<typeof MenuItem, {}, DigitalClockOwnerState>;
+}
+export interface DigitalClockProps extends ExportedDigitalClockProps, BaseClockProps<Extract<TimeView, 'hours'>> {
+  /**
+   * Available views.
+   * @default ['hours']
+   */
+  views?: readonly 'hours'[];
+  /**
+   * Override or extend the styles applied to the component.
+   */
+  classes?: Partial<DigitalClockClasses>;
+  /**
+   * Overrideable component slots.
+   * @default {}
+   */
+  slots?: DigitalClockSlots;
+  /**
+   * The props used for each component slot.
+   * @default {}
+   */
+  slotProps?: DigitalClockSlotProps;
+}
+export interface DigitalClockOwnerState extends PickerOwnerState {
+  /**
+   * `true` if this is not the initial render of the digital clock.
+   */
+  hasDigitalClockAlreadyBeenRendered: boolean;
+}
+export interface DigitalClockItemProps {
+  itemValue: PickerValidDate;
+  formattedValue: string;
+  onClick: () => void;
+  selected: boolean;
+  disabled: boolean;
+  readOnly?: boolean;
+  tabIndex: number;
+  [x: `data-${string}`]: string;
+}

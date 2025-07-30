@@ -1,16 +1,24 @@
-FROM node:20-alpine as frontend
-WORKDIR /app/frontend
+# Stage 1: Build frontend
+FROM node:20 AS frontend-build
+WORKDIR /frontend
 COPY frontend/package*.json ./
-RUN [ -f package.json ] && npm install || echo "No package.json, skipping npm install"
+RUN npm install
 COPY frontend/ ./
-RUN [ -f package.json ] && npm run build || echo "No package.json, skipping build"
+RUN npm run build
 
-FROM python:3.11-slim AS backend
+# Stage 2: Backend (FastAPI)
+FROM python:3.11 AS backend
 WORKDIR /app
-COPY backend/ ./backend/
-COPY config/ ./config/
-RUN pip install --no-cache-dir -r ./backend/requirements.txt
-COPY --from=frontend /app/frontend/build ./frontend
+
+COPY backend/ /app/backend/
+COPY backend/app.py /app/app.py
+
+# Copy frontend build output to the expected path
+COPY --from=frontend-build /frontend/build /frontend/build
+
+COPY backend/requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 EXPOSE 39842
-CMD ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "39842"]
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "39842"]

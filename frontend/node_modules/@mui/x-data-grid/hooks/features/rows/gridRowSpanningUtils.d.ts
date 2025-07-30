@@ -1,0 +1,10 @@
+import { RefObject } from '@mui/x-internals/types';
+import type { GridRenderContext } from "../../../models/index.js";
+import type { GridValidRowModel } from "../../../models/gridRows.js";
+import type { GridColDef } from "../../../models/colDef/index.js";
+import type { GridApiCommunity } from "../../../models/api/gridApiCommunity.js";
+import type { RowRange } from "./useGridRowSpanning.js";
+export declare function getUnprocessedRange(testRange: RowRange, processedRange: RowRange): RowRange | null;
+export declare function isRowContextInitialized(renderContext: GridRenderContext): boolean;
+export declare function isRowRangeUpdated(range1: RowRange, range2: RowRange): boolean;
+export declare const getCellValue: (row: GridValidRowModel, colDef: GridColDef, apiRef: RefObject<GridApiCommunity>) => any;

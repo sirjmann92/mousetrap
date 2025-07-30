@@ -1,0 +1,137 @@
+'use client';
+
+import _extends from "@babel/runtime/helpers/esm/extends";
+import _objectWithoutPropertiesLoose from "@babel/runtime/helpers/esm/objectWithoutPropertiesLoose";
+const _excluded = ["item", "applyValue", "type", "apiRef", "focusElementRef", "slotProps", "isFilterActive", "headerFilterMenu", "clearButton", "tabIndex", "disabled"];
+import * as React from 'react';
+import PropTypes from 'prop-types';
+import useId from '@mui/utils/useId';
+import { useTimeout } from "../../../hooks/utils/useTimeout.js";
+import { useGridRootProps } from "../../../hooks/utils/useGridRootProps.js";
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+function convertFilterItemValueToInputValue(itemValue, inputType) {
+  if (itemValue == null) {
+    return '';
+  }
+  const dateCopy = new Date(itemValue);
+  if (Number.isNaN(dateCopy.getTime())) {
+    return '';
+  }
+  if (inputType === 'date') {
+    return dateCopy.toISOString().substring(0, 10);
+  }
+  if (inputType === 'datetime-local') {
+    // The date picker expects the date to be in the local timezone.
+    // But .toISOString() converts it to UTC with zero offset.
+    // So we need to subtract the timezone offset.
+    dateCopy.setMinutes(dateCopy.getMinutes() - dateCopy.getTimezoneOffset());
+    return dateCopy.toISOString().substring(0, 19);
+  }
+  return dateCopy.toISOString().substring(0, 10);
+}
+function GridFilterInputDate(props) {
+  const {
+      item,
+      applyValue,
+      type,
+      apiRef,
+      focusElementRef,
+      slotProps,
+      headerFilterMenu,
+      clearButton,
+      tabIndex,
+      disabled
+    } = props,
+    other = _objectWithoutPropertiesLoose(props, _excluded);
+  const rootSlotProps = slotProps?.root.slotProps;
+  const filterTimeout = useTimeout();
+  const [filterValueState, setFilterValueState] = React.useState(() => convertFilterItemValueToInputValue(item.value, type));
+  const [applying, setIsApplying] = React.useState(false);
+  const id = useId();
+  const rootProps = useGridRootProps();
+  const onFilterChange = React.useCallback(event => {
+    filterTimeout.clear();
+    const value = event.target.value;
+    setFilterValueState(value);
+    setIsApplying(true);
+    filterTimeout.start(rootProps.filterDebounceMs, () => {
+      const date = new Date(value);
+      applyValue(_extends({}, item, {
+        value: Number.isNaN(date.getTime()) ? undefined : date
+      }));
+      setIsApplying(false);
+    });
+  }, [applyValue, item, rootProps.filterDebounceMs, filterTimeout]);
+  React.useEffect(() => {
+    const value = convertFilterItemValueToInputValue(item.value, type);
+    setFilterValueState(value);
+  }, [item.value, type]);
+  return /*#__PURE__*/_jsxs(React.Fragment, {
+    children: [/*#__PURE__*/_jsx(rootProps.slots.baseTextField, _extends({
+      fullWidth: true,
+      id: id,
+      label: apiRef.current.getLocaleText('filterPanelInputLabel'),
+      placeholder: apiRef.current.getLocaleText('filterPanelInputPlaceholder'),
+      value: filterValueState,
+      onChange: onFilterChange,
+      type: type || 'text',
+      disabled: disabled,
+      inputRef: focusElementRef,
+      slotProps: _extends({}, rootSlotProps, {
+        input: _extends({
+          endAdornment: applying ? /*#__PURE__*/_jsx(rootProps.slots.loadIcon, {
+            fontSize: "small",
+            color: "action"
+          }) : null
+        }, rootSlotProps?.input),
+        htmlInput: _extends({
+          max: type === 'datetime-local' ? '9999-12-31T23:59' : '9999-12-31',
+          tabIndex
+        }, rootSlotProps?.htmlInput)
+      })
+    }, rootProps.slotProps?.baseTextField, other, slotProps?.root)), headerFilterMenu, clearButton]
+  });
+}
+process.env.NODE_ENV !== "production" ? GridFilterInputDate.propTypes = {
+  // ----------------------------- Warning --------------------------------
+  // | These PropTypes are generated from the TypeScript type definitions |
+  // | To update them edit the TypeScript types and run "pnpm proptypes"  |
+  // ----------------------------------------------------------------------
+  apiRef: PropTypes.shape({
+    current: PropTypes.object.isRequired
+  }).isRequired,
+  applyValue: PropTypes.func.isRequired,
+  className: PropTypes.string,
+  clearButton: PropTypes.node,
+  disabled: PropTypes.bool,
+  focusElementRef: PropTypes /* @typescript-to-proptypes-ignore */.oneOfType([PropTypes.func, PropTypes.object]),
+  headerFilterMenu: PropTypes.node,
+  inputRef: PropTypes.oneOfType([PropTypes.func, PropTypes.shape({
+    current: (props, propName) => {
+      if (props[propName] == null) {
+        return null;
+      }
+      if (typeof props[propName] !== 'object' || props[propName].nodeType !== 1) {
+        return new Error(`Expected prop '${propName}' to be of type Element`);
+      }
+      return null;
+    }
+  })]),
+  /**
+   * It is `true` if the filter either has a value or an operator with no value
+   * required is selected (for example `isEmpty`)
+   */
+  isFilterActive: PropTypes.bool,
+  item: PropTypes.shape({
+    field: PropTypes.string.isRequired,
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    operator: PropTypes.string.isRequired,
+    value: PropTypes.any
+  }).isRequired,
+  onBlur: PropTypes.func,
+  onFocus: PropTypes.func,
+  slotProps: PropTypes.object,
+  tabIndex: PropTypes.number,
+  type: PropTypes.oneOf(['date', 'datetime-local'])
+} : void 0;
+export { GridFilterInputDate };

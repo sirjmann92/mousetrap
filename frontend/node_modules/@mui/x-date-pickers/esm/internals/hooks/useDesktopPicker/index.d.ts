@@ -1,0 +1,2 @@
+export { useDesktopPicker } from "./useDesktopPicker.js";
+export type { UseDesktopPickerSlots, UseDesktopPickerSlotProps, ExportedUseDesktopPickerSlotProps, DesktopOnlyPickerProps, UseDesktopPickerProps } from "./useDesktopPicker.types.js";

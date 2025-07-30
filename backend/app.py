@@ -79,17 +79,26 @@ async def api_config_save(request: Request):
     save_config(cfg)
     return {"success": True}
 
-frontend_dir = os.path.join(os.path.dirname(__file__), '..', 'frontend')
-app.mount("/static", StaticFiles(directory=os.path.join(frontend_dir, 'static')), name="static")
+# --- STATIC FILES SETUP (robust, works in Docker and locally) ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build'))
+STATIC_DIR = os.path.join(FRONTEND_BUILD_DIR, 'static')
+
+print("Serving static from:", STATIC_DIR)  # This prints the location it will use
+
+if not os.path.isdir(STATIC_DIR):
+    raise RuntimeError(f"Directory '{STATIC_DIR}' does not exist")
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/", include_in_schema=False)
 def serve_react_index():
-    index_path = os.path.join(frontend_dir, 'index.html')
+    index_path = os.path.join(FRONTEND_BUILD_DIR, 'index.html')
     return FileResponse(index_path)
 
 @app.get("/{full_path:path}", include_in_schema=False)
 def serve_react_app(full_path: str):
-    index_path = os.path.join(frontend_dir, 'index.html')
+    index_path = os.path.join(FRONTEND_BUILD_DIR, 'index.html')
     if os.path.exists(index_path):
         return FileResponse(index_path)
     raise HTTPException(status_code=404, detail="Not Found")

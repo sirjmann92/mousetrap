@@ -1,0 +1,32 @@
+import * as React from 'react';
+import { GridStateColDef } from "../../models/colDef/gridColDef.js";
+import { GridSortDirection } from "../../models/gridSortModel.js";
+import { GridColumnHeaderSeparatorProps } from "./GridColumnHeaderSeparator.js";
+import { GridColumnGroup } from "../../models/gridColumnGrouping.js";
+interface GridGenericColumnHeaderItemProps extends Pick<GridStateColDef, 'headerClassName' | 'description' | 'resizable'> {
+  classes: Record<'root' | 'draggableContainer' | 'titleContainer' | 'titleContainerContent', string>;
+  colIndex: number;
+  columnMenuOpen: boolean;
+  height: number;
+  isResizing: boolean;
+  sortDirection: GridSortDirection;
+  sortIndex?: number;
+  filterItemsCounter?: number;
+  hasFocus?: boolean;
+  tabIndex: 0 | -1;
+  disableReorder?: boolean;
+  separatorSide?: GridColumnHeaderSeparatorProps['side'];
+  headerComponent?: React.ReactNode;
+  elementId: GridStateColDef['field'] | GridColumnGroup['groupId'];
+  isDraggable: boolean;
+  width: number;
+  columnMenuIconButton?: React.ReactNode;
+  columnMenu?: React.ReactNode;
+  columnTitleIconButtons?: React.ReactNode;
+  label: string;
+  draggableContainerProps?: Partial<React.HTMLProps<HTMLDivElement>>;
+  columnHeaderSeparatorProps?: Partial<GridColumnHeaderSeparatorProps>;
+  style?: React.CSSProperties;
+}
+declare const GridGenericColumnHeaderItem: React.ForwardRefExoticComponent<GridGenericColumnHeaderItemProps> | React.ForwardRefExoticComponent<GridGenericColumnHeaderItemProps & React.RefAttributes<HTMLDivElement>>;
+export { GridGenericColumnHeaderItem };

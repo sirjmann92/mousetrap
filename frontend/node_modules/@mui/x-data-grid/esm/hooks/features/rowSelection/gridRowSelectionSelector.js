@@ -1,0 +1,29 @@
+import { createSelector, createRootSelector, createSelectorMemoized } from "../../../utils/createSelector.js";
+import { gridDataRowIdsSelector, gridRowsLookupSelector } from "../rows/gridRowsSelector.js";
+import { gridFilteredRowCountSelector } from "../filter/gridFilterSelector.js";
+import { createRowSelectionManager } from "../../../models/gridRowSelectionManager.js";
+export const gridRowSelectionStateSelector = createRootSelector(state => state.rowSelection);
+export const gridRowSelectionManagerSelector = createSelectorMemoized(gridRowSelectionStateSelector, createRowSelectionManager);
+export const gridRowSelectionCountSelector = createSelector(gridRowSelectionStateSelector, gridFilteredRowCountSelector, (selection, filteredRowCount) => {
+  if (selection.type === 'include') {
+    return selection.ids.size;
+  }
+  // In exclude selection, all rows are selectable.
+  return filteredRowCount - selection.ids.size;
+});
+export const gridRowSelectionIdsSelector = createSelectorMemoized(gridRowSelectionStateSelector, gridRowsLookupSelector, gridDataRowIdsSelector, (selectionModel, rowsLookup, rowIds) => {
+  const map = new Map();
+  if (selectionModel.type === 'include') {
+    for (const id of selectionModel.ids) {
+      map.set(id, rowsLookup[id]);
+    }
+  } else {
+    for (let i = 0; i < rowIds.length; i += 1) {
+      const id = rowIds[i];
+      if (!selectionModel.ids.has(id)) {
+        map.set(id, rowsLookup[id]);
+      }
+    }
+  }
+  return map;
+});
