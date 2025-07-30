@@ -14,7 +14,7 @@
     "formik": "^2.4.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "react-scripts": "^0.0.0",
+    "react-scripts": "^5.0.1",
     "yup": "^1.6.1"
   },
   "scripts": {
