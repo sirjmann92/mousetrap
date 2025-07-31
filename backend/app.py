@@ -19,6 +19,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+def get_asn_from_ip(ip):
+    try:
+        # Use ipinfo.io for ASN lookup
+        resp = requests.get(f"https://ipinfo.io/{ip}/json", timeout=4)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data.get("org", "Unknown ASN")
+        return "Unknown ASN"
+    except Exception:
+        return "Unknown ASN"
+
 def get_public_ip():
     try:
         resp = requests.get("https://api.ipify.org", timeout=4)
@@ -34,14 +45,15 @@ def api_status():
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     mam_ip_override = cfg.get('mam_ip', "").strip()
     detected_public_ip = get_public_ip()
+    asn = get_asn_from_ip(detected_public_ip) if detected_public_ip else "Unknown ASN"
 
     status = {
         "mam_cookie_exists": False,
         "points": None,
         "wedge_active": None,
         "vip_active": None,
-        "current_ip": None,
-        "asn": None,
+        "current_ip": detected_public_ip,
+        "asn": asn,
         "message": "Please provide your MaM ID in the configuration.",
         "detected_public_ip": detected_public_ip,
         "ip_source": "detected"
@@ -51,9 +63,7 @@ def api_status():
     if mam_ip_override:
         status["current_ip"] = mam_ip_override
         status["ip_source"] = "override"
-    else:
-        status["current_ip"] = detected_public_ip
-        status["ip_source"] = "detected"
+        status["asn"] = get_asn_from_ip(mam_ip_override)
 
     if mam_id:
         mam_status = get_status(mam_id=mam_id)

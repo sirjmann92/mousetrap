@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, Typography, Box } from "@mui/material";
 
-export default function StatusCard() {
+export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp }) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
 
@@ -9,9 +9,19 @@ export default function StatusCard() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch("/status");
+        const res = await fetch("/api/status");
         const data = await res.json();
-        setStatus(data.state);
+        // Map backend fields to expected frontend fields
+        const detectedIp = data.detected_public_ip || data.current_ip || "";
+        setStatus({
+          last_update_mamid: data.mam_id || "",
+          last_update_time: Date.now() / 1000, // fallback if not provided
+          ratelimited: 0, // fallback if not provided
+          last_result: data.message || "",
+          ip: detectedIp,
+          asn: data.asn || "",
+        });
+        if (setDetectedIp) setDetectedIp(detectedIp);
       } catch (e) {
         setStatus(null);
       }
@@ -19,7 +29,7 @@ export default function StatusCard() {
     fetchStatus();
     const interval = setInterval(fetchStatus, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [setDetectedIp]);
 
   // Countdown to next allowed check
   useEffect(() => {
@@ -44,9 +54,9 @@ export default function StatusCard() {
           <Box sx={{ ml: 2 }}>
             <Typography variant="body1">MaM Cookie: <b>{status.last_update_mamid || "Missing"}</b></Typography>
             <Typography variant="body1">Points: <b>N/A</b></Typography>
-            <Typography variant="body1">Wedge Automation: <b>N/A</b></Typography>
-            <Typography variant="body1">VIP Automation: <b>N/A</b></Typography>
-            <Typography variant="body1">Upload Automation: <b>N/A</b></Typography>
+            <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
+            <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
+            <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
             <Typography variant="body1">Current IP: <b>{status.ip}</b></Typography>
             <Typography variant="body1">ASN: <b>{status.asn}</b></Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
