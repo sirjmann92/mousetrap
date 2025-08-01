@@ -2,3 +2,4 @@ fastapi
 uvicorn
 pyyaml
 requests
+starlette

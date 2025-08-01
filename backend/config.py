@@ -7,14 +7,21 @@ LOCK = threading.Lock()
 
 def load_config():
     if not os.path.exists(CONFIG_PATH):
-        return get_default_config()
+        cfg = get_default_config()
+        cfg["last_check_time"] = None
+        return cfg
     with LOCK, open(CONFIG_PATH, "r") as f:
         cfg = yaml.safe_load(f) or get_default_config()
         if "mam_ip" not in cfg:
             cfg["mam_ip"] = ""
+        if "last_check_time" not in cfg:
+            cfg["last_check_time"] = None
         return cfg
 
 def save_config(cfg):
+    # Ensure the config directory exists before saving
+    config_dir = os.path.dirname(CONFIG_PATH)
+    os.makedirs(config_dir, exist_ok=True)
     with LOCK, open(CONFIG_PATH, "w") as f:
         yaml.safe_dump(cfg, f)
 

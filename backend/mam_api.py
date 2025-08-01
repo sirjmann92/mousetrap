@@ -1,5 +1,5 @@
 import os
-import random
+import requests
 
 def get_status(mam_id=None):
     # Return real data only if mam_id is present
@@ -9,19 +9,36 @@ def get_status(mam_id=None):
             "points": None,
             "wedge_active": None,
             "vip_active": None,
-            "asn": None,
             "message": "No MaM ID provided."
         }
     cookie_path = "/config/mam.cookie"
     exists_cookie = os.path.exists(cookie_path)
-    return {
+
+    # --- Real MaM API call placeholder ---
+    try:
+        # Example: Replace with real MaM API endpoint and logic
+        # resp = requests.get(f"https://api.myanonamouse.net/user/{mam_id}/status")
+        # data = resp.json()
+        # return {
+        #     "mam_cookie_exists": exists_cookie,
+        #     "points": data["points"],
+        #     "wedge_active": data["wedge_active"],
+        #     "vip_active": data["vip_active"],
+        #     "message": data.get("message", "Status fetched from MaM API")
+        # }
+        # For now, log what would be sent
+        print(f"[DEBUG] Would call MaM API for mam_id={mam_id}")
+    except Exception as e:
+        print(f"[ERROR] MaM API call failed: {e}")
+
+    status = {
         "mam_cookie_exists": exists_cookie,
-        "points": random.randint(10000, 120000),  # Replace with API call
-        "wedge_active": bool(random.getrandbits(1)),
-        "vip_active": bool(random.getrandbits(1)),
-        "asn": "AS" + str(random.randint(10000, 99999)),
+        "points": None,  # Replace with API call
+        "wedge_active": None,
+        "vip_active": None,
         "message": "Status stub (replace with live data)"
     }
+    return status
 
 def dummy_purchase(item):
     # Simulate a purchase action

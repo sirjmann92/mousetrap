@@ -20,6 +20,8 @@ COPY --from=frontend-build /frontend/build /frontend/build
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
+COPY logconfig.yaml /app/logconfig.yaml
+
 EXPOSE 39842
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "39842"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "39842", "--log-config", "logconfig.yaml"]

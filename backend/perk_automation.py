@@ -70,7 +70,10 @@ def automate_perks(config):
 
     # FreeLeech Wedge
     if config['perks']['freeleech_wedge']['enabled']:
-        hours_since_last = (time.time() - last_wedge) / 3600
+        if last_wedge is not None:
+            hours_since_last = (time.time() - last_wedge) / 3600
+        else:
+            hours_since_last = float('inf')  # Treat as eligible if never run
         if hours_since_last >= config['perks']['freeleech_wedge']['cooldown_hours']:
             if can_afford_wedge(points, cheese, config['perks']['freeleech_wedge']):
                 buy_wedge(config['perks']['freeleech_wedge']['method'])
