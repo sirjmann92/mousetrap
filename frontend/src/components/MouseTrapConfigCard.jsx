@@ -27,33 +27,14 @@ export default function MouseTrapConfigCard({
   detectedIp,
   currentASN,
   checkFrequency, setCheckFrequency,
+  label, setLabel,
+  oldLabel,
   onSessionSaved
 }) {
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
   const [expanded, setExpanded] = useState(false);
-  const [label, setLabel] = useState("Session01");
-
-  // Load config from backend on mount
-  useEffect(() => {
-    fetch("/api/config")
-      .then(res => {
-        if (!res.ok) throw new Error("Unable to load config");
-        return res.json();
-      })
-      .then(cfg => {
-        setLabel(cfg?.label ?? "Session01");
-        setMamId(cfg?.mam?.mam_id ?? "");
-        setSessionType(cfg?.mam?.session_type ?? "ASN Locked");
-        setMamIp(cfg?.mam_ip ?? "");
-        setCheckFrequency(cfg?.check_freq ?? 5);
-      })
-      .catch(err => {
-        setSaveError("Failed to load config: " + err.message);
-      });
-    // eslint-disable-next-line
-  }, []);
 
   // Save config handler
   const handleSave = async () => {
@@ -65,6 +46,7 @@ export default function MouseTrapConfigCard({
     }
     const payload = {
       label,
+      old_label: oldLabel,
       mam: {
         mam_id: mamId,
         session_type: sessionType
@@ -131,22 +113,26 @@ export default function MouseTrapConfigCard({
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'flex-end', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
-                <TextField
-                  label="IP Address"
-                  value={mamIp}
-                  placeholder="e.g. 203.0.113.99"
-                  onChange={e => setMamIp(e.target.value)}
-                  size="small"
-                  inputProps={{ maxLength: 16 }}
-                  sx={{ width: 170, mr: 1 }}
-                  helperText="Enter IP address associated with above MAM ID"
-                />
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', width: 170 }}>
+                  <TextField
+                    label="IP Address"
+                    value={mamIp}
+                    placeholder="e.g. 203.0.113.99"
+                    onChange={e => setMamIp(e.target.value)}
+                    size="small"
+                    inputProps={{ maxLength: 16 }}
+                    sx={{ width: 170, mb: 0 }}
+                  />
+                  <Typography variant="caption" sx={{ mt: 0.5, whiteSpace: 'nowrap' }}>
+                    Enter IP address associated with above MAM ID
+                  </Typography>
+                </Box>
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={() => setMamIp(detectedIp)}
-                  sx={{ minWidth: 120, ml: 1 }}
+                  sx={{ minWidth: 120, ml: 2, height: 40, alignSelf: 'flex-start' }}
                 >
                   Use Detected IP
                 </Button>

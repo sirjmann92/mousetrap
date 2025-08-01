@@ -55,15 +55,15 @@ def get_default_config(label="Session01"):
             "buffer": 52000,
             "wedge_hours": 168,
             "auto_purchase": {
-                "wedge": True,
+                "wedge": False,
                 "vip": False,
-                "upload": True
+                "upload": False
             },
             "min_points": 55000,
             "dont_spend_below": 50000
         },
         "automation": {
-            "refresh_minutes": 30
+            "refresh_minutes": 5
         },
         "notifications": {
             "email": {
@@ -109,3 +109,8 @@ def save_config(cfg):
     os.makedirs(config_dir, exist_ok=True)
     with LOCK, open(CONFIG_PATH, "w") as f:
         yaml.safe_dump(cfg, f)
+
+def delete_session(label):
+    path = get_session_path(label)
+    if os.path.exists(path):
+        os.remove(path)

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import sys
 from typing import Dict, Optional, Any
 
-from backend.config import load_config, save_config, list_sessions, load_session, save_session
+from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, dummy_purchase
 from backend.notifications import send_test_email, send_test_webhook
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
@@ -220,6 +220,14 @@ async def api_save_session(request: Request):
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
+
+@app.delete("/api/session/delete/{label}")
+def api_delete_session(label: str):
+    try:
+        delete_session(label)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")
 
 # --- STATIC FILES SETUP (robust, works in Docker and locally) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -1,17 +1,16 @@
-automation:
-  refresh_minutes: 30
 mam:
   auto_purchase:
-    upload: true
-    vip: true
-    wedge: true
+    upload: false
+    vip: false
+    wedge: false
   buffer: 52000
   dont_spend_below: 50000
-  mam_id: #UD2MLEXA9nXZm2T3OKOLyunDKZRoAap_CTIKmMQJI2g6f_RvoL9ZZ3ejXlkNDEyBIFuyq3KglPquci7BPZTe3I
+  mam_id: ''
   min_points: 55000
-  session_type: asn
+  session_type: ip
   wedge_hours: 168
-mam_ip: ''
+automation:
+  refresh_minutes: 5
 notifications:
   email:
     enabled: false
@@ -28,4 +27,4 @@ notifications:
       server: ''
       username: ''
   webhooks: []
-vpn_ip: 68.235.35.124:47430
+mam_ip: ''

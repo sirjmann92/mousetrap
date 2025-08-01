@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Card, CardContent, Typography, Box, Button, Snackbar, Alert } from "@mui/material";
+import { Card, CardContent, Typography, Box, Snackbar, Alert } from "@mui/material";
 
 export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints }) {
   const [status, setStatus] = useState(null);
@@ -60,24 +60,10 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetected
     return () => clearInterval(interval);
   }, [status && status.last_check_time]);
 
-  const handleRefreshSession = async () => {
-    try {
-      const res = await fetch("/api/session/refresh", { method: "POST" });
-      const data = await res.json();
-      if (data.success) setSnackbar({ open: true, message: data.message || "Session refreshed!", severity: 'success' });
-      else setSnackbar({ open: true, message: data.error || "Session refresh failed", severity: 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: "Session refresh failed", severity: 'error' });
-    }
-  };
-
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
         <Typography variant="h6" gutterBottom>Status</Typography>
-        <Button variant="outlined" color="primary" sx={{ mb: 2 }} onClick={handleRefreshSession}>
-          Refresh Session
-        </Button>
         {status ? (
           <Box sx={{ ml: 2 }}>
             <Typography variant="body1">MaM Cookie: <b>{status.last_update_mamid || "Missing"}</b></Typography>

@@ -8,7 +8,6 @@ import {
   Switch,
   CssBaseline
 } from "@mui/material";
-import InfoIcon from "@mui/icons-material/Info";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
@@ -19,6 +18,9 @@ import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
 import SessionSelector from "./components/SessionSelector";
+
+// Asset imports
+import MouseTrapIcon from "./assets/mousetrap-icon.svg";
 
 export default function App() {
   // Theme state and persistence
@@ -55,14 +57,17 @@ export default function App() {
   const [detectedIp, setDetectedIp] = React.useState("");
   const [points, setPoints] = React.useState(null);
   const [selectedLabel, setSelectedLabel] = React.useState("Session01");
-  const [sessionListKey, setSessionListKey] = React.useState(0);
+  const [label, setLabel] = React.useState("Session01");
+  const [oldLabel, setOldLabel] = React.useState("Session01");
 
   // Load session config by label
-  const loadSession = async (label) => {
+  const loadSession = async (labelToLoad) => {
     try {
-      const res = await fetch(`/api/session/${label}`);
+      const res = await fetch(`/api/session/${labelToLoad}`);
       const cfg = await res.json();
-      setSelectedLabel(cfg?.label ?? label); // Use label from config file
+      setSelectedLabel(cfg?.label ?? labelToLoad); // Use label from config file
+      setLabel(cfg?.label ?? labelToLoad); // Set label for config card
+      setOldLabel(cfg?.label ?? labelToLoad); // Track old label for rename
       setMamId(cfg?.mam?.mam_id ?? "");
       setSessionType(cfg?.mam?.session_type ?? "IP Locked");
       setMamIp(cfg?.mam_ip ?? "");
@@ -75,9 +80,40 @@ export default function App() {
 
   // Refresh session list after save
   const handleSessionSaved = (label) => {
-    setSessionListKey(k => k + 1);
-    setSelectedLabel(label);
     loadSession(label);
+  };
+
+  // Create new session handler
+  const handleCreateSession = async () => {
+    // Generate a unique label
+    let base = "Session";
+    let idx = 1;
+    let newLabel = base + idx;
+    // Try to avoid collisions
+    while (true) {
+      const res = await fetch("/api/sessions");
+      const data = await res.json();
+      if (!data.sessions.includes(newLabel)) break;
+      idx++;
+      newLabel = base + idx;
+    }
+    // Save a new session with default config
+    await fetch(`/api/session/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: newLabel })
+    });
+    loadSession(newLabel);
+  };
+
+  // Delete session handler
+  const handleDeleteSession = async (label) => {
+    await fetch(`/api/session/delete/${label}`, { method: "DELETE" });
+    // After delete, load the first available session
+    const res = await fetch("/api/sessions");
+    const data = await res.json();
+    const nextLabel = data.sessions[0] || "Session01";
+    loadSession(nextLabel);
   };
 
   return (
@@ -85,11 +121,20 @@ export default function App() {
       <CssBaseline />
       <AppBar position="static" sx={{ mb: 3 }}>
         <Toolbar>
-          <InfoIcon sx={{ mr: 2 }} />
+          <img src={MouseTrapIcon} alt="MouseTrap" style={{ width: 48, height: 48, marginRight: 20 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             MouseTrap
           </Typography>
-          <IconButton color="inherit" onClick={() => setMode(mode === "light" ? "dark" : "light")}>
+          <SessionSelector
+            selectedLabel={selectedLabel}
+            setSelectedLabel={setSelectedLabel}
+            onLoadSession={loadSession}
+            onCreateSession={handleCreateSession}
+            onDeleteSession={handleDeleteSession}
+            sx={{ background: mode === "dark" ? "#222" : "#fff", borderRadius: 1, ml: 2 }}
+          />
+          <IconButton color="inherit" onClick={() => setMode(mode === "light" ? "dark" : "light")}
+            sx={{ ml: 2 }}>
             {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
           </IconButton>
           <Switch
@@ -97,17 +142,12 @@ export default function App() {
             onChange={() => setMode(mode === "light" ? "dark" : "light")}
             color="default"
             inputProps={{ "aria-label": "toggle dark mode" }}
+            sx={{ ml: 1 }}
           />
         </Toolbar>
       </AppBar>
 
       <Container maxWidth="md">
-        <SessionSelector
-          key={sessionListKey}
-          selectedLabel={selectedLabel}
-          setSelectedLabel={setSelectedLabel}
-          onLoadSession={loadSession}
-        />
         <StatusCard
           detectedIp={detectedIp}
           currentASN={currentASN}
@@ -128,6 +168,9 @@ export default function App() {
           currentASN={currentASN}
           checkFrequency={checkFrequency}
           setCheckFrequency={setCheckFrequency}
+          label={label}
+          setLabel={setLabel}
+          oldLabel={oldLabel}
           onSessionSaved={handleSessionSaved}
         />
         <PerkAutomationCard
