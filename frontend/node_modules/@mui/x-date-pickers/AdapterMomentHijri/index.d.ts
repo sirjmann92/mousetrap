@@ -1,1 +1,0 @@
-export { AdapterMomentHijri } from "./AdapterMomentHijri.js";

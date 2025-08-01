@@ -1,2 +1,0 @@
-export * from "./gridPaginationSelector.js";
-export type { GridPaginationModelApi, GridPaginationRowCountApi, GridPaginationApi, GridPaginationState, GridPaginationInitialState } from "./gridPaginationInterfaces.js";

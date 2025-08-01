@@ -1,3 +1,0 @@
-import { UseFieldParameters, UseFieldReturnValue, UseFieldProps } from "./useField.types.js";
-import { PickerValidValue } from "../../models/index.js";
-export declare const useField: <TValue extends PickerValidValue, TEnableAccessibleFieldDOMStructure extends boolean, TError, TValidationProps extends {}, TProps extends UseFieldProps<TEnableAccessibleFieldDOMStructure>>(parameters: UseFieldParameters<TValue, TEnableAccessibleFieldDOMStructure, TError, TValidationProps, TProps>) => UseFieldReturnValue<TEnableAccessibleFieldDOMStructure, TProps>;

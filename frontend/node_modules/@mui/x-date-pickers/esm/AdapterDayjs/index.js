@@ -1,1 +1,0 @@
-export { AdapterDayjs } from "./AdapterDayjs.js";

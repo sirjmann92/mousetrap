@@ -1,2 +1,0 @@
-export { MobileDateTimePicker } from "./MobileDateTimePicker.js";
-export type { MobileDateTimePickerProps, MobileDateTimePickerSlots, MobileDateTimePickerSlotProps } from "./MobileDateTimePicker.types.js";

@@ -1,1 +1,0 @@
-export declare function useRunOncePerLoop<T extends (...args: any[]) => void>(callback: T, nextFrame?: boolean): (...args: Parameters<T>) => void;

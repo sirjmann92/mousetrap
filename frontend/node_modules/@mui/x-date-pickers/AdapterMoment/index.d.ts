@@ -1,1 +1,0 @@
-export { AdapterMoment } from "./AdapterMoment.js";

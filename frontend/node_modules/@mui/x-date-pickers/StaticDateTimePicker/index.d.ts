@@ -1,2 +1,0 @@
-export { StaticDateTimePicker } from "./StaticDateTimePicker.js";
-export type { StaticDateTimePickerProps, StaticDateTimePickerSlots, StaticDateTimePickerSlotProps } from "./StaticDateTimePicker.types.js";

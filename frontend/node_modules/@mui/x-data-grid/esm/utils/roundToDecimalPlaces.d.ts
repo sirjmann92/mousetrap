@@ -1,1 +1,0 @@
-export declare function roundToDecimalPlaces(value: number, decimals: number): number;

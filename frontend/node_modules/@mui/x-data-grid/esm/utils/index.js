@@ -1,1 +1,0 @@
-export { GridPortalWrapper } from "./css/context.js";

@@ -1,1 +1,0 @@
-export { useStaticPicker } from "./useStaticPicker.js";

@@ -1,2 +1,0 @@
-import { GridStateCommunity } from "../../../models/gridStateCommunity.js";
-export declare const gridRowsMetaSelector: import("@mui/x-data-grid").OutputSelector<GridStateCommunity, unknown, import("@mui/x-data-grid").GridRowsMetaState>;

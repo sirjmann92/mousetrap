@@ -1,3 +1,0 @@
-import { PinnedColumnPosition } from "../internals/constants.js";
-export declare const shouldCellShowRightBorder: (pinnedPosition: PinnedColumnPosition | undefined, indexInSection: number, sectionLength: number, showCellVerticalBorderRootProp: boolean, gridHasFiller: boolean) => boolean;
-export declare const shouldCellShowLeftBorder: (pinnedPosition: PinnedColumnPosition | undefined, indexInSection: number) => boolean;

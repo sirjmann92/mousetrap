@@ -1,3 +1,0 @@
-import * as React from 'react';
-declare const PickersTextField: React.ForwardRefExoticComponent<(Omit<import("./PickersTextField.types.js").PickersStandardTextFieldProps, "ref"> | Omit<import("./PickersTextField.types.js").PickersOutlinedTextFieldProps, "ref"> | Omit<import("./PickersTextField.types.js").PickersFilledTextFieldProps, "ref">) & React.RefAttributes<HTMLDivElement>>;
-export { PickersTextField };

@@ -1,1 +1,0 @@
-export { useMobilePicker } from "./useMobilePicker.js";

@@ -1,2 +1,0 @@
-import { UseTimeFieldProps } from "./TimeField.types.js";
-export declare const useTimeField: <TEnableAccessibleFieldDOMStructure extends boolean, TProps extends UseTimeFieldProps<TEnableAccessibleFieldDOMStructure>>(props: TProps) => import("../internals/index.js").UseFieldReturnValue<TEnableAccessibleFieldDOMStructure, TProps>;

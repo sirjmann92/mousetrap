@@ -1,1 +1,0 @@
-export { AdapterMomentJalaali } from "./AdapterMomentJalaali.js";

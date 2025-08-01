@@ -1,1 +1,0 @@
-export { AdapterDateFnsJalali } from "./AdapterDateFnsJalali.js";

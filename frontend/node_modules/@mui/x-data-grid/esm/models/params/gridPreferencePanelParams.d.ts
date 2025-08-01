@@ -1,2 +1,0 @@
-import { GridPreferencePanelState } from "../../hooks/features/preferencesPanel/gridPreferencePanelState.js";
-export interface GridPreferencePanelParams extends Omit<GridPreferencePanelState, 'open'> {}
