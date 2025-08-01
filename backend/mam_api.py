@@ -26,8 +26,7 @@ def get_status(mam_id=None):
         #     "vip_active": data["vip_active"],
         #     "message": data.get("message", "Status fetched from MaM API")
         # }
-        # For now, log what would be sent
-        print(f"[DEBUG] Would call MaM API for mam_id={mam_id}")
+        pass
     except Exception as e:
         print(f"[ERROR] MaM API call failed: {e}")
 
