@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 import sys
 from typing import Dict, Optional, Any
 
-from backend.config import load_config, save_config
+from backend.config import load_config, save_config, list_sessions, load_session, save_session
 from backend.mam_api import get_status, dummy_purchase
 from backend.notifications import send_test_email, send_test_webhook
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
@@ -202,6 +202,24 @@ def api_session_refresh(request: Request):
         return {"success": True, "message": "Session refreshed.", "result": refreshed}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@app.get("/api/sessions")
+def api_list_sessions():
+    return {"sessions": list_sessions()}
+
+@app.get("/api/session/{label}")
+def api_load_session(label: str):
+    return load_session(label)
+
+@app.post("/api/session/save")
+async def api_save_session(request: Request):
+    try:
+        cfg = await request.json()
+        old_label = cfg.get("old_label")
+        save_session(cfg, old_label=old_label)
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
 
 # --- STATIC FILES SETUP (robust, works in Docker and locally) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

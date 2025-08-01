@@ -18,6 +18,7 @@ import StatusCard from "./components/StatusCard";
 import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
+import SessionSelector from "./components/SessionSelector";
 
 export default function App() {
   // Theme state and persistence
@@ -53,6 +54,31 @@ export default function App() {
   const [checkFrequency, setCheckFrequency] = React.useState(5); // Default frequency in minutes
   const [detectedIp, setDetectedIp] = React.useState("");
   const [points, setPoints] = React.useState(null);
+  const [selectedLabel, setSelectedLabel] = React.useState("Session01");
+  const [sessionListKey, setSessionListKey] = React.useState(0);
+
+  // Load session config by label
+  const loadSession = async (label) => {
+    try {
+      const res = await fetch(`/api/session/${label}`);
+      const cfg = await res.json();
+      setSelectedLabel(label);
+      setMamId(cfg?.mam?.mam_id ?? "");
+      setSessionType(cfg?.mam?.session_type ?? "IP Locked");
+      setMamIp(cfg?.mam_ip ?? "");
+      setCheckFrequency(cfg?.check_freq ?? 5);
+      // Add other fields as needed
+    } catch (e) {
+      // handle error
+    }
+  };
+
+  // Refresh session list after save
+  const handleSessionSaved = (label) => {
+    setSessionListKey(k => k + 1);
+    setSelectedLabel(label);
+    loadSession(label);
+  };
 
   return (
     <ThemeProvider theme={theme}>
@@ -76,6 +102,12 @@ export default function App() {
       </AppBar>
 
       <Container maxWidth="md">
+        <SessionSelector
+          key={sessionListKey}
+          selectedLabel={selectedLabel}
+          setSelectedLabel={setSelectedLabel}
+          onLoadSession={loadSession}
+        />
         <StatusCard
           detectedIp={detectedIp}
           currentASN={currentASN}
@@ -96,6 +128,7 @@ export default function App() {
           currentASN={currentASN}
           checkFrequency={checkFrequency}
           setCheckFrequency={setCheckFrequency}
+          onSessionSaved={handleSessionSaved}
         />
         <PerkAutomationCard
           buffer={buffer}

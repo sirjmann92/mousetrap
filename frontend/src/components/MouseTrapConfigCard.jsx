@@ -26,7 +26,8 @@ export default function MouseTrapConfigCard({
   mamIp, setMamIp,
   detectedIp,
   currentASN,
-  checkFrequency, setCheckFrequency
+  checkFrequency, setCheckFrequency,
+  onSessionSaved
 }) {
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
@@ -72,18 +73,17 @@ export default function MouseTrapConfigCard({
       check_freq: checkFrequency
     };
     try {
-      const res = await fetch("/api/config", {
+      const res = await fetch("/api/session/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to save config");
-      setSaveStatus("Configuration saved successfully.");
-      setTimeout(() => setSaveStatus(""), 2000); // Auto-dismiss after 2s
-      // Trigger status refresh after save
-      if (window.statusCardFetchStatus) window.statusCardFetchStatus();
+      if (!res.ok) throw new Error("Failed to save session");
+      setSaveStatus("Session saved successfully.");
+      setTimeout(() => setSaveStatus(""), 2000);
+      if (onSessionSaved) onSessionSaved(label);
     } catch (err) {
-      setSaveError("Error saving config: " + err.message);
+      setSaveError("Error saving session: " + err.message);
     }
   };
 
@@ -140,6 +140,7 @@ export default function MouseTrapConfigCard({
                   size="small"
                   inputProps={{ maxLength: 16 }}
                   sx={{ width: 170, mr: 1 }}
+                  helperText="Enter IP address associated with above MAM ID"
                 />
                 <Button
                   variant="outlined"
@@ -150,9 +151,6 @@ export default function MouseTrapConfigCard({
                   Use Detected IP
                 </Button>
               </Box>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, alignSelf: 'flex-start' }}>
-                Enter IP address associated with above MAM ID
-              </Typography>
             </Grid>
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
