@@ -3,7 +3,7 @@ import os
 import threading
 import glob
 
-CONFIG_DIR = os.path.join(os.path.dirname(__file__), "..", "config")
+CONFIG_DIR = "/config"
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.yaml")
 LOCK = threading.Lock()
 

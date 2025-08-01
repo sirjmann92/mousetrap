@@ -7,7 +7,7 @@ mam:
     wedge: true
   buffer: 52000
   dont_spend_below: 50000
-  mam_id: UD2MLEXA9nXZm2T3OKOLyunDKZRoAap_CTIKmMQJI2g6f_RvoL9ZZ3ejXlkNDEyBIFuyq3KglPquci7BPZTe3I-EUUCvLqpYhGu0Gi-IW2ylLFvv1rzVJhU-VTyBsAUauNpnHTr3Tbi4HhmCVRPEgk-qns9CAFmgJWpxUJTKODyefVpnoV4SqvOF22OicjfL-vWMBsqDFNRh2du-G3q9t644Viu4FyiBu268KHaMeL6cT5J-DTXxYbklC4ot5YvBwAfSLG4-ARPFwuML0lQBoux8hPNJbdXpLDA8
+  mam_id: #UD2MLEXA9nXZm2T3OKOLyunDKZRoAap_CTIKmMQJI2g6f_RvoL9ZZ3ejXlkNDEyBIFuyq3KglPquci7BPZTe3I
   min_points: 55000
   session_type: asn
   wedge_hours: 168

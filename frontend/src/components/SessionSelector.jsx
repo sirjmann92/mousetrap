@@ -16,16 +16,16 @@ export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoa
   };
 
   return (
-    <Box sx={{ mb: 2 }}>
-      <FormControl fullWidth size="small" sx={{ minWidth: 200 }}>
+    <Box sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+      <FormControl size="small" sx={{ minWidth: 160, maxWidth: 200 }}>
         <InputLabel>Session</InputLabel>
-        <Select value={selectedLabel} label="Session" onChange={handleChange}>
+        <Select value={selectedLabel} label="Session" onChange={handleChange} sx={{ width: 160 }}>
           {sessions.map(label => (
             <MenuItem key={label} value={label}>{label}</MenuItem>
           ))}
         </Select>
       </FormControl>
-      <Button variant="outlined" sx={{ ml: 2 }} onClick={() => onLoadSession(selectedLabel)}>
+      <Button variant="outlined" sx={{ ml: 2, height: 40 }} onClick={() => onLoadSession(selectedLabel)}>
         Load Session
       </Button>
     </Box>

@@ -62,7 +62,7 @@ export default function App() {
     try {
       const res = await fetch(`/api/session/${label}`);
       const cfg = await res.json();
-      setSelectedLabel(label);
+      setSelectedLabel(cfg?.label ?? label); // Use label from config file
       setMamId(cfg?.mam?.mam_id ?? "");
       setSessionType(cfg?.mam?.session_type ?? "IP Locked");
       setMamIp(cfg?.mam_ip ?? "");
