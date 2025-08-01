@@ -52,6 +52,7 @@ export default function App() {
   const [currentASN, setCurrentASN] = React.useState("12345"); // Replace with actual ASN logic!
   const [checkFrequency, setCheckFrequency] = React.useState(5); // Default frequency in minutes
   const [detectedIp, setDetectedIp] = React.useState("");
+  const [points, setPoints] = React.useState(null);
 
   return (
     <ThemeProvider theme={theme}>
@@ -82,6 +83,7 @@ export default function App() {
           autoVIP={autoVIP}
           autoUpload={autoUpload}
           setDetectedIp={setDetectedIp}
+          setPoints={setPoints}
         />
         <MouseTrapConfigCard
           mamId={mamId}
@@ -106,6 +108,7 @@ export default function App() {
           setAutoVIP={setAutoVIP}
           autoUpload={autoUpload}
           setAutoUpload={setAutoUpload}
+          points={points}
         />
         <NotificationsCard />
       </Container>

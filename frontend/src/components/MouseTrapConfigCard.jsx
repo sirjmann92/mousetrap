@@ -13,10 +13,12 @@ import {
   Button,
   Alert,
   IconButton,
-  Collapse
+  Collapse,
+  Tooltip
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 
 export default function MouseTrapConfigCard({
   mamId, setMamId,
@@ -30,6 +32,7 @@ export default function MouseTrapConfigCard({
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [label, setLabel] = useState("Session01");
 
   // Load config from backend on mount
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function MouseTrapConfigCard({
         return res.json();
       })
       .then(cfg => {
+        setLabel(cfg?.label ?? "Session01");
         setMamId(cfg?.mam?.mam_id ?? "");
         setSessionType(cfg?.mam?.session_type ?? "ASN Locked");
         setMamIp(cfg?.mam_ip ?? "");
@@ -54,7 +58,12 @@ export default function MouseTrapConfigCard({
   const handleSave = async () => {
     setSaveStatus("");
     setSaveError("");
+    if (!label || label.trim() === "") {
+      setSaveError("Session label is required.");
+      return;
+    }
     const payload = {
+      label,
       mam: {
         mam_id: mamId,
         session_type: sessionType
@@ -90,17 +99,64 @@ export default function MouseTrapConfigCard({
         <Collapse in={expanded}>
           {saveError && <Alert severity="error" sx={{ mb: 2 }}>{saveError}</Alert>}
           {saveStatus && <Alert severity="success" sx={{ mb: 2 }}>{saveStatus}</Alert>}
-          <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={3}>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={5}>
               <TextField
-                label="MaM ID"
-                value={mamId}
-                onChange={e => setMamId(e.target.value)}
+                label="Session Label"
+                value={label}
+                onChange={e => setLabel(e.target.value)}
                 fullWidth
                 size="small"
+                required
+                helperText="Unique name for this session (required)"
               />
             </Grid>
-            <Grid item xs={12} sm={3}>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <TextField
+                label="MAM ID"
+                value={mamId}
+                onChange={e => setMamId(e.target.value)}
+                size="small"
+                inputProps={{ maxLength: 300, style: { fontFamily: 'monospace', fontSize: 14 } }}
+                sx={{ width: 400 }}
+                required
+                multiline
+                minRows={2}
+                maxRows={4}
+                helperText="Paste your full MAM ID here (required)"
+              />
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'flex-end', flexDirection: 'column' }}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', width: '100%' }}>
+                <TextField
+                  label="IP Address"
+                  value={mamIp}
+                  placeholder="e.g. 203.0.113.99"
+                  onChange={e => setMamIp(e.target.value)}
+                  size="small"
+                  inputProps={{ maxLength: 16 }}
+                  sx={{ width: 170, mr: 1 }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setMamIp(detectedIp)}
+                  sx={{ minWidth: 120, ml: 1 }}
+                >
+                  Use Detected IP
+                </Button>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, alignSelf: 'flex-start' }}>
+                Enter IP address associated with above MAM ID
+              </Typography>
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small" sx={{ minWidth: 180 }}>
                 <InputLabel>Session Type</InputLabel>
                 <Select
@@ -114,49 +170,25 @@ export default function MouseTrapConfigCard({
                 </Select>
               </FormControl>
             </Grid>
-          </Grid>
-          <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={3}>
-              <TextField
-                label="IP Address"
-                value={mamIp}
-                placeholder="e.g. 203.0.113.99"
-                onChange={e => setMamIp(e.target.value)}
-                size="small"
-                fullWidth
-              />
-              <Box sx={{ mt: 1, display: "flex", alignItems: "center" }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setMamIp(detectedIp)}
-                  sx={{ mr: 1 }}
-                >
-                  Use Detected Public IP
-                </Button>
-              </Box>
-              <Typography variant="caption" color="text.secondary">
-                Enter IP address associated with above MaM ID.
-              </Typography>
-            </Grid>
-          </Grid>
-          <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Check Frequency (min)</InputLabel>
+            <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'flex-end' }}>
+              <FormControl fullWidth size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Frequency</InputLabel>
                 <Select
                   value={checkFrequency}
-                  label="Check Frequency (min)"
+                  label="Frequency"
                   onChange={e => setCheckFrequency(Number(e.target.value))}
+                  sx={{ minWidth: 120 }}
                 >
                   {Array.from({ length: 60 }, (_, i) => (
                     <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              <Typography variant="caption" color="text.secondary">
-                How often to check and update IP/ASN (minutes)
-              </Typography>
+              <Tooltip title="How often to check and update IP/ASN (minutes)" arrow>
+                <IconButton size="small" sx={{ ml: 1 }}>
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Grid>
           </Grid>
           <Box sx={{ textAlign: "right", mt: 2 }}>

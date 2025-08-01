@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Card, CardContent, Typography, Box, Button, Snackbar, Alert } from "@mui/material";
 
-export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp }) {
+export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints }) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -22,10 +22,13 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetected
         ip: detectedIp,
         asn: data.asn || "",
         last_check_time: data.last_check_time || null,
+        points: data.points || null,
       });
       if (setDetectedIp) setDetectedIp(detectedIp);
+      if (setPoints) setPoints(data.points || null);
     } catch (e) {
       setStatus(null);
+      if (setPoints) setPoints(null);
     }
   };
 
@@ -78,7 +81,7 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetected
         {status ? (
           <Box sx={{ ml: 2 }}>
             <Typography variant="body1">MaM Cookie: <b>{status.last_update_mamid || "Missing"}</b></Typography>
-            <Typography variant="body1">Points: <b>N/A</b></Typography>
+            <Typography variant="body1">Points: <b>{status.points !== null && status.points !== undefined ? status.points : "N/A"}</b></Typography>
             <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
             <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
             <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>

@@ -9,6 +9,8 @@ def load_config():
     if not os.path.exists(CONFIG_PATH):
         cfg = get_default_config()
         cfg["last_check_time"] = None
+        if "label" not in cfg:
+            cfg["label"] = "Session01"
         return cfg
     with LOCK, open(CONFIG_PATH, "r") as f:
         cfg = yaml.safe_load(f) or get_default_config()
@@ -16,6 +18,8 @@ def load_config():
             cfg["mam_ip"] = ""
         if "last_check_time" not in cfg:
             cfg["last_check_time"] = None
+        if "label" not in cfg:
+            cfg["label"] = "Session01"
         return cfg
 
 def save_config(cfg):
@@ -27,6 +31,7 @@ def save_config(cfg):
 
 def get_default_config():
     return {
+        "label": "Session01",
         "mam": {
             "mam_id": "",
             "session_type": "ip",

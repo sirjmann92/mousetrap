@@ -24,7 +24,8 @@ export default function PerkAutomationCard({
   wedgeHours, setWedgeHours,
   autoWedge, setAutoWedge,
   autoVIP, setAutoVIP,
-  autoUpload, setAutoUpload
+  autoUpload, setAutoUpload,
+  points
 }) {
   const [expanded, setExpanded] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -74,6 +75,7 @@ export default function PerkAutomationCard({
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         </Box>
+        <Typography variant="body1" sx={{ mb: 2 }}>Points: <b>{points !== null ? points : "N/A"}</b></Typography>
         <Collapse in={expanded}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={3}>
