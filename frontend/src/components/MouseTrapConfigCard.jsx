@@ -70,6 +70,9 @@ export default function MouseTrapConfigCard({
       });
       if (!res.ok) throw new Error("Failed to save config");
       setSaveStatus("Configuration saved successfully.");
+      setTimeout(() => setSaveStatus(""), 2000); // Auto-dismiss after 2s
+      // Trigger status refresh after save
+      if (window.statusCardFetchStatus) window.statusCardFetchStatus();
     } catch (err) {
       setSaveError("Error saving config: " + err.message);
     }
@@ -79,7 +82,7 @@ export default function MouseTrapConfigCard({
     <Card sx={{ mb: 3 }}>
       <CardContent>
         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" gutterBottom>MouseTrap Configuration</Typography>
+          <Typography variant="h6" gutterBottom>Session Configuration</Typography>
           <IconButton onClick={() => setExpanded(e => !e)}>
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>

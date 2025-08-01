@@ -1,0 +1,31 @@
+version: 1
+formatters:
+  default:
+    format: '[%(asctime)s] %(levelname)s %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  access:
+    format: '[%(asctime)s] %(levelname)s: %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+handlers:
+  default:
+    class: logging.StreamHandler
+    formatter: default
+    stream: ext://sys.stdout
+  access:
+    class: logging.StreamHandler
+    formatter: access
+    stream: ext://sys.stdout
+loggers:
+  uvicorn:
+    handlers: [default]
+    level: INFO
+    propagate: false
+  uvicorn.error:
+    level: INFO
+  uvicorn.access:
+    handlers: [access]
+    level: INFO
+    propagate: false
+root:
+  handlers: [default]
+  level: INFO

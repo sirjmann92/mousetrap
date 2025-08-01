@@ -1,0 +1,100 @@
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK
+[DEBUG] ASN lookup for IP: 97.91.210.200 (url: https://ipinfo.io/97.91.210.200/json?token=8e21a6c64fd5d3)
+[DEBUG] ipinfo.io response: 200 {
+  "ip": "97.91.210.200",
+  "hostname": "syn-097-091-210-200.res.spectrum.com",
+  "city": "Saint Peters",
+  "region": "Missouri",
+  "country": "US",
+  "loc": "38.8003,-90.6265",
+  "org": "AS20115 Charter Communications LLC",
+  "postal": "63376",
+  "timezone": "America/Chicago"
+}
+INFO:     192.168.0.231:50722 - "GET /api/status HTTP/1.1" 200 OK

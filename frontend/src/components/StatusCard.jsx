@@ -1,55 +1,80 @@
-import React, { useEffect, useState } from "react";
-import { Card, CardContent, Typography, Box } from "@mui/material";
+import React, { useEffect, useState, useRef } from "react";
+import { Card, CardContent, Typography, Box, Button, Snackbar, Alert } from "@mui/material";
 
 export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp }) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const pollingRef = useRef();
+  const lastCheckRef = useRef(null);
 
-  // Fetch status from backend every 5 seconds
+  // Fetch status from backend
+  const fetchStatus = async () => {
+    try {
+      const res = await fetch("/api/status");
+      const data = await res.json();
+      const detectedIp = data.detected_public_ip || data.current_ip || "";
+      setStatus({
+        last_update_mamid: data.mam_id || "",
+        ratelimit: data.ratelimit || 0, // seconds, from backend
+        check_freq: data.check_freq || 5, // minutes, from backend
+        last_result: data.message || "",
+        ip: detectedIp,
+        asn: data.asn || "",
+        last_check_time: data.last_check_time || null,
+      });
+      if (setDetectedIp) setDetectedIp(detectedIp);
+    } catch (e) {
+      setStatus(null);
+    }
+  };
+
+  // Polling effect: only one interval
   useEffect(() => {
-    const fetchStatus = async () => {
-      try {
-        const res = await fetch("/api/status");
-        const data = await res.json();
-        // Map backend fields to expected frontend fields
-        const detectedIp = data.detected_public_ip || data.current_ip || "";
-        setStatus({
-          last_update_mamid: data.mam_id || "",
-          last_update_time: Date.now() / 1000, // fallback if not provided
-          ratelimited: 0, // fallback if not provided
-          last_result: data.message || "",
-          ip: detectedIp,
-          asn: data.asn || "",
-        });
-        if (setDetectedIp) setDetectedIp(detectedIp);
-      } catch (e) {
-        setStatus(null);
-      }
-    };
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
-    return () => clearInterval(interval);
+    pollingRef.current = setInterval(fetchStatus, 60000); // 1 minute
+    return () => clearInterval(pollingRef.current);
   }, [setDetectedIp]);
 
-  // Countdown to next allowed check
+  // Countdown to next allowed check, only reset if last_check_time changes
   useEffect(() => {
-    if (!status || !status.last_update_time) return;
-    const getSecondsLeft = () => {
-      const lastUpdate = status.last_update_time * 1000; // unix timestamp in seconds
-      const cooldown = status.ratelimited ?? 0;
-      const now = Date.now();
-      const nextCheck = lastUpdate + cooldown * 1000;
-      return Math.max(0, Math.floor((nextCheck - now) / 1000));
-    };
-    setTimer(getSecondsLeft());
-    const interval = setInterval(() => setTimer(getSecondsLeft()), 1000);
+    if (!status || !status.last_check_time) return;
+    if (lastCheckRef.current === status.last_check_time) return;
+    lastCheckRef.current = status.last_check_time;
+    let secondsLeft = 0;
+    const lastCheck = Date.parse(status.last_check_time);
+    const now = Date.now();
+    if (status.ratelimit && status.ratelimit > 0) {
+      secondsLeft = status.ratelimit - Math.floor((now - lastCheck) / 1000);
+    } else {
+      secondsLeft = status.check_freq * 60 - Math.floor((now - lastCheck) / 1000);
+    }
+    secondsLeft = Math.max(0, secondsLeft);
+    setTimer(secondsLeft);
+    const interval = setInterval(() => {
+      setTimer(t => (t > 0 ? t - 1 : 0));
+    }, 1000);
     return () => clearInterval(interval);
-  }, [status]);
+  }, [status && status.last_check_time]);
+
+  const handleRefreshSession = async () => {
+    try {
+      const res = await fetch("/api/session/refresh", { method: "POST" });
+      const data = await res.json();
+      if (data.success) setSnackbar({ open: true, message: data.message || "Session refreshed!", severity: 'success' });
+      else setSnackbar({ open: true, message: data.error || "Session refresh failed", severity: 'error' });
+    } catch (e) {
+      setSnackbar({ open: true, message: "Session refresh failed", severity: 'error' });
+    }
+  };
 
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
         <Typography variant="h6" gutterBottom>Status</Typography>
+        <Button variant="outlined" color="primary" sx={{ mb: 2 }} onClick={handleRefreshSession}>
+          Refresh Session
+        </Button>
         {status ? (
           <Box sx={{ ml: 2 }}>
             <Typography variant="body1">MaM Cookie: <b>{status.last_update_mamid || "Missing"}</b></Typography>
@@ -58,19 +83,27 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetected
             <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
             <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
             <Typography variant="body1">Current IP: <b>{status.ip}</b></Typography>
-            <Typography variant="body1">ASN: <b>{status.asn}</b></Typography>
-            <Typography variant="body2" sx={{ mt: 1 }}>
-              Last check: <b>{new Date(status.last_update_time * 1000).toLocaleString()}</b><br />
-              Previous result: <b>{status.last_result || "unknown"}</b><br />
-              {timer > 0
-                ? <>Next check in: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
-                : <>Ready for next check!</>
-              }
-            </Typography>
+            <Typography variant="body1">ASN: <b>{status.asn && status.asn !== 'Unknown ASN' ? status.asn : 'N/A'}</b></Typography>
+            {status.last_check_time && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                {status.ratelimit && status.ratelimit > 0 ? (
+                  <>Ratelimit: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
+                ) : (
+                  <>Next check in: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
+                )}
+                <br />
+                Previous result: <b>{status.last_result || "unknown"}</b>
+              </Typography>
+            )}
           </Box>
         ) : (
           <Typography color="error">Status unavailable</Typography>
         )}
+        <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+          <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </CardContent>
     </Card>
   );
