@@ -1,1 +1,0 @@
-export { isObjectEmpty } from "./isObjectEmpty.js";
