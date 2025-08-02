@@ -3,3 +3,4 @@ uvicorn
 pyyaml
 requests
 starlette
+beautifulsoup4
