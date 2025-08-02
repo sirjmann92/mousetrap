@@ -52,6 +52,7 @@ export default function App() {
   const [autoWedge, setAutoWedge] = React.useState(true);
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
+  const [autoMillionairesVault, setAutoMillionairesVault] = React.useState(false);
   const [currentASN, setCurrentASN] = React.useState("12345"); // Replace with actual ASN logic!
   const [checkFrequency, setCheckFrequency] = React.useState(5); // Default frequency in minutes
   const [detectedIp, setDetectedIp] = React.useState("");
@@ -187,6 +188,8 @@ export default function App() {
           setAutoVIP={setAutoVIP}
           autoUpload={autoUpload}
           setAutoUpload={setAutoUpload}
+          autoMillionairesVault={autoMillionairesVault}
+          setAutoMillionairesVault={setAutoMillionairesVault}
           points={points}
           uploadAmount={uploadAmount}
           setUploadAmount={setUploadAmount}

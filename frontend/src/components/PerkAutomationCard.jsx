@@ -23,6 +23,25 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
+function MillionairesVaultAmountDropdown({ value, onChange, minWidth }) {
+  return (
+    <FormControl fullWidth size="small" sx={{ mb: 2, minWidth: minWidth || 180 }}>
+      <InputLabel>Millionaire's Vault Amount</InputLabel>
+      <Select
+        value={value}
+        label="Millionaire's Vault Amount"
+        onChange={onChange}
+        sx={minWidth ? { minWidth } : {}}
+      >
+        {[...Array(20)].map((_, i) => {
+          const val = (i + 1) * 100;
+          return <MenuItem key={val} value={val}>{val.toLocaleString()} points</MenuItem>;
+        })}
+      </Select>
+    </FormControl>
+  );
+}
+
 export default function PerkAutomationCard({
   buffer, setBuffer,
   wedgeHours, setWedgeHours,
@@ -36,6 +55,8 @@ export default function PerkAutomationCard({
   const [uploadAmount, setUploadAmount] = useState(1);
   const [vipWeeks, setVipWeeks] = useState(4);
   const [wedgeMethod, setWedgeMethod] = useState("points");
+  const [autoMillionairesVault, setAutoMillionairesVault] = useState(false);
+  const [millionairesVaultAmount, setMillionairesVaultAmount] = useState(2000);
 
   // API call helpers
   const triggerWedge = async () => {
@@ -72,6 +93,20 @@ export default function PerkAutomationCard({
       setSnackbar({ open: true, message: "Upload automation failed", severity: 'error' });
     }
   };
+  const triggerMillionairesVault = async () => {
+    try {
+      const res = await fetch("/api/automation/millionaires_vault", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: millionairesVaultAmount })
+      });
+      const data = await res.json();
+      if (data.success) setSnackbar({ open: true, message: "Millionaire's Vault donation triggered!", severity: 'success' });
+      else setSnackbar({ open: true, message: data.error || "Millionaire's Vault donation failed", severity: 'error' });
+    } catch (e) {
+      setSnackbar({ open: true, message: "Millionaire's Vault donation failed", severity: 'error' });
+    }
+  };
 
   return (
     <Card sx={{ mb: 3 }}>
@@ -106,6 +141,7 @@ export default function PerkAutomationCard({
                 onChange={e => setWedgeHours(Number(e.target.value))}
                 size="small"
                 fullWidth
+                inputProps={{ style: { width: 60 } }} // Decrease width by ~5 chars
                 helperText="Hours between wedge purchases"
               />
             </Grid>
@@ -153,86 +189,16 @@ export default function PerkAutomationCard({
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              {/* Wedge Auto Purchase */}
-              <Box sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={autoWedge}
-                      onChange={e => setAutoWedge(e.target.checked)}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      Enable Wedge Auto Purchase
-                      <Tooltip title="Automatically purchase freeleech wedges" arrow>
-                        <IconButton size="small" sx={{ ml: 1 }}>
-                          <InfoOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  }
-                />
-              </Box>
-              {/* VIP Auto Purchase */}
-              <Box sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={autoVIP}
-                      onChange={e => setAutoVIP(e.target.checked)}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      Enable VIP Auto Purchase
-                      <Tooltip title="Automatically purchase VIP status" arrow>
-                        <IconButton size="small" sx={{ ml: 1 }}>
-                          <InfoOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  }
-                />
-              </Box>
-              {/* Upload Credit Auto Purchase */}
-              <Box sx={{ mb: 2 }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={autoUpload}
-                      onChange={e => setAutoUpload(e.target.checked)}
-                    />
-                  }
-                  label={
-                    <Box sx={{ display: "flex", alignItems: "center" }}>
-                      Enable Upload Credit Auto Purchase
-                      <Tooltip title="Automatically purchase upload credits" arrow>
-                        <IconButton size="small" sx={{ ml: 1 }}>
-                          <InfoOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  }
-                />
-              </Box>
-            </Grid>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-                <Button variant="contained" color="primary" onClick={triggerWedge}>Trigger Wedge</Button>
-                <Button variant="contained" color="secondary" onClick={triggerVIP}>Trigger VIP</Button>
-                <Button variant="contained" color="success" onClick={triggerUpload}>Trigger Upload</Button>
-              </Box>
+            <Grid item xs={12} sm={4}>
+              <MillionairesVaultAmountDropdown
+                value={millionairesVaultAmount}
+                onChange={e => setMillionairesVaultAmount(Number(e.target.value))}
+                minWidth={180}
+              />
             </Grid>
           </Grid>
         </CardContent>
       </Collapse>
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
-        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Card>
   );
 }

@@ -12,6 +12,7 @@ from backend.config import load_config, save_config, list_sessions, load_session
 from backend.mam_api import get_status, dummy_purchase
 from backend.notifications import send_test_email, send_test_webhook
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
+from backend.millionaires_vault import router as millionaires_vault_router
 
 app = FastAPI(title="MouseTrap API")
 
@@ -22,6 +23,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(millionaires_vault_router)
 
 asn_cache: Dict[str, Optional[Any]] = {"ip": None, "asn": None, "tz": None}
 mam_status_cache: Dict[str, Optional[Any]] = {"result": None, "last_check_time": None}
