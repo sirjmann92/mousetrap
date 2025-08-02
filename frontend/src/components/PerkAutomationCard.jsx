@@ -13,7 +13,11 @@ import {
   IconButton,
   Collapse,
   Snackbar,
-  Alert
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from "@mui/material";
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -29,6 +33,9 @@ export default function PerkAutomationCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [uploadAmount, setUploadAmount] = useState(1);
+  const [vipWeeks, setVipWeeks] = useState(4);
+  const [wedgeMethod, setWedgeMethod] = useState("points");
 
   // API call helpers
   const triggerWedge = async () => {
@@ -101,6 +108,50 @@ export default function PerkAutomationCard({
                 fullWidth
                 helperText="Hours between wedge purchases"
               />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel>Upload Credit Amount</InputLabel>
+                <Select
+                  value={uploadAmount}
+                  label="Upload Credit Amount"
+                  onChange={e => setUploadAmount(e.target.value)}
+                >
+                  <MenuItem value={1}>1 GB (500 points)</MenuItem>
+                  <MenuItem value={2.5}>2.5 GB (1250 points)</MenuItem>
+                  <MenuItem value={5}>5 GB (2500 points)</MenuItem>
+                  <MenuItem value={20}>20 GB (10,000 points)</MenuItem>
+                  <MenuItem value={100}>100 GB (50,000 points)</MenuItem>
+                  <MenuItem value={"Max Affordable"}>All I can afford</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel>VIP Weeks</InputLabel>
+                <Select
+                  value={vipWeeks}
+                  label="VIP Weeks"
+                  onChange={e => setVipWeeks(e.target.value)}
+                >
+                  <MenuItem value={4}>4 Weeks (5,000 points)</MenuItem>
+                  <MenuItem value={8}>8 Weeks (10,000 points)</MenuItem>
+                  <MenuItem value={"max"}>Max me out!</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                <InputLabel>Wedge Method</InputLabel>
+                <Select
+                  value={wedgeMethod}
+                  label="Wedge Method"
+                  onChange={e => setWedgeMethod(e.target.value)}
+                >
+                  <MenuItem value={"points"}>Via Points (50,000 points)</MenuItem>
+                  <MenuItem value={"cheese"}>Via Cheese (5 cheese)</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} sm={6}>
               {/* Wedge Auto Purchase */}

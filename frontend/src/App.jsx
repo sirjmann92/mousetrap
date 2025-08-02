@@ -59,6 +59,9 @@ export default function App() {
   const [selectedLabel, setSelectedLabel] = React.useState("Session01");
   const [label, setLabel] = React.useState("Session01");
   const [oldLabel, setOldLabel] = React.useState("Session01");
+  const [uploadAmount, setUploadAmount] = React.useState(1); // 1, 2.5, 5, 20, 100, 'Max Affordable'
+  const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
+  const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
 
   // Load session config by label
   const loadSession = async (labelToLoad) => {
@@ -185,6 +188,12 @@ export default function App() {
           autoUpload={autoUpload}
           setAutoUpload={setAutoUpload}
           points={points}
+          uploadAmount={uploadAmount}
+          setUploadAmount={setUploadAmount}
+          vipWeeks={vipWeeks}
+          setVipWeeks={setVipWeeks}
+          wedgeMethod={wedgeMethod}
+          setWedgeMethod={setWedgeMethod}
         />
         <NotificationsCard />
       </Container>
