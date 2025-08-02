@@ -229,9 +229,31 @@ def api_delete_session(label: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")
 
+# --- FAVICON ROUTES: must be registered before static/catch-all routes ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build'))
+FRONTEND_PUBLIC_DIR = "/app/frontend/public"  # Force correct path for Docker
+# If running in Docker, BASE_DIR is /app/backend, so ../frontend/public is /app/frontend/public
+STATIC_DIR = os.path.join(FRONTEND_BUILD_DIR, 'static')
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon_ico():
+    path = os.path.join(FRONTEND_PUBLIC_DIR, "favicon.ico")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="image/x-icon")
+    raise HTTPException(status_code=404, detail="favicon.ico not found")
+
+@app.get("/favicon.svg", include_in_schema=False)
+def favicon_svg():
+    path = os.path.join(FRONTEND_PUBLIC_DIR, "favicon.svg")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="image/svg+xml")
+    raise HTTPException(status_code=404, detail="favicon.svg not found")
+
 # --- STATIC FILES SETUP (robust, works in Docker and locally) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build'))
+FRONTEND_PUBLIC_DIR = "/app/frontend/public"  # Force correct path for Docker
 STATIC_DIR = os.path.join(FRONTEND_BUILD_DIR, 'static')
 
 log_with_timestamp(f"Serving static from: {STATIC_DIR}")  # This prints the location it will use

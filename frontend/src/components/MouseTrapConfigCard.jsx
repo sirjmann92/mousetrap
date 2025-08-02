@@ -112,31 +112,27 @@ export default function MouseTrapConfigCard({
             </Grid>
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={4} sx={{ display: 'flex', alignItems: 'flex-end', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', width: 170 }}>
-                  <TextField
-                    label="IP Address"
-                    value={mamIp}
-                    placeholder="e.g. 203.0.113.99"
-                    onChange={e => setMamIp(e.target.value)}
-                    size="small"
-                    inputProps={{ maxLength: 16 }}
-                    sx={{ width: 170, mb: 0 }}
-                  />
-                  <Typography variant="caption" sx={{ mt: 0.5, whiteSpace: 'nowrap' }}>
-                    Enter IP address associated with above MAM ID
-                  </Typography>
-                </Box>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setMamIp(detectedIp)}
-                  sx={{ minWidth: 120, ml: 2, height: 40, alignSelf: 'flex-start' }}
-                >
-                  Use Detected IP
-                </Button>
-              </Box>
+            <Grid item xs={12} sm={5}>
+              <TextField
+                label="IP Address"
+                value={mamIp}
+                placeholder="e.g. 203.0.113.99"
+                onChange={e => setMamIp(e.target.value)}
+                fullWidth
+                size="small"
+                inputProps={{ maxLength: 16 }}
+                helperText="Enter IP address associated with above MAM ID"
+              />
+            </Grid>
+            <Grid item xs={12} sm={2}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setMamIp(detectedIp)}
+                sx={{ minWidth: 120, height: 40, alignSelf: 'flex-start' }}
+              >
+                Use Detected IP
+              </Button>
             </Grid>
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
