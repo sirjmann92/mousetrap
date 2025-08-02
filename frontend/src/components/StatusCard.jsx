@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Card, CardContent, Typography, Box, Snackbar, Alert } from "@mui/material";
+import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider } from "@mui/material";
 
 export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints }) {
   const [status, setStatus] = useState(null);
@@ -65,14 +65,21 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetected
       <CardContent>
         <Typography variant="h6" gutterBottom>Status</Typography>
         {status ? (
-          <Box sx={{ ml: 2 }}>
-            <Typography variant="body1">MaM Cookie: <b>{status.last_update_mamid || "Missing"}</b></Typography>
-            <Typography variant="body1">Points: <b>{status.points !== null && status.points !== undefined ? status.points : "N/A"}</b></Typography>
-            <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
-            <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
-            <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
-            <Typography variant="body1">Current IP: <b>{status.ip}</b></Typography>
-            <Typography variant="body1">ASN: <b>{status.asn && status.asn !== 'Unknown ASN' ? status.asn : 'N/A'}</b></Typography>
+          <Box>
+            {/* Top section: ASN, IP Address, MAM Cookie Status */}
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body1">ASN: <b>{status.asn && status.asn !== 'Unknown ASN' ? status.asn : 'N/A'}</b></Typography>
+              <Typography variant="body1">IP Address: <b>{status.ip}</b></Typography>
+              <Typography variant="body1">MAM Cookie Status: <b>{status.last_update_mamid || "Missing"}</b></Typography>
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            {/* Bottom section: MAM details, Points, Automations */}
+            <Box>
+              <Typography variant="body1">Points: <b>{status.points !== null && status.points !== undefined ? status.points : "N/A"}</b></Typography>
+              <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
+              <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
+              <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
+            </Box>
             {status.last_check_time && (
               <Typography variant="body2" sx={{ mt: 1 }}>
                 {status.ratelimit && status.ratelimit > 0 ? (

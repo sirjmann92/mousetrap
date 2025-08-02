@@ -68,15 +68,17 @@ export default function PerkAutomationCard({
 
   return (
     <Card sx={{ mb: 3 }}>
-      <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" gutterBottom>Perk Automation Options</Typography>
-          <IconButton onClick={() => setExpanded(e => !e)}>
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
-        </Box>
-        <Typography variant="body1" sx={{ mb: 2 }}>Points: <b>{points !== null ? points : "N/A"}</b></Typography>
-        <Collapse in={expanded}>
+      <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Perk Automation Options
+        </Typography>
+        <IconButton size="small">
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <CardContent sx={{ pt: 0 }}>
+          <Typography variant="body1" sx={{ mb: 2 }}>Points: <b>{points !== null ? points : "N/A"}</b></Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={3}>
               <TextField
@@ -173,13 +175,13 @@ export default function PerkAutomationCard({
               </Box>
             </Grid>
           </Grid>
-        </Collapse>
-        <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
-          <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </CardContent>
+        </CardContent>
+      </Collapse>
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+        <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Card>
   );
 }

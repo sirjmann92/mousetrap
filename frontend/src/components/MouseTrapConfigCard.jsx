@@ -71,108 +71,117 @@ export default function MouseTrapConfigCard({
 
   return (
     <Card sx={{ mb: 3 }}>
-      <CardContent>
-        {/* Remove any parent Box with maxWidth or mx: 'auto' */}
-        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-          <Grid item xs={12}>
-            <TextField
-              label="Session Label"
-              value={label}
-              onChange={e => setLabel(e.target.value)}
-              size="small"
-              required
-              helperText="Unique name for this session (required)"
-              sx={{ width: 330 }}
-            />
-          </Grid>
-        </Grid>
-        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-          <Grid item xs={12}>
-            <TextField
-              label="MAM ID"
-              value={mamId}
-              onChange={e => setMamId(e.target.value)}
-              size="small"
-              required
-              inputProps={{ maxLength: 300 }}
-              multiline
-              minRows={2}
-              maxRows={4}
-              helperText="Paste your full MAM ID here (required)"
-              sx={{ width: 330 }}
-            />
-          </Grid>
-        </Grid>
-        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Session Configuration
+        </Typography>
+        <IconButton size="small">
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <CardContent sx={{ pt: 0 }}>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
               <TextField
-                label="IP Address"
-                value={mamIp}
-                onChange={e => setMamIp(e.target.value)}
+                label="Session Label"
+                value={label}
+                onChange={e => setLabel(e.target.value)}
                 size="small"
                 required
-                inputProps={{ maxLength: 16 }}
-                placeholder="e.g. 203.0.113.99"
-                helperText="Enter IP address associated with above MAM ID"
-                sx={{ width: 330 }}
+                helperText="Unique name for this session (required)"
+                sx={{ width: 300 }}
               />
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 120 }}>
-                <Button
-                  variant="outlined"
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <TextField
+                label="MAM ID"
+                value={mamId}
+                onChange={e => setMamId(e.target.value)}
+                size="small"
+                required
+                inputProps={{ maxLength: 300 }}
+                multiline
+                minRows={2}
+                maxRows={4}
+                helperText="Paste your full MAM ID here (required)"
+                sx={{ width: 300 }}
+              />
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  label="IP Address"
+                  value={mamIp}
+                  onChange={e => setMamIp(e.target.value)}
                   size="small"
-                  onClick={() => setMamIp(detectedIp)}
-                  sx={{ height: 40 }}
-                >
-                  Use Detected IP
-                </Button>
-                <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
-                  {detectedIp ? detectedIp : 'No IP detected'}
-                </Typography>
+                  required
+                  inputProps={{ maxLength: 16 }}
+                  placeholder="e.g. 203.0.113.99"
+                  helperText="Enter IP address associated with MAM ID"
+                  sx={{ width: 300 }}
+                />
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 120 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setMamIp(detectedIp)}
+                    sx={{ height: 40 }}
+                  >
+                    Use Detected IP
+                  </Button>
+                  <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
+                    {detectedIp ? detectedIp : 'No IP detected'}
+                  </Typography>
+                </Box>
               </Box>
-            </Box>
+            </Grid>
           </Grid>
-        </Grid>
-        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 200, maxWidth: 300, flex: 2 }}>
-                <InputLabel>Session Type</InputLabel>
-                <Select
-                  value={sessionType}
-                  label="Session Type"
-                  onChange={e => setSessionType(e.target.value)}
-                >
-                  <MenuItem value="IP Locked">IP Locked</MenuItem>
-                  <MenuItem value="ASN Locked">ASN Locked</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 80, maxWidth: 120, flex: 1 }}>
-                <InputLabel>Frequency</InputLabel>
-                <Select
-                  value={checkFrequency}
-                  label="Frequency"
-                  onChange={e => setCheckFrequency(Number(e.target.value))}
-                >
-                  {Array.from({ length: 60 }, (_, i) => (
-                    <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Tooltip title="How often to check and update IP/ASN (minutes)" arrow>
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Box>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+                <FormControl size="small" sx={{ minWidth: 160, maxWidth: 190, flex: 2 }}>
+                  <InputLabel>Session Type</InputLabel>
+                  <Select
+                    value={sessionType}
+                    label="Session Type"
+                    onChange={e => setSessionType(e.target.value)}
+                  >
+                    <MenuItem value="IP Locked">IP Locked</MenuItem>
+                    <MenuItem value="ASN Locked">ASN Locked</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 160, flex: 1 }}>
+                  <InputLabel>Frequency</InputLabel>
+                  <Select
+                    value={checkFrequency}
+                    label="Frequency"
+                    onChange={e => setCheckFrequency(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 60 }, (_, i) => (
+                      <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Tooltip title="How often to check and update IP/ASN (minutes)" arrow>
+                  <IconButton size="small" sx={{ ml: 1 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Grid>
           </Grid>
-        </Grid>
-        <Box sx={{ textAlign: "right", mt: 2 }}>
-          <Button variant="contained" color="primary" onClick={handleSave}>
-            SAVE
-          </Button>
-        </Box>
-      </CardContent>
+          <Box sx={{ textAlign: "right", mt: 2 }}>
+            <Button variant="contained" color="primary" onClick={handleSave}>
+              SAVE
+            </Button>
+          </Box>
+        </CardContent>
+      </Collapse>
     </Card>
   );
 }

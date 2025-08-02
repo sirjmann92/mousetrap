@@ -7,19 +7,21 @@ export default function NotificationsCard() {
   const [expanded, setExpanded] = useState(false);
   return (
     <Card sx={{ mb: 3 }}>
-      <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" gutterBottom>Notifications</Typography>
-          <IconButton onClick={() => setExpanded(e => !e)}>
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
-        </Box>
-        <Collapse in={expanded}>
+      <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Notifications
+        </Typography>
+        <IconButton size="small">
+          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <CardContent sx={{ pt: 0 }}>
           <Typography variant="body2" color="text.secondary">
             Configure email and webhook notifications here. (Coming soon!)
           </Typography>
-        </Collapse>
-      </CardContent>
+        </CardContent>
+      </Collapse>
     </Card>
   );
 }
