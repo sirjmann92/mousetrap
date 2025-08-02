@@ -57,7 +57,6 @@ export default function PerkAutomationCard({
   const [wedgeMethod, setWedgeMethod] = useState("points");
   const [autoMillionairesVault, setAutoMillionairesVault] = useState(false);
   const [millionairesVaultAmount, setMillionairesVaultAmount] = useState(2000);
-  const [autoUploadCredit, setAutoUploadCredit] = useState(false);
 
   // API call helpers
   const triggerWedge = async () => {
@@ -200,7 +199,7 @@ export default function PerkAutomationCard({
           </Grid>
           <Stack direction="column" spacing={2} sx={{ mb: 2 }}>
             <FormControlLabel
-              control={<Checkbox checked={autoUploadCredit} onChange={e => setAutoUploadCredit(e.target.checked)} />}
+              control={<Checkbox checked={autoUpload} onChange={e => setAutoUpload(e.target.checked)} />}
               label={
                 <span>
                   Auto Upload Credit
