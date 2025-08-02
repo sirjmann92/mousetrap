@@ -19,7 +19,7 @@ import {
   Select,
   MenuItem
 } from "@mui/material";
-import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
@@ -57,6 +57,7 @@ export default function PerkAutomationCard({
   const [wedgeMethod, setWedgeMethod] = useState("points");
   const [autoMillionairesVault, setAutoMillionairesVault] = useState(false);
   const [millionairesVaultAmount, setMillionairesVaultAmount] = useState(2000);
+  const [autoUploadCredit, setAutoUploadCredit] = useState(false);
 
   // API call helpers
   const triggerWedge = async () => {
@@ -197,6 +198,66 @@ export default function PerkAutomationCard({
               />
             </Grid>
           </Grid>
+          <Stack direction="column" spacing={2} sx={{ mb: 2 }}>
+            <FormControlLabel
+              control={<Checkbox checked={autoUploadCredit} onChange={e => setAutoUploadCredit(e.target.checked)} />}
+              label={
+                <span>
+                  Auto Upload Credit
+                  <Tooltip title="Automatically spend Upload Credit when available">
+                    <IconButton size="small" sx={{ ml: 1 }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </span>
+              }
+            />
+            <FormControlLabel
+              control={<Checkbox checked={autoVIP} onChange={e => setAutoVIP(e.target.checked)} />}
+              label={
+                <span>
+                  Auto VIP Weeks
+                  <Tooltip title="Automatically spend VIP Weeks when available">
+                    <IconButton size="small" sx={{ ml: 1 }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </span>
+              }
+            />
+            <FormControlLabel
+              control={<Checkbox checked={autoWedge} onChange={e => setAutoWedge(e.target.checked)} />}
+              label={
+                <span>
+                  Auto Wedge Hours
+                  <Tooltip title="Automatically spend Wedge Hours when available">
+                    <IconButton size="small" sx={{ ml: 1 }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </span>
+              }
+            />
+            <FormControlLabel
+              control={<Checkbox checked={autoMillionairesVault} onChange={e => setAutoMillionairesVault(e.target.checked)} />}
+              label={
+                <span>
+                  Auto Millionaire's Vault
+                  <Tooltip title="Automatically donate to Millionaire's Vault when available">
+                    <IconButton size="small" sx={{ ml: 1 }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </span>
+              }
+            />
+          </Stack>
+          <Stack direction="row" spacing={2} justifyContent="center" sx={{ mt: 2 }}>
+            <Button variant="contained" onClick={triggerUpload}>Manual Upload Credit</Button>
+            <Button variant="contained" onClick={triggerVIP}>Manual VIP Weeks</Button>
+            <Button variant="contained" onClick={triggerWedge}>Manual Wedge Hours</Button>
+            <Button variant="contained" onClick={triggerMillionairesVault}>Manual Millionaire's Vault</Button>
+          </Stack>
         </CardContent>
       </Collapse>
     </Card>
