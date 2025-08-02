@@ -3,19 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@ant-design/icons": "^6.0.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.2.0",
     "@mui/material": "^7.2.0",
-    "@mui/x-data-grid": "^8.9.1",
-    "@mui/x-date-pickers": "^8.9.0",
-    "antd": "^5.26.7",
-    "formik": "^2.4.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "react-scripts": "^5.0.1",
-    "yup": "^1.6.1"
+    "react-scripts": "^5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",

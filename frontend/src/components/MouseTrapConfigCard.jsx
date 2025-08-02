@@ -72,92 +72,87 @@ export default function MouseTrapConfigCard({
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Typography variant="h6" gutterBottom>Session Configuration</Typography>
-          <IconButton onClick={() => setExpanded(e => !e)}>
-            {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </IconButton>
-        </Box>
-        <Collapse in={expanded}>
-          {saveError && <Alert severity="error" sx={{ mb: 2 }}>{saveError}</Alert>}
-          {saveStatus && <Alert severity="success" sx={{ mb: 2 }}>{saveStatus}</Alert>}
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={5}>
-              <TextField
-                label="Session Label"
-                value={label}
-                onChange={e => setLabel(e.target.value)}
-                fullWidth
-                size="small"
-                required
-                helperText="Unique name for this session (required)"
-              />
-            </Grid>
+        {/* Remove any parent Box with maxWidth or mx: 'auto' */}
+        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+          <Grid item xs={12}>
+            <TextField
+              label="Session Label"
+              value={label}
+              onChange={e => setLabel(e.target.value)}
+              size="small"
+              required
+              helperText="Unique name for this session (required)"
+              sx={{ width: 330 }}
+            />
           </Grid>
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
-              <TextField
-                label="MAM ID"
-                value={mamId}
-                onChange={e => setMamId(e.target.value)}
-                size="small"
-                inputProps={{ maxLength: 300, style: { fontFamily: 'monospace', fontSize: 14 } }}
-                sx={{ width: 400 }}
-                required
-                multiline
-                minRows={2}
-                maxRows={4}
-                helperText="Paste your full MAM ID here (required)"
-              />
-            </Grid>
+        </Grid>
+        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+          <Grid item xs={12}>
+            <TextField
+              label="MAM ID"
+              value={mamId}
+              onChange={e => setMamId(e.target.value)}
+              size="small"
+              required
+              inputProps={{ maxLength: 300 }}
+              multiline
+              minRows={2}
+              maxRows={4}
+              helperText="Paste your full MAM ID here (required)"
+              sx={{ width: 330 }}
+            />
           </Grid>
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={5}>
+        </Grid>
+        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <TextField
                 label="IP Address"
                 value={mamIp}
-                placeholder="e.g. 203.0.113.99"
                 onChange={e => setMamIp(e.target.value)}
-                fullWidth
                 size="small"
+                required
                 inputProps={{ maxLength: 16 }}
+                placeholder="e.g. 203.0.113.99"
                 helperText="Enter IP address associated with above MAM ID"
+                sx={{ width: 330 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={2}>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => setMamIp(detectedIp)}
-                sx={{ minWidth: 120, height: 40, alignSelf: 'flex-start' }}
-              >
-                Use Detected IP
-              </Button>
-            </Grid>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 120 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setMamIp(detectedIp)}
+                  sx={{ height: 40 }}
+                >
+                  Use Detected IP
+                </Button>
+                <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
+                  {detectedIp ? detectedIp : 'No IP detected'}
+                </Typography>
+              </Box>
+            </Box>
           </Grid>
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small" sx={{ minWidth: 180 }}>
+        </Grid>
+        <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+          <Grid item xs={12}>
+            <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+              <FormControl size="small" sx={{ minWidth: 200, maxWidth: 300, flex: 2 }}>
                 <InputLabel>Session Type</InputLabel>
                 <Select
                   value={sessionType}
                   label="Session Type"
                   onChange={e => setSessionType(e.target.value)}
-                  sx={{ minWidth: 180 }}
                 >
                   <MenuItem value="IP Locked">IP Locked</MenuItem>
                   <MenuItem value="ASN Locked">ASN Locked</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'flex-end' }}>
-              <FormControl fullWidth size="small" sx={{ minWidth: 120 }}>
+              <FormControl size="small" sx={{ minWidth: 80, maxWidth: 120, flex: 1 }}>
                 <InputLabel>Frequency</InputLabel>
                 <Select
                   value={checkFrequency}
                   label="Frequency"
                   onChange={e => setCheckFrequency(Number(e.target.value))}
-                  sx={{ minWidth: 120 }}
                 >
                   {Array.from({ length: 60 }, (_, i) => (
                     <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>
@@ -169,14 +164,14 @@ export default function MouseTrapConfigCard({
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-            </Grid>
+            </Box>
           </Grid>
-          <Box sx={{ textAlign: "right", mt: 2 }}>
-            <Button variant="contained" color="primary" onClick={handleSave}>
-              SAVE
-            </Button>
-          </Box>
-        </Collapse>
+        </Grid>
+        <Box sx={{ textAlign: "right", mt: 2 }}>
+          <Button variant="contained" color="primary" onClick={handleSave}>
+            SAVE
+          </Button>
+        </Box>
       </CardContent>
     </Card>
   );

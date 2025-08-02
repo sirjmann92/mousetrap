@@ -1,0 +1,29 @@
+# Node and Python cache
+frontend/node_modules
+frontend/build
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Docker
+Dockerfile*
+.dockerignore
+
+# Misc
+.env
+*.bak
+*.tmp
