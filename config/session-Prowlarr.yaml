@@ -1,6 +1,0 @@
-check_freq: 5
-label: Prowlarr
-mam:
-  mam_id: UD2MLEXA9nXZm2T3OKOLyunDKZRoAap_CTIKmMQJI2g6f_RvoL9ZZ3ejXlkNDEyBIFuyq3KglPquci7BPZTe3I
-  session_type: ASN Locked
-mam_ip: 97.91.210.200
