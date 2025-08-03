@@ -4,3 +4,5 @@ pyyaml
 requests
 starlette
 beautifulsoup4
+apscheduler
+watchdog

@@ -19,6 +19,7 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
+import Snackbar from '@mui/material/Snackbar';
 
 export default function MouseTrapConfigCard({
   mamId, setMamId,
@@ -71,6 +72,19 @@ export default function MouseTrapConfigCard({
 
   return (
     <Card sx={{ mb: 3 }}>
+      {/* Snackbar for save status */}
+      <Snackbar
+        open={!!saveStatus || !!saveError}
+        autoHideDuration={3000}
+        onClose={() => { setSaveStatus(""); setSaveError(""); }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        {saveStatus ? (
+          <Alert severity="success" sx={{ width: '100%' }}>{saveStatus}</Alert>
+        ) : saveError ? (
+          <Alert severity="error" sx={{ width: '100%' }}>{saveError}</Alert>
+        ) : null}
+      </Snackbar>
       <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Session Configuration

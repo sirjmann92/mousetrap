@@ -9,6 +9,10 @@ import sys
 from typing import Dict, Optional, Any
 import threading
 import time
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
 from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, dummy_purchase
@@ -114,6 +118,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
 
     now = datetime.now(timezone.utc)
     do_real_check = False
+    mam_status = {}
     if mam_id:
         # Only do a real check if enough time has passed, or if force=1
         last_check_dt = None
@@ -149,6 +154,19 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 save_config(cfg)
         else:
             status["last_check_time"] = mam_status_cache["last_check_time"]
+    # Compose a plain-language status message
+    if mam_id:
+        if mam_status.get("message") and mam_status.get("message") != "Status mock: replace with live data when ready":
+            status_message = mam_status["message"]
+        elif mam_status.get("points") is not None:
+            status_message = "Status fetched successfully."
+        else:
+            status_message = "Could not fetch status, check your MaM ID."
+    else:
+        status_message = "Please provide your MaM ID in the configuration."
+    # Attach plain message and raw details
+    status["status_message"] = status_message
+    status["details"] = mam_status if mam_id else {}
     return status
 
 @app.get("/api/config")
@@ -292,33 +310,64 @@ def serve_react_app(full_path: str):
         return FileResponse(index_path)
     raise HTTPException(status_code=404, detail="Not Found")
 
-def background_session_checker():
-    while True:
-        try:
-            session_labels = list_sessions()
-            for label in session_labels:
-                cfg = load_session(label)
-                mam_id = cfg.get('mam', {}).get('mam_id', "")
-                check_freq = cfg.get("check_freq", 5)
-                last_check_time = cfg.get("last_check_time")
-                now = datetime.now(timezone.utc)
-                do_check = False
-                if mam_id:
-                    last_check_dt = None
-                    if last_check_time:
-                        try:
-                            last_check_dt = datetime.fromisoformat(last_check_time)
-                        except Exception:
-                            last_check_dt = None
-                    if not last_check_dt or (now - last_check_dt).total_seconds() >= check_freq * 60:
-                        do_check = True
-                if do_check:
-                    mam_status = get_status(mam_id=mam_id)
-                    cfg["last_check_time"] = now.isoformat()
-                    save_session(cfg, old_label=label)
-        except Exception as e:
-            log_with_timestamp(f"[BackgroundChecker] Error: {e}")
-        time.sleep(60)  # Check every minute
+def session_check_job(label):
+    try:
+        cfg = load_session(label)
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        check_freq = cfg.get("check_freq", 5)
+        if mam_id:
+            now = datetime.now(timezone.utc)
+            mam_status = get_status(mam_id=mam_id)
+            cfg["last_check_time"] = now.isoformat()
+            save_session(cfg, old_label=label)
+            log_with_timestamp(f"[APScheduler] Checked session '{label}' at {now}")
+    except Exception as e:
+        log_with_timestamp(f"[APScheduler] Error in job for '{label}': {e}")
 
-# Start background checker thread
-threading.Thread(target=background_session_checker, daemon=True).start()
+# --- APScheduler setup ---
+scheduler = BackgroundScheduler()
+
+# Register jobs for all sessions on startup
+def register_all_session_jobs():
+    session_labels = list_sessions()
+    for label in session_labels:
+        cfg = load_session(label)
+        check_freq = cfg.get("check_freq", 5)
+        job_id = f"session_check_{label}"
+        # Remove any existing job for this label
+        if scheduler.get_job(job_id):
+            scheduler.remove_job(job_id)
+        scheduler.add_job(
+            session_check_job,
+            trigger=IntervalTrigger(minutes=check_freq),
+            args=[label],
+            id=job_id,
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1
+        )
+        log_with_timestamp(f"[APScheduler] Registered job for session '{label}' every {check_freq} min")
+
+register_all_session_jobs()
+scheduler.start()
+
+CONFIG_DIR = "/config"
+
+class SessionFileChangeHandler(FileSystemEventHandler):
+    def on_any_event(self, event):
+        # Ensure src_path is a string for compatibility
+        src_path = str(event.src_path)
+        if src_path.endswith('.yaml') and 'session-' in src_path:
+            log_with_timestamp(f"[Watchdog] Detected session file change: {event.event_type} {src_path}")
+            register_all_session_jobs()
+
+# Start watchdog observer for hot-reload of jobs
+def start_session_watcher():
+    event_handler = SessionFileChangeHandler()
+    observer = Observer()
+    observer.schedule(event_handler, CONFIG_DIR, recursive=False)
+    observer.daemon = True
+    observer.start()
+    log_with_timestamp(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
+
+start_session_watcher()
