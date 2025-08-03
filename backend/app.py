@@ -36,7 +36,7 @@ asn_cache: Dict[str, Optional[Any]] = {"ip": None, "asn": None, "tz": None}
 mam_status_cache: Dict[str, Optional[Any]] = {"result": None, "last_check_time": None}
 
 def log_with_timestamp(message):
-    now = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
+    now = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
     print(f"[{now}] {message}", file=sys.stdout)
 
 def get_asn_and_timezone_from_ip(ip):
