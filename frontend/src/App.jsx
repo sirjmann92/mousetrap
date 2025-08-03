@@ -123,7 +123,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppBar position="static" sx={{ mb: 3 }}>
+      <AppBar position="fixed" sx={{ mb: 3 }}>
         <Toolbar>
           <img src={MouseTrapIcon} alt="MouseTrap" style={{ width: 48, height: 48, marginRight: 20 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
@@ -151,6 +151,8 @@ export default function App() {
         </Toolbar>
       </AppBar>
 
+      {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
+      <Toolbar />
       <Container maxWidth="md">
         <StatusCard
           detectedIp={detectedIp}

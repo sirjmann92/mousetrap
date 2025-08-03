@@ -35,9 +35,13 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillion
   // Polling effect: only one interval
   useEffect(() => {
     fetchStatus();
-    pollingRef.current = setInterval(fetchStatus, 60000); // 1 minute
+    // Clear any existing interval
+    if (pollingRef.current) clearInterval(pollingRef.current);
+    // Use status.check_freq (minutes) if available, else default to 1 minute
+    const intervalMs = (status && status.check_freq ? status.check_freq : 1) * 60000;
+    pollingRef.current = setInterval(fetchStatus, intervalMs);
     return () => clearInterval(pollingRef.current);
-  }, [setDetectedIp]);
+  }, [setDetectedIp, status && status.check_freq]);
 
   // Countdown to next allowed check, only reset if last_check_time changes
   useEffect(() => {
