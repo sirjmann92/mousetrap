@@ -57,6 +57,7 @@ export default function App() {
   const [checkFrequency, setCheckFrequency] = React.useState(5); // Default frequency in minutes
   const [detectedIp, setDetectedIp] = React.useState("");
   const [points, setPoints] = React.useState(null);
+  const [cheese, setCheese] = React.useState(null);
   const [selectedLabel, setSelectedLabel] = React.useState("Session01");
   const [label, setLabel] = React.useState("Session01");
   const [oldLabel, setOldLabel] = React.useState("Session01");
@@ -82,9 +83,16 @@ export default function App() {
     }
   };
 
+  // Add a ref to StatusCard to call fetchStatus after save
+  const statusCardRef = React.useRef();
+
   // Refresh session list after save
   const handleSessionSaved = (label) => {
     loadSession(label);
+    // Also refresh status to update timer immediately
+    if (statusCardRef.current && statusCardRef.current.fetchStatus) {
+      statusCardRef.current.fetchStatus();
+    }
   };
 
   // Create new session handler
@@ -155,6 +163,7 @@ export default function App() {
       <Toolbar />
       <Container maxWidth="md">
         <StatusCard
+          ref={statusCardRef}
           detectedIp={detectedIp}
           currentASN={currentASN}
           autoWedge={autoWedge}
@@ -163,6 +172,8 @@ export default function App() {
           autoMillionairesVault={autoMillionairesVault}
           setDetectedIp={setDetectedIp}
           setPoints={setPoints}
+          setCheese={setCheese}
+          sessionLabel={selectedLabel}
         />
         <MouseTrapConfigCard
           mamId={mamId}
@@ -194,6 +205,7 @@ export default function App() {
           autoMillionairesVault={autoMillionairesVault}
           setAutoMillionairesVault={setAutoMillionairesVault}
           points={points}
+          cheese={cheese}
           uploadAmount={uploadAmount}
           setUploadAmount={setUploadAmount}
           vipWeeks={vipWeeks}

@@ -56,6 +56,7 @@ export default function PerkAutomationCard({
   autoVIP, setAutoVIP,
   autoUpload, setAutoUpload,
   points,
+  cheese,
   autoMillionairesVault = false, setAutoMillionairesVault = () => {}
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -169,7 +170,7 @@ export default function PerkAutomationCard({
           Perk Options
         </Typography>
         <Typography variant="body1" sx={{ mr: 2, color: 'text.secondary' }}>
-          Cheese: <b>{'N/A'}</b>
+          Cheese: <b>{cheese !== null && cheese !== undefined ? cheese : "N/A"}</b>
         </Typography>
         <Typography variant="body1" sx={{ mr: 2, color: 'text.secondary' }}>
           Points: <b>{points !== null ? points : "N/A"}</b>

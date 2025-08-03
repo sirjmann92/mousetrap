@@ -7,6 +7,7 @@ def get_status(mam_id=None):
         return {
             "mam_cookie_exists": False,
             "points": None,
+            "cheese": None,
             "wedge_active": None,
             "vip_active": None,
             "message": "No MaM ID provided."
@@ -14,28 +15,14 @@ def get_status(mam_id=None):
     cookie_path = "/config/mam.cookie"
     exists_cookie = os.path.exists(cookie_path)
 
-    # --- Real MaM API call placeholder ---
-    try:
-        # Example: Replace with real MaM API endpoint and logic
-        # resp = requests.get(f"https://api.myanonamouse.net/user/{mam_id}/status")
-        # data = resp.json()
-        # return {
-        #     "mam_cookie_exists": exists_cookie,
-        #     "points": data["points"],
-        #     "wedge_active": data["wedge_active"],
-        #     "vip_active": data["vip_active"],
-        #     "message": data.get("message", "Status fetched from MaM API")
-        # }
-        pass
-    except Exception as e:
-        print(f"[ERROR] MaM API call failed: {e}")
-
+    # --- MOCK DATA FOR TESTING ---
     status = {
         "mam_cookie_exists": exists_cookie,
-        "points": None,  # Replace with API call
-        "wedge_active": None,
-        "vip_active": None,
-        "message": "Status stub (replace with live data)"
+        "points": 123456,  # Mock points value
+        "cheese": 42,      # Mock cheese value
+        "wedge_active": True,
+        "vip_active": False,
+        "message": "Status mock: replace with live data when ready"
     }
     return status
 

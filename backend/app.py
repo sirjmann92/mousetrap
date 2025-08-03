@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
@@ -7,6 +7,8 @@ import requests
 from datetime import datetime, timezone
 import sys
 from typing import Dict, Optional, Any
+import threading
+import time
 
 from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, dummy_purchase
@@ -62,9 +64,12 @@ def get_public_ip():
         return None
 
 @app.get("/api/status")
-def api_status():
+def api_status(label: str = Query(None), force: int = Query(0)):
     global asn_cache, mam_status_cache
-    cfg = load_config()
+    if label:
+        cfg = load_session(label)
+    else:
+        cfg = load_config()
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     mam_ip_override = cfg.get('mam_ip', "").strip()
     detected_public_ip = get_public_ip()
@@ -86,9 +91,15 @@ def api_status():
     last_check_time = cfg.get("last_check_time")
     check_freq = cfg.get("check_freq", 5)
 
+    # Always sync in-memory cache with stored value on startup or session switch
+    if last_check_time and (mam_status_cache["last_check_time"] != last_check_time):
+        mam_status_cache["last_check_time"] = last_check_time
+        mam_status_cache["result"] = None  # Invalidate cached result if timestamp changed
+
     status = {
         "mam_cookie_exists": False,
         "points": None,
+        "cheese": None,
         "wedge_active": None,
         "vip_active": None,
         "current_ip": ip_to_use,
@@ -104,19 +115,19 @@ def api_status():
     now = datetime.now(timezone.utc)
     do_real_check = False
     if mam_id:
-        # Only do a real check if enough time has passed
+        # Only do a real check if enough time has passed, or if force=1
         last_check_dt = None
         if mam_status_cache["last_check_time"]:
             try:
                 last_check_dt = datetime.fromisoformat(mam_status_cache["last_check_time"])
             except Exception:
                 last_check_dt = None
-        if not last_check_dt or (now - last_check_dt).total_seconds() >= check_freq * 60:
+        if force or not last_check_dt or (now - last_check_dt).total_seconds() >= check_freq * 60:
             # Do real MaM API check
             mam_status = get_status(mam_id=mam_id)
             mam_status_cache["result"] = mam_status
             mam_status_cache["last_check_time"] = now.isoformat()
-            log_with_timestamp(f"[MaM API] Real check for mam_id={mam_id}")
+            log_with_timestamp(f"[MaM API] Real check for mam_id={mam_id} (force={force})")
             do_real_check = True
         else:
             mam_status = mam_status_cache["result"] or {}
@@ -132,7 +143,10 @@ def api_status():
         if do_real_check and mam_status.get("points") is not None:
             status["last_check_time"] = now.isoformat()
             cfg["last_check_time"] = now.isoformat()
-            save_config(cfg)
+            if label:
+                save_session(cfg, old_label=label)
+            else:
+                save_config(cfg)
         else:
             status["last_check_time"] = mam_status_cache["last_check_time"]
     return status
@@ -277,3 +291,34 @@ def serve_react_app(full_path: str):
     if os.path.exists(index_path):
         return FileResponse(index_path)
     raise HTTPException(status_code=404, detail="Not Found")
+
+def background_session_checker():
+    while True:
+        try:
+            session_labels = list_sessions()
+            for label in session_labels:
+                cfg = load_session(label)
+                mam_id = cfg.get('mam', {}).get('mam_id', "")
+                check_freq = cfg.get("check_freq", 5)
+                last_check_time = cfg.get("last_check_time")
+                now = datetime.now(timezone.utc)
+                do_check = False
+                if mam_id:
+                    last_check_dt = None
+                    if last_check_time:
+                        try:
+                            last_check_dt = datetime.fromisoformat(last_check_time)
+                        except Exception:
+                            last_check_dt = None
+                    if not last_check_dt or (now - last_check_dt).total_seconds() >= check_freq * 60:
+                        do_check = True
+                if do_check:
+                    mam_status = get_status(mam_id=mam_id)
+                    cfg["last_check_time"] = now.isoformat()
+                    save_session(cfg, old_label=label)
+        except Exception as e:
+            log_with_timestamp(f"[BackgroundChecker] Error: {e}")
+        time.sleep(60)  # Check every minute
+
+# Start background checker thread
+threading.Thread(target=background_session_checker, daemon=True).start()
