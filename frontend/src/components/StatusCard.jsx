@@ -1,5 +1,9 @@
 import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider, Button } from "@mui/material";
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints, setCheese, sessionLabel }, ref) {
   const [status, setStatus] = useState(null);
@@ -26,6 +30,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         last_check_time: data.last_check_time || null,
         points: data.points || null,
         cheese: data.cheese || null,
+        status_message: data.status_message || "", // user-friendly status message
+        details: data.details || {}, // raw backend details
       });
       if (setDetectedIp) setDetectedIp(detectedIp);
       if (setPoints) setPoints(data.points || null);
@@ -54,6 +60,10 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         }
         secondsLeft = Math.max(0, secondsLeft);
         setTimer(secondsLeft);
+        // Auto-fetch when timer hits zero
+        if (secondsLeft === 0) {
+          fetchStatus();
+        }
       };
       updateTimer();
       interval = setInterval(updateTimer, 1000);
@@ -106,15 +116,29 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
               <Typography variant="body1">Millionaire's Vault Automation: <b>{autoMillionairesVault ? "Enabled" : "Disabled"}</b></Typography>
             </Box>
             {status.last_check_time && (
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {status.ratelimit && status.ratelimit > 0 ? (
-                  <>Ratelimit: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
-                ) : (
-                  <>Next check in: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
+              <>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {status.ratelimit && status.ratelimit > 0 ? (
+                    <>Ratelimit: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
+                  ) : (
+                    <>Next check in: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
+                  )}
+                  <br />
+                  {/* Show user-friendly status message */}
+                  Status: <b>{status.status_message || status.last_result || "unknown"}</b>
+                </Typography>
+                {/* Expandable section for raw backend details */}
+                {status.details && Object.keys(status.details).length > 0 && (
+                  <Accordion sx={{ mt: 1 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Typography variant="caption">More info</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <pre style={{ fontSize: 12, margin: 0 }}>{JSON.stringify(status.details, null, 2)}</pre>
+                    </AccordionDetails>
+                  </Accordion>
                 )}
-                <br />
-                Previous result: <b>{status.last_result || "unknown"}</b>
-              </Typography>
+              </>
             )}
           </Box>
         ) : (
