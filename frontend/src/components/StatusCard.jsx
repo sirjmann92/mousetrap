@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider } from "@mui/material";
+import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
+import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider, Button } from "@mui/material";
 
-export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints }) {
+const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints, setCheese, sessionLabel }, ref) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -9,9 +9,11 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillion
   const lastCheckRef = useRef(null);
 
   // Fetch status from backend
-  const fetchStatus = async () => {
+  const fetchStatus = async (force = false) => {
     try {
-      const res = await fetch("/api/status");
+      let url = sessionLabel ? `/api/status?label=${encodeURIComponent(sessionLabel)}` : "/api/status";
+      if (force) url += (url.includes('?') ? '&' : '?') + 'force=1';
+      const res = await fetch(url);
       const data = await res.json();
       const detectedIp = data.detected_public_ip || data.current_ip || "";
       setStatus({
@@ -23,51 +25,68 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillion
         asn: data.asn || "",
         last_check_time: data.last_check_time || null,
         points: data.points || null,
+        cheese: data.cheese || null,
       });
       if (setDetectedIp) setDetectedIp(detectedIp);
       if (setPoints) setPoints(data.points || null);
+      if (setCheese) setCheese(data.cheese || null);
     } catch (e) {
       setStatus(null);
       if (setPoints) setPoints(null);
+      if (setCheese) setCheese(null);
     }
   };
 
-  // Polling effect: only one interval
+  useImperativeHandle(ref, () => ({ fetchStatus }));
+
+  // Timer logic: always use latest backend data, update instantly on session change
+  useEffect(() => {
+    let interval;
+    if (status && status.last_check_time && status.check_freq) {
+      const updateTimer = () => {
+        const lastCheck = Date.parse(status.last_check_time);
+        const now = Date.now();
+        let secondsLeft;
+        if (status.ratelimit && status.ratelimit > 0) {
+          secondsLeft = status.ratelimit - Math.floor((now - lastCheck) / 1000);
+        } else {
+          secondsLeft = status.check_freq * 60 - Math.floor((now - lastCheck) / 1000);
+        }
+        secondsLeft = Math.max(0, secondsLeft);
+        setTimer(secondsLeft);
+      };
+      updateTimer();
+      interval = setInterval(updateTimer, 1000);
+    } else {
+      setTimer(0);
+    }
+    return () => interval && clearInterval(interval);
+  }, [status && status.last_check_time, status && status.check_freq, status && status.ratelimit, sessionLabel]);
+
+  // Polling effect: only one interval, always uses backend check_freq
   useEffect(() => {
     fetchStatus();
-    // Clear any existing interval
     if (pollingRef.current) clearInterval(pollingRef.current);
-    // Use status.check_freq (minutes) if available, else default to 1 minute
     const intervalMs = (status && status.check_freq ? status.check_freq : 1) * 60000;
-    pollingRef.current = setInterval(fetchStatus, intervalMs);
+    pollingRef.current = setInterval(() => fetchStatus(), intervalMs);
     return () => clearInterval(pollingRef.current);
-  }, [setDetectedIp, status && status.check_freq]);
+  }, [setDetectedIp, status && status.check_freq, sessionLabel]);
 
-  // Countdown to next allowed check, only reset if last_check_time changes
-  useEffect(() => {
-    if (!status || !status.last_check_time) return;
-    if (lastCheckRef.current === status.last_check_time) return;
-    lastCheckRef.current = status.last_check_time;
-    let secondsLeft = 0;
-    const lastCheck = Date.parse(status.last_check_time);
-    const now = Date.now();
-    if (status.ratelimit && status.ratelimit > 0) {
-      secondsLeft = status.ratelimit - Math.floor((now - lastCheck) / 1000);
-    } else {
-      secondsLeft = status.check_freq * 60 - Math.floor((now - lastCheck) / 1000);
-    }
-    secondsLeft = Math.max(0, secondsLeft);
-    setTimer(secondsLeft);
-    const interval = setInterval(() => {
-      setTimer(t => (t > 0 ? t - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [status && status.last_check_time]);
+  // Handler for 'Check Now' button
+  const handleCheckNow = async () => {
+    await fetchStatus(true);
+    setSnackbar({ open: true, message: 'Checked now!', severity: 'success' });
+  };
 
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
-        <Typography variant="h6" gutterBottom>Status</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h6" gutterBottom>Status</Typography>
+          <Button variant="outlined" size="small" onClick={handleCheckNow} sx={{ ml: 2 }}>
+            Check Now
+          </Button>
+        </Box>
         {status ? (
           <Box>
             {/* Top section: ASN, IP Address, MAM Cookie Status */}
@@ -80,6 +99,7 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillion
             {/* Bottom section: MAM details, Points, Automations */}
             <Box>
               <Typography variant="body1">Points: <b>{status.points !== null && status.points !== undefined ? status.points : "N/A"}</b></Typography>
+              <Typography variant="body1">Cheese: <b>{status.cheese !== null && status.cheese !== undefined ? status.cheese : "N/A"}</b></Typography>
               <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
               <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
               <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
@@ -108,4 +128,6 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillion
       </CardContent>
     </Card>
   );
-}
+});
+
+export default StatusCard;
