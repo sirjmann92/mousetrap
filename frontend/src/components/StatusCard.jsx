@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider } from "@mui/material";
 
-export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints }) {
+export default function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints }) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -79,6 +79,7 @@ export default function StatusCard({ autoWedge, autoVIP, autoUpload, setDetected
               <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
               <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
               <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
+              <Typography variant="body1">Millionaire's Vault Automation: <b>{autoMillionairesVault ? "Enabled" : "Disabled"}</b></Typography>
             </Box>
             {status.last_check_time && (
               <Typography variant="body2" sx={{ mt: 1 }}>

@@ -10,7 +10,7 @@ mam:
   min_points: 55000
   session_type: ip
   wedge_hours: 168
-  # Upload Credit: 1, 2.5, 5, 20, 100, or 'Max Affordable' (all I can afford)
+  # Upload Credit: 1, 2.5, 5, 20, 100
   upload_amount: 1
   # VIP Status: 4, 8, or 'max' (max me out)
   vip_weeks: 4

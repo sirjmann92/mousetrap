@@ -9,4 +9,4 @@ __pycache__/
 frontend/node_modules/
 frontend/.cache/
 scripts/
-config/
+config/session-*.yaml

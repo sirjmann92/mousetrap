@@ -158,6 +158,7 @@ export default function App() {
           autoWedge={autoWedge}
           autoVIP={autoVIP}
           autoUpload={autoUpload}
+          autoMillionairesVault={autoMillionairesVault}
           setDetectedIp={setDetectedIp}
           setPoints={setPoints}
         />
