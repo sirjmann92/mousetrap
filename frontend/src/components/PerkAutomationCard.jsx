@@ -224,7 +224,7 @@ export default function PerkAutomationCard({
                 onChange={e => setWedgeHours(Number(e.target.value))}
                 size="small"
                 inputProps={{ min: 0 }}
-                sx={{ width: 140, mr: 3, flexShrink: 0 }}
+                sx={{ width: 160, mr: 3, flexShrink: 0 }}
               />
               <Box sx={{ flexGrow: 1 }} />
               <Tooltip title="This will instantly purchase a wedge using the selected method.">
@@ -253,7 +253,7 @@ export default function PerkAutomationCard({
                 label={<span>Enable VIP Automation</span>}
                 sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
               />
-              <FormControl size="small" sx={{ minWidth: 120, mr: 3, flexShrink: 0 }}>
+              <FormControl size="small" sx={{ minWidth: 120, mr: 1, flexShrink: 0 }}>
                 <InputLabel>Weeks</InputLabel>
                 <Select
                   value={vipWeeks}
@@ -266,9 +266,9 @@ export default function PerkAutomationCard({
                 </Select>
               </FormControl>
               <Tooltip title="Fill me up! = Top up to 90 days">
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mr: 3, minWidth: 170, flexShrink: 0 }}>
-                  {vipWeeks === 90 ? 'Fill me up! = Top up to 90 days' : ''}
-                </Typography>
+                <IconButton size="small" sx={{ ml: 1 }}>
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
               </Tooltip>
               <Box sx={{ flexGrow: 1 }} />
               <Tooltip title="This will instantly purchase VIP for the selected duration.">
@@ -317,6 +317,40 @@ export default function PerkAutomationCard({
             </Box>
           </Box>
           <Divider sx={{ mb: 3 }} />
+
+          {/* Millionaire's Vault Section */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>Millionaire's Vault</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <FormControlLabel
+                control={<Checkbox checked={autoMillionairesVault} onChange={e => setAutoMillionairesVault(e.target.checked)} />}
+                label={<span>Enable Millionaire's Vault Automation</span>}
+                sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
+              />
+              <FormControl size="small" sx={{ minWidth: 140, mr: 3, flexShrink: 0 }}>
+                <InputLabel>Points</InputLabel>
+                <Select
+                  value={millionairesVaultAmount}
+                  label="Points"
+                  onChange={e => setMillionairesVaultAmount(e.target.value)}
+                >
+                  {[...Array(20)].map((_, i) => {
+                    const val = (i + 1) * 100;
+                    return <MenuItem key={val} value={val}>{val.toLocaleString()} points</MenuItem>;
+                  })}
+                </Select>
+              </FormControl>
+              <Box sx={{ flexGrow: 1 }} />
+              <Tooltip title="This will instantly donate the selected amount to Millionaire's Vault.">
+                <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <Button variant="contained" sx={{ minWidth: 180 }} onClick={triggerMillionairesVault}>
+                    Donate
+                  </Button>
+                </span>
+              </Tooltip>
+            </Box>
+          </Box>
+          <Divider sx={{ mb: 1 }} />
 
           {/* Confirmation Dialogs */}
           <Dialog open={confirmWedgeOpen} onClose={() => setConfirmWedgeOpen(false)}>
