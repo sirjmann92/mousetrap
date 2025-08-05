@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Request, HTTPException, Query
+from fastapi import FastAPI, Request, HTTPException, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 import os
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import sys
 from typing import Dict, Optional, Any
 import threading
@@ -13,9 +13,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import re
 
-from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
-from backend.mam_api import get_status, dummy_purchase
+from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session, decrypt_password
+from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
 from backend.notifications import send_test_email, send_test_webhook
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.millionaires_vault import router as millionaires_vault_router
@@ -33,7 +34,8 @@ app.add_middleware(
 app.include_router(millionaires_vault_router)
 
 asn_cache: Dict[str, Optional[Any]] = {"ip": None, "asn": None, "tz": None}
-mam_status_cache: Dict[str, Optional[Any]] = {"result": None, "last_check_time": None}
+# Per-session status cache: {label: {"status": ..., "last_check_time": ...}}
+session_status_cache: Dict[str, Dict[str, Any]] = {}
 
 def log_with_timestamp(message):
     now = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
@@ -67,107 +69,133 @@ def get_public_ip():
     except Exception:
         return None
 
+def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
+    session_type = cfg.get('session_type', '').lower()  # 'ip locked' or 'asn locked'
+    last_seedbox_ip = cfg.get('last_seedbox_ip')
+    last_seedbox_asn = cfg.get('last_seedbox_asn')
+    last_seedbox_update = cfg.get('last_seedbox_update')
+    mam_id = cfg.get('mam', {}).get('mam_id', "")
+    update_needed = False
+    reason = None
+    if session_type == 'ip locked' and ip_to_use and ip_to_use != last_seedbox_ip:
+        update_needed = True
+        reason = f"IP changed: {last_seedbox_ip} -> {ip_to_use}"
+    elif session_type == 'asn locked' and asn and asn != last_seedbox_asn:
+        update_needed = True
+        reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
+    if update_needed and last_seedbox_update:
+        last_update_dt = datetime.fromisoformat(last_seedbox_update)
+        if (now - last_update_dt) < timedelta(hours=1):
+            return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
+    if update_needed and mam_id:
+        try:
+            cookies = {"mam_id": mam_id}
+            resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
+            log_with_timestamp(f"[AutoSeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
+            try:
+                result = resp.json()
+            except Exception:
+                result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
+            if resp.status_code == 200 and result.get("Success"):
+                cfg["last_seedbox_ip"] = ip_to_use
+                cfg["last_seedbox_asn"] = asn
+                cfg["last_seedbox_update"] = now.isoformat()
+                save_session(cfg, old_label=label)
+                log_with_timestamp(f"[AutoSeedboxUpdate] Auto-update successful for {label}: {reason}")
+                return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
+            elif resp.status_code == 200 and result.get("msg") == "No change":
+                cfg["last_seedbox_ip"] = ip_to_use
+                cfg["last_seedbox_asn"] = asn
+                cfg["last_seedbox_update"] = now.isoformat()
+                save_session(cfg, old_label=label)
+                log_with_timestamp(f"[AutoSeedboxUpdate] No change needed for {label}: {reason}")
+                return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
+            elif resp.status_code == 429 or (
+                isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
+            ):
+                log_with_timestamp(f"[AutoSeedboxUpdate] Rate limit for {label}: {reason}")
+                return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
+            else:
+                log_with_timestamp(f"[AutoSeedboxUpdate] Error for {label}: {result.get('msg', 'Unknown error')}")
+                return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
+        except Exception as e:
+            log_with_timestamp(f"[AutoSeedboxUpdate] Exception for {label}: {e}")
+            return True, {"success": False, "error": str(e), "reason": reason}
+    return False, None
+
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
-    global asn_cache, mam_status_cache
-    if label:
-        cfg = load_session(label)
-    else:
-        cfg = load_config()
+    global asn_cache, session_status_cache
+    if not label:
+        raise HTTPException(status_code=400, detail="Session label required.")
+    cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     mam_ip_override = cfg.get('mam_ip', "").strip()
     detected_public_ip = get_public_ip()
     ip_to_use = mam_ip_override if mam_ip_override else detected_public_ip
-
-    # Only query ASN if IP changes, else use cached ASN
-    if ip_to_use and ip_to_use != asn_cache["ip"]:
-        asn, tz = get_asn_and_timezone_from_ip(ip_to_use)
-        asn_cache = {"ip": ip_to_use, "asn": asn, "tz": tz}
-    else:
-        asn = asn_cache["asn"] if ip_to_use else "N/A"
-        tz = asn_cache["tz"] if ip_to_use else None
-
-    # Timezone: prefer TZ env var, else use IP-based
+    # Get ASN for configured IP
+    asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use) if ip_to_use else (None, None)
+    match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
+    asn = match.group(2) if match else asn_full
+    # Proxy config
+    proxy_cfg = cfg.get("proxy", {})
+    if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
+        proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
+    elif proxy_cfg.get("password_decrypted"):
+        proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+    # Also get MAM's perspective for display only
+    mam_seen = get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg)
+    mam_seen_ip = mam_seen.get("ip")
+    mam_seen_asn = str(mam_seen.get("ASN")) if mam_seen.get("ASN") is not None else None
+    mam_seen_as = mam_seen.get("AS")
     tz_env = os.environ.get("TZ")
-    timezone_used = tz_env if tz_env else tz if tz else "UTC"
-
-    # Use persistent last_check_time from config
-    last_check_time = cfg.get("last_check_time")
-    check_freq = cfg.get("check_freq", 5)
-
-    # Always sync in-memory cache with stored value on startup or session switch
-    if last_check_time and (mam_status_cache["last_check_time"] != last_check_time):
-        mam_status_cache["last_check_time"] = last_check_time
-        mam_status_cache["result"] = None  # Invalidate cached result if timestamp changed
-
-    status = {
-        "mam_cookie_exists": False,
-        "points": None,
-        "cheese": None,
-        "wedge_active": None,
-        "vip_active": None,
+    timezone_used = tz_env if tz_env else "UTC"
+    now = datetime.now(timezone.utc)
+    # Use cached status unless force=1
+    cache = session_status_cache.get(label, {})
+    status = cache.get("status", {})
+    last_check_time = cache.get("last_check_time")
+    auto_update_result = None
+    if force or not status:
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        mam_status['configured_ip'] = ip_to_use
+        mam_status['configured_asn'] = asn
+        mam_status['mam_seen_ip'] = mam_seen_ip
+        mam_status['mam_seen_asn'] = mam_seen_asn
+        mam_status['mam_seen_as'] = mam_seen_as
+        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+        status = mam_status
+        last_check_time = now.isoformat()
+        log_with_timestamp(f"[MaM API] Real check for mam_id={mam_id} (force={force})")
+        # --- Auto-update logic ---
+        auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+        if auto_update_triggered and auto_update_result:
+            status['auto_update_seedbox'] = auto_update_result
+    if status is None:
+        status = {}
+    response = {
+        "mam_cookie_exists": status.get("mam_cookie_exists"),
+        "points": status.get("points"),
+        "cheese": status.get("cheese"),
+        "wedge_active": status.get("wedge_active"),
+        "vip_active": status.get("vip_active"),
         "current_ip": ip_to_use,
-        "asn": asn,
-        "message": "Please provide your MaM ID in the configuration.",
+        "current_ip_asn": asn,
+        "configured_ip": ip_to_use,
+        "configured_asn": asn,
+        "mam_seen_ip": mam_seen_ip,
+        "mam_seen_asn": mam_seen_asn,
+        "mam_seen_as": mam_seen_as,
         "detected_public_ip": detected_public_ip,
-        "ip_source": "override" if mam_ip_override else "detected",
+        "ip_source": "configured",
+        "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,
         "timezone": timezone_used,
-        "check_freq": check_freq
+        "check_freq": cfg.get("check_freq", 5),
+        "status_message": status.get("message"),
+        "details": status
     }
-
-    now = datetime.now(timezone.utc)
-    do_real_check = False
-    mam_status = {}
-    if mam_id:
-        # Only do a real check if enough time has passed, or if force=1
-        last_check_dt = None
-        if mam_status_cache["last_check_time"]:
-            try:
-                last_check_dt = datetime.fromisoformat(mam_status_cache["last_check_time"])
-            except Exception:
-                last_check_dt = None
-        if force or not last_check_dt or (now - last_check_dt).total_seconds() >= check_freq * 60:
-            # Do real MaM API check
-            mam_status = get_status(mam_id=mam_id)
-            mam_status_cache["result"] = mam_status
-            mam_status_cache["last_check_time"] = now.isoformat()
-            log_with_timestamp(f"[MaM API] Real check for mam_id={mam_id} (force={force})")
-            do_real_check = True
-        else:
-            mam_status = mam_status_cache["result"] or {}
-            log_with_timestamp(f"[MaM API] Using cached result for mam_id={mam_id}")
-        if 'message' in mam_status:
-            log_with_timestamp(f"mam_status message: {mam_status['message']}")
-        mam_status.pop('asn', None)
-        status.update(mam_status)
-        status["current_ip"] = status["current_ip"]
-        status["ip_source"] = status["ip_source"]
-        status["message"] = "Status fetched successfully." if mam_status.get("points") is not None else "Could not fetch status, check your MaM ID."
-        # Only update last_check_time if a real check occurred
-        if do_real_check and mam_status.get("points") is not None:
-            status["last_check_time"] = now.isoformat()
-            cfg["last_check_time"] = now.isoformat()
-            if label:
-                save_session(cfg, old_label=label)
-            else:
-                save_config(cfg)
-        else:
-            status["last_check_time"] = mam_status_cache["last_check_time"]
-    # Compose a plain-language status message
-    if mam_id:
-        if mam_status.get("message") and mam_status.get("message") != "Status mock: replace with live data when ready":
-            status_message = mam_status["message"]
-        elif mam_status.get("points") is not None:
-            status_message = "Status fetched successfully."
-        else:
-            status_message = "Could not fetch status, check your MaM ID."
-    else:
-        status_message = "Please provide your MaM ID in the configuration."
-    # Attach plain message and raw details
-    status["status_message"] = status_message
-    status["details"] = mam_status if mam_id else {}
-    return status
+    return response
 
 @app.get("/api/config")
 def api_config():
@@ -190,13 +218,22 @@ async def api_config_save(request: Request):
 
 @app.post("/api/automation/wedge")
 def api_automation_wedge(request: Request):
-    cfg = load_config()
+    data = request.json() if hasattr(request, 'json') else {}
+    label = data.get('label') if isinstance(data, dict) else None
+    method = data.get('method', 'points') if isinstance(data, dict) else 'points'
+    if not label:
+        raise HTTPException(status_code=400, detail="Session label required.")
+    cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     if not mam_id:
-        raise HTTPException(status_code=400, detail="MaM ID not configured.")
+        raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
     try:
-        result = buy_wedge(mam_id)
-        return {"success": True, "result": result}
+        result = buy_wedge(mam_id, method=method)
+        # Return the real result, not just success=True
+        if result.get("success"):
+            return {"success": True, "result": result}
+        else:
+            return {"success": False, "error": result.get("response", result.get("error", "Unknown error")), "result": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
@@ -264,6 +301,92 @@ def api_delete_session(label: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")
 
+@app.post("/api/session/perkautomation/save")
+async def api_save_perkautomation(request: Request):
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            raise HTTPException(status_code=400, detail="Session label required.")
+        cfg = load_session(label)
+        # Save automation settings to session config
+        cfg["perk_automation"] = data.get("perk_automation", {})
+        save_session(cfg, old_label=label)
+        log_with_timestamp(f"[PerkAutomation] Saved automation settings for session '{label}': {cfg['perk_automation']}")
+        return {"success": True}
+    except Exception as e:
+        log_with_timestamp(f"[PerkAutomation] Failed to save automation settings: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/session/update_seedbox")
+async def api_update_seedbox(request: Request):
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            raise HTTPException(status_code=400, detail="Session label required.")
+        cfg = load_session(label)
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        if not mam_id:
+            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
+        mam_ip_override = cfg.get('mam_ip', "").strip()
+        if not mam_ip_override:
+            raise HTTPException(status_code=400, detail="Session mam_ip (entered IP) is required.")
+        ip_to_use = mam_ip_override
+        asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use)
+        match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
+        asn = match.group(2) if match else asn_full
+        log_with_timestamp(f"[SeedboxUpdate] Preparing to update: label={label}, mam_id={mam_id[:8]}..., ip_to_use={ip_to_use}, asn={asn}, mam_ip_override={mam_ip_override}")
+        last_seedbox_ip = cfg.get("last_seedbox_ip")
+        last_seedbox_asn = cfg.get("last_seedbox_asn")
+        last_seedbox_update = cfg.get("last_seedbox_update")
+        now = datetime.now(timezone.utc)
+        update_needed = (ip_to_use != last_seedbox_ip) or (asn != last_seedbox_asn)
+        if last_seedbox_update:
+            last_update_dt = datetime.fromisoformat(last_seedbox_update)
+            if (now - last_update_dt) < timedelta(hours=1):
+                minutes_left = 60 - int((now - last_update_dt).total_seconds() // 60)
+                return {"success": False, "error": f"Rate limit: wait {minutes_left} more minutes before updating seedbox IP/ASN."}
+        if not update_needed:
+            return {"success": True, "msg": "No change: IP/ASN already set."}
+        # Proxy config
+        proxy_cfg = cfg.get("proxy", {})
+        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
+        elif proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        cookies = {"mam_id": mam_id}
+        proxies = None
+        from backend.mam_api import build_proxy_dict
+        proxies = build_proxy_dict(proxy_cfg)
+        resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10, proxies=proxies)
+        log_with_timestamp(f"[SeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
+        try:
+            result = resp.json()
+        except Exception:
+            result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
+        if resp.status_code == 200 and result.get("Success"):
+            cfg["last_seedbox_ip"] = ip_to_use
+            cfg["last_seedbox_asn"] = asn
+            cfg["last_seedbox_update"] = now.isoformat()
+            save_session(cfg, old_label=label)
+            return {"success": True, "msg": result.get("msg", "Completed"), "ip": ip_to_use, "asn": asn}
+        elif resp.status_code == 200 and result.get("msg") == "No change":
+            cfg["last_seedbox_ip"] = ip_to_use
+            cfg["last_seedbox_asn"] = asn
+            cfg["last_seedbox_update"] = now.isoformat()
+            save_session(cfg, old_label=label)
+            return {"success": True, "msg": "No change: IP/ASN already set.", "ip": ip_to_use, "asn": asn}
+        elif resp.status_code == 429 or (
+            isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
+        ):
+            return {"success": False, "error": "Rate limit: last change too recent. Try again later.", "msg": result.get("msg")}
+        else:
+            return {"success": False, "error": result.get("msg", "Unknown error"), "raw": result}
+    except Exception as e:
+        log_with_timestamp(f"[SeedboxUpdate] Failed: {e}")
+        return {"success": False, "error": str(e)}
+
 # --- FAVICON ROUTES: must be registered before static/catch-all routes ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build'))
@@ -315,10 +438,25 @@ def session_check_job(label):
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         check_freq = cfg.get("check_freq", 5)
+        mam_ip_override = cfg.get('mam_ip', "").strip()
+        detected_public_ip = get_public_ip()
+        ip_to_use = mam_ip_override if mam_ip_override else detected_public_ip
+        # Get ASN for IP sent to MaM (current_ip)
+        if ip_to_use:
+            asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use)
+            match = re.search(r'(AS)?(\d+)', asn_full or "")
+            asn = match.group(2) if match else asn_full
+        else:
+            asn = None
+        now = datetime.now(timezone.utc)
         if mam_id:
-            now = datetime.now(timezone.utc)
             mam_status = get_status(mam_id=mam_id)
+            session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
+            # --- Auto-update logic ---
+            auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+            if auto_update_triggered and auto_update_result:
+                mam_status['auto_update_seedbox'] = auto_update_result
             save_session(cfg, old_label=label)
             log_with_timestamp(f"[APScheduler] Checked session '{label}' at {now}")
     except Exception as e:
@@ -354,11 +492,10 @@ scheduler.start()
 CONFIG_DIR = "/config"
 
 class SessionFileChangeHandler(FileSystemEventHandler):
-    def on_any_event(self, event):
-        # Ensure src_path is a string for compatibility
+    def on_modified(self, event):
         src_path = str(event.src_path)
         if src_path.endswith('.yaml') and 'session-' in src_path:
-            log_with_timestamp(f"[Watchdog] Detected session file change: {event.event_type} {src_path}")
+            log_with_timestamp(f"[Watchdog] Detected session file modification: {event.event_type} {src_path}")
             register_all_session_jobs()
 
 # Start watchdog observer for hot-reload of jobs

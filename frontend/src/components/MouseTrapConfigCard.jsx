@@ -20,6 +20,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Snackbar from '@mui/material/Snackbar';
+import PropTypes from 'prop-types';
 
 export default function MouseTrapConfigCard({
   mamId, setMamId,
@@ -30,12 +31,25 @@ export default function MouseTrapConfigCard({
   checkFrequency, setCheckFrequency,
   label, setLabel,
   oldLabel,
-  onSessionSaved
+  onSessionSaved,
+  proxy = {}, setProxy
 }) {
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  // Proxy config state
+  const [proxyHost, setProxyHost] = useState(proxy.host || "");
+  const [proxyPort, setProxyPort] = useState(proxy.port || "");
+  const [proxyUsername, setProxyUsername] = useState(proxy.username || "");
+  const [proxyPassword, setProxyPassword] = useState(""); // blank unless user enters new
+
+  useEffect(() => {
+    setProxyHost(proxy.host || "");
+    setProxyPort(proxy.port || "");
+    setProxyUsername(proxy.username || "");
+    setProxyPassword("");
+  }, [proxy]);
 
   // Save config handler
   const handleSave = async () => {
@@ -53,7 +67,14 @@ export default function MouseTrapConfigCard({
         session_type: sessionType
       },
       mam_ip: mamIp,
-      check_freq: checkFrequency
+      check_freq: checkFrequency,
+      proxy: {
+        host: proxyHost,
+        port: proxyPort ? Number(proxyPort) : 0,
+        username: proxyUsername,
+        // Only send password if user entered a new one
+        ...(proxyPassword ? { password: proxyPassword } : {})
+      }
     };
     try {
       const res = await fetch("/api/session/save", {
@@ -65,6 +86,7 @@ export default function MouseTrapConfigCard({
       setSaveStatus("Session saved successfully.");
       setTimeout(() => setSaveStatus(""), 2000);
       if (onSessionSaved) onSessionSaved(label);
+      if (setProxy) setProxy(payload.proxy);
     } catch (err) {
       setSaveError("Error saving session: " + err.message);
     }
@@ -155,6 +177,49 @@ export default function MouseTrapConfigCard({
               </Box>
             </Grid>
           </Grid>
+          {/* Proxy config fields */}
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  label="Proxy Host"
+                  value={proxyHost}
+                  onChange={e => setProxyHost(e.target.value)}
+                  size="small"
+                  placeholder="proxy.example.com"
+                  sx={{ width: 180 }}
+                />
+                <TextField
+                  label="Port"
+                  value={proxyPort}
+                  onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
+                  size="small"
+                  placeholder="8080"
+                  sx={{ width: 90 }}
+                  inputProps={{ maxLength: 5 }}
+                />
+                <TextField
+                  label="Username"
+                  value={proxyUsername}
+                  onChange={e => setProxyUsername(e.target.value)}
+                  size="small"
+                  placeholder="user"
+                  sx={{ width: 140 }}
+                />
+                <TextField
+                  label="Password"
+                  value={proxyPassword}
+                  onChange={e => setProxyPassword(e.target.value)}
+                  size="small"
+                  placeholder={proxy && proxy.password ? "(unchanged)" : ""}
+                  type="password"
+                  sx={{ width: 140 }}
+                  autoComplete="new-password"
+                  helperText={proxy && proxy.password ? "Leave blank to keep existing password" : ""}
+                />
+              </Box>
+            </Grid>
+          </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
@@ -199,3 +264,32 @@ export default function MouseTrapConfigCard({
     </Card>
   );
 }
+
+MouseTrapConfigCard.propTypes = {
+  mamId: PropTypes.string,
+  setMamId: PropTypes.func,
+  sessionType: PropTypes.string,
+  setSessionType: PropTypes.func,
+  mamIp: PropTypes.string,
+  setMamIp: PropTypes.func,
+  detectedIp: PropTypes.string,
+  currentASN: PropTypes.string,
+  checkFrequency: PropTypes.number,
+  setCheckFrequency: PropTypes.func,
+  label: PropTypes.string,
+  setLabel: PropTypes.func,
+  oldLabel: PropTypes.string,
+  onSessionSaved: PropTypes.func,
+  proxy: PropTypes.shape({
+    host: PropTypes.string,
+    port: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    username: PropTypes.string,
+    password: PropTypes.string
+  }),
+  setProxy: PropTypes.func
+};
+
+MouseTrapConfigCard.defaultProps = {
+  proxy: {},
+  setProxy: () => {}
+};

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -57,7 +57,8 @@ export default function PerkAutomationCard({
   autoUpload, setAutoUpload,
   points,
   cheese,
-  autoMillionairesVault = false, setAutoMillionairesVault = () => {}
+  autoMillionairesVault = false, setAutoMillionairesVault = () => {},
+  sessionLabel // <-- ensure this is required and passed from parent!
 }) {
   const [expanded, setExpanded] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -68,6 +69,23 @@ export default function PerkAutomationCard({
   const [confirmWedgeOpen, setConfirmWedgeOpen] = useState(false);
   const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
+
+  // Load automation settings from session on mount/session change
+  useEffect(() => {
+    if (!sessionLabel) return;
+    fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
+      .then(res => res.json())
+      .then(cfg => {
+        const pa = cfg.perk_automation || {};
+        setAutoWedge(pa.autoWedge ?? false);
+        setAutoVIP(pa.autoVIP ?? false);
+        setAutoUpload(pa.autoUpload ?? false);
+        setAutoMillionairesVault(pa.autoMillionairesVault ?? false);
+        setBuffer(pa.buffer ?? 0);
+        setWedgeHours(pa.wedgeHours ?? 0);
+        // ...set other dropdowns as needed...
+      });
+  }, [sessionLabel]);
 
   // API call helpers
   const triggerWedge = async () => {
@@ -161,6 +179,27 @@ export default function PerkAutomationCard({
     } catch (e) {
       setSnackbar({ open: true, message: `Upload credit purchase failed`, severity: 'error' });
     }
+  };
+
+  // Save handler
+  const handleSave = async () => {
+    if (!sessionLabel) {
+      setSnackbar({ open: true, message: "Session label missing!", severity: "error" });
+      return;
+    }
+    const perk_automation = {
+      autoWedge, autoVIP, autoUpload, autoMillionairesVault,
+      buffer, wedgeHours,
+      // ...add other automation fields here as needed...
+    };
+    const res = await fetch("/api/session/perkautomation/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label: sessionLabel, perk_automation })
+    });
+    const data = await res.json();
+    if (data.success) setSnackbar({ open: true, message: "Automation settings saved!", severity: "success" });
+    else setSnackbar({ open: true, message: data.error || "Save failed", severity: "error" });
   };
 
   return (
@@ -351,7 +390,6 @@ export default function PerkAutomationCard({
               </Tooltip>
             </Box>
           </Box>
-          <Divider sx={{ mb: 1 }} />
 
           {/* Confirmation Dialogs */}
           <Dialog open={confirmWedgeOpen} onClose={() => setConfirmWedgeOpen(false)}>
@@ -390,6 +428,17 @@ export default function PerkAutomationCard({
               <Button onClick={() => { setConfirmUploadOpen(false); triggerUploadManual(); }} color="primary" variant="contained">Confirm</Button>
             </DialogActions>
           </Dialog>
+
+          <Divider sx={{ mb: 1 }} />
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <Tooltip title="Save automation settings for this MAM ID session">
+              <span>
+                <Button variant="contained" color="primary" onClick={handleSave}>
+                  Save
+                </Button>
+              </span>
+            </Tooltip>
+          </Box>
 
           <Snackbar
             open={snackbar.open}

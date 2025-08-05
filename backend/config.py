@@ -2,6 +2,8 @@ import yaml
 import os
 import threading
 import glob
+from cryptography.fernet import Fernet, InvalidToken
+import base64
 
 CONFIG_DIR = "/config"
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.yaml")
@@ -9,6 +11,8 @@ LOCK = threading.Lock()
 
 SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
+
+FERNET_KEY_PATH = os.path.join(CONFIG_DIR, "fernet.key")
 
 def get_session_path(label):
     return os.path.join(CONFIG_DIR, f"{SESSION_PREFIX}{label}{SESSION_SUFFIX}")
@@ -18,6 +22,31 @@ def list_sessions():
     files = glob.glob(pattern)
     labels = [os.path.basename(f)[len(SESSION_PREFIX):-len(SESSION_SUFFIX)] for f in files]
     return labels
+
+def get_fernet():
+    if not os.path.exists(FERNET_KEY_PATH):
+        key = Fernet.generate_key()
+        with open(FERNET_KEY_PATH, "wb") as f:
+            f.write(key)
+    else:
+        with open(FERNET_KEY_PATH, "rb") as f:
+            key = f.read()
+    return Fernet(key)
+
+def encrypt_password(password):
+    if not password:
+        return ""
+    f = get_fernet()
+    return f.encrypt(password.encode()).decode()
+
+def decrypt_password(token):
+    if not token:
+        return ""
+    f = get_fernet()
+    try:
+        return f.decrypt(token.encode()).decode()
+    except InvalidToken:
+        return ""
 
 def load_session(label):
     path = get_session_path(label)
@@ -31,6 +60,9 @@ def load_session(label):
             cfg["last_check_time"] = None
         if "label" not in cfg:
             cfg["label"] = label
+        # Decrypt proxy password if present
+        if "proxy" in cfg and "password" in cfg["proxy"]:
+            cfg["proxy"]["password_decrypted"] = decrypt_password(cfg["proxy"]["password"])
         return cfg
 
 def save_session(cfg, old_label=None):
@@ -43,6 +75,10 @@ def save_session(cfg, old_label=None):
             os.rename(old_path, path)
     config_dir = os.path.dirname(path)
     os.makedirs(config_dir, exist_ok=True)
+    # Encrypt proxy password if present
+    if "proxy" in cfg and "password" in cfg["proxy"]:
+        if cfg["proxy"]["password"] and not cfg["proxy"]["password"].startswith("gAAAA"):
+            cfg["proxy"]["password"] = encrypt_password(cfg["proxy"]["password"])
     with LOCK, open(path, "w") as f:
         yaml.safe_dump(cfg, f)
 
@@ -58,34 +94,17 @@ def get_default_config(label="Session01"):
                 "wedge": False,
                 "vip": False,
                 "upload": False
-            },
-            "min_points": 55000,
-            "dont_spend_below": 50000
+            }
         },
-        "automation": {
-            "refresh_minutes": 5
+        "mam_ip": "",
+        "proxy": {
+            "host": "",
+            "port": 0,
+            "username": "",
+            "password": ""
         },
-        "notifications": {
-            "email": {
-                "enabled": False,
-                "smtp": {
-                    "server": "",
-                    "port": 587,
-                    "username": "",
-                    "password": "",
-                    "sender": "",
-                    "recipient": ""
-                },
-                "events": {
-                    "wedge_purchase": True,
-                    "ip_changed": True,
-                    "cookie_updated": True,
-                    "points_below_threshold": True
-                }
-            },
-            "webhooks": []
-        },
-        "mam_ip": ""
+        "last_check_time": None,
+        "perk_automation": {},
     }
     return cfg
 
