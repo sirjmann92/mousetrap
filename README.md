@@ -183,6 +183,31 @@ services:
 - In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
 - The backend always listens on port 39842 by default; no need to set or override `PORT`.
 
+## Logging & Debugging
+
+MouseTrap uses Python's standard logging with timestamps and log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+
+- **Control log level with the `LOGLEVEL` environment variable.**
+- Default is `INFO`. For troubleshooting, set `LOGLEVEL=DEBUG` in your Compose file or environment.
+
+### Example: Enable DEBUG Logging in Docker Compose
+
+```yaml
+services:
+  mousetrap:
+    # ...other config...
+    environment:
+      - LOGLEVEL=DEBUG
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    # ...
+```
+
+You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+
+Logs will include timestamps, log level, and message for easy troubleshooting.
+
 ## License
 
 <!-- You may add your license details here if desired. -->

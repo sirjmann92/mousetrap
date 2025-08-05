@@ -164,15 +164,9 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
               </Typography>
               <Typography variant="body1">MAM Cookie Status: <b>{status.mam_cookie_exists === true ? "Valid" : "Missing"}</b></Typography>
               {/* Proxy config display */}
-              {status.details && status.details.proxy && status.details.proxy.host ? (
-                <Typography variant="body1" sx={{ mt: 1 }}>
-                  Proxy: <b>{status.details.proxy.host}:{status.details.proxy.port || ''}</b>{status.details.proxy.username ? ` (user: ${status.details.proxy.username})` : ''}
-                </Typography>
-              ) : (
-                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
-                  No proxy configured
-                </Typography>
-              )}
+              <Typography variant="body1">
+                Connection Proxied: <b>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</b>
+              </Typography>
             </Box>
             <Divider sx={{ my: 2 }} />
             {/* Bottom section: MAM details, Points, Automations */}
