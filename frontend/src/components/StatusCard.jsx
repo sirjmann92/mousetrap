@@ -168,8 +168,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             <Divider sx={{ my: 2 }} />
             {/* Bottom section: MAM details, Points, Automations */}
             <Box>
-              <Typography variant="body1">Points: <b>{status.points !== null && status.points !== undefined ? status.points : "N/A"}</b></Typography>
-              <Typography variant="body1">Cheese: <b>{status.cheese !== null && status.cheese !== undefined ? status.cheese : "N/A"}</b></Typography>
+              {/* Removed Points and Cheese from here, now in MAM Details */}
               <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
               <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
               <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
@@ -201,14 +200,39 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                   {/* Show user-friendly status message */}
                   Status: <b>{status.status_message || status.last_result || "unknown"}</b>
                 </Typography>
-                {/* Expandable section for raw backend details */}
-                {status.details && Object.keys(status.details).length > 0 && (
-                  <Accordion sx={{ mt: 1 }}>
+                {/* MAM Details section (collapsed by default) */}
+                {status.details && status.details.raw && (
+                  <Accordion sx={{ mt: 2 }} defaultExpanded={false}>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                      <Typography variant="caption">More info</Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>MAM Details</Typography>
                     </AccordionSummary>
                     <AccordionDetails>
-                      <pre style={{ fontSize: 12, margin: 0 }}>{JSON.stringify(status.details, null, 2)}</pre>
+                      <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 1, columnGap: 2 }}>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Username:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.username ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Rank:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Connectable:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.connectable ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Country:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.country_name ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Points:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Cheese:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.cheese !== null && status.cheese !== undefined ? status.cheese : 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Downloaded:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Uploaded:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.uploaded ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Ratio:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.ratio ?? 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Seeding:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.sSat && typeof status.details.raw.sSat.count === 'number' ? status.details.raw.sSat.count : 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Unsatisfied:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.count === 'number' ? status.details.raw.unsat.count : 'N/A'}</Typography>
+                        <Typography component="dt" sx={{ fontWeight: 500 }}>Unsatisfied Limit:</Typography>
+                        <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.limit === 'number' ? status.details.raw.unsat.limit : 'N/A'}</Typography>
+                      </Box>
                     </AccordionDetails>
                   </Accordion>
                 )}
