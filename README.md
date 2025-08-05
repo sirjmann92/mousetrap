@@ -117,7 +117,7 @@ services:
       - OPENVPN_PASSWORD=yourpass
       - TZ=Europe/London
     ports:
-      - 8888:8888  # HTTP proxy (optional)
+      - 39842:39842  # Expose MouseTrap's web UI via VPN container
     volumes:
       - ./gluetun:/gluetun
 
@@ -131,9 +131,11 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
-    ports:
-      - 39842:39842
+    # No ports here! All traffic is routed through gluetun
 ```
+
+- Access the UI at `http://localhost:39842` (traffic is routed through the VPN container).
+- Do NOT set a `PORT` environment variable—MouseTrap always runs on 39842.
 
 ### 2. HTTP Proxy Mode (recommended for multi-session)
 
@@ -175,6 +177,11 @@ services:
 
 - In HTTP proxy mode, enter `gluetun:8888` and your proxy credentials in each session's proxy config in the MouseTrap UI.
 - For other VPN containers (e.g., binhex/arch-delugevpn), see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
+- Do NOT set a `PORT` environment variable—MouseTrap always runs on 39842.
+
+**Note:**
+- In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
+- The backend always listens on port 39842 by default; no need to set or override `PORT`.
 
 ## License
 
