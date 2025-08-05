@@ -99,6 +99,83 @@ services:
 - You can switch between sessions in the UI, and each will use its own proxy and IP for MaM API calls.
 - This allows you to manage both VPN and non-VPN sessions from a single MouseTrap instance.
 
+## Full Docker Compose Examples
+
+### 1. Native VPN Networking (network_mode)
+
+```yaml
+version: '3.8'
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - OPENVPN_USER=youruser
+      - OPENVPN_PASSWORD=yourpass
+      - TZ=Europe/London
+    ports:
+      - 8888:8888  # HTTP proxy (optional)
+    volumes:
+      - ./gluetun:/gluetun
+
+  mousetrap:
+    build: .
+    container_name: mousetrap
+    network_mode: "service:gluetun"
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./config:/config
+    ports:
+      - 39842:39842
+```
+
+### 2. HTTP Proxy Mode (recommended for multi-session)
+
+```yaml
+version: '3.8'
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    container_name: gluetun
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - OPENVPN_USER=youruser
+      - OPENVPN_PASSWORD=yourpass
+      - TZ=Europe/London
+      - HTTPPROXY=on
+      - HTTPPROXY_USER=proxyuser
+      - HTTPPROXY_PASSWORD=proxypass
+    ports:
+      - 8888:8888  # HTTP proxy
+    volumes:
+      - ./gluetun:/gluetun
+
+  mousetrap:
+    build: .
+    container_name: mousetrap
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./config:/config
+    ports:
+      - 39842:39842
+    depends_on:
+      - gluetun
+```
+
+- In HTTP proxy mode, enter `gluetun:8888` and your proxy credentials in each session's proxy config in the MouseTrap UI.
+- For other VPN containers (e.g., binhex/arch-delugevpn), see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
+
 ## License
 
-Private for now (not yet open source).
+<!-- You may add your license details here if desired. -->
