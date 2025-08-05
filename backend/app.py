@@ -171,22 +171,34 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
     if force or not status:
-        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        mam_status['configured_ip'] = ip_to_use
-        mam_status['configured_asn'] = asn
-        mam_status['mam_seen_ip'] = mam_seen_ip
-        mam_status['mam_seen_asn'] = mam_seen_asn
-        mam_status['mam_seen_as'] = mam_seen_as
-        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-        status = mam_status
-        last_check_time = now.isoformat()
-        logging.info(f"[MaM API] Real check for mam_id={mam_id} (force={force})")
-        # --- Auto-update logic ---
-        auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
-        if auto_update_triggered and auto_update_result:
-            status['auto_update_seedbox'] = auto_update_result
-    if status is None:
-        status = {}
+        if force:
+            mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            mam_status['configured_ip'] = ip_to_use
+            mam_status['configured_asn'] = asn
+            mam_status['mam_seen_ip'] = mam_seen_ip
+            mam_status['mam_seen_asn'] = mam_seen_asn
+            mam_status['mam_seen_as'] = mam_seen_as
+            session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+            status = mam_status
+            last_check_time = now.isoformat()
+            logging.info(f"[MaM API] Checking for mam_id={mam_id} (force={force})")
+            # --- Auto-update logic ---
+            auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+            if auto_update_triggered and auto_update_result:
+                status['auto_update_seedbox'] = auto_update_result
+            # Save last status to session file
+            cfg['last_status'] = status
+            cfg['last_check_time'] = last_check_time
+            save_session(cfg, old_label=label)
+        else:
+            # No cache, no force: load last known status from session file
+            last_status = cfg.get('last_status')
+            last_check_time = cfg.get('last_check_time')
+            if last_status:
+                status = last_status
+                session_status_cache[label] = {"status": status, "last_check_time": last_check_time}
+            else:
+                status = {}
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
     # Compose a more informative status message for the frontend
@@ -570,3 +582,14 @@ def start_session_watcher():
     logging.info(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
 
 start_session_watcher()
+
+def prepopulate_session_status_cache():
+    session_labels = list_sessions()
+    for label in session_labels:
+        cfg = load_session(label)
+        last_check_time = cfg.get("last_check_time")
+        last_status = cfg.get("last_status")
+        if last_status:
+            session_status_cache[label] = {"status": last_status, "last_check_time": last_check_time}
+
+prepopulate_session_status_cache()

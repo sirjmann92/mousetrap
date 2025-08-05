@@ -55,7 +55,19 @@ def get_status(mam_id=None, proxy_cfg=None):
                 if cheese_span and cheese_span.text.isdigit():
                     cheese = int(cheese_span.text)
                 else:
-                    cheese = None
+                    # Try to find <a> with text like 'Cheese: NNN'
+                    def cheese_match(t):
+                        return isinstance(t, str) and t.strip().startswith("Cheese:")
+                    cheese_link = soup.find("a", string=cheese_match)
+                    if cheese_link:
+                        import re
+                        match = re.search(r"Cheese:\s*(\d+)", cheese_link.text)
+                        if match:
+                            cheese = int(match.group(1))
+                        else:
+                            cheese = None
+                    else:
+                        cheese = None
             except Exception as scrape_e:
                 logging.debug(f"Cheese scrape failed: {scrape_e}")
                 cheese = None

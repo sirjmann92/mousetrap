@@ -64,6 +64,10 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         let secondsLeft = Math.floor((nextCheck - now) / 1000);
         secondsLeft = Math.max(0, secondsLeft);
         setTimer(secondsLeft);
+        if (secondsLeft === 0) {
+          // When timer hits zero, fetch status to reset timer and update status
+          fetchStatus();
+        }
       };
       updateTimer();
       interval = setInterval(updateTimer, 1000);
