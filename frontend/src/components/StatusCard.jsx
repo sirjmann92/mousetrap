@@ -36,6 +36,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         mam_cookie_exists: data.mam_cookie_exists,
         asn: data.asn || "",
         last_check_time: data.last_check_time || null,
+        next_check_time: data.next_check_time || null, // <-- NEW
         points: data.points || null,
         cheese: data.cheese || null,
         status_message: data.status_message || "", // user-friendly status message
@@ -53,25 +54,16 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 
   useImperativeHandle(ref, () => ({ fetchStatus }));
 
-  // Timer logic: always use latest backend data, update instantly on session change
+  // Timer logic: always use backend next_check_time
   useEffect(() => {
     let interval;
-    if (status && status.last_check_time && status.check_freq) {
+    if (status && status.next_check_time) {
       const updateTimer = () => {
-        const lastCheck = Date.parse(status.last_check_time);
+        const nextCheck = Date.parse(status.next_check_time);
         const now = Date.now();
-        let secondsLeft;
-        if (status.ratelimit && status.ratelimit > 0) {
-          secondsLeft = status.ratelimit - Math.floor((now - lastCheck) / 1000);
-        } else {
-          secondsLeft = status.check_freq * 60 - Math.floor((now - lastCheck) / 1000);
-        }
+        let secondsLeft = Math.floor((nextCheck - now) / 1000);
         secondsLeft = Math.max(0, secondsLeft);
         setTimer(secondsLeft);
-        // Auto-fetch when timer hits zero
-        if (secondsLeft === 0) {
-          fetchStatus();
-        }
       };
       updateTimer();
       interval = setInterval(updateTimer, 1000);
@@ -79,7 +71,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       setTimer(0);
     }
     return () => interval && clearInterval(interval);
-  }, [status && status.last_check_time, status && status.check_freq, status && status.ratelimit, sessionLabel]);
+  }, [status && status.next_check_time, sessionLabel]);
+
+  // Always fetch status immediately after config save or session change
+  useEffect(() => {
+    fetchStatus();
+  }, [sessionLabel]);
 
   // Polling effect: only one interval, always uses backend check_freq
   useEffect(() => {
@@ -180,13 +177,27 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Box>
             {status.last_check_time && (
               <>
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  {status.ratelimit && status.ratelimit > 0 ? (
-                    <>Ratelimit: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
-                  ) : (
-                    <>Next check in: <b>{Math.floor(timer / 60)}m {timer % 60}s</b></>
-                  )}
-                  <br />
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2, mb: 1 }}>
+                  <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600, letterSpacing: 1 }}>
+                    Next check in:
+                  </Typography>
+                  <Box sx={{
+                    background: '#222',
+                    color: '#fff',
+                    px: 4,
+                    py: 2,
+                    borderRadius: 2,
+                    fontFamily: 'monospace',
+                    fontSize: { xs: '2.2rem', sm: '2.8rem', md: '3.2rem' },
+                    boxShadow: 2,
+                    minWidth: 220,
+                    textAlign: 'center',
+                    letterSpacing: 2
+                  }}>
+                    {String(Math.floor(timer / 60)).padStart(2, '0')}:{String(timer % 60).padStart(2, '0')}
+                  </Box>
+                </Box>
+                <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
                   {/* Show user-friendly status message */}
                   Status: <b>{status.status_message || status.last_result || "unknown"}</b>
                 </Typography>
