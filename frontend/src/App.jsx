@@ -44,6 +44,11 @@ export default function App() {
     }), [mode]);
 
   // App state (shared via props)
+  const [selectedLabel, setSelectedLabel] = React.useState(() => {
+    return window.localStorage.getItem('lastSessionLabel') || "Session01";
+  });
+  const [label, setLabel] = React.useState("Session01");
+  const [oldLabel, setOldLabel] = React.useState("Session01");
   const [mamId, setMamId] = React.useState("");
   const [sessionType, setSessionType] = React.useState("IP Locked");
   const [mamIp, setMamIp] = React.useState("");
@@ -58,9 +63,6 @@ export default function App() {
   const [detectedIp, setDetectedIp] = React.useState("");
   const [points, setPoints] = React.useState(null);
   const [cheese, setCheese] = React.useState(null);
-  const [selectedLabel, setSelectedLabel] = React.useState("Session01");
-  const [label, setLabel] = React.useState("Session01");
-  const [oldLabel, setOldLabel] = React.useState("Session01");
   const [uploadAmount, setUploadAmount] = React.useState(1); // 1, 2.5, 5, 20, 100, 'Max Affordable'
   const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
   const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
@@ -84,6 +86,37 @@ export default function App() {
       // handle error
     }
   };
+
+  // Persist last used session label
+  React.useEffect(() => {
+    if (selectedLabel) {
+      window.localStorage.setItem('lastSessionLabel', selectedLabel);
+    }
+  }, [selectedLabel]);
+
+  // On mount, fetch last-used session from backend
+  React.useEffect(() => {
+    fetch('/api/last_session')
+      .then(res => res.json())
+      .then(data => {
+        if (data.label) {
+          setSelectedLabel(data.label);
+          loadSession(data.label);
+        }
+      });
+    // eslint-disable-next-line
+  }, []);
+
+  // When selectedLabel changes, persist to backend
+  React.useEffect(() => {
+    if (selectedLabel) {
+      fetch('/api/last_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: selectedLabel })
+      });
+    }
+  }, [selectedLabel]);
 
   // Add a ref to StatusCard to call fetchStatus after save
   const statusCardRef = React.useRef();
