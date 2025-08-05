@@ -14,7 +14,8 @@ import {
   Alert,
   IconButton,
   Collapse,
-  Tooltip
+  Tooltip,
+  Divider
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -177,49 +178,6 @@ export default function MouseTrapConfigCard({
               </Box>
             </Grid>
           </Grid>
-          {/* Proxy config fields */}
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <TextField
-                  label="Proxy Host"
-                  value={proxyHost}
-                  onChange={e => setProxyHost(e.target.value)}
-                  size="small"
-                  placeholder="proxy.example.com"
-                  sx={{ width: 180 }}
-                />
-                <TextField
-                  label="Port"
-                  value={proxyPort}
-                  onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
-                  size="small"
-                  placeholder="8080"
-                  sx={{ width: 90 }}
-                  inputProps={{ maxLength: 5 }}
-                />
-                <TextField
-                  label="Username"
-                  value={proxyUsername}
-                  onChange={e => setProxyUsername(e.target.value)}
-                  size="small"
-                  placeholder="user"
-                  sx={{ width: 140 }}
-                />
-                <TextField
-                  label="Password"
-                  value={proxyPassword}
-                  onChange={e => setProxyPassword(e.target.value)}
-                  size="small"
-                  placeholder={proxy && proxy.password ? "(unchanged)" : ""}
-                  type="password"
-                  sx={{ width: 140 }}
-                  autoComplete="new-password"
-                  helperText={proxy && proxy.password ? "Leave blank to keep existing password" : ""}
-                />
-              </Box>
-            </Grid>
-          </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
@@ -251,6 +209,58 @@ export default function MouseTrapConfigCard({
                     <InfoOutlinedIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
+              </Box>
+            </Grid>
+          </Grid>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle1" sx={{ fontWeight: 500, mb: 1, mt: 1 }}>
+            VPN Proxy Configuration
+          </Typography>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  label="Proxy Host"
+                  value={proxyHost}
+                  onChange={e => setProxyHost(e.target.value)}
+                  size="small"
+                  placeholder="proxy.example.com"
+                  sx={{ width: 180 }}
+                />
+                <TextField
+                  label="Port"
+                  value={proxyPort}
+                  onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
+                  size="small"
+                  placeholder="8080"
+                  sx={{ width: 90 }}
+                  inputProps={{ maxLength: 5 }}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  label="Username"
+                  value={proxyUsername}
+                  onChange={e => setProxyUsername(e.target.value)}
+                  size="small"
+                  placeholder="user"
+                  sx={{ width: 180 }}
+                />
+                <TextField
+                  label="Password"
+                  value={proxyPassword}
+                  onChange={e => setProxyPassword(e.target.value)}
+                  size="small"
+                  placeholder={proxy && proxy.password ? "(unchanged)" : ""}
+                  type="password"
+                  sx={{ width: 180 }}
+                  autoComplete="new-password"
+                  helperText={proxy && proxy.password ? "Leave blank to use current" : ""}
+                />
               </Box>
             </Grid>
           </Grid>

@@ -14,6 +14,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import re
+import logging
 
 from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session, decrypt_password
 from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
@@ -37,9 +38,14 @@ asn_cache: Dict[str, Optional[Any]] = {"ip": None, "asn": None, "tz": None}
 # Per-session status cache: {label: {"status": ..., "last_check_time": ...}}
 session_status_cache: Dict[str, Dict[str, Any]] = {}
 
-def log_with_timestamp(message):
-    now = datetime.now().astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')
-    print(f"[{now}] {message}", file=sys.stdout)
+# Configure logging at the top of the file (after imports)
+loglevel = os.environ.get("LOGLEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, loglevel, logging.INFO),
+    format='[%(asctime)s %(levelname)s] %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S %Z',
+    stream=sys.stdout
+)
 
 def get_asn_and_timezone_from_ip(ip):
     try:
@@ -47,9 +53,9 @@ def get_asn_and_timezone_from_ip(ip):
         url = f"https://ipinfo.io/{ip}/json"
         if token:
             url += f"?token={token}"
-        log_with_timestamp(f"ASN lookup for IP: {ip} (url: {url})")
+        logging.info(f"ASN lookup for IP: {ip} (url: {url})")
         resp = requests.get(url, timeout=4)
-        log_with_timestamp(f"ipinfo.io response: {resp.status_code} {resp.text}")
+        logging.info(f"ipinfo.io response: {resp.status_code} {resp.text}")
         if resp.status_code == 200:
             data = resp.json()
             asn = data.get("org", "Unknown ASN")
@@ -57,7 +63,7 @@ def get_asn_and_timezone_from_ip(ip):
             return asn, tz
         return "Unknown ASN", None
     except Exception as e:
-        log_with_timestamp(f"ASN lookup failed for IP {ip}: {e}")
+        logging.warning(f"ASN lookup failed for IP {ip}: {e}")
         return "Unknown ASN", None
 
 def get_public_ip():
@@ -91,7 +97,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         try:
             cookies = {"mam_id": mam_id}
             resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
-            log_with_timestamp(f"[AutoSeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
+            logging.info(f"[AutoSeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
             try:
                 result = resp.json()
             except Exception:
@@ -101,25 +107,25 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 cfg["last_seedbox_asn"] = asn
                 cfg["last_seedbox_update"] = now.isoformat()
                 save_session(cfg, old_label=label)
-                log_with_timestamp(f"[AutoSeedboxUpdate] Auto-update successful for {label}: {reason}")
+                logging.info(f"[AutoSeedboxUpdate] Auto-update successful for {label}: {reason}")
                 return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
             elif resp.status_code == 200 and result.get("msg") == "No change":
                 cfg["last_seedbox_ip"] = ip_to_use
                 cfg["last_seedbox_asn"] = asn
                 cfg["last_seedbox_update"] = now.isoformat()
                 save_session(cfg, old_label=label)
-                log_with_timestamp(f"[AutoSeedboxUpdate] No change needed for {label}: {reason}")
+                logging.info(f"[AutoSeedboxUpdate] No change needed for {label}: {reason}")
                 return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
             elif resp.status_code == 429 or (
                 isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
             ):
-                log_with_timestamp(f"[AutoSeedboxUpdate] Rate limit for {label}: {reason}")
+                logging.warning(f"[AutoSeedboxUpdate] Rate limit for {label}: {reason}")
                 return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
             else:
-                log_with_timestamp(f"[AutoSeedboxUpdate] Error for {label}: {result.get('msg', 'Unknown error')}")
+                logging.error(f"[AutoSeedboxUpdate] Error for {label}: {result.get('msg', 'Unknown error')}")
                 return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
         except Exception as e:
-            log_with_timestamp(f"[AutoSeedboxUpdate] Exception for {label}: {e}")
+            logging.error(f"[AutoSeedboxUpdate] Exception for {label}: {e}")
             return True, {"success": False, "error": str(e), "reason": reason}
     return False, None
 
@@ -166,13 +172,15 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
         status = mam_status
         last_check_time = now.isoformat()
-        log_with_timestamp(f"[MaM API] Real check for mam_id={mam_id} (force={force})")
+        logging.info(f"[MaM API] Real check for mam_id={mam_id} (force={force})")
         # --- Auto-update logic ---
         auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
         if auto_update_triggered and auto_update_result:
             status['auto_update_seedbox'] = auto_update_result
     if status is None:
         status = {}
+    # Always include the current session's saved proxy config in status
+    status['proxy'] = cfg.get('proxy', {})
     response = {
         "mam_cookie_exists": status.get("mam_cookie_exists"),
         "points": status.get("points"),
@@ -312,10 +320,10 @@ async def api_save_perkautomation(request: Request):
         # Save automation settings to session config
         cfg["perk_automation"] = data.get("perk_automation", {})
         save_session(cfg, old_label=label)
-        log_with_timestamp(f"[PerkAutomation] Saved automation settings for session '{label}': {cfg['perk_automation']}")
+        logging.info(f"[PerkAutomation] Saved automation settings for session '{label}': {cfg['perk_automation']}")
         return {"success": True}
     except Exception as e:
-        log_with_timestamp(f"[PerkAutomation] Failed to save automation settings: {e}")
+        logging.warning(f"[PerkAutomation] Failed to save automation settings: {e}")
         return {"success": False, "error": str(e)}
 
 @app.post("/api/session/update_seedbox")
@@ -336,7 +344,7 @@ async def api_update_seedbox(request: Request):
         asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use)
         match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
         asn = match.group(2) if match else asn_full
-        log_with_timestamp(f"[SeedboxUpdate] Preparing to update: label={label}, mam_id={mam_id[:8]}..., ip_to_use={ip_to_use}, asn={asn}, mam_ip_override={mam_ip_override}")
+        logging.info(f"[SeedboxUpdate] Preparing to update: label={label}, mam_id={mam_id[:8]}..., ip_to_use={ip_to_use}, asn={asn}, mam_ip_override={mam_ip_override}")
         last_seedbox_ip = cfg.get("last_seedbox_ip")
         last_seedbox_asn = cfg.get("last_seedbox_asn")
         last_seedbox_update = cfg.get("last_seedbox_update")
@@ -360,7 +368,7 @@ async def api_update_seedbox(request: Request):
         from backend.mam_api import build_proxy_dict
         proxies = build_proxy_dict(proxy_cfg)
         resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10, proxies=proxies)
-        log_with_timestamp(f"[SeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
+        logging.info(f"[SeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
         try:
             result = resp.json()
         except Exception:
@@ -384,7 +392,7 @@ async def api_update_seedbox(request: Request):
         else:
             return {"success": False, "error": result.get("msg", "Unknown error"), "raw": result}
     except Exception as e:
-        log_with_timestamp(f"[SeedboxUpdate] Failed: {e}")
+        logging.error(f"[SeedboxUpdate] Failed: {e}")
         return {"success": False, "error": str(e)}
 
 # --- FAVICON ROUTES: must be registered before static/catch-all routes ---
@@ -414,7 +422,7 @@ FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build')
 FRONTEND_PUBLIC_DIR = "/app/frontend/public"  # Force correct path for Docker
 STATIC_DIR = os.path.join(FRONTEND_BUILD_DIR, 'static')
 
-log_with_timestamp(f"Serving static from: {STATIC_DIR}")  # This prints the location it will use
+logging.info(f"Serving static from: {STATIC_DIR}")  # This prints the location it will use
 
 if not os.path.isdir(STATIC_DIR):
     raise RuntimeError(f"Directory '{STATIC_DIR}' does not exist")
@@ -458,9 +466,9 @@ def session_check_job(label):
             if auto_update_triggered and auto_update_result:
                 mam_status['auto_update_seedbox'] = auto_update_result
             save_session(cfg, old_label=label)
-            log_with_timestamp(f"[APScheduler] Checked session '{label}' at {now}")
+            logging.info(f"[APScheduler] Checked session '{label}' at {now}")
     except Exception as e:
-        log_with_timestamp(f"[APScheduler] Error in job for '{label}': {e}")
+        logging.error(f"[APScheduler] Error in job for '{label}': {e}")
 
 # --- APScheduler setup ---
 scheduler = BackgroundScheduler()
@@ -484,7 +492,7 @@ def register_all_session_jobs():
             coalesce=True,
             max_instances=1
         )
-        log_with_timestamp(f"[APScheduler] Registered job for session '{label}' every {check_freq} min")
+        logging.info(f"[APScheduler] Registered job for session '{label}' every {check_freq} min")
 
 register_all_session_jobs()
 scheduler.start()
@@ -495,7 +503,7 @@ class SessionFileChangeHandler(FileSystemEventHandler):
     def on_modified(self, event):
         src_path = str(event.src_path)
         if src_path.endswith('.yaml') and 'session-' in src_path:
-            log_with_timestamp(f"[Watchdog] Detected session file modification: {event.event_type} {src_path}")
+            logging.info(f"[Watchdog] Detected session file modification: {event.event_type} {src_path}")
             register_all_session_jobs()
 
 # Start watchdog observer for hot-reload of jobs
@@ -505,6 +513,6 @@ def start_session_watcher():
     observer.schedule(event_handler, CONFIG_DIR, recursive=False)
     observer.daemon = True
     observer.start()
-    log_with_timestamp(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
+    logging.info(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
 
 start_session_watcher()

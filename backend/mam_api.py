@@ -1,6 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
+import logging
 
 def build_proxy_dict(proxy_cfg):
     if not proxy_cfg or not proxy_cfg.get("host"):
@@ -33,7 +34,6 @@ def get_status(mam_id=None, proxy_cfg=None):
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies)
         resp.raise_for_status()
         data = resp.json()
-        print("[DEBUG] Raw MaM API response:", data)
         # Parse points, cheese, wedge, VIP status from response
         points = data.get("seedbonus")
         cheese = data.get("cheese")
@@ -57,7 +57,7 @@ def get_status(mam_id=None, proxy_cfg=None):
                 else:
                     cheese = None
             except Exception as scrape_e:
-                print(f"[DEBUG] Cheese scrape failed: {scrape_e}")
+                logging.debug(f"Cheese scrape failed: {scrape_e}")
                 cheese = None
         return {
             "mam_cookie_exists": True,
