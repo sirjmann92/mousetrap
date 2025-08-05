@@ -58,6 +58,47 @@ All user settings and state are stored in the `/config` directory (mapped as a v
 - **Session not updating?** Check backend logs for errors and confirm your entered IP is correct.
 - **Permissions:** If running in Docker, set `PUID`/`PGID` to match your user for config volume access.
 
+## VPN Integration
+
+MouseTrap can connect to MyAnonaMouse via your VPN container in two ways:
+
+### 1. Native Networking (Docker Compose network)
+- Place MouseTrap and your VPN container (e.g., Gluetun, binhex/arch-delugevpn) on the same Docker network.
+- Set the `mam_ip` in your session config to the VPN's external IP.
+- All MaM API calls will go out via the VPN container if you set the `network_mode` in Compose:
+
+```yaml
+services:
+  mousetrap:
+    image: your/mousetrap
+    network_mode: "service:gluetun"  # or your VPN container name
+    ...
+```
+
+### 2. HTTP Proxy (Recommended for multi-session/multi-IP)
+- Use your VPN container's built-in HTTP proxy (e.g., Gluetun, binhex/arch-delugevpn, qmcgaw/gluetun).
+- Enter the proxy details (host, port, username, password) in each session's config in the MouseTrap UI.
+- MouseTrap will route MaM API calls for that session through the proxy, using the VPN's IP.
+
+#### Example: Gluetun HTTP Proxy
+- Enable HTTP proxy in Gluetun: [Gluetun HTTP Proxy Docs](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
+- Use the proxy address (e.g., `gluetun:8888`) in your session config.
+
+#### Example: binhex/arch-delugevpn HTTP Proxy
+- Enable Privoxy: [binhex/arch-delugevpn Privoxy Docs](https://github.com/binhex/documentation/blob/master/docker/faq/vpn.md#privoxy-support)
+- Use the proxy address (e.g., `delugevpn:8118`) in your session config.
+
+#### More Info
+- [qmcgaw/gluetun HTTP Proxy](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
+- [binhex/arch-delugevpn Privoxy](https://github.com/binhex/documentation/blob/master/docker/faq/vpn.md#privoxy-support)
+
+## Session Management
+
+- Each session in MouseTrap is independent: you can set a different MaM account, IP, proxy, and automation settings per session.
+- Session configs are stored in `/config/session-*.yaml`.
+- You can switch between sessions in the UI, and each will use its own proxy and IP for MaM API calls.
+- This allows you to manage both VPN and non-VPN sessions from a single MouseTrap instance.
+
 ## License
 
 Private for now (not yet open source).
