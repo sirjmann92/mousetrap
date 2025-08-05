@@ -16,6 +16,12 @@ export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoa
   const handleChange = (e) => {
     setSelectedLabel(e.target.value);
     if (onLoadSession) onLoadSession(e.target.value);
+    // Persist to backend
+    fetch('/api/last_session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: e.target.value })
+    });
   };
 
   const handleDeleteClick = () => {
