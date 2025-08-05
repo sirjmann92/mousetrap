@@ -1,3 +1,4 @@
+import requests
 import time
 import yaml
 
@@ -29,9 +30,26 @@ def buy_vip(weeks):
     # Implement POST/cURL logic to purchase VIP status
     pass
 
-def buy_wedge(method):
-    # Implement POST/cURL logic to purchase wedge using points or cheese
-    pass
+def buy_wedge(mam_id, method="points"):
+    """
+    Purchase a wedge using points or cheese via the MaM API.
+    method: "points" or "cheese"
+    """
+    if method not in ("points", "cheese"):
+        raise Exception(f"Unsupported wedge purchase method: {method}")
+    timestamp = int(time.time() * 1000)
+    url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=wedges&source={method}&_={timestamp}"
+    cookies = {"mam_id": mam_id}
+    try:
+        resp = requests.get(url, cookies=cookies, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("success") or data.get("Success"):
+            return {"success": True, "method": method, "response": data}
+        else:
+            return {"success": False, "method": method, "response": data}
+    except Exception as e:
+        return {"success": False, "error": str(e), "method": method}
 
 def can_afford_upload(points, config, gb):
     required = gb * 500 + config['buffer']
@@ -53,6 +71,8 @@ def automate_perks(config):
     cheese = get_current_cheese()
     vip_weeks = get_vip_weeks()
     last_wedge = get_last_wedge_time()
+
+    mam_id = ""  # Retrieve from session or config
 
     # Upload credit
     if config['perks']['upload_credit']['enabled']:
@@ -76,7 +96,7 @@ def automate_perks(config):
             hours_since_last = float('inf')  # Treat as eligible if never run
         if hours_since_last >= config['perks']['freeleech_wedge']['cooldown_hours']:
             if can_afford_wedge(points, cheese, config['perks']['freeleech_wedge']):
-                buy_wedge(config['perks']['freeleech_wedge']['method'])
+                buy_wedge(mam_id, config['perks']['freeleech_wedge']['method'])
                 # Update last wedge time tracking
 
 def main():

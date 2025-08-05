@@ -64,19 +64,21 @@ export default function App() {
   const [uploadAmount, setUploadAmount] = React.useState(1); // 1, 2.5, 5, 20, 100, 'Max Affordable'
   const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
   const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
+  const [proxy, setProxy] = React.useState({});
 
   // Load session config by label
   const loadSession = async (labelToLoad) => {
     try {
       const res = await fetch(`/api/session/${labelToLoad}`);
       const cfg = await res.json();
-      setSelectedLabel(cfg?.label ?? labelToLoad); // Use label from config file
-      setLabel(cfg?.label ?? labelToLoad); // Set label for config card
-      setOldLabel(cfg?.label ?? labelToLoad); // Track old label for rename
+      setSelectedLabel(cfg?.label ?? labelToLoad);
+      setLabel(cfg?.label ?? labelToLoad);
+      setOldLabel(cfg?.label ?? labelToLoad);
       setMamId(cfg?.mam?.mam_id ?? "");
       setSessionType(cfg?.mam?.session_type ?? "IP Locked");
       setMamIp(cfg?.mam_ip ?? "");
       setCheckFrequency(cfg?.check_freq ?? 5);
+      setProxy(cfg?.proxy ?? {});
       // Add other fields as needed
     } catch (e) {
       // handle error
@@ -190,6 +192,8 @@ export default function App() {
           setLabel={setLabel}
           oldLabel={oldLabel}
           onSessionSaved={handleSessionSaved}
+          proxy={proxy}
+          setProxy={setProxy}
         />
         <PerkAutomationCard
           buffer={buffer}
@@ -212,6 +216,7 @@ export default function App() {
           setVipWeeks={setVipWeeks}
           wedgeMethod={wedgeMethod}
           setWedgeMethod={setWedgeMethod}
+          sessionLabel={selectedLabel}
         />
         <NotificationsCard />
       </Container>
