@@ -163,6 +163,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     cache = session_status_cache.get(label, {})
     status = cache.get("status", {})
     last_check_time = cache.get("last_check_time")
+    # --- NEW: If no cache or last_check_time, try to get from session file ---
+    if not last_check_time:
+        last_check_time = cfg.get("last_check_time")
     auto_update_result = None
     if force or not status:
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
@@ -183,6 +186,18 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         status = {}
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
+    # Calculate next_check_time (UTC ISO format)
+    check_freq_minutes = cfg.get("check_freq", 5)
+    # Parse last_check_time as datetime
+    try:
+        last_check_dt = datetime.fromisoformat(last_check_time) if last_check_time else None
+    except Exception:
+        last_check_dt = None
+    if last_check_dt:
+        next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
+        next_check_time = next_check_dt.isoformat()
+    else:
+        next_check_time = None
     response = {
         "mam_cookie_exists": status.get("mam_cookie_exists"),
         "points": status.get("points"),
@@ -200,8 +215,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         "ip_source": "configured",
         "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,
+        "next_check_time": next_check_time,
         "timezone": timezone_used,
-        "check_freq": cfg.get("check_freq", 5),
+        "check_freq": check_freq_minutes,
         "status_message": status.get("message"),
         "details": status
     }
