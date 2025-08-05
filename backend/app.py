@@ -159,14 +159,17 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     tz_env = os.environ.get("TZ")
     timezone_used = tz_env if tz_env else "UTC"
     now = datetime.now(timezone.utc)
-    # Use cached status unless force=1
+    # Remove timer persistence: do not use session file for last_check_time
     cache = session_status_cache.get(label, {})
     status = cache.get("status", {})
     last_check_time = cache.get("last_check_time")
-    # --- NEW: If no cache or last_check_time, try to get from session file ---
-    if not last_check_time:
-        last_check_time = cfg.get("last_check_time")
     auto_update_result = None
+    # Always fetch ASN for detected_public_ip
+    detected_public_ip_asn = None
+    if detected_public_ip:
+        asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip)
+        match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
+        detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
     if force or not status:
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         mam_status['configured_ip'] = ip_to_use
@@ -186,6 +189,38 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         status = {}
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
+    # Compose a more informative status message for the frontend
+    status_message_parts = []
+    auto_update = status.get('auto_update_seedbox')
+    # Determine if IP or ASN changed for this check
+    last_seedbox_ip = cfg.get('last_seedbox_ip')
+    last_seedbox_asn = cfg.get('last_seedbox_asn')
+    ip_changed = last_seedbox_ip and ip_to_use and ip_to_use != last_seedbox_ip
+    asn_changed = last_seedbox_asn and asn and asn != last_seedbox_asn
+    if auto_update:
+        if auto_update.get('success'):
+            if auto_update.get('msg', '').startswith('No change'):
+                status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+            else:
+                if ip_changed:
+                    status_message_parts.append('IP address changed. Updated MAM session.')
+                elif asn_changed:
+                    status_message_parts.append('ASN changed. Updated MAM session.')
+                else:
+                    status_message_parts.append('IP/ASN changed. Updated MAM session.')
+        else:
+            if 'rate limit' in (auto_update.get('error', '') or '').lower():
+                status_message_parts.append('IP/ASN changed, but update was rate-limited.')
+            else:
+                status_message_parts.append(f"Seedbox update failed: {auto_update.get('error', 'Unknown error')}")
+    else:
+        # No auto update attempted or needed
+        status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+    # Always append status fetch result if error
+    msg_val = status.get('message') or ''
+    if msg_val and isinstance(msg_val, str) and 'failed' in msg_val.lower():
+        status_message_parts.append(msg_val)
+    status['status_message'] = ' '.join(status_message_parts)
     # Calculate next_check_time (UTC ISO format)
     check_freq_minutes = cfg.get("check_freq", 5)
     # Parse last_check_time as datetime
@@ -212,13 +247,14 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         "mam_seen_asn": mam_seen_asn,
         "mam_seen_as": mam_seen_as,
         "detected_public_ip": detected_public_ip,
+        "detected_public_ip_asn": detected_public_ip_asn,
         "ip_source": "configured",
         "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,
         "next_check_time": next_check_time,
         "timezone": timezone_used,
         "check_freq": check_freq_minutes,
-        "status_message": status.get("message"),
+        "status_message": status.get("status_message"),
         "details": status
     }
     return response

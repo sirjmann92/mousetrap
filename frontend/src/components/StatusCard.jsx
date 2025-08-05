@@ -157,7 +157,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                 Detected Public IP Address: <b>{status.detected_public_ip || "N/A"}</b>
               </Typography>
               <Typography variant="body1">
-                Detected Public ASN: <b>{status.detected_public_ip ? (status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A') : 'N/A'}</b>
+                Detected Public ASN: <b>{status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A'}</b>
               </Typography>
               <Typography variant="body1">MAM Cookie Status: <b>{status.mam_cookie_exists === true ? "Valid" : "Missing"}</b></Typography>
               {/* Proxy config display */}
