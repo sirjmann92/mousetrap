@@ -207,7 +207,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 last_check_time = session_status_cache[label]["last_check_time"]
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
-    # Compose a more informative status message for the frontend
+    # --- Improved status message logic ---
     status_message_parts = []
     auto_update = status.get('auto_update_seedbox')
     # Determine if IP or ASN changed for this check
@@ -215,29 +215,37 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     last_seedbox_asn = cfg.get('last_seedbox_asn')
     ip_changed = last_seedbox_ip and ip_to_use and ip_to_use != last_seedbox_ip
     asn_changed = last_seedbox_asn and asn and asn != last_seedbox_asn
-    if auto_update:
-        if auto_update.get('success'):
-            if auto_update.get('msg', '').startswith('No change'):
-                status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
-            else:
-                if ip_changed:
-                    status_message_parts.append('IP address changed. Updated MAM session.')
-                elif asn_changed:
-                    status_message_parts.append('ASN changed. Updated MAM session.')
-                else:
-                    status_message_parts.append('IP/ASN changed. Updated MAM session.')
-        else:
-            if 'rate limit' in (auto_update.get('error', '') or '').lower():
-                status_message_parts.append('IP/ASN changed, but update was rate-limited.')
-            else:
-                status_message_parts.append(f"Seedbox update failed: {auto_update.get('error', 'Unknown error')}")
+    # If there is an error or forbidden message, show only the error
+    error_message = None
+    if status.get('message') and ("forbidden" in status.get('message', '').lower() or "error" in status.get('message', '').lower() or "failed" in status.get('message', '').lower() or status.get('code') == 403):
+        error_message = status.get('message')
+    elif auto_update and not auto_update.get('success'):
+        error_message = auto_update.get('error') or auto_update.get('msg')
+    if error_message:
+        status_message_parts.append(error_message)
     else:
-        # No auto update attempted or needed
-        status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
-    # Always append status fetch result if error
-    msg_val = status.get('message') or ''
-    if msg_val and isinstance(msg_val, str) and 'failed' in msg_val.lower():
-        status_message_parts.append(msg_val)
+        if auto_update:
+            if auto_update.get('success'):
+                if auto_update.get('msg', '').startswith('No change'):
+                    status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+                else:
+                    if ip_changed:
+                        status_message_parts.append('IP address changed. Updated MAM session.')
+                    elif asn_changed:
+                        status_message_parts.append('ASN changed. Updated MAM session.')
+                    else:
+                        status_message_parts.append('IP/ASN changed. Updated MAM session.')
+            else:
+                if 'rate limit' in (auto_update.get('error', '') or '').lower():
+                    status_message_parts.append('IP/ASN changed, but update was rate-limited.')
+                else:
+                    status_message_parts.append(f"Seedbox update failed: {auto_update.get('error', 'Unknown error')}")
+        else:
+            status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+        # Always append status fetch result if error
+        msg_val = status.get('message') or ''
+        if msg_val and isinstance(msg_val, str) and 'failed' in msg_val.lower():
+            status_message_parts.append(msg_val)
     status['status_message'] = ' '.join(status_message_parts)
     # Calculate next_check_time (UTC ISO format)
     check_freq_minutes = cfg.get("check_freq", 5)
@@ -498,6 +506,18 @@ async def api_save_session(request: Request):
     try:
         cfg = await request.json()
         old_label = cfg.get("old_label")
+        # --- Password encryption logic ---
+        proxy_cfg = cfg.get("proxy", {})
+        if proxy_cfg.get("password"):
+            # If password is not already encrypted, encrypt and store
+            if not proxy_cfg.get("password_encrypted"):
+                from backend.config import encrypt_password
+                encrypted = encrypt_password(proxy_cfg["password"])
+                proxy_cfg["password"] = encrypted
+                proxy_cfg["password_encrypted"] = True
+                # Remove plaintext/decrypted fields
+                proxy_cfg.pop("password_decrypted", None)
+            cfg["proxy"] = proxy_cfg
         save_session(cfg, old_label=old_label)
         # Do NOT force status update here; let frontend control refresh to avoid timer feedback loop
         return {"success": True}
