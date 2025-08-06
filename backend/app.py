@@ -508,9 +508,26 @@ async def api_save_session(request: Request):
         old_label = cfg.get("old_label")
         # --- Password encryption logic ---
         proxy_cfg = cfg.get("proxy", {})
-        if proxy_cfg.get("password"):
+        if "proxy" in cfg:
+            # Load previous session if exists
+            from backend.config import load_session
+            prev_cfg = None
+            if old_label:
+                try:
+                    prev_cfg = load_session(old_label)
+                except Exception:
+                    prev_cfg = None
+            elif cfg.get("label"):
+                try:
+                    prev_cfg = load_session(cfg["label"])
+                except Exception:
+                    prev_cfg = None
+            # If password is missing but previous session had one, keep it
+            if (not proxy_cfg.get("password")) and prev_cfg and prev_cfg.get("proxy", {}).get("password"):
+                proxy_cfg["password"] = prev_cfg["proxy"]["password"]
+                proxy_cfg["password_encrypted"] = True
             # If password is not already encrypted, encrypt and store
-            if not proxy_cfg.get("password_encrypted"):
+            elif proxy_cfg.get("password") and not proxy_cfg.get("password_encrypted"):
                 from backend.config import encrypt_password
                 encrypted = encrypt_password(proxy_cfg["password"])
                 proxy_cfg["password"] = encrypted

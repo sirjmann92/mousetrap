@@ -127,9 +127,9 @@ export default function App() {
     if (oldLabel && label && label !== oldLabel) {
       loadSession(label);
     }
-    // Always refresh status to update timer immediately
-    if (statusCardRef.current && statusCardRef.current.fetchStatus) {
-      statusCardRef.current.fetchStatus();
+    // Always force status refresh to update timer immediately
+    if (statusCardRef.current && statusCardRef.current.forceStatusRefresh) {
+      statusCardRef.current.forceStatusRefresh();
     }
   };
 
