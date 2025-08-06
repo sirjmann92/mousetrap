@@ -91,6 +91,14 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     return () => clearInterval(pollingRef.current);
   }, [setDetectedIp, status && status.check_freq, sessionLabel]);
 
+  // Soft refresh effect: update timer/status from backend cache every 5 seconds (no force)
+  useEffect(() => {
+    const softRefresh = setInterval(() => {
+      fetchStatus(); // No force, just update from backend cache
+    }, 5000); // 5 seconds
+    return () => clearInterval(softRefresh);
+  }, [sessionLabel]);
+
   // Clear seedbox status when session changes
   useEffect(() => {
     setSeedboxStatus(null);

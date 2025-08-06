@@ -191,14 +191,19 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             cfg['last_check_time'] = last_check_time
             save_session(cfg, old_label=label)
         else:
-            # No cache, no force: load last known status from session file
-            last_status = cfg.get('last_status')
-            last_check_time = cfg.get('last_check_time')
-            if last_status:
-                status = last_status
-                session_status_cache[label] = {"status": status, "last_check_time": last_check_time}
+            # Only load from session file if cache is empty
+            if label not in session_status_cache or not session_status_cache[label].get("status"):
+                last_status = cfg.get('last_status')
+                last_check_time = cfg.get('last_check_time')
+                if last_status:
+                    status = last_status
+                    session_status_cache[label] = {"status": status, "last_check_time": last_check_time}
+                else:
+                    status = {}
             else:
-                status = {}
+                # Use cached status/times
+                status = session_status_cache[label]["status"]
+                last_check_time = session_status_cache[label]["last_check_time"]
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
     # Compose a more informative status message for the frontend
@@ -240,11 +245,12 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         last_check_dt = datetime.fromisoformat(last_check_time) if last_check_time else None
     except Exception:
         last_check_dt = None
-    if last_check_dt:
-        next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
-        next_check_time = next_check_dt.isoformat()
-    else:
-        next_check_time = None
+    if not last_check_dt:
+        # Fallback: use now as last_check_time if missing/invalid
+        last_check_dt = now
+        last_check_time = now.isoformat()
+    next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
+    next_check_time = next_check_dt.isoformat()
     response = {
         "mam_cookie_exists": status.get("mam_cookie_exists"),
         "points": status.get("points"),
