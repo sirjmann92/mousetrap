@@ -6,7 +6,7 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import Tooltip from '@mui/material/Tooltip';
 
-const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints, setCheese, sessionLabel }, ref) {
+const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved }, ref) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -52,8 +52,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     }
   };
 
-  useImperativeHandle(ref, () => ({ fetchStatus }));
-
   // Timer logic: always use backend next_check_time
   useEffect(() => {
     let interval;
@@ -91,14 +89,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     return () => clearInterval(pollingRef.current);
   }, [setDetectedIp, status && status.check_freq, sessionLabel]);
 
-  // Soft refresh effect: update timer/status from backend cache every 5 seconds (no force)
-  useEffect(() => {
-    const softRefresh = setInterval(() => {
-      fetchStatus(); // No force, just update from backend cache
-    }, 5000); // 5 seconds
-    return () => clearInterval(softRefresh);
-  }, [sessionLabel]);
-
   // Clear seedbox status when session changes
   useEffect(() => {
     setSeedboxStatus(null);
@@ -132,6 +122,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       setSeedboxLoading(false);
     }
   };
+
+  // Expose a method for parent to force a status refresh (e.g., after session save)
+  useImperativeHandle(ref, () => ({
+    fetchStatus,
+    forceStatusRefresh: handleCheckNow
+  }));
 
   return (
     <Card sx={{ mb: 3 }}>
