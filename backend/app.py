@@ -55,9 +55,9 @@ def get_asn_and_timezone_from_ip(ip):
         url = f"https://ipinfo.io/{ip}/json"
         if token:
             url += f"?token={token}"
-        logging.info(f"ASN lookup for IP: {ip} (url: {url})")
+        logging.debug(f"ASN lookup for IP: {ip} (url: {url})")
         resp = requests.get(url, timeout=4)
-        logging.info(f"ipinfo.io response: {resp.status_code} {resp.text}")
+        logging.debug(f"ipinfo.io response: {resp.status_code} {resp.text}")
         if resp.status_code == 200:
             data = resp.json()
             asn = data.get("org", "Unknown ASN")
@@ -134,6 +134,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
     global asn_cache, session_status_cache
+    logging.info(f"[API] /api/status called for label={label}, force={force}")
     if not label:
         raise HTTPException(status_code=400, detail="Session label required.")
     cfg = load_session(label)
@@ -298,49 +299,178 @@ async def api_config_save(request: Request):
 
 @app.post("/api/automation/wedge")
 def api_automation_wedge(request: Request):
-    data = request.json() if hasattr(request, 'json') else {}
-    label = data.get('label') if isinstance(data, dict) else None
-    method = data.get('method', 'points') if isinstance(data, dict) else 'points'
-    if not label:
-        raise HTTPException(status_code=400, detail="Session label required.")
-    cfg = load_session(label)
-    mam_id = cfg.get('mam', {}).get('mam_id', "")
-    if not mam_id:
-        raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
+    """
+    Purchase wedge using real MaM API call. Accepts label and method (default 'points'). Returns updated status on success.
+    """
     try:
+        data = request.json() if hasattr(request, 'json') else {}
+        label = data.get('label') if isinstance(data, dict) else None
+        method = data.get('method', 'points') if isinstance(data, dict) else 'points'
+        if not label:
+            raise HTTPException(status_code=400, detail="Session label required.")
+        cfg = load_session(label)
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        if not mam_id:
+            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
         result = buy_wedge(mam_id, method=method)
-        # Return the real result, not just success=True
-        if result.get("success"):
-            return {"success": True, "result": result}
-        else:
-            return {"success": False, "error": result.get("response", result.get("error", "Unknown error")), "result": result}
+        success = result.get("success", False) if result else False
+        if not success:
+            err_msg = result.get("error") or result.get("response") or "Unknown error during wedge purchase."
+            logging.error(f"[Wedge] Purchase failed: {err_msg}")
+            return {"success": False, "error": err_msg, "result": result}
+        logging.info(f"[Wedge] Purchase successful for {label}")
+        # Return updated status (simulate force=1)
+        proxy_cfg = cfg.get("proxy", {})
+        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
+        elif proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        now = datetime.now(timezone.utc)
+        mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
+        mam_status['configured_asn'] = None  # ASN can be added if needed
+        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+        cfg['last_status'] = mam_status
+        cfg['last_check_time'] = now.isoformat()
+        save_session(cfg, old_label=label)
+        return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
+        logging.error(f"[Wedge] Exception: {e}")
         return {"success": False, "error": str(e)}
 
 @app.post("/api/automation/vip")
 def api_automation_vip(request: Request):
-    cfg = load_config()
-    mam_id = cfg.get('mam', {}).get('mam_id', "")
-    if not mam_id:
-        raise HTTPException(status_code=400, detail="MaM ID not configured.")
+    """
+    Purchase VIP using real MaM API call. Accepts label. Returns updated status on success.
+    """
     try:
+        data = request.json() if hasattr(request, 'json') else {}
+        label = data.get('label') if isinstance(data, dict) else None
+        if not label:
+            raise HTTPException(status_code=400, detail="Session label required.")
+        cfg = load_session(label)
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        if not mam_id:
+            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
         result = buy_vip(mam_id)
-        return {"success": True, "result": result}
+        success = result.get("success", False) if result else False
+        if not success:
+            if result:
+                err_msg = result.get("error") or result.get("response") or "Unknown error during VIP purchase."
+            else:
+                err_msg = "Unknown error during VIP purchase. (No result returned)"
+            logging.error(f"[VIP] Purchase failed: {err_msg}")
+            return {"success": False, "error": err_msg, "result": result}
+        logging.info(f"[VIP] Purchase successful for {label}")
+        # Return updated status (simulate force=1)
+        proxy_cfg = cfg.get("proxy", {})
+        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
+        elif proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        now = datetime.now(timezone.utc)
+        mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
+        mam_status['configured_asn'] = None
+        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+        cfg['last_status'] = mam_status
+        cfg['last_check_time'] = now.isoformat()
+        save_session(cfg, old_label=label)
+        return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
+        logging.error(f"[VIP] Exception: {e}")
         return {"success": False, "error": str(e)}
 
 @app.post("/api/automation/upload")
 async def api_automation_upload(request: Request):
-    cfg = load_config()
-    mam_id = cfg.get('mam', {}).get('mam_id', "")
-    if not mam_id:
-        raise HTTPException(status_code=400, detail="MaM ID not configured.")
+    """
+    Purchase upload credit using real MaM API call. Accepts label and gb. Returns updated status on success.
+    """
     try:
         data = await request.json()
-        gb = data.get("gb", 1)  # Default to 1GB if not specified
-        result = buy_upload_credit(gb)
-        return {"success": True, "result": result}
+        label = data.get('label')
+        gb = data.get("gb", 1)
+        if not label:
+            raise HTTPException(status_code=400, detail="Session label required.")
+        cfg = load_session(label)
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        if not mam_id:
+            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
+        result = buy_upload_credit(gb, mam_id=mam_id)
+        success = result.get("success", False) if result else False
+        if not success:
+            err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
+            logging.error(f"[Upload] Purchase failed: {err_msg}")
+            return {"success": False, "error": err_msg, "result": result}
+        logging.info(f"[Upload] Purchase successful for {label}")
+        # Return updated status (simulate force=1)
+        proxy_cfg = cfg.get("proxy", {})
+        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
+        elif proxy_cfg.get("password_decrypted"):
+            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        now = datetime.now(timezone.utc)
+        mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
+        mam_status['configured_asn'] = None
+        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+        cfg['last_status'] = mam_status
+        cfg['last_check_time'] = now.isoformat()
+        save_session(cfg, old_label=label)
+        return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
+        logging.error(f"[Upload] Exception: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/api/automation/upload_auto")
+async def api_automation_upload_auto(request: Request):
+    """
+    Auto-purchase upload credit if points >= minimum. Accepts label, amount (GB), and min_points.
+    """
+    try:
+        data = await request.json()
+        label = data.get('label')
+        amount = int(data.get('amount', 1))
+        min_points = int(data.get('min_points', 0))
+        logging.info(f"[API] /api/automation/upload_auto called with label={label}, amount={amount}, min_points={min_points}")
+        if not label:
+            logging.error("[UploadAuto] No session label provided.")
+            raise HTTPException(status_code=400, detail="Session label required.")
+        cfg = load_session(label)
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        if not mam_id:
+            logging.error(f"[UploadAuto] No MaM ID configured for session {label}.")
+            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
+        # Get current points (reuse get_status)
+        status = get_status(mam_id=mam_id)
+        points = status.get('points', 0)
+        if points is None:
+            logging.error(f"[UploadAuto] Could not fetch current points for mam_id={mam_id}.")
+            return {"success": False, "error": "Could not fetch current points. (Check session and MaM ID)"}
+        if points < min_points:
+            msg = f"Not enough points (have {points}, need {min_points})"
+            logging.warning(f"[UploadAuto] {msg}")
+            return {"success": False, "error": msg}
+        # Each GB costs 500 points
+        total_cost = amount * 500
+        if points < total_cost:
+            msg = f"Not enough points for {amount}GB (need {total_cost}, have {points})"
+            logging.warning(f"[UploadAuto] {msg}")
+            return {"success": False, "error": msg}
+        # Purchase upload credit (pass mam_id)
+        result = buy_upload_credit(amount, mam_id=mam_id)
+        success = result.get("success", False) if result else False
+        if not success:
+            if result:
+                err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
+            else:
+                err_msg = "Unknown error during upload purchase. (No result returned)"
+            logging.error(f"[UploadAuto] Upload purchase failed: {err_msg}")
+            return {"success": False, "error": err_msg, "result": result}
+        logging.info(f"[UploadAuto] Upload purchase successful: {amount}GB for {label}")
+        return {"success": True, "result": result, "points_before": points, "amount": amount}
+    except Exception as e:
+        logging.error(f"[UploadAuto] Exception: {e}")
         return {"success": False, "error": str(e)}
 
 @app.post("/api/session/refresh")
@@ -369,6 +499,7 @@ async def api_save_session(request: Request):
         cfg = await request.json()
         old_label = cfg.get("old_label")
         save_session(cfg, old_label=old_label)
+        # Do NOT force status update here; let frontend control refresh to avoid timer feedback loop
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
