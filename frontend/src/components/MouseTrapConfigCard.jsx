@@ -43,13 +43,16 @@ export default function MouseTrapConfigCard({
   const [proxyHost, setProxyHost] = useState(proxy.host || "");
   const [proxyPort, setProxyPort] = useState(proxy.port || "");
   const [proxyUsername, setProxyUsername] = useState(proxy.username || "");
+  // Track if a password is set (from backend)
   const [proxyPassword, setProxyPassword] = useState(""); // blank unless user enters new
+  const [hasPassword, setHasPassword] = useState(!!proxy.password);
 
   useEffect(() => {
     setProxyHost(proxy.host || "");
     setProxyPort(proxy.port || "");
     setProxyUsername(proxy.username || "");
     setProxyPassword("");
+    setHasPassword(!!proxy.password);
   }, [proxy]);
 
   // Save config handler
@@ -258,12 +261,12 @@ export default function MouseTrapConfigCard({
                     value={proxyPassword}
                     onChange={e => setProxyPassword(e.target.value)}
                     size="small"
-                    placeholder={proxy && proxy.password ? "(unchanged)" : ""}
+                    placeholder={hasPassword ? "(password set)" : ""}
                     type="password"
                     sx={{ width: 140 }}
                     autoComplete="new-password"
                   />
-                  {proxy && proxy.password && (
+                  {hasPassword && !proxyPassword && (
                     <Tooltip title="Leave blank to keep existing password">
                       <IconButton size="small" sx={{ ml: 0.5 }}>
                         <InfoOutlinedIcon fontSize="small" />

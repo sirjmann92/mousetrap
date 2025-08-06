@@ -2,8 +2,6 @@ import yaml
 import os
 import threading
 import glob
-from cryptography.fernet import Fernet, InvalidToken
-import base64
 
 CONFIG_DIR = "/config"
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.yaml")
@@ -11,8 +9,6 @@ LOCK = threading.Lock()
 
 SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
-
-FERNET_KEY_PATH = os.path.join(CONFIG_DIR, "fernet.key")
 
 def get_session_path(label):
     return os.path.join(CONFIG_DIR, f"{SESSION_PREFIX}{label}{SESSION_SUFFIX}")
@@ -23,30 +19,13 @@ def list_sessions():
     labels = [os.path.basename(f)[len(SESSION_PREFIX):-len(SESSION_SUFFIX)] for f in files]
     return labels
 
-def get_fernet():
-    if not os.path.exists(FERNET_KEY_PATH):
-        key = Fernet.generate_key()
-        with open(FERNET_KEY_PATH, "wb") as f:
-            f.write(key)
-    else:
-        with open(FERNET_KEY_PATH, "rb") as f:
-            key = f.read()
-    return Fernet(key)
-
 def encrypt_password(password):
-    if not password:
-        return ""
-    f = get_fernet()
-    return f.encrypt(password.encode()).decode()
+    # No-op: return plain text for now
+    return password
 
 def decrypt_password(token):
-    if not token:
-        return ""
-    f = get_fernet()
-    try:
-        return f.decrypt(token.encode()).decode()
-    except InvalidToken:
-        return ""
+    # No-op: return plain text for now
+    return token
 
 def load_session(label):
     path = get_session_path(label)
@@ -75,10 +54,10 @@ def save_session(cfg, old_label=None):
             os.rename(old_path, path)
     config_dir = os.path.dirname(path)
     os.makedirs(config_dir, exist_ok=True)
-    # Encrypt proxy password if present
+    # No encryption: just save password as-is, and remove decrypted field
     if "proxy" in cfg and "password" in cfg["proxy"]:
-        if cfg["proxy"]["password"] and not cfg["proxy"]["password"].startswith("gAAAA"):
-            cfg["proxy"]["password"] = encrypt_password(cfg["proxy"]["password"])
+        if "password_decrypted" in cfg["proxy"]:
+            del cfg["proxy"]["password_decrypted"]
     with LOCK, open(path, "w") as f:
         yaml.safe_dump(cfg, f)
 
