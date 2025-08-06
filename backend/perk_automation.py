@@ -1,6 +1,7 @@
 import requests
 import time
 import yaml
+import logging
 
 def load_config(path="backend/perks_config.yaml"):
     with open(path, "r") as f:
@@ -22,9 +23,29 @@ def get_last_wedge_time():
     # Implement tracking file/timestamp for last wedge
     pass
 
-def buy_upload_credit(gb):
-    # Implement POST/cURL logic to purchase upload credit
-    pass
+def buy_upload_credit(gb, mam_id=None):
+    """
+    Purchase upload credit via the MaM API. Returns a result dict.
+    mam_id: required session cookie for authentication
+    """
+    try:
+        if not mam_id:
+            return {"success": False, "error": "mam_id (cookie) required for upload credit purchase", "gb": gb}
+        timestamp = int(time.time() * 1000)
+        url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=upload&amount={gb}&_={timestamp}"
+        cookies = {"mam_id": mam_id}
+        logging.debug(f"[buy_upload_credit] Requesting: {url} with cookies: {cookies}")
+        resp = requests.get(url, cookies=cookies, timeout=10)
+        logging.debug(f"[buy_upload_credit] Response: {resp.status_code} {resp.text}")
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("success") or data.get("Success"):
+            return {"success": True, "gb": gb, "response": data}
+        else:
+            return {"success": False, "gb": gb, "response": data}
+    except Exception as e:
+        logging.error(f"[buy_upload_credit] Exception: {e}")
+        return {"success": False, "error": str(e), "gb": gb}
 
 def buy_vip(weeks):
     # Implement POST/cURL logic to purchase VIP status

@@ -122,9 +122,12 @@ export default function App() {
   const statusCardRef = React.useRef();
 
   // Refresh session list after save
-  const handleSessionSaved = (label) => {
-    loadSession(label);
-    // Also refresh status to update timer immediately
+  const handleSessionSaved = (label, oldLabel) => {
+    // Only reload session if label changed (e.g., after rename)
+    if (oldLabel && label && label !== oldLabel) {
+      loadSession(label);
+    }
+    // Always refresh status to update timer immediately
     if (statusCardRef.current && statusCardRef.current.fetchStatus) {
       statusCardRef.current.fetchStatus();
     }
@@ -250,6 +253,11 @@ export default function App() {
           wedgeMethod={wedgeMethod}
           setWedgeMethod={setWedgeMethod}
           sessionLabel={selectedLabel}
+          onActionComplete={() => {
+            if (statusCardRef.current && statusCardRef.current.fetchStatus) {
+              statusCardRef.current.fetchStatus();
+            }
+          }}
         />
         <NotificationsCard />
       </Container>

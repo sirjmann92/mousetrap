@@ -86,7 +86,7 @@ export default function MouseTrapConfigCard({
       if (!res.ok) throw new Error("Failed to save session");
       setSaveStatus("Session saved successfully.");
       setTimeout(() => setSaveStatus(""), 2000);
-      if (onSessionSaved) onSessionSaved(label);
+      if (onSessionSaved) onSessionSaved(label, oldLabel);
       if (setProxy) setProxy(payload.proxy);
     } catch (err) {
       setSaveError("Error saving session: " + err.message);
