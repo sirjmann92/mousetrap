@@ -63,8 +63,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         secondsLeft = Math.max(0, secondsLeft);
         setTimer(secondsLeft);
         if (secondsLeft === 0) {
-          // When timer hits zero, fetch status to reset timer and update status
-          fetchStatus();
+          // When timer hits zero, force a status check to reset timer and update status
+          fetchStatus(true);
         }
       };
       updateTimer();
