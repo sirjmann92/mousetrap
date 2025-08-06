@@ -321,7 +321,11 @@ export default function PerkAutomationCard({
                   <MenuItem value={90}>Fill me up!</MenuItem>
                 </Select>
               </FormControl>
-              <Tooltip title="Fill me up! = Top up to 90 days">
+              <Tooltip title={<span>
+                4 weeks = 5,000 points<br/>
+                8 weeks = 10,000 points<br/>
+                Fill me up! = Top up to 90 days (variable points)
+              </span>}>
                 <IconButton size="small" sx={{ ml: 1 }}>
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>

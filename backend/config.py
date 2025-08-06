@@ -39,9 +39,6 @@ def load_session(label):
             cfg["last_check_time"] = None
         if "label" not in cfg:
             cfg["label"] = label
-        # Decrypt proxy password if present
-        if "proxy" in cfg and "password" in cfg["proxy"]:
-            cfg["proxy"]["password_decrypted"] = decrypt_password(cfg["proxy"]["password"])
         return cfg
 
 def save_session(cfg, old_label=None):
@@ -54,10 +51,7 @@ def save_session(cfg, old_label=None):
             os.rename(old_path, path)
     config_dir = os.path.dirname(path)
     os.makedirs(config_dir, exist_ok=True)
-    # No encryption: just save password as-is, and remove decrypted field
-    if "proxy" in cfg and "password" in cfg["proxy"]:
-        if "password_decrypted" in cfg["proxy"]:
-            del cfg["proxy"]["password_decrypted"]
+    # No encryption: just save password as-is
     with LOCK, open(path, "w") as f:
         yaml.safe_dump(cfg, f)
 

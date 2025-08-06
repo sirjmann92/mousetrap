@@ -388,7 +388,12 @@ async def api_automation_upload(request: Request):
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        result = buy_upload_credit(gb, mam_id=mam_id)
+        proxy_cfg = cfg.get("proxy", {})
+        try:
+            result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
+        except Exception as e:
+            logging.error(f"[Upload] buy_upload_credit failed: {e}")
+            return {"success": False, "error": f"Failed to purchase upload credit: {e}"}
         success = result.get("success", False) if result else False
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
@@ -396,8 +401,6 @@ async def api_automation_upload(request: Request):
             return {"success": False, "error": err_msg, "result": result}
         logging.info(f"[Upload] Purchase successful for {label}")
         # Return updated status (simulate force=1)
-        proxy_cfg = cfg.get("proxy", {})
-        # No more password decryption logic needed
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -430,9 +433,19 @@ async def api_automation_upload_auto(request: Request):
         if not mam_id:
             logging.error(f"[UploadAuto] No MaM ID configured for session {label}.")
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        # Get current points (reuse get_status)
-        status = get_status(mam_id=mam_id)
-        points = status.get('points', 0)
+        # Get current points (reuse get_status, now with proxy_cfg)
+        proxy_cfg = cfg.get("proxy", {})
+        # Redact password for logging
+        proxy_cfg_log = dict(proxy_cfg) if proxy_cfg else {}
+        if "password" in proxy_cfg_log:
+            proxy_cfg_log["password"] = "***REDACTED***"
+        logging.info(f"[UploadAuto] Using proxy config: {proxy_cfg_log}")
+        try:
+            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        except Exception as e:
+            logging.error(f"[UploadAuto] get_status failed: {e}")
+            return {"success": False, "error": f"Failed to fetch status from MaM: {e}"}
+        points = status.get('points', 0) if isinstance(status, dict) else 0
         if points is None:
             logging.error(f"[UploadAuto] Could not fetch current points for mam_id={mam_id}.")
             return {"success": False, "error": "Could not fetch current points. (Check session and MaM ID)"}
@@ -446,8 +459,8 @@ async def api_automation_upload_auto(request: Request):
             msg = f"Not enough points for {amount}GB (need {total_cost}, have {points})"
             logging.warning(f"[UploadAuto] {msg}")
             return {"success": False, "error": msg}
-        # Purchase upload credit (pass mam_id)
-        result = buy_upload_credit(amount, mam_id=mam_id)
+        # Purchase upload credit (pass mam_id and proxy_cfg)
+        result = buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
         success = result.get("success", False) if result else False
         if not success:
             if result:

@@ -23,10 +23,11 @@ def get_last_wedge_time():
     # Implement tracking file/timestamp for last wedge
     pass
 
-def buy_upload_credit(gb, mam_id=None):
+def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
     """
     Purchase upload credit via the MaM API. Returns a result dict.
     mam_id: required session cookie for authentication
+    proxy_cfg: optional proxy config dict
     """
     try:
         if not mam_id:
@@ -34,11 +35,21 @@ def buy_upload_credit(gb, mam_id=None):
         timestamp = int(time.time() * 1000)
         url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=upload&amount={gb}&_={timestamp}"
         cookies = {"mam_id": mam_id}
-        logging.debug(f"[buy_upload_credit] Requesting: {url} with cookies: {cookies}")
-        resp = requests.get(url, cookies=cookies, timeout=10)
-        logging.debug(f"[buy_upload_credit] Response: {resp.status_code} {resp.text}")
+        proxies = None
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        if proxy_cfg is not None:
+            from backend.mam_api import build_proxy_dict
+            proxies = build_proxy_dict(proxy_cfg)
+            logging.debug(f"[buy_upload_credit] Using proxy config: {proxy_cfg}")
+            logging.debug(f"[buy_upload_credit] Built proxies dict: {proxies}")
+        logging.debug(f"[buy_upload_credit] Requesting: {url}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
+        resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
+        logging.debug(f"[buy_upload_credit] Response: status={resp.status_code}\n  headers: {dict(resp.headers)}\n  text: {resp.text[:500]}")
         resp.raise_for_status()
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as json_e:
+            return {"success": False, "error": f"MaM API did not return valid JSON: {json_e}. Response: {resp.text[:200]}", "gb": gb}
         if data.get("success") or data.get("Success"):
             return {"success": True, "gb": gb, "response": data}
         else:
