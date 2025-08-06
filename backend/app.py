@@ -13,7 +13,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
-from backend.notifications import send_test_email, send_test_webhook
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.millionaires_vault import router as millionaires_vault_router
 from backend.last_session_api import router as last_session_router
@@ -31,7 +30,6 @@ app.add_middleware(
 app.include_router(millionaires_vault_router)
 app.include_router(last_session_router)
 
-asn_cache: Dict[str, Any] = {"ip": None, "asn": None, "tz": None}
 session_status_cache: Dict[str, Dict[str, Any]] = {}
 
 # Configure logging at the top of the file (after imports)
@@ -126,7 +124,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
-    global asn_cache, session_status_cache
+    global session_status_cache
     logging.info(f"[API] /api/status called for label={label}, force={force}")
     if not label:
         raise HTTPException(status_code=400, detail="Session label required.")
@@ -707,40 +705,3 @@ def register_all_session_jobs():
 
 register_all_session_jobs()
 scheduler.start()
-
-CONFIG_DIR = "/config"
-
-# Watchdog for hot-reload of jobs (optional, dev only)
-try:
-    from watchdog.observers import Observer
-    from watchdog.events import FileSystemEventHandler
-    class SessionFileChangeHandler(FileSystemEventHandler):
-        def on_modified(self, event):
-            src_path = str(event.src_path)
-            if src_path.endswith('.yaml') and 'session-' in src_path:
-                logging.info(f"[Watchdog] Detected session file modification: {event.event_type} {src_path}")
-                register_all_session_jobs()
-    def start_session_watcher():
-        event_handler = SessionFileChangeHandler()
-        observer = Observer()
-        observer.schedule(event_handler, CONFIG_DIR, recursive=False)
-        observer.daemon = True
-        observer.start()
-        logging.info(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
-    if os.environ.get("ENABLE_WATCHDOG", "0") == "1":
-        start_session_watcher()
-except ImportError:
-    logging.info("Watchdog not installed; hot-reload of jobs disabled.")
-
-# Remove prepopulate_session_status_cache if not needed for persistence
-# If you want to keep it, ensure it's necessary for your use case.
-# Commenting out for now to streamline
-# def prepopulate_session_status_cache():
-#     session_labels = list_sessions()
-#     for label in session_labels:
-#         cfg = load_session(label)
-#         last_check_time = cfg.get("last_check_time")
-#         last_status = cfg.get("last_status")
-#         if last_status:
-#             session_status_cache[label] = {"status": last_status, "last_check_time": last_check_time}
-# prepopulate_session_status_cache()
