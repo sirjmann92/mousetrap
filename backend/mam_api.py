@@ -30,10 +30,31 @@ def get_status(mam_id=None, proxy_cfg=None):
     url = "https://www.myanonamouse.net/jsonLoad.php?snatch_summary"
     cookies = {"mam_id": mam_id}
     proxies = build_proxy_dict(proxy_cfg)
+    # Redact password for logging
+    proxy_cfg_log = dict(proxy_cfg) if proxy_cfg else {}
+    if "password" in proxy_cfg_log:
+        proxy_cfg_log["password"] = "***REDACTED***"
     try:
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies)
-        resp.raise_for_status()
-        data = resp.json()
+        try:
+            resp.raise_for_status()
+        except requests.HTTPError as http_err:
+            if resp.status_code == 403:
+                logging.warning(f"[get_status] 403 Forbidden for url: {url} | proxies: {proxy_cfg_log} | cookies: {cookies}")
+            else:
+                logging.warning(f"[get_status] HTTP error {resp.status_code} for url: {url} | proxies: {proxy_cfg_log} | cookies: {cookies}")
+            raise
+        try:
+            data = resp.json()
+        except Exception as json_e:
+            return {
+                "mam_cookie_exists": False,
+                "points": None,
+                "cheese": None,
+                "wedge_active": None,
+                "vip_active": None,
+                "message": f"MaM API did not return valid JSON: {json_e}. Response: {resp.text[:200]}"
+            }
         # Parse points, cheese, wedge, VIP status from response
         points = data.get("seedbonus")
         cheese = data.get("cheese")

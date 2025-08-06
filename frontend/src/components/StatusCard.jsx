@@ -14,12 +14,14 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   const [seedboxLoading, setSeedboxLoading] = useState(false);
   const pollingRef = useRef();
   const lastCheckRef = useRef(null);
+  const lastForcedCheckRef = useRef(null); // Track last next_check_time for which we forced a check
 
   // Fetch status from backend
   const fetchStatus = async (force = false) => {
     try {
       let url = sessionLabel ? `/api/status?label=${encodeURIComponent(sessionLabel)}` : "/api/status";
       if (force) url += (url.includes('?') ? '&' : '?') + 'force=1';
+      console.log(`[StatusCard] Fetching status: url=${url} force=${force}`); // Diagnostic log
       const res = await fetch(url);
       const data = await res.json();
       const detectedIp = data.detected_public_ip || data.current_ip || "";
@@ -63,14 +65,21 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         secondsLeft = Math.max(0, secondsLeft);
         setTimer(secondsLeft);
         if (secondsLeft === 0) {
-          // When timer hits zero, force a status check to reset timer and update status
-          fetchStatus(true);
+          // Only force a status check if next_check_time has changed since last forced check
+          if (lastForcedCheckRef.current !== status.next_check_time) {
+            lastForcedCheckRef.current = status.next_check_time;
+            fetchStatus(true);
+          }
+        } else {
+          // Reset the forced check tracker if timer is not zero
+          lastForcedCheckRef.current = null;
         }
       };
       updateTimer();
       interval = setInterval(updateTimer, 1000);
     } else {
       setTimer(0);
+      lastForcedCheckRef.current = null;
     }
     return () => interval && clearInterval(interval);
   }, [status && status.next_check_time, sessionLabel]);
@@ -79,15 +88,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   useEffect(() => {
     fetchStatus();
   }, [sessionLabel]);
-
-  // Polling effect: only one interval, always uses backend check_freq
-  useEffect(() => {
-    fetchStatus();
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    const intervalMs = (status && status.check_freq ? status.check_freq : 1) * 60000;
-    pollingRef.current = setInterval(() => fetchStatus(), intervalMs);
-    return () => clearInterval(pollingRef.current);
-  }, [setDetectedIp, status && status.check_freq, sessionLabel]);
 
   // Clear seedbox status when session changes
   useEffect(() => {
