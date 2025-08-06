@@ -123,10 +123,8 @@ export default function App() {
 
   // Refresh session list after save
   const handleSessionSaved = (label, oldLabel) => {
-    // Only reload session if label changed (e.g., after rename)
-    if (oldLabel && label && label !== oldLabel) {
-      loadSession(label);
-    }
+    // Always reload session after save to get latest proxy/password info
+    loadSession(label);
     // Always force status refresh to update timer immediately
     if (statusCardRef.current && statusCardRef.current.forceStatusRefresh) {
       statusCardRef.current.forceStatusRefresh();

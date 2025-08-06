@@ -1,22 +1,17 @@
-from fastapi import FastAPI, Request, HTTPException, Query, Body
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 import os
 import requests
 from datetime import datetime, timezone, timedelta
-import sys
-from typing import Dict, Optional, Any
-import threading
-import time
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 import re
 import logging
+from typing import Dict, Any
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
-from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session, decrypt_password
+from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
 from backend.notifications import send_test_email, send_test_webhook
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
@@ -36,17 +31,15 @@ app.add_middleware(
 app.include_router(millionaires_vault_router)
 app.include_router(last_session_router)
 
-asn_cache: Dict[str, Optional[Any]] = {"ip": None, "asn": None, "tz": None}
-# Per-session status cache: {label: {"status": ..., "last_check_time": ...}}
+asn_cache: Dict[str, Any] = {"ip": None, "asn": None, "tz": None}
 session_status_cache: Dict[str, Dict[str, Any]] = {}
 
 # Configure logging at the top of the file (after imports)
-loglevel = os.environ.get("LOGLEVEL", "INFO").upper()
+loglevel = os.environ.get("LOGLEVEL", "WARNING").upper()
 logging.basicConfig(
-    level=getattr(logging, loglevel, logging.INFO),
+    level=getattr(logging, loglevel, logging.WARNING),
     format='[%(asctime)s %(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S %Z',
-    stream=sys.stdout
 )
 
 def get_asn_and_timezone_from_ip(ip):
@@ -148,10 +141,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     asn = match.group(2) if match else asn_full
     # Proxy config
     proxy_cfg = cfg.get("proxy", {})
-    if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
-        proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
-    elif proxy_cfg.get("password_decrypted"):
-        proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+    # No more password decryption logic needed
     # Also get MAM's perspective for display only
     mam_seen = get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg)
     mam_seen_ip = mam_seen.get("ip")
@@ -329,10 +319,7 @@ def api_automation_wedge(request: Request):
         logging.info(f"[Wedge] Purchase successful for {label}")
         # Return updated status (simulate force=1)
         proxy_cfg = cfg.get("proxy", {})
-        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
-        elif proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        # No more password decryption logic needed
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -372,10 +359,7 @@ def api_automation_vip(request: Request):
         logging.info(f"[VIP] Purchase successful for {label}")
         # Return updated status (simulate force=1)
         proxy_cfg = cfg.get("proxy", {})
-        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
-        elif proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        # No more password decryption logic needed
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -413,10 +397,7 @@ async def api_automation_upload(request: Request):
         logging.info(f"[Upload] Purchase successful for {label}")
         # Return updated status (simulate force=1)
         proxy_cfg = cfg.get("proxy", {})
-        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
-        elif proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        # No more password decryption logic needed
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -506,10 +487,8 @@ async def api_save_session(request: Request):
     try:
         cfg = await request.json()
         old_label = cfg.get("old_label")
-        # --- Password encryption logic ---
         proxy_cfg = cfg.get("proxy", {})
         if "proxy" in cfg:
-            # Load previous session if exists
             from backend.config import load_session
             prev_cfg = None
             if old_label:
@@ -525,18 +504,8 @@ async def api_save_session(request: Request):
             # If password is missing but previous session had one, keep it
             if (not proxy_cfg.get("password")) and prev_cfg and prev_cfg.get("proxy", {}).get("password"):
                 proxy_cfg["password"] = prev_cfg["proxy"]["password"]
-                proxy_cfg["password_encrypted"] = True
-            # If password is not already encrypted, encrypt and store
-            elif proxy_cfg.get("password") and not proxy_cfg.get("password_encrypted"):
-                from backend.config import encrypt_password
-                encrypted = encrypt_password(proxy_cfg["password"])
-                proxy_cfg["password"] = encrypted
-                proxy_cfg["password_encrypted"] = True
-                # Remove plaintext/decrypted fields
-                proxy_cfg.pop("password_decrypted", None)
             cfg["proxy"] = proxy_cfg
         save_session(cfg, old_label=old_label)
-        # Do NOT force status update here; let frontend control refresh to avoid timer feedback loop
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
@@ -599,10 +568,7 @@ async def api_update_seedbox(request: Request):
             return {"success": True, "msg": "No change: IP/ASN already set."}
         # Proxy config
         proxy_cfg = cfg.get("proxy", {})
-        if proxy_cfg.get("password") and not proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = decrypt_password(proxy_cfg["password"])
-        elif proxy_cfg.get("password_decrypted"):
-            proxy_cfg["password"] = proxy_cfg["password_decrypted"]
+        # No more password decryption logic needed
         cookies = {"mam_id": mam_id}
         proxies = None
         from backend.mam_api import build_proxy_dict
@@ -656,17 +622,9 @@ def favicon_svg():
         return FileResponse(path, media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="favicon.svg not found")
 
-# --- STATIC FILES SETUP (robust, works in Docker and locally) ---
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build'))
-FRONTEND_PUBLIC_DIR = "/app/frontend/public"  # Force correct path for Docker
-STATIC_DIR = os.path.join(FRONTEND_BUILD_DIR, 'static')
-
-logging.info(f"Serving static from: {STATIC_DIR}")  # This prints the location it will use
-
+logging.info(f"Serving static from: {STATIC_DIR}")
 if not os.path.isdir(STATIC_DIR):
     raise RuntimeError(f"Directory '{STATIC_DIR}' does not exist")
-
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/", include_in_schema=False)
@@ -739,31 +697,37 @@ scheduler.start()
 
 CONFIG_DIR = "/config"
 
-class SessionFileChangeHandler(FileSystemEventHandler):
-    def on_modified(self, event):
-        src_path = str(event.src_path)
-        if src_path.endswith('.yaml') and 'session-' in src_path:
-            logging.info(f"[Watchdog] Detected session file modification: {event.event_type} {src_path}")
-            register_all_session_jobs()
+# Watchdog for hot-reload of jobs (optional, dev only)
+try:
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    class SessionFileChangeHandler(FileSystemEventHandler):
+        def on_modified(self, event):
+            src_path = str(event.src_path)
+            if src_path.endswith('.yaml') and 'session-' in src_path:
+                logging.info(f"[Watchdog] Detected session file modification: {event.event_type} {src_path}")
+                register_all_session_jobs()
+    def start_session_watcher():
+        event_handler = SessionFileChangeHandler()
+        observer = Observer()
+        observer.schedule(event_handler, CONFIG_DIR, recursive=False)
+        observer.daemon = True
+        observer.start()
+        logging.info(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
+    if os.environ.get("ENABLE_WATCHDOG", "0") == "1":
+        start_session_watcher()
+except ImportError:
+    logging.info("Watchdog not installed; hot-reload of jobs disabled.")
 
-# Start watchdog observer for hot-reload of jobs
-def start_session_watcher():
-    event_handler = SessionFileChangeHandler()
-    observer = Observer()
-    observer.schedule(event_handler, CONFIG_DIR, recursive=False)
-    observer.daemon = True
-    observer.start()
-    logging.info(f"[Watchdog] Started session file watcher on {CONFIG_DIR}")
-
-start_session_watcher()
-
-def prepopulate_session_status_cache():
-    session_labels = list_sessions()
-    for label in session_labels:
-        cfg = load_session(label)
-        last_check_time = cfg.get("last_check_time")
-        last_status = cfg.get("last_status")
-        if last_status:
-            session_status_cache[label] = {"status": last_status, "last_check_time": last_check_time}
-
-prepopulate_session_status_cache()
+# Remove prepopulate_session_status_cache if not needed for persistence
+# If you want to keep it, ensure it's necessary for your use case.
+# Commenting out for now to streamline
+# def prepopulate_session_status_cache():
+#     session_labels = list_sessions()
+#     for label in session_labels:
+#         cfg = load_session(label)
+#         last_check_time = cfg.get("last_check_time")
+#         last_status = cfg.get("last_status")
+#         if last_status:
+#             session_status_cache[label] = {"status": last_status, "last_check_time": last_check_time}
+# prepopulate_session_status_cache()
