@@ -11,6 +11,7 @@ frontend/.cache/
 scripts/
 config/session-*.yaml
 config/config.yaml
+config/last_session.yaml
 logs/
 *.log
 *.bak
