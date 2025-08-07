@@ -142,22 +142,6 @@ export default function PerkAutomationCard({
       setSnackbar({ open: true, message: "Upload automation failed", severity: 'error' });
     }
   };
-  const triggerMillionairesVault = async () => {
-    try {
-      const res = await fetch("/api/automation/millionaires_vault", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: millionairesVaultAmount })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSnackbar({ open: true, message: "Millionaire's Vault donation triggered!", severity: 'success' });
-        onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Millionaire's Vault donation failed"), severity: 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: "Millionaire's Vault donation failed", severity: 'error' });
-    }
-  };
   // Manual wedge purchase handler
   const triggerManualWedge = async (method) => {
     try {
@@ -383,40 +367,6 @@ export default function PerkAutomationCard({
                 <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmUploadOpen(true)}>
                     Purchase Upload
-                  </Button>
-                </span>
-              </Tooltip>
-            </Box>
-          </Box>
-          <Divider sx={{ mb: 3 }} />
-
-          {/* Millionaire's Vault Section */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>Millionaire's Vault</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <FormControlLabel
-                control={<Checkbox checked={autoMillionairesVault} onChange={e => setAutoMillionairesVault(e.target.checked)} />}
-                label={<span>Enable Millionaire's Vault Automation</span>}
-                sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-              />
-              <FormControl size="small" sx={{ minWidth: 140, mr: 3, flexShrink: 0 }}>
-                <InputLabel>Points</InputLabel>
-                <Select
-                  value={millionairesVaultAmount}
-                  label="Points"
-                  onChange={e => setMillionairesVaultAmount(e.target.value)}
-                >
-                  {[...Array(20)].map((_, i) => {
-                    const val = (i + 1) * 100;
-                    return <MenuItem key={val} value={val}>{val.toLocaleString()} points</MenuItem>;
-                  })}
-                </Select>
-              </FormControl>
-              <Box sx={{ flexGrow: 1 }} />
-              <Tooltip title="This will instantly donate the selected amount to Millionaire's Vault.">
-                <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button variant="contained" sx={{ minWidth: 180 }} onClick={triggerMillionairesVault}>
-                    Donate
                   </Button>
                 </span>
               </Tooltip>

@@ -6,7 +6,7 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import Tooltip from '@mui/material/Tooltip';
 
-const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, autoMillionairesVault, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved }, ref) {
+const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved }, ref) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -94,7 +94,28 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 
   // Always fetch status immediately after config save or session change
   useEffect(() => {
-    fetchStatus();
+    // Smart refresh: only force if cache is stale
+    const checkAndFetch = async () => {
+      if (!sessionLabel) return;
+      // Fetch cached status to check last_check_time
+      let url = `/api/status?label=${encodeURIComponent(sessionLabel)}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      let shouldForce = false;
+      if (data.last_check_time && data.check_freq) {
+        const lastCheck = Date.parse(data.last_check_time);
+        const now = Date.now();
+        const freqMs = data.check_freq * 60 * 1000;
+        if (now - lastCheck > freqMs) {
+          shouldForce = true;
+        }
+      } else {
+        shouldForce = true; // No cache, force fetch
+      }
+      await fetchStatus(shouldForce);
+    };
+    checkAndFetch();
+    // eslint-disable-next-line
   }, [sessionLabel]);
 
   // Clear seedbox status when session changes
@@ -198,7 +219,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                 <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
                 <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
                 <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
-                <Typography variant="body1">Millionaire's Vault Automation: <b>{autoMillionairesVault ? "Enabled" : "Disabled"}</b></Typography>
               </Box>
               {status.last_check_time && (
                 <>

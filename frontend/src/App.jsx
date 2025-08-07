@@ -55,7 +55,6 @@ export default function App() {
   const [autoWedge, setAutoWedge] = React.useState(true);
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
-  const [autoMillionairesVault, setAutoMillionairesVault] = React.useState(false);
   const [currentASN, setCurrentASN] = React.useState("");
   const [checkFrequency, setCheckFrequency] = React.useState("");
   const [detectedIp, setDetectedIp] = React.useState("");
@@ -213,7 +212,6 @@ export default function App() {
           autoWedge={autoWedge}
           autoVIP={autoVIP}
           autoUpload={autoUpload}
-          autoMillionairesVault={autoMillionairesVault}
           setDetectedIp={setDetectedIp}
           setPoints={setPoints}
           setCheese={setCheese}
@@ -248,8 +246,6 @@ export default function App() {
           setAutoVIP={setAutoVIP}
           autoUpload={autoUpload}
           setAutoUpload={setAutoUpload}
-          autoMillionairesVault={autoMillionairesVault}
-          setAutoMillionairesVault={setAutoMillionairesVault}
           points={points}
           cheese={cheese}
           uploadAmount={uploadAmount}
