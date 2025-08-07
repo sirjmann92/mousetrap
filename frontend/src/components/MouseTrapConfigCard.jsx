@@ -212,7 +212,7 @@ export default function MouseTrapConfigCard({
                     <MenuItem value="ASN Locked">ASN Locked</MenuItem>
                   </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 160, flex: 1 }} error={!!freqError}>
+                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165, flex: 1 }} error={!!freqError}>
                   <InputLabel>Frequency*</InputLabel>
                   <Select
                     value={checkFrequency || ""}

@@ -729,7 +729,12 @@ def register_all_session_jobs():
     session_labels = list_sessions()
     for label in session_labels:
         cfg = load_session(label)
-        check_freq = cfg.get("check_freq", 5)
+        check_freq = cfg.get("check_freq")
+        mam_id = cfg.get('mam', {}).get('mam_id', "")
+        # Only register if frequency is set and valid, and MaM ID is present
+        if not check_freq or not isinstance(check_freq, int) or check_freq < 1 or not mam_id:
+            logging.info(f"[APScheduler] Skipping job registration for session '{label}' (missing or invalid frequency or MaM ID)")
+            continue
         job_id = f"session_check_{label}"
         # Remove any existing job for this label
         if scheduler.get_job(job_id):
