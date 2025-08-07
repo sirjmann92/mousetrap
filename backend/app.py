@@ -352,12 +352,11 @@ async def api_automation_wedge(request: Request):
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
-        uid = cfg.get('mam', {}).get('uid', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
         proxy_cfg = cfg.get("proxy", {})
         try:
-            result = buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg, uid=uid)
+            result = buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
         except Exception as e:
             logging.error(f"[Wedge] buy_wedge exception: {e}")
             return {"success": False, "error": f"buy_wedge exception: {e}"}
@@ -365,7 +364,7 @@ async def api_automation_wedge(request: Request):
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during wedge purchase."
             logging.error(f"[Wedge] Purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg}
+            return {"success": False, "error": err_msg, "result": result}
         logging.info(f"[Wedge] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
@@ -384,21 +383,26 @@ async def api_automation_wedge(request: Request):
 @app.post("/api/automation/vip")
 async def api_automation_vip(request: Request):
     """
-    Purchase VIP using real MaM API call. Accepts label. Returns updated status on success.
+    Purchase VIP using real MaM API call. Accepts label and weeks (duration). Returns updated status on success.
     """
     try:
         data = await request.json()
         label = data.get('label')
+        weeks = data.get('weeks', 4)  # Default to 4 weeks if not provided
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
-        uid = cfg.get('mam', {}).get('uid', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
         proxy_cfg = cfg.get("proxy", {})
+        # Map weeks to duration param: 4 -> '4', 8 -> '8', 90 -> 'max'
+        if weeks == 90:
+            duration = 'max'
+        else:
+            duration = str(weeks)
         try:
-            result = buy_vip(mam_id, proxy_cfg=proxy_cfg, uid=uid)
+            result = buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
         except Exception as e:
             logging.error(f"[VIP] buy_vip exception: {e}")
             return {"success": False, "error": f"buy_vip exception: {e}"}
