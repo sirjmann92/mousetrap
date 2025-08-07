@@ -125,7 +125,6 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
     global session_status_cache
-    logging.info(f"[API] /api/status called for label={label}, force={force}")
     if not label:
         raise HTTPException(status_code=400, detail="Session label required.")
     cfg = load_session(label)
@@ -139,7 +138,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     asn = match.group(2) if match else asn_full
     # Proxy config
     proxy_cfg = cfg.get("proxy", {})
-    # No more password decryption logic needed
     # Also get MAM's perspective for display only
     mam_seen = get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg)
     mam_seen_ip = mam_seen.get("ip")
@@ -170,7 +168,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
             status = mam_status
             last_check_time = now.isoformat()
-            logging.info(f"[MaM API] Checking for mam_id={mam_id} (force={force})")
             # --- Auto-update logic ---
             auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
             if auto_update_triggered and auto_update_result:
@@ -294,34 +291,32 @@ async def api_config_save(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to save config: {e}")
 
 @app.post("/api/automation/wedge")
-def api_automation_wedge(request: Request):
+async def api_automation_wedge(request: Request):
     """
     Purchase wedge using real MaM API call. Accepts label and method (default 'points'). Returns updated status on success.
     """
     try:
-        data = request.json() if hasattr(request, 'json') else {}
-        label = data.get('label') if isinstance(data, dict) else None
-        method = data.get('method', 'points') if isinstance(data, dict) else 'points'
+        data = await request.json()
+        label = data.get('label')
+        method = data.get('method', 'points')
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        result = buy_wedge(mam_id, method=method)
+        proxy_cfg = cfg.get("proxy", {})
+        result = buy_wedge(mam_id, method=method)  # Add proxy_cfg if supported
         success = result.get("success", False) if result else False
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during wedge purchase."
             logging.error(f"[Wedge] Purchase failed: {err_msg}")
             return {"success": False, "error": err_msg, "result": result}
         logging.info(f"[Wedge] Purchase successful for {label}")
-        # Return updated status (simulate force=1)
-        proxy_cfg = cfg.get("proxy", {})
-        # No more password decryption logic needed
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
-        mam_status['configured_asn'] = None  # ASN can be added if needed
+        mam_status['configured_asn'] = None
         session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
         cfg['last_status'] = mam_status
         cfg['last_check_time'] = now.isoformat()
@@ -332,20 +327,21 @@ def api_automation_wedge(request: Request):
         return {"success": False, "error": str(e)}
 
 @app.post("/api/automation/vip")
-def api_automation_vip(request: Request):
+async def api_automation_vip(request: Request):
     """
     Purchase VIP using real MaM API call. Accepts label. Returns updated status on success.
     """
     try:
-        data = request.json() if hasattr(request, 'json') else {}
-        label = data.get('label') if isinstance(data, dict) else None
+        data = await request.json()
+        label = data.get('label')
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        result = buy_vip(mam_id)
+        proxy_cfg = cfg.get("proxy", {})
+        result = buy_vip(mam_id)  # Add proxy_cfg if supported
         success = result.get("success", False) if result else False
         if not success:
             if result:
@@ -355,9 +351,6 @@ def api_automation_vip(request: Request):
             logging.error(f"[VIP] Purchase failed: {err_msg}")
             return {"success": False, "error": err_msg, "result": result}
         logging.info(f"[VIP] Purchase successful for {label}")
-        # Return updated status (simulate force=1)
-        proxy_cfg = cfg.get("proxy", {})
-        # No more password decryption logic needed
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -422,7 +415,6 @@ async def api_automation_upload_auto(request: Request):
         label = data.get('label')
         amount = int(data.get('amount', 1))
         min_points = int(data.get('min_points', 0))
-        logging.info(f"[API] /api/automation/upload_auto called with label={label}, amount={amount}, min_points={min_points}")
         if not label:
             logging.error("[UploadAuto] No session label provided.")
             raise HTTPException(status_code=400, detail="Session label required.")
@@ -437,7 +429,6 @@ async def api_automation_upload_auto(request: Request):
         proxy_cfg_log = dict(proxy_cfg) if proxy_cfg else {}
         if "password" in proxy_cfg_log:
             proxy_cfg_log["password"] = "***REDACTED***"
-        logging.info(f"[UploadAuto] Using proxy config: {proxy_cfg_log}")
         try:
             status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         except Exception as e:
@@ -540,7 +531,6 @@ async def api_save_perkautomation(request: Request):
         # Save automation settings to session config
         cfg["perk_automation"] = data.get("perk_automation", {})
         save_session(cfg, old_label=label)
-        logging.info(f"[PerkAutomation] Saved automation settings for session '{label}': {cfg['perk_automation']}")
         return {"success": True}
     except Exception as e:
         logging.warning(f"[PerkAutomation] Failed to save automation settings: {e}")
@@ -564,7 +554,6 @@ async def api_update_seedbox(request: Request):
         asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use)
         match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
         asn = match.group(2) if match else asn_full
-        logging.info(f"[SeedboxUpdate] Preparing to update: label={label}, mam_id={mam_id[:8]}..., ip_to_use={ip_to_use}, asn={asn}, mam_ip_override={mam_ip_override}")
         last_seedbox_ip = cfg.get("last_seedbox_ip")
         last_seedbox_asn = cfg.get("last_seedbox_asn")
         last_seedbox_update = cfg.get("last_seedbox_update")
@@ -667,7 +656,8 @@ def session_check_job(label):
             asn = None
         now = datetime.now(timezone.utc)
         if mam_id:
-            mam_status = get_status(mam_id=mam_id)
+            proxy_cfg = cfg.get("proxy", {})
+            mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # --- Auto-update logic ---
@@ -675,7 +665,6 @@ def session_check_job(label):
             if auto_update_triggered and auto_update_result:
                 mam_status['auto_update_seedbox'] = auto_update_result
             save_session(cfg, old_label=label)
-            logging.info(f"[APScheduler] Checked session '{label}' at {now}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
 
