@@ -58,19 +58,22 @@ def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
         logging.error(f"[buy_upload_credit] Exception: {e}")
         return {"success": False, "error": str(e), "gb": gb}
 
-def buy_vip(mam_id, proxy_cfg=None, uid=None):
+def buy_vip(mam_id, duration='max', proxy_cfg=None):
     """
     Purchase VIP status via the MaM API. Returns a result dict.
     mam_id: required session cookie for authentication
+    duration: 'max', '4', '8', etc. (string)
     proxy_cfg: optional proxy config dict
-    uid: optional user id cookie
     """
     import time
     timestamp = int(time.time() * 1000)
-    url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=vip&_={timestamp}"
+    url = f"https://www.myanonamouse.net/json/bonusBuy.php/"
+    params = {
+        'spendtype': 'VIP',
+        'duration': duration,
+        '_': timestamp
+    }
     cookies = {"mam_id": mam_id}
-    if uid:
-        cookies["uid"] = uid
     proxies = None
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
@@ -84,8 +87,8 @@ def buy_vip(mam_id, proxy_cfg=None, uid=None):
         logging.debug(f"[buy_vip] Using proxy config: {proxy_cfg}")
         logging.debug(f"[buy_vip] Built proxies dict: {proxies}")
     try:
-        logging.debug(f"[buy_vip] Requesting: {url}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
-        resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
+        logging.debug(f"[buy_vip] Requesting: {url} params={params}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
+        resp = requests.get(url, params=params, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
         logging.debug(f"[buy_vip] Response: status={resp.status_code}\n  headers: {dict(resp.headers)}\n  text: {resp.text[:500]}")
         resp.raise_for_status()
         try:
@@ -105,12 +108,11 @@ def buy_vip(mam_id, proxy_cfg=None, uid=None):
         logging.error(f"[buy_vip] Exception: {e}")
         return {"success": False, "error": str(e)}
 
-def buy_wedge(mam_id, method="points", proxy_cfg=None, uid=None):
+def buy_wedge(mam_id, method="points", proxy_cfg=None):
     """
     Purchase a wedge using points or cheese via the MaM API.
     method: "points" or "cheese"
     proxy_cfg: optional proxy config dict
-    uid: optional user id cookie
     """
     if method not in ("points", "cheese"):
         raise Exception(f"Unsupported wedge purchase method: {method}")
@@ -118,8 +120,6 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None, uid=None):
     timestamp = int(time.time() * 1000)
     url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=wedges&source={method}&_={timestamp}"
     cookies = {"mam_id": mam_id}
-    if uid:
-        cookies["uid"] = uid
     proxies = None
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
@@ -144,16 +144,15 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None, uid=None):
                 "success": False,
                 "error": f"Non-JSON response: {json_e}",
                 "raw_response": resp.text[:500],
-                "status_code": resp.status_code,
-                "method": method
+                "status_code": resp.status_code
             }
         if data.get("success") or data.get("Success"):
-            return {"success": True, "method": method, "response": data}
+            return {"success": True, "response": data}
         else:
-            return {"success": False, "method": method, "response": data}
+            return {"success": False, "response": data}
     except Exception as e:
         logging.error(f"[buy_wedge] Exception: {e}")
-        return {"success": False, "error": str(e), "method": method}
+        return {"success": False, "error": str(e)}
 
 def can_afford_upload(points, config, gb):
     required = gb * 500 + config['buffer']
