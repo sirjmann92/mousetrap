@@ -24,6 +24,13 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       console.log(`[StatusCard] Fetching status: url=${url} force=${force}`); // Diagnostic log
       const res = await fetch(url);
       const data = await res.json();
+      if (data.success === false || data.error) {
+        setStatus({ error: data.error || 'Unknown error from backend.' });
+        setSnackbar({ open: true, message: stringifyMessage(data.error || 'Unknown error from backend.'), severity: 'error' });
+        if (setPoints) setPoints(null);
+        if (setCheese) setCheese(null);
+        return;
+      }
       const detectedIp = data.detected_public_ip || data.current_ip || "";
       setStatus({
         last_update_mamid: data.mam_id || "",
@@ -48,7 +55,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       if (setPoints) setPoints(data.points || null);
       if (setCheese) setCheese(data.cheese || null);
     } catch (e) {
-      setStatus(null);
+      setStatus({ error: e.message || 'Failed to fetch status.' });
+      setSnackbar({ open: true, message: stringifyMessage(e.message || 'Failed to fetch status.'), severity: 'error' });
       if (setPoints) setPoints(null);
       if (setCheese) setCheese(null);
     }
@@ -151,7 +159,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Tooltip>
           </Box>
         </Box>
-        {status ? (
+        {/* Robust error handling: if status is set and has error, only render the error alert */}
+        {status && status.error ? (
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <Alert severity="error">{status.error}</Alert>
+          </Box>
+        ) : status ? (
           status.configured === false ? (
             <Box sx={{ mt: 2, mb: 2 }}>
               <Alert severity="info">{status.status_message || "Session not configured. Please save session details to begin."}</Alert>
@@ -258,7 +271,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         )}
         <Snackbar open={snackbar.open} autoHideDuration={2000} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
           <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
-            {snackbar.message}
+            {stringifyMessage(snackbar.message)}
           </Alert>
         </Snackbar>
         <Divider sx={{ my: 2 }} />
@@ -307,6 +320,18 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 });
 
 export default StatusCard;
+
+// Utility to robustly stringify any message for snackbars
+function stringifyMessage(msg) {
+  if (typeof msg === 'string') return msg;
+  if (msg instanceof Error) return msg.message;
+  if (msg === undefined || msg === null) return '';
+  try {
+    return JSON.stringify(msg);
+  } catch {
+    return String(msg);
+  }
+}
 
 // Live rate limit timer component
 function RateLimitTimer({ minutes }) {
