@@ -129,8 +129,23 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
     global session_status_cache
+    detected_public_ip = get_public_ip()
+    detected_public_ip_asn = None
+    if detected_public_ip:
+        asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip)
+        match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
+        detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
     if not label:
-        raise HTTPException(status_code=400, detail="Session label required.")
+        # Always return detected_public_ip and asn, even if label is missing
+        return {
+            "configured": False,
+            "status_message": "Session label required.",
+            "last_check_time": None,
+            "next_check_time": None,
+            "details": {},
+            "detected_public_ip": detected_public_ip,
+            "detected_public_ip_asn": detected_public_ip_asn,
+        }
     cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     # If session is not configured (no mam_id), return not configured status
@@ -141,6 +156,8 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             "last_check_time": None,
             "next_check_time": None,
             "details": {},
+            "detected_public_ip": detected_public_ip,
+            "detected_public_ip_asn": detected_public_ip_asn,
         }
     mam_ip_override = cfg.get('mam_ip', "").strip()
     detected_public_ip = get_public_ip()

@@ -44,13 +44,11 @@ export default function App() {
     }), [mode]);
 
   // App state (shared via props)
-  const [selectedLabel, setSelectedLabel] = React.useState(() => {
-    return window.localStorage.getItem('lastSessionLabel') || "Session01";
-  });
-  const [label, setLabel] = React.useState("Session01");
-  const [oldLabel, setOldLabel] = React.useState("Session01");
+  const [selectedLabel, setSelectedLabel] = React.useState("");
+  const [label, setLabel] = React.useState("");
+  const [oldLabel, setOldLabel] = React.useState("");
   const [mamId, setMamId] = React.useState("");
-  const [sessionType, setSessionType] = React.useState("IP Locked");
+  const [sessionType, setSessionType] = React.useState("");
   const [mamIp, setMamIp] = React.useState("");
   const [buffer, setBuffer] = React.useState(52000);
   const [wedgeHours, setWedgeHours] = React.useState(168);
@@ -58,8 +56,8 @@ export default function App() {
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
   const [autoMillionairesVault, setAutoMillionairesVault] = React.useState(false);
-  const [currentASN, setCurrentASN] = React.useState("12345"); // Replace with actual ASN logic!
-  const [checkFrequency, setCheckFrequency] = React.useState(5); // Default frequency in minutes
+  const [currentASN, setCurrentASN] = React.useState("");
+  const [checkFrequency, setCheckFrequency] = React.useState("");
   const [detectedIp, setDetectedIp] = React.useState("");
   const [points, setPoints] = React.useState(null);
   const [cheese, setCheese] = React.useState(null);
@@ -67,6 +65,16 @@ export default function App() {
   const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
   const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
   const [proxy, setProxy] = React.useState({});
+
+  // On mount, fetch detected IP and ASN for new sessions
+  React.useEffect(() => {
+    fetch('/api/status?label=' + encodeURIComponent(label || ''))
+      .then(res => res.json())
+      .then(data => {
+        if (data.detected_public_ip) setDetectedIp(data.detected_public_ip);
+        if (data.detected_public_ip_asn) setCurrentASN(data.detected_public_ip_asn);
+      });
+  }, []); // Only run once on mount
 
   // Load session config by label
   const loadSession = async (labelToLoad) => {
@@ -77,9 +85,9 @@ export default function App() {
       setLabel(cfg?.label ?? labelToLoad);
       setOldLabel(cfg?.label ?? labelToLoad);
       setMamId(cfg?.mam?.mam_id ?? "");
-      setSessionType(cfg?.mam?.session_type ?? "IP Locked");
+      setSessionType(cfg?.mam?.session_type ?? "");
       setMamIp(cfg?.mam_ip ?? "");
-      setCheckFrequency(cfg?.check_freq ?? 5);
+      setCheckFrequency(cfg?.check_freq ?? "");
       setProxy(cfg?.proxy ?? {});
       // Add other fields as needed
     } catch (e) {
