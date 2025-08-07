@@ -133,6 +133,15 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         raise HTTPException(status_code=400, detail="Session label required.")
     cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
+    # If session is not configured (no mam_id), return not configured status
+    if not mam_id:
+        return {
+            "configured": False,
+            "status_message": "Session not configured. Please save session details to begin.",
+            "last_check_time": None,
+            "next_check_time": None,
+            "details": {},
+        }
     mam_ip_override = cfg.get('mam_ip', "").strip()
     detected_public_ip = get_public_ip()
     ip_to_use = mam_ip_override if mam_ip_override else detected_public_ip
@@ -161,6 +170,18 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip)
         match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
+    # If session has never been checked (no last_status and not forced), return not configured
+    if not force and (label not in session_status_cache or not session_status_cache[label].get("status")):
+        last_status = cfg.get('last_status')
+        last_check_time = cfg.get('last_check_time')
+        if not last_status or not last_check_time:
+            return {
+                "configured": False,
+                "status_message": "Session not configured. Please save session details to begin.",
+                "last_check_time": None,
+                "next_check_time": None,
+                "details": {},
+            }
     if force or not status:
         if force:
             mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
@@ -485,7 +506,9 @@ def api_session_refresh(request: Request):
 
 @app.get("/api/sessions")
 def api_list_sessions():
-    return {"sessions": list_sessions()}
+    sessions = list_sessions()
+    logging.info(f"[Session] Listed sessions: count={len(sessions)}")
+    return {"sessions": sessions}
 
 @app.get("/api/session/{label}")
 def api_load_session(label: str):
@@ -515,6 +538,7 @@ async def api_save_session(request: Request):
                 proxy_cfg["password"] = prev_cfg["proxy"]["password"]
             cfg["proxy"] = proxy_cfg
         save_session(cfg, old_label=old_label)
+        logging.info(f"[Session] Saved session: label={cfg.get('label')} old_label={old_label}")
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
@@ -523,6 +547,7 @@ async def api_save_session(request: Request):
 def api_delete_session(label: str):
     try:
         delete_session(label)
+        logging.info(f"[Session] Deleted session: label={label}")
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")
