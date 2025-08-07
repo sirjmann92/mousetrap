@@ -49,6 +49,18 @@ function MillionairesVaultAmountDropdown({ value, onChange, minWidth }) {
   );
 }
 
+// Utility to robustly stringify any message for snackbars
+function stringifyMessage(msg) {
+  if (typeof msg === 'string') return msg;
+  if (msg instanceof Error) return msg.message;
+  if (msg === undefined || msg === null) return '';
+  try {
+    return JSON.stringify(msg);
+  } catch {
+    return String(msg);
+  }
+}
+
 export default function PerkAutomationCard({
   buffer, setBuffer,
   wedgeHours, setWedgeHours,
@@ -96,7 +108,7 @@ export default function PerkAutomationCard({
       if (data.success) {
         setSnackbar({ open: true, message: "Wedge automation triggered!", severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || "Wedge automation failed", severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Wedge automation failed"), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: "Wedge automation failed", severity: 'error' });
     }
@@ -108,7 +120,7 @@ export default function PerkAutomationCard({
       if (data.success) {
         setSnackbar({ open: true, message: "VIP automation triggered!", severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || "VIP automation failed", severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "VIP automation failed"), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: "VIP automation failed", severity: 'error' });
     }
@@ -125,7 +137,7 @@ export default function PerkAutomationCard({
       if (data.success) {
         setSnackbar({ open: true, message: "Upload automation triggered!", severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || "Upload automation failed", severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Upload automation failed"), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: "Upload automation failed", severity: 'error' });
     }
@@ -141,7 +153,7 @@ export default function PerkAutomationCard({
       if (data.success) {
         setSnackbar({ open: true, message: "Millionaire's Vault donation triggered!", severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || "Millionaire's Vault donation failed", severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Millionaire's Vault donation failed"), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: "Millionaire's Vault donation failed", severity: 'error' });
     }
@@ -152,13 +164,13 @@ export default function PerkAutomationCard({
       const res = await fetch("/api/automation/wedge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ method })
+        body: JSON.stringify({ label: sessionLabel, method }) // Always include label
       });
       const data = await res.json();
       if (data.success) {
         setSnackbar({ open: true, message: `Wedge purchased with ${method}!`, severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || `Wedge purchase with ${method} failed`, severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || `Wedge purchase with ${method} failed`), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: `Wedge purchase with ${method} failed`, severity: 'error' });
     }
@@ -168,13 +180,13 @@ export default function PerkAutomationCard({
       const res = await fetch("/api/automation/vip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ weeks: vipWeeks })
+        body: JSON.stringify({ label: sessionLabel, weeks: vipWeeks }) // Always include label
       });
       const data = await res.json();
       if (data.success) {
         setSnackbar({ open: true, message: `VIP purchased for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`}!`, severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`} failed`, severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`} failed`), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`} failed`, severity: 'error' });
     }
@@ -190,7 +202,7 @@ export default function PerkAutomationCard({
       if (data.success) {
         setSnackbar({ open: true, message: `Upload credit purchased: ${uploadAmount}GB!`, severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: data.error || `Upload credit purchase failed`, severity: 'error' });
+      } else setSnackbar({ open: true, message: stringifyMessage(data.error || `Upload credit purchase failed`), severity: 'error' });
     } catch (e) {
       setSnackbar({ open: true, message: `Upload credit purchase failed`, severity: 'error' });
     }
@@ -215,7 +227,7 @@ export default function PerkAutomationCard({
     if (data.success) {
       setSnackbar({ open: true, message: "Automation settings saved!", severity: "success" });
       onActionComplete();
-    } else setSnackbar({ open: true, message: data.error || "Save failed", severity: "error" });
+    } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Save failed"), severity: "error" });
   };
 
   return (
@@ -466,7 +478,7 @@ export default function PerkAutomationCard({
             onClose={() => setSnackbar({ ...snackbar, open: false })}
           >
             <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
-              {snackbar.message}
+              {stringifyMessage(snackbar.message)}
             </Alert>
           </Snackbar>
         </CardContent>

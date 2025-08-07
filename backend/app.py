@@ -352,15 +352,20 @@ async def api_automation_wedge(request: Request):
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
+        uid = cfg.get('mam', {}).get('uid', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
         proxy_cfg = cfg.get("proxy", {})
-        result = buy_wedge(mam_id, method=method)  # Add proxy_cfg if supported
+        try:
+            result = buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg, uid=uid)
+        except Exception as e:
+            logging.error(f"[Wedge] buy_wedge exception: {e}")
+            return {"success": False, "error": f"buy_wedge exception: {e}"}
         success = result.get("success", False) if result else False
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during wedge purchase."
             logging.error(f"[Wedge] Purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg, "result": result}
+            return {"success": False, "error": err_msg}
         logging.info(f"[Wedge] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
@@ -388,18 +393,20 @@ async def api_automation_vip(request: Request):
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
+        uid = cfg.get('mam', {}).get('uid', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
         proxy_cfg = cfg.get("proxy", {})
-        result = buy_vip(mam_id)  # Add proxy_cfg if supported
+        try:
+            result = buy_vip(mam_id, proxy_cfg=proxy_cfg, uid=uid)
+        except Exception as e:
+            logging.error(f"[VIP] buy_vip exception: {e}")
+            return {"success": False, "error": f"buy_vip exception: {e}"}
         success = result.get("success", False) if result else False
         if not success:
-            if result:
-                err_msg = result.get("error") or result.get("response") or "Unknown error during VIP purchase."
-            else:
-                err_msg = "Unknown error during VIP purchase. (No result returned)"
+            err_msg = result.get("error") or result.get("response") or "Unknown error during VIP purchase."
             logging.error(f"[VIP] Purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg, "result": result}
+            return {"success": False, "error": err_msg}
         logging.info(f"[VIP] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
@@ -440,7 +447,7 @@ async def api_automation_upload(request: Request):
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
             logging.error(f"[Upload] Purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg, "result": result}
+            return {"success": False, "error": err_msg}
         logging.info(f"[Upload] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
@@ -508,7 +515,7 @@ async def api_automation_upload_auto(request: Request):
             else:
                 err_msg = "Unknown error during upload purchase. (No result returned)"
             logging.error(f"[UploadAuto] Upload purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg, "result": result}
+            return {"success": False, "error": err_msg}
         logging.info(f"[UploadAuto] Upload purchase successful: {amount}GB for {label}")
         logging.info(f"[Automation] label={label} type=upload_auto amount={amount} result=success points_before={points}")
         return {"success": True, "result": result, "points_before": points, "amount": amount}
