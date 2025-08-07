@@ -40,6 +40,9 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S %Z',
 )
 
+# Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
+logging.getLogger('apscheduler').setLevel(logging.WARNING)
+
 def get_asn_and_timezone_from_ip(ip):
     try:
         token = os.environ.get("IPINFO_TOKEN")
@@ -85,12 +88,13 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     if update_needed and last_seedbox_update:
         last_update_dt = datetime.fromisoformat(last_seedbox_update)
         if (now - last_update_dt) < timedelta(hours=1):
+            logging.info(f"[AutoUpdate] label={label} update_needed=True result=rate_limited reason={reason}")
             return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
     if update_needed and mam_id:
         try:
             cookies = {"mam_id": mam_id}
             resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
-            logging.info(f"[AutoSeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
+            logging.info(f"[AutoUpdate] label={label} update_needed=True MaM_API_status={resp.status_code}")
             try:
                 result = resp.json()
             except Exception:
@@ -100,25 +104,25 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 cfg["last_seedbox_asn"] = asn
                 cfg["last_seedbox_update"] = now.isoformat()
                 save_session(cfg, old_label=label)
-                logging.info(f"[AutoSeedboxUpdate] Auto-update successful for {label}: {reason}")
+                logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
                 return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
             elif resp.status_code == 200 and result.get("msg") == "No change":
                 cfg["last_seedbox_ip"] = ip_to_use
                 cfg["last_seedbox_asn"] = asn
                 cfg["last_seedbox_update"] = now.isoformat()
                 save_session(cfg, old_label=label)
-                logging.info(f"[AutoSeedboxUpdate] No change needed for {label}: {reason}")
+                logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
                 return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
             elif resp.status_code == 429 or (
                 isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
             ):
-                logging.warning(f"[AutoSeedboxUpdate] Rate limit for {label}: {reason}")
+                logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason}")
                 return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
             else:
-                logging.error(f"[AutoSeedboxUpdate] Error for {label}: {result.get('msg', 'Unknown error')}")
+                logging.info(f"[AutoUpdate] label={label} result=error reason={reason} msg={result.get('msg', 'Unknown error')}")
                 return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
         except Exception as e:
-            logging.error(f"[AutoSeedboxUpdate] Exception for {label}: {e}")
+            logging.info(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
             return True, {"success": False, "error": str(e), "reason": reason}
     return False, None
 
@@ -321,6 +325,7 @@ async def api_automation_wedge(request: Request):
         cfg['last_status'] = mam_status
         cfg['last_check_time'] = now.isoformat()
         save_session(cfg, old_label=label)
+        logging.info(f"[Purchase] label={label} type=wedge result=success points={mam_status.get('points')}")
         return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
         logging.error(f"[Wedge] Exception: {e}")
@@ -359,6 +364,7 @@ async def api_automation_vip(request: Request):
         cfg['last_status'] = mam_status
         cfg['last_check_time'] = now.isoformat()
         save_session(cfg, old_label=label)
+        logging.info(f"[Purchase] label={label} type=vip result=success points={mam_status.get('points')}")
         return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
         logging.error(f"[VIP] Exception: {e}")
@@ -391,7 +397,6 @@ async def api_automation_upload(request: Request):
             logging.error(f"[Upload] Purchase failed: {err_msg}")
             return {"success": False, "error": err_msg, "result": result}
         logging.info(f"[Upload] Purchase successful for {label}")
-        # Return updated status (simulate force=1)
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -400,6 +405,7 @@ async def api_automation_upload(request: Request):
         cfg['last_status'] = mam_status
         cfg['last_check_time'] = now.isoformat()
         save_session(cfg, old_label=label)
+        logging.info(f"[Purchase] label={label} type=upload result=success points={mam_status.get('points')} gb={gb}")
         return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
         logging.error(f"[Upload] Exception: {e}")
@@ -459,6 +465,7 @@ async def api_automation_upload_auto(request: Request):
             logging.error(f"[UploadAuto] Upload purchase failed: {err_msg}")
             return {"success": False, "error": err_msg, "result": result}
         logging.info(f"[UploadAuto] Upload purchase successful: {amount}GB for {label}")
+        logging.info(f"[Automation] label={label} type=upload_auto amount={amount} result=success points_before={points}")
         return {"success": True, "result": result, "points_before": points, "amount": amount}
     except Exception as e:
         logging.error(f"[UploadAuto] Exception: {e}")
@@ -665,6 +672,10 @@ def session_check_job(label):
             if auto_update_triggered and auto_update_result:
                 mam_status['auto_update_seedbox'] = auto_update_result
             save_session(cfg, old_label=label)
+            # Custom concise log for session check result
+            status_msg = mam_status.get('message', 'OK')
+            points = mam_status.get('points')
+            logging.info(f"[SessionCheck] label={label} status={status_msg} points={points}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
 
