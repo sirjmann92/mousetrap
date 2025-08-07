@@ -79,51 +79,58 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     update_needed = False
     reason = None
+    # Only trigger update for IP-locked sessions when IP changes
     if session_type == 'ip locked' and ip_to_use and ip_to_use != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_use}"
-    elif session_type == 'asn locked' and asn and asn != last_seedbox_asn:
-        update_needed = True
-        reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
-    if update_needed and last_seedbox_update:
-        last_update_dt = datetime.fromisoformat(last_seedbox_update)
-        if (now - last_update_dt) < timedelta(hours=1):
-            logging.info(f"[AutoUpdate] label={label} update_needed=True result=rate_limited reason={reason}")
-            return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
-    if update_needed and mam_id:
-        try:
-            cookies = {"mam_id": mam_id}
-            resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
-            logging.info(f"[AutoUpdate] label={label} update_needed=True MaM_API_status={resp.status_code}")
+        # Check rate limit
+        if update_needed and last_seedbox_update:
+            last_update_dt = datetime.fromisoformat(last_seedbox_update)
+            if (now - last_update_dt) < timedelta(hours=1):
+                logging.info(f"[AutoUpdate] label={label} update_needed=True result=rate_limited reason={reason}")
+                return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
+        if update_needed and mam_id:
             try:
-                result = resp.json()
-            except Exception:
-                result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
-            if resp.status_code == 200 and result.get("Success"):
-                cfg["last_seedbox_ip"] = ip_to_use
-                cfg["last_seedbox_asn"] = asn
-                cfg["last_seedbox_update"] = now.isoformat()
-                save_session(cfg, old_label=label)
-                logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
-                return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
-            elif resp.status_code == 200 and result.get("msg") == "No change":
-                cfg["last_seedbox_ip"] = ip_to_use
-                cfg["last_seedbox_asn"] = asn
-                cfg["last_seedbox_update"] = now.isoformat()
-                save_session(cfg, old_label=label)
-                logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
-                return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
-            elif resp.status_code == 429 or (
-                isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
-            ):
-                logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason}")
-                return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
-            else:
-                logging.info(f"[AutoUpdate] label={label} result=error reason={reason} msg={result.get('msg', 'Unknown error')}")
-                return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
-        except Exception as e:
-            logging.info(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
-            return True, {"success": False, "error": str(e), "reason": reason}
+                cookies = {"mam_id": mam_id}
+                resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
+                logging.info(f"[AutoUpdate] label={label} update_needed=True MaM_API_status={resp.status_code}")
+                try:
+                    result = resp.json()
+                except Exception:
+                    result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
+                if resp.status_code == 200 and result.get("Success"):
+                    cfg["last_seedbox_ip"] = ip_to_use
+                    cfg["last_seedbox_asn"] = asn
+                    cfg["last_seedbox_update"] = now.isoformat()
+                    save_session(cfg, old_label=label)
+                    logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
+                    return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
+                elif resp.status_code == 200 and result.get("msg") == "No change":
+                    cfg["last_seedbox_ip"] = ip_to_use
+                    cfg["last_seedbox_asn"] = asn
+                    cfg["last_seedbox_update"] = now.isoformat()
+                    save_session(cfg, old_label=label)
+                    logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
+                    return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
+                elif resp.status_code == 429 or (
+                    isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
+                ):
+                    logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason}")
+                    return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
+                else:
+                    logging.info(f"[AutoUpdate] label={label} result=error reason={reason} msg={result.get('msg', 'Unknown error')}")
+                    return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
+            except Exception as e:
+                logging.info(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
+                return True, {"success": False, "error": str(e), "reason": reason}
+    # For ASN-locked sessions, do NOT call the seedbox API, just notify if ASN changed
+    elif session_type == 'asn locked' and asn and asn != last_seedbox_asn:
+        reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
+        logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
+        # Optionally, update last_seedbox_asn for tracking
+        cfg["last_seedbox_asn"] = asn
+        save_session(cfg, old_label=label)
+        return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
     return False, None
 
 @app.get("/api/status")
