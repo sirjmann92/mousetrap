@@ -47,6 +47,9 @@ export default function MouseTrapConfigCard({
   const [proxyPassword, setProxyPassword] = useState(""); // blank unless user enters new
   const [hasPassword, setHasPassword] = useState(!!proxy.password);
 
+  // Validation state
+  const [labelError, setLabelError] = useState("");
+
   useEffect(() => {
     setProxyHost(proxy.host || "");
     setProxyPort(proxy.port || "");
@@ -55,14 +58,23 @@ export default function MouseTrapConfigCard({
     setHasPassword(!!proxy.password);
   }, [proxy]);
 
+  // Validation logic
+  useEffect(() => {
+    setLabelError(!label || label.trim() === "" ? "Session label is required." : "");
+  }, [label]);
+
+  const sessionTypeError = !sessionType || sessionType === "" ? "Required" : "";
+  const freqError = !checkFrequency || checkFrequency === "" || isNaN(checkFrequency) || checkFrequency < 1 ? "Required" : "";
+  const mamIdError = !mamId || mamId.trim() === "";
+  const ipError = !mamIp || mamIp.trim() === "";
+
+  const allValid = !labelError && !mamIdError && !sessionTypeError && !ipError && !freqError;
+
   // Save config handler
   const handleSave = async () => {
     setSaveStatus("");
     setSaveError("");
-    if (!label || label.trim() === "") {
-      setSaveError("Session label is required.");
-      return;
-    }
+    if (!allValid) return;
     const payload = {
       label,
       old_label: oldLabel,
@@ -142,6 +154,7 @@ export default function MouseTrapConfigCard({
                 onChange={e => setMamId(e.target.value)}
                 size="small"
                 required
+                error={mamIdError}
                 inputProps={{ maxLength: 300 }}
                 multiline
                 minRows={2}
@@ -160,6 +173,7 @@ export default function MouseTrapConfigCard({
                   onChange={e => setMamIp(e.target.value)}
                   size="small"
                   required
+                  error={ipError}
                   inputProps={{ maxLength: 16 }}
                   placeholder="e.g. 203.0.113.99"
                   helperText="Enter IP address associated with MAM ID"
@@ -171,6 +185,7 @@ export default function MouseTrapConfigCard({
                     size="small"
                     onClick={() => setMamIp(detectedIp)}
                     sx={{ height: 40 }}
+                    disabled={!detectedIp}
                   >
                     Use Detected IP
                   </Button>
@@ -185,24 +200,26 @@ export default function MouseTrapConfigCard({
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 160, maxWidth: 190, flex: 2 }}>
-                  <InputLabel>Session Type</InputLabel>
+                <FormControl size="small" sx={{ minWidth: 160, maxWidth: 190, flex: 2 }} error={!!sessionTypeError}>
+                  <InputLabel>Session Type*</InputLabel>
                   <Select
-                    value={sessionType}
-                    label="Session Type"
+                    value={sessionType || ""}
+                    label="Session Type*"
                     onChange={e => setSessionType(e.target.value)}
                   >
+                    <MenuItem value="">Select...</MenuItem>
                     <MenuItem value="IP Locked">IP Locked</MenuItem>
                     <MenuItem value="ASN Locked">ASN Locked</MenuItem>
                   </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 160, flex: 1 }}>
-                  <InputLabel>Frequency</InputLabel>
+                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 160, flex: 1 }} error={!!freqError}>
+                  <InputLabel>Frequency*</InputLabel>
                   <Select
-                    value={checkFrequency}
-                    label="Frequency"
+                    value={checkFrequency || ""}
+                    label="Frequency*"
                     onChange={e => setCheckFrequency(Number(e.target.value))}
                   >
+                    <MenuItem value="">Select...</MenuItem>
                     {Array.from({ length: 60 }, (_, i) => (
                       <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>
                     ))}
@@ -278,7 +295,7 @@ export default function MouseTrapConfigCard({
             </Grid>
           </Grid>
           <Box sx={{ textAlign: "right", mt: 2 }}>
-            <Button variant="contained" color="primary" onClick={handleSave}>
+            <Button variant="contained" color="primary" onClick={handleSave} disabled={!allValid}>
               SAVE
             </Button>
           </Box>
