@@ -2,6 +2,8 @@ import requests
 import time
 import yaml
 import logging
+from bs4 import Tag, BeautifulSoup
+import datetime
 
 def load_config(path="backend/perks_config.yaml"):
     with open(path, "r") as f:

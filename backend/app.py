@@ -14,7 +14,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
-from backend.millionaires_vault import router as millionaires_vault_router
 from backend.last_session_api import router as last_session_router
 
 app = FastAPI(title="MouseTrap API")
@@ -27,7 +26,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(millionaires_vault_router)
 app.include_router(last_session_router)
 
 session_status_cache: Dict[str, Dict[str, Any]] = {}
