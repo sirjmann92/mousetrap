@@ -178,9 +178,14 @@ def get_asn_and_timezone_from_ip(ip):
 
 def get_public_ip():
     try:
-        resp = requests.get("https://api.ipify.org", timeout=4)
+        token = os.environ.get("IPINFO_TOKEN")
+        url = "https://ipinfo.io/json"
+        if token:
+            url += f"?token={token}"
+        resp = requests.get(url, timeout=4)
         if resp.status_code == 200:
-            return resp.text.strip()
+            data = resp.json()
+            return data.get("ip")
         return None
     except Exception:
         return None
