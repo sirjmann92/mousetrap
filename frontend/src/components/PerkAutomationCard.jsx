@@ -69,7 +69,7 @@ export default function PerkAutomationCard({
   autoUpload, setAutoUpload,
   points,
   cheese,
-  autoMillionairesVault = false, setAutoMillionairesVault = () => {},
+  // autoMillionairesVault removed
   sessionLabel,
   onActionComplete = () => {}, // <-- new prop
 }) {
@@ -95,13 +95,19 @@ export default function PerkAutomationCard({
       .then(res => res.json())
       .then(cfg => {
         const pa = cfg.perk_automation || {};
-        setAutoWedge(pa.autoWedge ?? false);
-        setAutoVIP(pa.autoVIP ?? false);
-        setAutoUpload(pa.autoUpload ?? false);
-        setAutoMillionairesVault(pa.autoMillionairesVault ?? false);
-        setBuffer(pa.buffer ?? 0);
-        setWedgeHours(pa.wedgeHours ?? 0);
-        // ...set other dropdowns as needed...
+  setAutoWedge(pa.autoWedge ?? false);
+  setAutoVIP(pa.autoVIP ?? false);
+  setAutoUpload(pa.autoUpload ?? false);
+  setBuffer(pa.buffer ?? 0);
+  setWedgeHours(pa.wedgeHours ?? 0);
+  // --- Upload Credit Automation fields ---
+  const upload = (pa.upload_credit || {});
+  setAutoUpload(upload.enabled ?? pa.autoUpload ?? false);
+  setUploadAmount(upload.gb ?? 1);
+  setPointsToKeep(upload.points_to_keep ?? 0);
+  setTriggerType(upload.trigger_type ?? 'time');
+  setTriggerDays(upload.trigger_days ?? 7);
+  setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
       });
   }, [sessionLabel]);
 
@@ -203,9 +209,21 @@ export default function PerkAutomationCard({
       return;
     }
     const perk_automation = {
-      autoWedge, autoVIP, autoUpload, autoMillionairesVault,
-      buffer, wedgeHours,
-      // ...add other automation fields here as needed...
+      autoWedge,
+      autoVIP,
+      autoUpload,
+      buffer,
+      wedgeHours,
+      // Upload Credit Automation fields
+      upload_credit: {
+        enabled: autoUpload,
+        gb: Number(uploadAmount),
+        min_points: Number(buffer),
+        points_to_keep: Number(pointsToKeep),
+        trigger_type: triggerType,
+        trigger_days: Number(triggerDays),
+        trigger_point_threshold: Number(triggerPointThreshold),
+      },
     };
     const res = await fetch("/api/session/perkautomation/save", {
       method: "POST",
