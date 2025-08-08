@@ -543,7 +543,7 @@ def api_session_refresh(request: Request):
 @app.get("/api/sessions")
 def api_list_sessions():
     sessions = list_sessions()
-    logging.info(f"[Session] Listed sessions: count={len(sessions)}")
+    logging.debug(f"[Session] Listed sessions: count={len(sessions)}")
     return {"sessions": sessions}
 
 @app.get("/api/session/{label}")
