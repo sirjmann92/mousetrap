@@ -201,6 +201,28 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Tooltip>
           </Box>
         </Box>
+        {/* Network & Proxy Details Rollup */}
+        {status && (
+          <Accordion sx={{ mt: 2, mb: 2, border: 1, borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }} defaultExpanded={false}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 48 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Network & Proxy Details</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 1, columnGap: 2 }}>
+                <Typography component="dt" sx={{ fontWeight: 500 }}>Detected Public IP Address:</Typography>
+                <Typography component="dd" sx={{ m: 0 }}>{status.detected_public_ip || "N/A"}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500 }}>Detected Public ASN:</Typography>
+                <Typography component="dd" sx={{ m: 0 }}>{status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A'}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500 }}>MAM Session IP Address:</Typography>
+                <Typography component="dd" sx={{ m: 0 }}>{status.current_ip || "N/A"}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500 }}>MAM Session ASN:</Typography>
+                <Typography component="dd" sx={{ m: 0 }}>{status.current_ip ? (status.current_ip_asn && status.current_ip_asn !== 'Unknown ASN' ? status.current_ip_asn : 'N/A') : 'N/A'}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500 }}>Connection Proxied:</Typography>
+                <Typography component="dd" sx={{ m: 0 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+        )}
         {/* Robust error handling: if status is set and has error, only render the error alert */}
         {status && status.error ? (
           <Box sx={{ mt: 2, mb: 2 }}>
@@ -213,30 +235,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Box>
           ) : (
             <Box>
-              {/* Top section: IPs and ASNs */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body1">
-                  MAM Session IP Address: <b>{status.current_ip || "N/A"}</b>
-                </Typography>
-                <Typography variant="body1">
-                  MAM Session ASN: <b>{status.current_ip ? (status.current_ip_asn && status.current_ip_asn !== 'Unknown ASN' ? status.current_ip_asn : 'N/A') : 'N/A'}</b>
-                </Typography>
-                <Typography variant="body1">
-                  Detected Public IP Address: <b>{status.detected_public_ip || "N/A"}</b>
-                </Typography>
-                <Typography variant="body1">
-                  Detected Public ASN: <b>{status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A'}</b>
-                </Typography>
-                <Typography variant="body1">MAM Cookie Status: <b>{status.mam_cookie_exists === true ? "Valid" : "Missing"}</b></Typography>
-                {/* Proxy config display */}
-                <Typography variant="body1">
-                  Connection Proxied: <b>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</b>
-                </Typography>
-              </Box>
-              <Divider sx={{ my: 2 }} />
-              {/* Bottom section: MAM details, Points, Automations */}
+              {/* ...existing code... */}
               <Box>
-                {/* Removed Points and Cheese from here, now in MAM Details */}
                 <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
                 <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
                 <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
