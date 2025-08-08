@@ -237,8 +237,7 @@ export default function MouseTrapConfigCard({
             </Grid>
           </Grid>
           {/* Divider and VPN Proxy Configuration label */}
-          <Divider sx={{ my: 2 }} />
-          <Accordion sx={{ boxShadow: 'none' }} defaultExpanded={false}>
+          <Accordion defaultExpanded={false}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>VPN Proxy Configuration</Typography>
             </AccordionSummary>
