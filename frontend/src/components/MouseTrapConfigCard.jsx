@@ -15,7 +15,10 @@ import {
   IconButton,
   Collapse,
   Tooltip,
-  Divider
+  Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -235,65 +238,71 @@ export default function MouseTrapConfigCard({
           </Grid>
           {/* Divider and VPN Proxy Configuration label */}
           <Divider sx={{ my: 2 }} />
-          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>VPN Proxy Configuration</Typography>
-          {/* Proxy Host/Port row */}
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <TextField
-                  label="Proxy Host"
-                  value={proxyHost}
-                  onChange={e => setProxyHost(e.target.value)}
-                  size="small"
-                  placeholder="proxy.example.com"
-                  sx={{ width: 180 }}
-                />
-                <TextField
-                  label="Port"
-                  value={proxyPort}
-                  onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
-                  size="small"
-                  placeholder="8080"
-                  sx={{ width: 90 }}
-                  inputProps={{ maxLength: 5 }}
-                />
-              </Box>
-            </Grid>
-          </Grid>
-          {/* Username/Password row */}
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <TextField
-                  label="Username"
-                  value={proxyUsername}
-                  onChange={e => setProxyUsername(e.target.value)}
-                  size="small"
-                  placeholder="user"
-                  sx={{ width: 140 }}
-                />
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TextField
-                    label="Password"
-                    value={proxyPassword}
-                    onChange={e => setProxyPassword(e.target.value)}
-                    size="small"
-                    placeholder={hasPassword ? "(password set)" : ""}
-                    type="password"
-                    sx={{ width: 140 }}
-                    autoComplete="new-password"
-                  />
-                  {hasPassword && !proxyPassword && (
-                    <Tooltip title="Leave blank to keep existing password">
-                      <IconButton size="small" sx={{ ml: 0.5 }}>
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Box>
-              </Box>
-            </Grid>
-          </Grid>
+          <Accordion sx={{ boxShadow: 'none' }} defaultExpanded={false}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>VPN Proxy Configuration</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              {/* Proxy Host/Port row */}
+              <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <TextField
+                      label="Proxy Host"
+                      value={proxyHost}
+                      onChange={e => setProxyHost(e.target.value)}
+                      size="small"
+                      placeholder="proxy.example.com"
+                      sx={{ width: 180 }}
+                    />
+                    <TextField
+                      label="Port"
+                      value={proxyPort}
+                      onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
+                      size="small"
+                      placeholder="8080"
+                      sx={{ width: 90 }}
+                      inputProps={{ maxLength: 5 }}
+                    />
+                  </Box>
+                </Grid>
+              </Grid>
+              {/* Username/Password row */}
+              <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <TextField
+                      label="Username"
+                      value={proxyUsername}
+                      onChange={e => setProxyUsername(e.target.value)}
+                      size="small"
+                      placeholder="user"
+                      sx={{ width: 140 }}
+                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField
+                        label="Password"
+                        value={proxyPassword}
+                        onChange={e => setProxyPassword(e.target.value)}
+                        size="small"
+                        placeholder={hasPassword ? "(password set)" : ""}
+                        type="password"
+                        sx={{ width: 140 }}
+                        autoComplete="new-password"
+                      />
+                      {hasPassword && !proxyPassword && (
+                        <Tooltip title="Leave blank to keep existing password">
+                          <IconButton size="small" sx={{ ml: 0.5 }}>
+                            <InfoOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            </AccordionDetails>
+          </Accordion>
           <Box sx={{ textAlign: "right", mt: 2 }}>
             <Button variant="contained" color="primary" onClick={handleSave} disabled={!allValid}>
               SAVE
