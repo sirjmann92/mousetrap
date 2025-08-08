@@ -5,6 +5,8 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import Tooltip from '@mui/material/Tooltip';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 
 const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved }, ref) {
   const [status, setStatus] = useState(null);
@@ -161,8 +163,27 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   return (
     <Card sx={{ mb: 3 }}>
       <CardContent>
+        {/* Session Status Header: align text and icon vertically with buttons */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6" gutterBottom>Status</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 48 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0 }}>
+                Session Status
+              </Typography>
+              {/* MAM Cookie Status Icon */}
+              {status && (
+                <Tooltip title={`MAM Cookie Status: ${status.mam_cookie_exists === true ? 'Valid' : (status.mam_cookie_exists === false ? 'Missing' : 'Unknown')}`}> 
+                  <span style={{ display: 'flex', alignItems: 'center', marginLeft: 12 }}>
+                    {status.mam_cookie_exists === true ? (
+                      <CheckCircleIcon sx={{ color: 'success.main', ml: 1 }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', ml: 1 }} />
+                    )}
+                  </span>
+                </Tooltip>
+              )}
+            </Box>
+          </Box>
           <Box>
             <Tooltip title="Refreshes session status from MAM">
               <span>
