@@ -1,3 +1,85 @@
+# --- Wedge Automation Job ---
+def wedge_automation_job():
+    session_labels = list_sessions()
+    now = datetime.now(timezone.utc)
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            mam_id = cfg.get('mam', {}).get('mam_id', "")
+            if not mam_id:
+                continue
+            automation = cfg.get('perk_automation', {}).get('wedge_automation', {})
+            enabled = automation.get('enabled', False)
+            if not enabled:
+                continue
+            trigger_type = automation.get('trigger_type', 'points')
+            trigger_days = automation.get('trigger_days', 7)
+            trigger_point_threshold = automation.get('trigger_point_threshold', 50000)
+            proxy_cfg = cfg.get('proxy', {})
+            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            points = status.get('points', 0) if isinstance(status, dict) else 0
+            # Guardrails (example: only trigger if points >= threshold)
+            if trigger_type in ('points', 'both') and points < trigger_point_threshold:
+                logging.info(f"[WedgeAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")
+                continue
+            # (Time-based triggers would need last-run tracking, omitted for brevity)
+            # Each wedge costs 50,000 points
+            total_cost = 50000
+            if points < total_cost:
+                logging.info(f"[WedgeAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} cost={total_cost}")
+                continue
+            # Trigger automation
+            result = buy_wedge(mam_id, method="points", proxy_cfg=proxy_cfg)
+            success = result.get('success', False) if result else False
+            if success:
+                logging.info(f"[WedgeAuto] label={label} trigger=automation result=success points_before={points}")
+            else:
+                err_msg = result.get('error') or result.get('response') or 'Unknown error'
+                logging.warning(f"[WedgeAuto] label={label} trigger=automation result=failed points_before={points} error={err_msg}")
+        except Exception as e:
+            logging.error(f"[WedgeAuto] label={label} trigger=automation result=exception error={e}")
+
+# --- VIP Automation Job ---
+def vip_automation_job():
+    session_labels = list_sessions()
+    now = datetime.now(timezone.utc)
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            mam_id = cfg.get('mam', {}).get('mam_id', "")
+            if not mam_id:
+                continue
+            automation = cfg.get('perk_automation', {}).get('vip_automation', {})
+            enabled = automation.get('enabled', False)
+            if not enabled:
+                continue
+            trigger_type = automation.get('trigger_type', 'points')
+            trigger_days = automation.get('trigger_days', 7)
+            trigger_point_threshold = automation.get('trigger_point_threshold', 50000)
+            proxy_cfg = cfg.get('proxy', {})
+            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            points = status.get('points', 0) if isinstance(status, dict) else 0
+            # Guardrails (example: only trigger if points >= threshold)
+            if trigger_type in ('points', 'both') and points < trigger_point_threshold:
+                logging.info(f"[VIPAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")
+                continue
+            # (Time-based triggers would need last-run tracking, omitted for brevity)
+            # Each 4 weeks costs 5,000 points (adjust as needed)
+            weeks = 4
+            total_cost = 5000
+            if points < total_cost:
+                logging.info(f"[VIPAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} cost={total_cost}")
+                continue
+            # Trigger automation
+            result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
+            success = result.get('success', False) if result else False
+            if success:
+                logging.info(f"[VIPAuto] label={label} trigger=automation result=success points_before={points}")
+            else:
+                err_msg = result.get('error') or result.get('response') or 'Unknown error'
+                logging.warning(f"[VIPAuto] label={label} trigger=automation result=failed points_before={points} error={err_msg}")
+        except Exception as e:
+            logging.error(f"[VIPAuto] label={label} trigger=automation result=exception error={e}")
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +98,38 @@ from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.last_session_api import router as last_session_router
 
+
 app = FastAPI(title="MouseTrap API")
+@app.get("/api/automation/guardrails")
+def api_automation_guardrails():
+    """
+    Returns a mapping of session labels to MaM usernames and enabled automations for guardrail logic.
+    Example:
+    {
+      "Gluetun": {"username": "sirjmann92", "autoUpload": true, "autoWedge": false, "autoVIP": false},
+      ...
+    }
+    """
+    sessions = list_sessions()
+    result = {}
+    for label in sessions:
+        cfg = load_session(label)
+        # Try to get username from last_status.raw.username
+        username = None
+        last_status = cfg.get("last_status", {})
+        raw = last_status.get("raw", {})
+        username = raw.get("username")
+        # Fallback: try mam_id or proxy.username if username missing
+        if not username:
+            username = cfg.get("mam", {}).get("mam_id") or cfg.get("proxy", {}).get("username")
+        perk_auto = cfg.get("perk_automation", {})
+        result[label] = {
+            "username": username,
+            "autoUpload": perk_auto.get("upload_credit", {}).get("enabled", False),
+            "autoWedge": perk_auto.get("wedge_automation", {}).get("enabled", False),
+            "autoVIP": perk_auto.get("vip_automation", {}).get("enabled", False),
+        }
+    return result
 
 app.add_middleware(
     CORSMiddleware,
@@ -690,7 +803,7 @@ def favicon_svg():
         return FileResponse(path, media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="favicon.svg not found")
 
-logging.info(f"Serving static from: {STATIC_DIR}")
+logging.debug(f"Serving static from: {STATIC_DIR}")
 if not os.path.isdir(STATIC_DIR):
     raise RuntimeError(f"Directory '{STATIC_DIR}' does not exist")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -814,7 +927,7 @@ def upload_credit_automation_job():
         except Exception as e:
             logging.error(f"[UploadAuto] label={label} trigger=automation result=exception error={e}")
 
-# Register the upload credit automation job to run every 10 minutes
+# Register the automation jobs to run every 10 minutes
 if not scheduler.get_job('upload_credit_automation'):
     scheduler.add_job(
         upload_credit_automation_job,
@@ -825,3 +938,23 @@ if not scheduler.get_job('upload_credit_automation'):
         max_instances=1
     )
     logging.info("[APScheduler] Registered upload credit automation job (every 10 min)")
+if not scheduler.get_job('wedge_automation'):
+    scheduler.add_job(
+        wedge_automation_job,
+        trigger=IntervalTrigger(minutes=10),
+        id='wedge_automation',
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1
+    )
+    logging.info("[APScheduler] Registered wedge automation job (every 10 min)")
+if not scheduler.get_job('vip_automation'):
+    scheduler.add_job(
+        vip_automation_job,
+        trigger=IntervalTrigger(minutes=10),
+        id='vip_automation',
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1
+    )
+    logging.info("[APScheduler] Registered VIP automation job (every 10 min)")

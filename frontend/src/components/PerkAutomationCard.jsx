@@ -73,6 +73,15 @@ export default function PerkAutomationCard({
   sessionLabel,
   onActionComplete = () => {}, // <-- new prop
 }) {
+  // Guardrail state (must be inside the function body)
+  const [guardrails, setGuardrails] = useState(null);
+  const [currentUsername, setCurrentUsername] = useState(null);
+  const [uploadDisabled, setUploadDisabled] = useState(false);
+  const [wedgeDisabled, setWedgeDisabled] = useState(false);
+  const [vipDisabled, setVIPDisabled] = useState(false);
+  const [uploadGuardMsg, setUploadGuardMsg] = useState("");
+  const [wedgeGuardMsg, setWedgeGuardMsg] = useState("");
+  const [vipGuardMsg, setVIPGuardMsg] = useState("");
   const [pointsToKeep, setPointsToKeep] = useState(0);
   // Upload automation options state
   const [triggerType, setTriggerType] = useState('time');
@@ -88,28 +97,88 @@ export default function PerkAutomationCard({
   const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
 
+  // Wedge automation options state
+  const [wedgeTriggerType, setWedgeTriggerType] = useState('time');
+  const [wedgeTriggerDays, setWedgeTriggerDays] = useState(7);
+  const [wedgeTriggerPointThreshold, setWedgeTriggerPointThreshold] = useState(50000);
+  // VIP automation options state
+  const [vipTriggerType, setVipTriggerType] = useState('time');
+  const [vipTriggerDays, setVipTriggerDays] = useState(7);
+  const [vipTriggerPointThreshold, setVipTriggerPointThreshold] = useState(50000);
+
   // Load automation settings from session on mount/session change
   useEffect(() => {
     if (!sessionLabel) return;
+    // Fetch session config
     fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
       .then(res => res.json())
       .then(cfg => {
         const pa = cfg.perk_automation || {};
-  setAutoWedge(pa.autoWedge ?? false);
-  setAutoVIP(pa.autoVIP ?? false);
-  setAutoUpload(pa.autoUpload ?? false);
-  setBuffer(pa.buffer ?? 0);
-  setWedgeHours(pa.wedgeHours ?? 0);
-  // --- Upload Credit Automation fields ---
-  const upload = (pa.upload_credit || {});
-  setAutoUpload(upload.enabled ?? pa.autoUpload ?? false);
-  setUploadAmount(upload.gb ?? 1);
-  setPointsToKeep(upload.points_to_keep ?? 0);
-  setTriggerType(upload.trigger_type ?? 'time');
-  setTriggerDays(upload.trigger_days ?? 7);
-  setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
+        setAutoWedge(pa.autoWedge ?? false);
+        setAutoVIP(pa.autoVIP ?? false);
+        setAutoUpload(pa.autoUpload ?? false);
+        setBuffer(pa.buffer ?? 0);
+        setWedgeHours(pa.wedgeHours ?? 0);
+        // --- Upload Credit Automation fields ---
+        const upload = (pa.upload_credit || {});
+        setAutoUpload(upload.enabled ?? pa.autoUpload ?? false);
+        setUploadAmount(upload.gb ?? 1);
+        setPointsToKeep(upload.points_to_keep ?? 0);
+        setTriggerType(upload.trigger_type ?? 'time');
+        setTriggerDays(upload.trigger_days ?? 7);
+        setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
+        // --- Wedge Automation fields ---
+        const wedge = (pa.wedge_automation || {});
+        setWedgeTriggerType(wedge.trigger_type ?? 'time');
+        setWedgeTriggerDays(wedge.trigger_days ?? 7);
+        setWedgeTriggerPointThreshold(wedge.trigger_point_threshold ?? 50000);
+        // --- VIP Automation fields ---
+        const vip = (pa.vip_automation || {});
+        setVipTriggerType(vip.trigger_type ?? 'time');
+        setVipTriggerDays(vip.trigger_days ?? 7);
+        setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
+        // Save username for guardrails
+        let username = null;
+        if (cfg.last_status && cfg.last_status.raw && cfg.last_status.raw.username) {
+          username = cfg.last_status.raw.username;
+        }
+        setCurrentUsername(username);
       });
+    // Fetch guardrails info
+    fetch('/api/automation/guardrails')
+      .then(res => res.json())
+      .then(data => setGuardrails(data));
   }, [sessionLabel]);
+
+  // Guardrail logic: check if another session with same username has automation enabled
+  useEffect(() => {
+    if (!guardrails || !currentUsername || !sessionLabel) return;
+    let upload = false, wedge = false, vip = false;
+    let uploadMsg = '', wedgeMsg = '', vipMsg = '';
+    for (const [label, info] of Object.entries(guardrails)) {
+      if (label === sessionLabel) continue;
+      if (info.username && info.username === currentUsername) {
+        if (info.autoUpload) {
+          upload = true;
+          uploadMsg = `Upload automation is enabled in session '${label}' for this username.`;
+        }
+        if (info.autoWedge) {
+          wedge = true;
+          wedgeMsg = `Wedge automation is enabled in session '${label}' for this username.`;
+        }
+        if (info.autoVIP) {
+          vip = true;
+          vipMsg = `VIP automation is enabled in session '${label}' for this username.`;
+        }
+      }
+    }
+    setUploadDisabled(upload);
+    setWedgeDisabled(wedge);
+    setVIPDisabled(vip);
+    setUploadGuardMsg(uploadMsg);
+    setWedgeGuardMsg(wedgeMsg);
+    setVIPGuardMsg(vipMsg);
+  }, [guardrails, currentUsername, sessionLabel]);
 
   // API call helpers
   const triggerWedge = async () => {
@@ -224,6 +293,18 @@ export default function PerkAutomationCard({
         trigger_days: Number(triggerDays),
         trigger_point_threshold: Number(triggerPointThreshold),
       },
+      wedge_automation: {
+        enabled: autoWedge,
+        trigger_type: wedgeTriggerType,
+        trigger_days: Number(wedgeTriggerDays),
+        trigger_point_threshold: Number(wedgeTriggerPointThreshold),
+      },
+      vip_automation: {
+        enabled: autoVIP,
+        trigger_type: vipTriggerType,
+        trigger_days: Number(vipTriggerDays),
+        trigger_point_threshold: Number(vipTriggerPointThreshold),
+      },
     };
     const res = await fetch("/api/session/perkautomation/save", {
       method: "POST",
@@ -288,11 +369,15 @@ export default function PerkAutomationCard({
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>Wedge Purchase</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <FormControlLabel
-                control={<Checkbox checked={autoWedge} onChange={e => setAutoWedge(e.target.checked)} />}
-                label={<span>Enable Wedge Automation</span>}
-                sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-              />
+              <Tooltip title={wedgeDisabled ? wedgeGuardMsg : ''} disableHoverListener={!wedgeDisabled} arrow>
+                <span>
+                  <FormControlLabel
+                    control={<Checkbox checked={autoWedge} onChange={e => setAutoWedge(e.target.checked)} disabled={wedgeDisabled} />}
+                    label={<span>Enable Wedge Automation</span>}
+                    sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
+                  />
+                </span>
+              </Tooltip>
               <FormControl size="small" sx={{ minWidth: 140, mr: 3, flexShrink: 0 }}>
                 <InputLabel>Method</InputLabel>
                 <Select
@@ -322,6 +407,47 @@ export default function PerkAutomationCard({
                 </span>
               </Tooltip>
             </Box>
+            {/* Wedge automation options row */}
+            <Grid container spacing={2} alignItems="center" sx={{ mt: 1, mb: 2 }}>
+              <Grid item>
+                <FormControl size="small" sx={{ minWidth: 160 }}>
+                  <InputLabel>Trigger Type</InputLabel>
+                  <Select
+                    value={wedgeTriggerType}
+                    label="Trigger Type"
+                    onChange={e => setWedgeTriggerType(e.target.value)}
+                  >
+                    <MenuItem value="time">Time-based</MenuItem>
+                    <MenuItem value="points">Point-based</MenuItem>
+                    <MenuItem value="both">Both</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {(wedgeTriggerType === 'time' || wedgeTriggerType === 'both') && (
+                <Grid item>
+                  <TextField
+                    label="Every X Days"
+                    type="number"
+                    value={wedgeTriggerDays}
+                    onChange={e => setWedgeTriggerDays(Number(e.target.value))}
+                    size="small"
+                    sx={{ minWidth: 120 }}
+                  />
+                </Grid>
+              )}
+              {(wedgeTriggerType === 'points' || wedgeTriggerType === 'both') && (
+                <Grid item>
+                  <TextField
+                    label="Point Threshold"
+                    type="number"
+                    value={wedgeTriggerPointThreshold}
+                    onChange={e => setWedgeTriggerPointThreshold(Number(e.target.value))}
+                    size="small"
+                    sx={{ minWidth: 140 }}
+                  />
+                </Grid>
+              )}
+            </Grid>
           </Box>
           <Divider sx={{ mb: 3 }} />
 
@@ -335,11 +461,15 @@ export default function PerkAutomationCard({
               </Tooltip>
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <FormControlLabel
-                control={<Checkbox checked={autoVIP} onChange={e => setAutoVIP(e.target.checked)} />}
-                label={<span>Enable VIP Automation</span>}
-                sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-              />
+              <Tooltip title={vipDisabled ? vipGuardMsg : ''} disableHoverListener={!vipDisabled} arrow>
+                <span>
+                  <FormControlLabel
+                    control={<Checkbox checked={autoVIP} onChange={e => setAutoVIP(e.target.checked)} disabled={vipDisabled} />}
+                    label={<span>Enable VIP Automation</span>}
+                    sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
+                  />
+                </span>
+              </Tooltip>
               <FormControl size="small" sx={{ minWidth: 120, mr: 1, flexShrink: 0 }}>
                 <InputLabel>Weeks</InputLabel>
                 <Select
@@ -370,6 +500,47 @@ export default function PerkAutomationCard({
                 </span>
               </Tooltip>
             </Box>
+            {/* VIP automation options row */}
+            <Grid container spacing={2} alignItems="center" sx={{ mt: 1, mb: 2 }}>
+              <Grid item>
+                <FormControl size="small" sx={{ minWidth: 160 }}>
+                  <InputLabel>Trigger Type</InputLabel>
+                  <Select
+                    value={vipTriggerType}
+                    label="Trigger Type"
+                    onChange={e => setVipTriggerType(e.target.value)}
+                  >
+                    <MenuItem value="time">Time-based</MenuItem>
+                    <MenuItem value="points">Point-based</MenuItem>
+                    <MenuItem value="both">Both</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {(vipTriggerType === 'time' || vipTriggerType === 'both') && (
+                <Grid item>
+                  <TextField
+                    label="Every X Days"
+                    type="number"
+                    value={vipTriggerDays}
+                    onChange={e => setVipTriggerDays(Number(e.target.value))}
+                    size="small"
+                    sx={{ minWidth: 120 }}
+                  />
+                </Grid>
+              )}
+              {(vipTriggerType === 'points' || vipTriggerType === 'both') && (
+                <Grid item>
+                  <TextField
+                    label="Point Threshold"
+                    type="number"
+                    value={vipTriggerPointThreshold}
+                    onChange={e => setVipTriggerPointThreshold(Number(e.target.value))}
+                    size="small"
+                    sx={{ minWidth: 140 }}
+                  />
+                </Grid>
+              )}
+            </Grid>
           </Box>
           <Divider sx={{ mb: 3 }} />
 
@@ -377,11 +548,15 @@ export default function PerkAutomationCard({
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>Upload Credit Purchase</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <FormControlLabel
-                control={<Checkbox checked={autoUpload} onChange={e => setAutoUpload(e.target.checked)} />}
-                label={<span>Enable Upload Credit Automation</span>}
-                sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-              />
+              <Tooltip title={uploadDisabled ? uploadGuardMsg : ''} disableHoverListener={!uploadDisabled} arrow>
+                <span>
+                  <FormControlLabel
+                    control={<Checkbox checked={autoUpload} onChange={e => setAutoUpload(e.target.checked)} disabled={uploadDisabled} />}
+                    label={<span>Enable Upload Credit Automation</span>}
+                    sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
+                  />
+                </span>
+              </Tooltip>
               <FormControl size="small" sx={{ minWidth: 110, mr: 3, flexShrink: 0 }}>
                 <InputLabel>Amount</InputLabel>
                 <Select
