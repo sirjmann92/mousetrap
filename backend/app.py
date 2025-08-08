@@ -197,54 +197,62 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     if session_type == 'ip locked' and ip_to_use and ip_to_use != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_use}"
+    # For ASN-locked sessions, trigger update if proxied IP changes
+    elif session_type == 'asn locked':
+        proxied_ip = cfg.get('proxied_public_ip')
+        last_proxied_ip = cfg.get('last_seedbox_ip')
+        if proxied_ip and proxied_ip != last_proxied_ip:
+            update_needed = True
+            reason = f"Proxied IP changed: {last_proxied_ip} -> {proxied_ip}"
+            ip_to_use = proxied_ip
+        elif asn and asn != last_seedbox_asn:
+            # ASN changed but proxied IP did not; update ASN in config only
+            reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
+            logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
+            cfg["last_seedbox_asn"] = asn
+            save_session(cfg, old_label=label)
+            return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+    # If update is needed (IP or proxied IP changed), call seedbox API
+    if update_needed and mam_id:
         # Check rate limit
-        if update_needed and last_seedbox_update:
+        if last_seedbox_update:
             last_update_dt = datetime.fromisoformat(last_seedbox_update)
             if (now - last_update_dt) < timedelta(hours=1):
                 logging.info(f"[AutoUpdate] label={label} update_needed=True result=rate_limited reason={reason}")
                 return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
-        if update_needed and mam_id:
+        try:
+            cookies = {"mam_id": mam_id}
+            resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
+            logging.info(f"[AutoUpdate] label={label} update_needed=True MaM_API_status={resp.status_code}")
             try:
-                cookies = {"mam_id": mam_id}
-                resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
-                logging.info(f"[AutoUpdate] label={label} update_needed=True MaM_API_status={resp.status_code}")
-                try:
-                    result = resp.json()
-                except Exception:
-                    result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
-                if resp.status_code == 200 and result.get("Success"):
-                    cfg["last_seedbox_ip"] = ip_to_use
-                    cfg["last_seedbox_asn"] = asn
-                    cfg["last_seedbox_update"] = now.isoformat()
-                    save_session(cfg, old_label=label)
-                    logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
-                    return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
-                elif resp.status_code == 200 and result.get("msg") == "No change":
-                    cfg["last_seedbox_ip"] = ip_to_use
-                    cfg["last_seedbox_asn"] = asn
-                    cfg["last_seedbox_update"] = now.isoformat()
-                    save_session(cfg, old_label=label)
-                    logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
-                    return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
-                elif resp.status_code == 429 or (
-                    isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
-                ):
-                    logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason}")
-                    return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
-                else:
-                    logging.info(f"[AutoUpdate] label={label} result=error reason={reason} msg={result.get('msg', 'Unknown error')}")
-                    return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
-            except Exception as e:
-                logging.info(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
-                return True, {"success": False, "error": str(e), "reason": reason}
-    # For ASN-locked sessions, do NOT call the seedbox API, just notify if ASN changed
-    elif session_type == 'asn locked' and asn and asn != last_seedbox_asn:
-        reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
-        logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
-        # Optionally, update last_seedbox_asn for tracking
-        cfg["last_seedbox_asn"] = asn
-        save_session(cfg, old_label=label)
-        return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+                result = resp.json()
+            except Exception:
+                result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
+            if resp.status_code == 200 and result.get("Success"):
+                cfg["last_seedbox_ip"] = ip_to_use
+                cfg["last_seedbox_asn"] = asn
+                cfg["last_seedbox_update"] = now.isoformat()
+                save_session(cfg, old_label=label)
+                logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
+                return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
+            elif resp.status_code == 200 and result.get("msg") == "No change":
+                cfg["last_seedbox_ip"] = ip_to_use
+                cfg["last_seedbox_asn"] = asn
+                cfg["last_seedbox_update"] = now.isoformat()
+                save_session(cfg, old_label=label)
+                logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
+                return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
+            elif resp.status_code == 429 or (
+                isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
+            ):
+                logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason}")
+                return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
+            else:
+                logging.info(f"[AutoUpdate] label={label} result=error reason={reason} msg={result.get('msg', 'Unknown error')}")
+                return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
+        except Exception as e:
+            logging.info(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
+            return True, {"success": False, "error": str(e), "reason": reason}
     return False, None
 
 @app.get("/api/status")
@@ -256,6 +264,53 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip)
         match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
+
+    cfg = load_session(label) if label else None
+    if cfg is None:
+        # Always return detected_public_ip and asn, even if label is missing
+        return {
+            "configured": False,
+            "status_message": "Session not configured. Please save session details to begin.",
+            "last_check_time": None,
+            "next_check_time": None,
+            "details": {},
+            "detected_public_ip": detected_public_ip,
+            "detected_public_ip_asn": detected_public_ip_asn,
+        }
+    proxied_public_ip, proxied_public_ip_asn = None, None
+    from backend.mam_api import get_proxied_public_ip_and_asn
+    proxy_cfg = cfg.get("proxy", {})
+    if proxy_cfg and proxy_cfg.get("host"):
+        proxied_public_ip, proxied_public_ip_asn = get_proxied_public_ip_and_asn(proxy_cfg)
+        # Save to config if changed
+        if proxied_public_ip and cfg.get("proxied_public_ip") != proxied_public_ip:
+            cfg["proxied_public_ip"] = proxied_public_ip
+            cfg["proxied_public_ip_asn"] = proxied_public_ip_asn
+            save_session(cfg, old_label=label)
+    else:
+        # Clear if no proxy
+        if cfg.get("proxied_public_ip") or cfg.get("proxied_public_ip_asn"):
+            cfg["proxied_public_ip"] = None
+            cfg["proxied_public_ip_asn"] = None
+            save_session(cfg, old_label=label)
+
+    # --- Proxied public IP/ASN detection ---
+    from backend.mam_api import get_proxied_public_ip_and_asn
+    proxy_cfg = cfg.get("proxy", {})
+    proxied_public_ip, proxied_public_ip_asn = None, None
+    if proxy_cfg and proxy_cfg.get("host"):
+        proxied_public_ip, proxied_public_ip_asn = get_proxied_public_ip_and_asn(proxy_cfg)
+        # Save to config if changed
+        if proxied_public_ip and proxied_public_ip != cfg.get("proxied_public_ip"):
+            cfg["proxied_public_ip"] = proxied_public_ip
+            cfg["proxied_public_ip_asn"] = proxied_public_ip_asn
+            save_session(cfg, old_label=label)
+    else:
+        # Clear if no proxy
+        if cfg.get("proxied_public_ip") or cfg.get("proxied_public_ip_asn"):
+            cfg["proxied_public_ip"] = None
+            cfg["proxied_public_ip_asn"] = None
+            save_session(cfg, old_label=label)
     if not label:
         # Always return detected_public_ip and asn, even if label is missing
         return {
@@ -281,14 +336,13 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             "detected_public_ip_asn": detected_public_ip_asn,
         }
     mam_ip_override = cfg.get('mam_ip', "").strip()
-    detected_public_ip = get_public_ip()
-    ip_to_use = mam_ip_override if mam_ip_override else detected_public_ip
+    # Use proxied public IP if available, else fallback
+    ip_to_use = mam_ip_override or proxied_public_ip or detected_public_ip
     # Get ASN for configured IP
     asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use) if ip_to_use else (None, None)
     match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
     asn = match.group(2) if match else asn_full
-    # Proxy config
-    proxy_cfg = cfg.get("proxy", {})
+    mam_session_as = asn_full
     # Also get MAM's perspective for display only
     mam_seen = get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg)
     mam_seen_ip = mam_seen.get("ip")
@@ -304,10 +358,12 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     auto_update_result = None
     # Always fetch ASN for detected_public_ip
     detected_public_ip_asn = None
+    detected_public_ip_as = None
     if detected_public_ip:
         asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip)
         match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
+        detected_public_ip_as = asn_full_pub
     # If session has never been checked (no last_status and not forced), return not configured
     if not force and (label not in session_status_cache or not session_status_cache[label].get("status")):
         last_status = cfg.get('last_status')
@@ -355,6 +411,16 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 last_check_time = session_status_cache[label]["last_check_time"]
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
+    status['detected_public_ip'] = detected_public_ip
+    status['detected_public_ip_asn'] = detected_public_ip_asn
+    status['detected_public_ip_as'] = detected_public_ip_as
+    status['proxied_public_ip'] = proxied_public_ip
+    status['proxied_public_ip_asn'] = proxied_public_ip_asn
+    status['proxied_public_ip_as'] = None
+    if proxied_public_ip:
+        # Get full AS string for proxied IP
+        asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip)
+        status['proxied_public_ip_as'] = asn_full_proxied
     # --- Improved status message logic ---
     status_message_parts = []
     auto_update = status.get('auto_update_seedbox')
@@ -415,14 +481,19 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         "wedge_active": status.get("wedge_active"),
         "vip_active": status.get("vip_active"),
         "current_ip": ip_to_use,
-        "current_ip_asn": asn,
+    "current_ip_asn": asn,
+    "mam_session_as": mam_session_as,
         "configured_ip": ip_to_use,
         "configured_asn": asn,
         "mam_seen_ip": mam_seen_ip,
         "mam_seen_asn": mam_seen_asn,
         "mam_seen_as": mam_seen_as,
         "detected_public_ip": detected_public_ip,
-        "detected_public_ip_asn": detected_public_ip_asn,
+    "detected_public_ip_asn": detected_public_ip_asn,
+    "detected_public_ip_as": detected_public_ip_as,
+        "proxied_public_ip": proxied_public_ip,
+    "proxied_public_ip_asn": proxied_public_ip_asn,
+    "proxied_public_ip_as": status.get("proxied_public_ip_as"),
         "ip_source": "configured",
         "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,

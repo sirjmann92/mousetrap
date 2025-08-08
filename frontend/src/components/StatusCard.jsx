@@ -1,12 +1,31 @@
 import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
-import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider, Button } from "@mui/material";
+import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider, Button, Tooltip, IconButton } from "@mui/material";
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import Tooltip from '@mui/material/Tooltip';
+
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+  // Helper to extract ASN number and provide tooltip for full AS string
+  const renderASN = (asn, fullAs) => {
+    let asnNum = asn;
+    const match = asn && typeof asn === 'string' ? asn.match(/(AS)?(\d+)/i) : null;
+    if (match) asnNum = match[2];
+    return (
+      <span style={{ display: 'flex', alignItems: 'center' }}>
+        {asnNum || 'N/A'}
+        {fullAs && (
+          <Tooltip title={fullAs} arrow>
+            <IconButton size="small" sx={{ ml: 0.5, p: 0.2 }}>
+              <InfoOutlinedIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </span>
+    );
+  };
 
 const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved }, ref) {
   const [status, setStatus] = useState(null);
@@ -44,7 +63,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         current_ip_asn: data.current_ip_asn,
         detected_public_ip: data.detected_public_ip,
         detected_public_ip_asn: data.detected_public_ip_asn,
+        detected_public_ip_as: data.detected_public_ip_as,
+        proxied_public_ip: data.proxied_public_ip,
+        proxied_public_ip_asn: data.proxied_public_ip_asn,
+        proxied_public_ip_as: data.proxied_public_ip_as,
         mam_cookie_exists: data.mam_cookie_exists,
+        mam_session_as: data.mam_session_as,
         asn: data.asn || "",
         last_check_time: data.last_check_time || null,
         next_check_time: data.next_check_time || null, // <-- NEW
@@ -192,6 +216,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                 </Button>
               </span>
             </Tooltip>
+            {/* USE DETECTED IP and USE DETECTED VPN IP buttons moved to MouseTrapConfigCard */}
             <Tooltip title="Updates your session's IP/ASN with MAM (rate-limited to once per hour)">
               <span>
                 <Button variant="contained" size="small" color="secondary" onClick={handleUpdateSeedbox} sx={{ ml: 2 }} disabled={seedboxLoading || !sessionLabel}>
@@ -212,11 +237,21 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public IP Address:</Typography>
                 <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.detected_public_ip || "N/A"}</Typography>
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A'}</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
+                  {renderASN(status.detected_public_ip_asn, status.detected_public_ip_as)}
+                </Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Proxied Public IP Address:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.proxied_public_ip || "N/A"}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Proxied Public ASN:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
+                  {renderASN(status.proxied_public_ip_asn, status.proxied_public_ip_as)}
+                </Typography>
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session IP Address:</Typography>
                 <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip || "N/A"}</Typography>
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip ? (status.current_ip_asn && status.current_ip_asn !== 'Unknown ASN' ? status.current_ip_asn : 'N/A') : 'N/A'}</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
+                  {status.current_ip ? renderASN(status.current_ip_asn, status.mam_session_as) : 'N/A'}
+                </Typography>
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connection Proxied:</Typography>
                 <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
               </Box>
