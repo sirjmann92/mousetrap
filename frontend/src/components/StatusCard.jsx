@@ -208,17 +208,17 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Network & Proxy Details</Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 1, columnGap: 2 }}>
-                <Typography component="dt" sx={{ fontWeight: 500 }}>Detected Public IP Address:</Typography>
-                <Typography component="dd" sx={{ m: 0 }}>{status.detected_public_ip || "N/A"}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500 }}>Detected Public ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0 }}>{status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A'}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500 }}>MAM Session IP Address:</Typography>
-                <Typography component="dd" sx={{ m: 0 }}>{status.current_ip || "N/A"}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500 }}>MAM Session ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0 }}>{status.current_ip ? (status.current_ip_asn && status.current_ip_asn !== 'Unknown ASN' ? status.current_ip_asn : 'N/A') : 'N/A'}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500 }}>Connection Proxied:</Typography>
-                <Typography component="dd" sx={{ m: 0 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
+              <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public IP Address:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.detected_public_ip || "N/A"}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public ASN:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.detected_public_ip_asn && status.detected_public_ip_asn !== 'Unknown ASN' ? status.detected_public_ip_asn : 'N/A'}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session IP Address:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip || "N/A"}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session ASN:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip ? (status.current_ip_asn && status.current_ip_asn !== 'Unknown ASN' ? status.current_ip_asn : 'N/A') : 'N/A'}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connection Proxied:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
               </Box>
             </AccordionDetails>
           </Accordion>
@@ -274,31 +274,31 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                         <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>MAM Details</Typography>
                       </AccordionSummary>
                       <AccordionDetails>
-                        <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 1, columnGap: 2 }}>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Username:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.username ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Rank:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Connectable:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.connectable ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Country:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.country_name ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Points:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Cheese:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.cheese !== null && status.cheese !== undefined ? status.cheese : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Downloaded:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Uploaded:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.uploaded ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Ratio:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.ratio ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Seeding:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.sSat && typeof status.details.raw.sSat.count === 'number' ? status.details.raw.sSat.count : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Unsatisfied:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.count === 'number' ? status.details.raw.unsat.count : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500 }}>Unsatisfied Limit:</Typography>
-                          <Typography component="dd" sx={{ m: 0 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.limit === 'number' ? status.details.raw.unsat.limit : 'N/A'}</Typography>
+                        <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Username:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.username ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Rank:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connectable:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.connectable ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Country:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.country_name ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Points:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Cheese:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.cheese !== null && status.cheese !== undefined ? status.cheese : 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Downloaded:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Uploaded:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uploaded ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Ratio:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.ratio ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Seeding:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.sSat && typeof status.details.raw.sSat.count === 'number' ? status.details.raw.sSat.count : 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.count === 'number' ? status.details.raw.unsat.count : 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied Limit:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.limit === 'number' ? status.details.raw.unsat.limit : 'N/A'}</Typography>
                         </Box>
                       </AccordionDetails>
                     </Accordion>
