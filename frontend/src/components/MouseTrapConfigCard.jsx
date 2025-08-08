@@ -184,8 +184,8 @@ export default function MouseTrapConfigCard({
                   helperText="Enter IP address associated with MAM ID"
                   sx={{ width: 300 }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', minWidth: 120, gap: 2 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', minWidth: 120, gap: 2, height: 64 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
                     <Button
                       variant="outlined"
                       size="small"
@@ -195,11 +195,11 @@ export default function MouseTrapConfigCard({
                     >
                       Use Detected IP
                     </Button>
-                    <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: '2px' }}>
                       {detectedIp || 'No IP detected'}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
                     <Button
                       variant="outlined"
                       size="small"
@@ -210,7 +210,7 @@ export default function MouseTrapConfigCard({
                     >
                       Use Detected VPN IP
                     </Button>
-                    <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: '2px' }}>
                       {proxiedIp || 'No IP detected'}
                     </Typography>
                   </Box>

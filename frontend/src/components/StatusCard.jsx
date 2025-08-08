@@ -271,10 +271,34 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
           ) : (
             <Box>
               {/* ...existing code... */}
-              <Box>
-                <Typography variant="body1">Wedge Automation: <b>{autoWedge ? "Enabled" : "Disabled"}</b></Typography>
-                <Typography variant="body1">VIP Automation: <b>{autoVIP ? "Enabled" : "Disabled"}</b></Typography>
-                <Typography variant="body1">Upload Automation: <b>{autoUpload ? "Enabled" : "Disabled"}</b></Typography>
+              <Box sx={{ mt: 2, mb: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>Automation:</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>Wedge:</Typography>
+                    {autoWedge ? (
+                      <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>VIP Time:</Typography>
+                    {autoVIP ? (
+                      <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>Upload Credit:</Typography>
+                    {autoUpload ? (
+                      <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                    ) : (
+                      <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                    )}
+                  </Box>
+                </Box>
               </Box>
               {status.last_check_time && (
                 <>
