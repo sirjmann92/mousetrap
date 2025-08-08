@@ -73,6 +73,11 @@ export default function PerkAutomationCard({
   sessionLabel,
   onActionComplete = () => {}, // <-- new prop
 }) {
+  const [pointsToKeep, setPointsToKeep] = useState(0);
+  // Upload automation options state
+  const [triggerType, setTriggerType] = useState('time');
+  const [triggerDays, setTriggerDays] = useState(7);
+  const [triggerPointThreshold, setTriggerPointThreshold] = useState(50000);
   const [expanded, setExpanded] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [uploadAmount, setUploadAmount] = useState(1);
@@ -243,6 +248,18 @@ export default function PerkAutomationCard({
                   onChange={e => setBuffer(Number(e.target.value))}
                   size="small"
                   fullWidth
+                  helperText="Must have at least this many points to automate."
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Points to Keep"
+                  type="number"
+                  value={pointsToKeep}
+                  onChange={e => setPointsToKeep(Number(e.target.value))}
+                  size="small"
+                  fullWidth
+                  helperText="Never spend below this many points."
                 />
               </Grid>
             </Grid>
@@ -371,6 +388,47 @@ export default function PerkAutomationCard({
                 </span>
               </Tooltip>
             </Box>
+            {/* Automation Options Row */}
+            <Grid container spacing={2} alignItems="center" sx={{ mt: 1 }}>
+              <Grid item>
+                <FormControl size="small" sx={{ minWidth: 160 }}>
+                  <InputLabel>Trigger Type</InputLabel>
+                  <Select
+                    value={triggerType}
+                    label="Trigger Type"
+                    onChange={e => setTriggerType(e.target.value)}
+                  >
+                    <MenuItem value="time">Time-based</MenuItem>
+                    <MenuItem value="points">Point-based</MenuItem>
+                    <MenuItem value="both">Both</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              {(triggerType === 'time' || triggerType === 'both') && (
+                <Grid item>
+                  <TextField
+                    label="Every X Days"
+                    type="number"
+                    value={triggerDays}
+                    onChange={e => setTriggerDays(Number(e.target.value))}
+                    size="small"
+                    sx={{ minWidth: 120 }}
+                  />
+                </Grid>
+              )}
+              {(triggerType === 'points' || triggerType === 'both') && (
+                <Grid item>
+                  <TextField
+                    label="Point Threshold"
+                    type="number"
+                    value={triggerPointThreshold}
+                    onChange={e => setTriggerPointThreshold(Number(e.target.value))}
+                    size="small"
+                    sx={{ minWidth: 140 }}
+                  />
+                </Grid>
+              )}
+            </Grid>
           </Box>
 
           {/* Confirmation Dialogs */}
