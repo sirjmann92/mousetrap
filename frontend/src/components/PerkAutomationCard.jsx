@@ -322,7 +322,7 @@ export default function PerkAutomationCard({
     <Card sx={{ mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          Perk Options
+          Perk Purchase & Automation
         </Typography>
         <Typography variant="body1" sx={{ mr: 2, color: 'text.secondary' }}>
           Cheese: <b>{cheese !== null && cheese !== undefined ? cheese : "N/A"}</b>
@@ -368,7 +368,7 @@ export default function PerkAutomationCard({
           {/* Wedge Section */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>Wedge Purchase</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
               <Tooltip title={wedgeDisabled ? wedgeGuardMsg : ''} disableHoverListener={!wedgeDisabled} arrow>
                 <span>
                   <FormControlLabel
@@ -460,7 +460,7 @@ export default function PerkAutomationCard({
                 </IconButton>
               </Tooltip>
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
               <Tooltip title={vipDisabled ? vipGuardMsg : ''} disableHoverListener={!vipDisabled} arrow>
                 <span>
                   <FormControlLabel
@@ -547,7 +547,7 @@ export default function PerkAutomationCard({
           {/* Upload Credit Purchase Section */}
           <Box sx={{ mb: 3 }}>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>Upload Credit Purchase</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
               <Tooltip title={uploadDisabled ? uploadGuardMsg : ''} disableHoverListener={!uploadDisabled} arrow>
                 <span>
                   <FormControlLabel
