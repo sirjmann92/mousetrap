@@ -203,8 +203,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         </Box>
         {/* Network & Proxy Details Rollup */}
         {status && (
-          <Accordion sx={{ mt: 2, mb: 2, border: 1, borderColor: 'divider', borderRadius: 1, boxShadow: 'none' }} defaultExpanded={false}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ borderBottom: 1, borderColor: 'divider', minHeight: 48 }}>
+          <Accordion sx={{ mt: 2, mb: 2 }} defaultExpanded={false}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Network & Proxy Details</Typography>
             </AccordionSummary>
             <AccordionDetails>
