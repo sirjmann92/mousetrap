@@ -139,16 +139,52 @@ export default function MouseTrapConfigCard({
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
+            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <TextField
                 label="Session Label"
                 value={label}
                 onChange={e => setLabel(e.target.value)}
                 size="small"
                 required
-                helperText="Unique name for this session (required)"
-                sx={{ width: 300 }}
+                sx={{ width: 145 }}
               />
+            </Grid>
+            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
+              <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165 }} error={!!sessionTypeError}>
+                <InputLabel>Session Type*</InputLabel>
+                <Select
+                  value={sessionType || ""}
+                  label="Session Type*"
+                  onChange={e => setSessionType(e.target.value)}
+                >
+                  <MenuItem value="">Select...</MenuItem>
+                  <MenuItem value="IP Locked">IP Locked</MenuItem>
+                  <MenuItem value="ASN Locked">ASN Locked</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FormControl size="small" sx={{ minWidth: 100, maxWidth: 145 }} error={!!freqError}>
+                  <InputLabel>Frequency*</InputLabel>
+                  <Select
+                    value={checkFrequency || ""}
+                    label="Frequency*"
+                    onChange={e => setCheckFrequency(Number(e.target.value))}
+                  >
+                    <MenuItem value="">Select...</MenuItem>
+                    <MenuItem value={1}>1</MenuItem>
+                    {[5,10,15,20,25,30,35,40,45,50,55,60].map(val => (
+                      <MenuItem key={val} value={val}>{val}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Tooltip title="How often to check the IP/ASN for changes" arrow>
+                  <IconButton size="small" sx={{ ml: 0.5 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Grid>
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
@@ -181,8 +217,8 @@ export default function MouseTrapConfigCard({
                   error={ipError}
                   inputProps={{ maxLength: 16 }}
                   placeholder="e.g. 203.0.113.99"
-                  helperText="Enter IP address associated with MAM ID"
-                  sx={{ width: 300 }}
+                  helperText="IP to associate with MAM ID"
+                  sx={{ width: 210 }}
                 />
                 <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', minWidth: 120, gap: 2, height: 64 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
@@ -190,12 +226,12 @@ export default function MouseTrapConfigCard({
                       variant="outlined"
                       size="small"
                       onClick={() => setMamIp(detectedIp)}
-                      sx={{ height: 40 }}
+                      sx={{ height: 40, mb: 0.375 }}
                       disabled={!detectedIp}
                     >
                       Use Detected IP
                     </Button>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: '2px' }}>
+                    <Typography variant="caption" color="text.secondary">
                       {detectedIp || 'No IP detected'}
                     </Typography>
                   </Box>
@@ -205,12 +241,12 @@ export default function MouseTrapConfigCard({
                       size="small"
                       color="primary"
                       onClick={() => setMamIp(proxiedIp)}
-                      sx={{ height: 40 }}
+                      sx={{ height: 40, mb: 0.375 }}
                       disabled={!proxiedIp}
                     >
                       Use Detected VPN IP
                     </Button>
-                    <Typography variant="caption" color="text.secondary" sx={{ mt: '2px' }}>
+                    <Typography variant="caption" color="text.secondary">
                       {proxiedIp || 'No IP detected'}
                     </Typography>
                   </Box>
@@ -218,43 +254,7 @@ export default function MouseTrapConfigCard({
               </Box>
             </Grid>
           </Grid>
-          {/* Session Type and Frequency row */}
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 160, maxWidth: 190, flex: 2 }} error={!!sessionTypeError}>
-                  <InputLabel>Session Type*</InputLabel>
-                  <Select
-                    value={sessionType || ""}
-                    label="Session Type*"
-                    onChange={e => setSessionType(e.target.value)}
-                  >
-                    <MenuItem value="">Select...</MenuItem>
-                    <MenuItem value="IP Locked">IP Locked</MenuItem>
-                    <MenuItem value="ASN Locked">ASN Locked</MenuItem>
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165, flex: 1 }} error={!!freqError}>
-                  <InputLabel>Frequency*</InputLabel>
-                  <Select
-                    value={checkFrequency || ""}
-                    label="Frequency*"
-                    onChange={e => setCheckFrequency(Number(e.target.value))}
-                  >
-                    <MenuItem value="">Select...</MenuItem>
-                    {Array.from({ length: 60 }, (_, i) => (
-                      <MenuItem key={i + 1} value={i + 1}>{i + 1}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Tooltip title="How often to check and update IP/ASN (minutes)" arrow>
-                  <IconButton size="small" sx={{ ml: 1 }}>
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Grid>
-          </Grid>
+          {/* Session Type row removed; now in top row */}
           {/* Divider and VPN Proxy Configuration label */}
           <Accordion defaultExpanded={false}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
