@@ -41,6 +41,9 @@ logging.basicConfig(
 # Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
+# Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
+logging.getLogger('apscheduler').setLevel(logging.WARNING)
+
 def get_asn_and_timezone_from_ip(ip):
     try:
         token = os.environ.get("IPINFO_TOKEN")
@@ -768,3 +771,57 @@ def register_all_session_jobs():
 
 register_all_session_jobs()
 scheduler.start()
+
+# --- Upload Credit Automation Job ---
+def upload_credit_automation_job():
+    session_labels = list_sessions()
+    now = datetime.now(timezone.utc)
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            mam_id = cfg.get('mam', {}).get('mam_id', "")
+            if not mam_id:
+                continue
+            automation = cfg.get('perk_automation', {}).get('upload_credit', {})
+            enabled = automation.get('enabled', False)
+            if not enabled:
+                continue
+            min_points = automation.get('min_points', 0)
+            points_to_keep = automation.get('points_to_keep', 0)
+            gb = automation.get('gb', 1)
+            trigger_type = automation.get('trigger_type', 'points')
+            proxy_cfg = cfg.get('proxy', {})
+            # Get current status/points
+            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            points = status.get('points', 0) if isinstance(status, dict) else 0
+            # Guardrails
+            if points is None or points < min_points:
+                logging.info(f"[UploadAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} min_points={min_points}")
+                continue
+            # Each GB costs 500 points
+            total_cost = gb * 500
+            if points - total_cost < points_to_keep:
+                logging.info(f"[UploadAuto] label={label} trigger=automation result=skipped reason=points_to_keep_guardrail points={points} cost={total_cost} points_to_keep={points_to_keep}")
+                continue
+            # Trigger automation
+            result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
+            success = result.get('success', False) if result else False
+            if success:
+                logging.info(f"[UploadAuto] label={label} trigger=automation result=success gb={gb} points_before={points}")
+            else:
+                err_msg = result.get('error') or result.get('response') or 'Unknown error'
+                logging.warning(f"[UploadAuto] label={label} trigger=automation result=failed gb={gb} points_before={points} error={err_msg}")
+        except Exception as e:
+            logging.error(f"[UploadAuto] label={label} trigger=automation result=exception error={e}")
+
+# Register the upload credit automation job to run every 10 minutes
+if not scheduler.get_job('upload_credit_automation'):
+    scheduler.add_job(
+        upload_credit_automation_job,
+        trigger=IntervalTrigger(minutes=10),
+        id='upload_credit_automation',
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1
+    )
+    logging.info("[APScheduler] Registered upload credit automation job (every 10 min)")
