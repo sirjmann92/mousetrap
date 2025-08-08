@@ -36,7 +36,9 @@ export default function MouseTrapConfigCard({
   label, setLabel,
   oldLabel,
   onSessionSaved,
-  proxy = {}, setProxy
+  proxy = {}, setProxy,
+  proxiedIp = "",
+  proxiedAsn = ""
 }) {
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
@@ -182,19 +184,36 @@ export default function MouseTrapConfigCard({
                   helperText="Enter IP address associated with MAM ID"
                   sx={{ width: 300 }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 120 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setMamIp(detectedIp)}
-                    sx={{ height: 40 }}
-                    disabled={!detectedIp}
-                  >
-                    Use Detected IP
-                  </Button>
-                  <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
-                    {detectedIp ? detectedIp : 'No IP detected'}
-                  </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', minWidth: 120, gap: 2 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => setMamIp(detectedIp)}
+                      sx={{ height: 40 }}
+                      disabled={!detectedIp}
+                    >
+                      Use Detected IP
+                    </Button>
+                    <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
+                      {detectedIp || 'No IP detected'}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      color="primary"
+                      onClick={() => setMamIp(proxiedIp)}
+                      sx={{ height: 40 }}
+                      disabled={!proxiedIp}
+                    >
+                      Use Detected VPN IP
+                    </Button>
+                    <Typography variant="caption" sx={{ mt: 0.5 }} color="text.secondary">
+                      {proxiedIp || 'No IP detected'}
+                    </Typography>
+                  </Box>
                 </Box>
               </Box>
             </Grid>

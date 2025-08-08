@@ -64,6 +64,8 @@ export default function App() {
   const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
   const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
   const [proxy, setProxy] = React.useState({});
+  const [proxiedIp, setProxiedIp] = React.useState("");
+  const [proxiedAsn, setProxiedAsn] = React.useState("");
 
   // On mount, fetch detected IP and ASN for new sessions
   React.useEffect(() => {
@@ -72,8 +74,10 @@ export default function App() {
       .then(data => {
         if (data.detected_public_ip) setDetectedIp(data.detected_public_ip);
         if (data.detected_public_ip_asn) setCurrentASN(data.detected_public_ip_asn);
+        if (data.proxied_public_ip) setProxiedIp(data.proxied_public_ip); else setProxiedIp("");
+        if (data.proxied_public_ip_asn) setProxiedAsn(data.proxied_public_ip_asn); else setProxiedAsn("");
       });
-  }, []); // Only run once on mount
+  }, [label]);
 
   // Load session config by label
   const loadSession = async (labelToLoad) => {
@@ -234,6 +238,8 @@ export default function App() {
           onSessionSaved={handleSessionSaved}
           proxy={proxy}
           setProxy={setProxy}
+          proxiedIp={proxiedIp}
+          proxiedAsn={proxiedAsn}
         />
         <PerkAutomationCard
           buffer={buffer}

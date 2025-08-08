@@ -1,3 +1,39 @@
+def get_proxied_public_ip(proxy_cfg):
+    """
+    Returns the public IP as seen through the given proxy config.
+    """
+    proxies = build_proxy_dict(proxy_cfg)
+    if not proxies:
+        return None
+    try:
+        resp = requests.get("https://api.ipify.org", timeout=6, proxies=proxies)
+        if resp.status_code == 200:
+            return resp.text.strip()
+        return None
+    except Exception as e:
+        logging.warning(f"[get_proxied_public_ip] Failed: {e}")
+        return None
+
+def get_proxied_public_ip_and_asn(proxy_cfg):
+    """
+    Returns (public_ip, asn) as seen through the given proxy config, using ipinfo.io and the API token if available.
+    """
+    proxies = build_proxy_dict(proxy_cfg)
+    token = os.environ.get("IPINFO_TOKEN")
+    url = "https://ipinfo.io/json"
+    if token:
+        url += f"?token={token}"
+    try:
+        resp = requests.get(url, timeout=6, proxies=proxies)
+        if resp.status_code == 200:
+            data = resp.json()
+            ip = data.get("ip")
+            asn = data.get("org", "Unknown ASN")
+            return ip, asn
+        return None, None
+    except Exception as e:
+        logging.warning(f"[get_proxied_public_ip_and_asn] Failed: {e}")
+        return None, None
 import os
 import requests
 from bs4 import BeautifulSoup
