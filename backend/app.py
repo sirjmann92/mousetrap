@@ -157,14 +157,24 @@ logging.getLogger('apscheduler').setLevel(logging.WARNING)
 # Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-def get_asn_and_timezone_from_ip(ip):
+def get_asn_and_timezone_from_ip(ip, proxy_cfg=None):
     try:
         token = os.environ.get("IPINFO_TOKEN")
         url = f"https://ipinfo.io/{ip}/json"
         if token:
             url += f"?token={token}"
-        logging.debug(f"ASN lookup for IP: {ip}")
-        resp = requests.get(url, timeout=4)
+        logging.debug(f"ASN lookup for IP: {ip} (proxy: {bool(proxy_cfg)})")
+        proxies = None
+        if proxy_cfg:
+            proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
+            if not proxy_url and 'host' in proxy_cfg and 'port' in proxy_cfg:
+                userpass = ''
+                if proxy_cfg.get('username') and proxy_cfg.get('password'):
+                    userpass = f"{proxy_cfg['username']}:{proxy_cfg['password']}@"
+                proxy_url = f"http://{userpass}{proxy_cfg['host']}:{proxy_cfg['port']}"
+            if proxy_url:
+                proxies = {'http': proxy_url, 'https': proxy_url}
+        resp = requests.get(url, timeout=4, proxies=proxies)
         logging.debug(f"ipinfo.io response: {resp.status_code}")
         if resp.status_code == 200:
             data = resp.json()
@@ -219,7 +229,8 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             }
         elif any(k in proxy_cfg for k in ['host', 'port', 'username', 'password']):
             # Proxy config is present but malformed
-            logging.warning(f"[AutoUpdate] label={label} proxy config is incomplete or malformed; skipping proxy usage.")
+            if any(proxy_cfg.get(k) for k in ['host', 'port', 'username', 'password']):
+                logging.warning(f"[AutoUpdate] label={label} proxy config is incomplete or malformed; skipping proxy usage.")
             proxies = None
     # If no proxy config, proxies remains None (no error)
     # Do not log proxies dict (may contain sensitive info)
@@ -227,23 +238,59 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     update_needed = False
     reason = None
     # If ASN-locked and ASN changed but IP did not, update ASN in config only
-    if session_type == 'asn locked' and asn and asn != last_seedbox_asn:
-        reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
-        logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
-        cfg["last_seedbox_asn"] = asn
-        save_session(cfg, old_label=label)
-        logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
-        return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+    if session_type == 'asn locked':
+        # Always get ASN using proxy if available
+        proxied_ip = cfg.get('proxied_public_ip')
+        proxy_cfg = cfg.get('proxy', {})
+        asn_to_check, _ = get_asn_and_timezone_from_ip(proxied_ip or ip_to_use, proxy_cfg if proxied_ip else None)
+
+        def extract_asn_number(asn_str):
+            if not asn_str or not isinstance(asn_str, str):
+                return None
+            import re
+            match = re.search(r'AS?(\d+)', asn_str, re.IGNORECASE)
+            if match:
+                return match.group(1)
+            # fallback: if it's just a number string
+            if asn_str.strip().isdigit():
+                return asn_str.strip()
+            return None
+
+        norm_last = extract_asn_number(last_seedbox_asn)
+        norm_check = extract_asn_number(asn_to_check)
+        # Always store the normalized ASN number
+        if norm_check:
+            cfg["last_seedbox_asn"] = norm_check
+            save_session(cfg, old_label=label)
+        # Only log ASN changed if the ASN actually changed
+        if norm_last != norm_check:
+            reason = f"ASN changed: {norm_last} -> {norm_check}"
+            logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
+            logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
+            return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
     # For both session types, trigger update if the IP to use has changed
     proxied_ip = cfg.get('proxied_public_ip')
     ip_to_check = proxied_ip if proxied_ip else ip_to_use
     if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
+    # Always log the IP comparison for visibility
+    logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check}")
     logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
     # If update is needed (IP or proxied IP changed), call seedbox API
     if update_needed:
         logging.info(f"[AutoUpdate] label={label} update_needed=True asn={asn} reason={reason}")
+        # Always update last_seedbox_ip and last_seedbox_asn for non-proxied sessions, even if proxy config is missing or malformed
+        proxied_ip = cfg.get('proxied_public_ip')
+        new_ip = proxied_ip if proxied_ip else ip_to_use
+        cfg["last_seedbox_ip"] = new_ip
+        cfg["last_seedbox_asn"] = asn
+        cfg["last_seedbox_update"] = now.isoformat()
+        try:
+            save_session(cfg, old_label=label)
+            logging.debug(f"[AutoUpdate][DEBUG] label={label} save_session successful (IP/ASN update).")
+        except Exception as e:
+            logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed (IP/ASN update): {e}")
         if not mam_id:
             logging.warning(f"[AutoUpdate] label={label} update_needed=True but mam_id is missing. Skipping seedbox API call.")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning due to missing mam_id. reason={reason}")
@@ -252,19 +299,6 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         if last_seedbox_update:
             last_update_dt = datetime.fromisoformat(last_seedbox_update)
             if (now - last_update_dt) < timedelta(hours=1):
-                # Update last_seedbox_ip and mam_ip to the proxied_public_ip if present, else ip_to_use, even on rate-limit
-                proxied_ip = cfg.get('proxied_public_ip')
-                new_ip = proxied_ip if proxied_ip else ip_to_use
-                cfg["last_seedbox_ip"] = new_ip
-                cfg["mam_ip"] = new_ip
-                cfg["last_seedbox_update"] = now.isoformat()
-                cfg["last_seedbox_asn"] = asn
-                logging.debug(f"[AutoUpdate][DEBUG] label={label} about to save config (rate-limit)")
-                try:
-                    save_session(cfg, old_label=label)
-                    logging.debug(f"[AutoUpdate][DEBUG] label={label} save_session successful (rate-limit).")
-                except Exception as e:
-                    logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed (rate-limit): {e}")
                 logging.info(f"[AutoUpdate] label={label} update_needed=True result=rate_limited reason={reason}")
                 logging.debug(f"[AutoUpdate][RETURN] label={label} Returning due to rate limit. reason={reason}")
                 return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
@@ -332,7 +366,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 logging.info(f"[AutoUpdate] label={label} result=error reason={reason}")
                 return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
         except Exception as e:
-            logging.error(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
+            logging.warning(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after exception in seedbox API call. reason={reason}")
             return True, {"success": False, "error": str(e), "reason": reason}
     logging.debug(f"[AutoUpdate][RETURN] label={label} Returning default path (no update needed or triggered).")
@@ -461,7 +495,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             }
     if force or not status:
         if force:
-            logging.info(f"[SessionCheck][TRIGGER] label={label} source=forced_api_status")
+            logging.debug(f"[SessionCheck][TRIGGER] label={label} source=forced_api_status")
             mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             mam_status['configured_ip'] = ip_to_use
             mam_status['configured_asn'] = asn

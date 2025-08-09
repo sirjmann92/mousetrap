@@ -236,16 +236,26 @@ export default function MouseTrapConfigCard({
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      color="primary"
-                      onClick={() => setMamIp(proxiedIp)}
-                      sx={{ height: 40, mb: 0.375 }}
-                      disabled={!proxiedIp}
+                    {/* Tooltip only when button is disabled due to missing proxy config */}
+                    <Tooltip
+                      title={(!proxyHost || !proxyPort) ? "VPN proxy not configured" : ""}
+                      arrow
+                      disableHoverListener={!!proxyHost && !!proxyPort}
+                      disableFocusListener={!!proxyHost && !!proxyPort}
                     >
-                      Use Detected VPN IP
-                    </Button>
+                      <span>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          color="primary"
+                          onClick={() => setMamIp(proxiedIp)}
+                          sx={{ height: 40, mb: 0.375 }}
+                          disabled={!proxiedIp}
+                        >
+                          Use Detected VPN IP
+                        </Button>
+                      </span>
+                    </Tooltip>
                     <Typography variant="caption" color="text.secondary">
                       {proxiedIp || 'No IP detected'}
                     </Typography>
