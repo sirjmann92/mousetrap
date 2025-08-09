@@ -1142,10 +1142,39 @@ def session_check_job(label):
             # Save last_status to config for UI
             cfg['last_status'] = status
             save_session(cfg, old_label=label)
-            # Custom concise log for session check result
-            status_msg = status.get('status_message', status.get('message', 'OK'))
-            points = status.get('points')
-            logging.info(f"[SessionCheck] label={label} status={status_msg} points={points}")
+            # Log event to UI event log (same as force=1 in api_status), but handle None IP/ASN as warning
+            prev_ip = cfg.get('last_seedbox_ip')
+            prev_asn = cfg.get('last_seedbox_asn')
+            curr_ip = status.get('configured_ip')
+            curr_asn = status.get('configured_asn')
+            if curr_ip is None or curr_asn is None:
+                warn_msg = "Unable to determine current IP/ASN—check connectivity or configuration. No update performed."
+                event = {
+                    "timestamp": now.isoformat(),
+                    "label": label,
+                    "details": {
+                        "ip_compare": f"{prev_ip} -> {curr_ip}",
+                        "asn_compare": f"{prev_asn} -> {curr_asn}",
+                        "auto_update": status.get('auto_update_seedbox'),
+                    },
+                    "status_message": warn_msg
+                }
+                append_ui_event_log(event)
+                logging.warning(f"[SessionCheck][WARNING] label={label} {warn_msg}")
+            else:
+                event = {
+                    "timestamp": now.isoformat(),
+                    "label": label,
+                    "details": {
+                        "ip_compare": f"{prev_ip} -> {curr_ip}",
+                        "asn_compare": f"{prev_asn} -> {curr_asn}",
+                        "auto_update": status.get('auto_update_seedbox'),
+                    },
+                    "status_message": status.get('status_message', status.get('message', 'OK'))
+                }
+                append_ui_event_log(event)
+                # Demote redundant SessionCheck log to DEBUG (no points)
+                logging.debug(f"[SessionCheck] label={label} status={status.get('status_message', status.get('message', 'OK'))}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
 
