@@ -5,61 +5,23 @@ import {
   Typography,
   Grid,
   TextField,
-  FormControlLabel,
-  Checkbox,
   Box,
   Button,
   Tooltip,
   IconButton,
   Collapse,
-  Snackbar,
-  Alert,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogContentText,
-  DialogActions,
   Divider
 } from "@mui/material";
+import FeedbackSnackbar from "./FeedbackSnackbar";
+import ConfirmDialog from "./ConfirmDialog";
+import AutomationSection from "./AutomationSection";
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
-function MillionairesVaultAmountDropdown({ value, onChange, minWidth }) {
-  return (
-    <FormControl fullWidth size="small" sx={{ mb: 2, minWidth: minWidth || 180 }}>
-      <InputLabel>Millionaire's Vault Amount</InputLabel>
-      <Select
-        value={value}
-        label="Millionaire's Vault Amount"
-        onChange={onChange}
-        sx={minWidth ? { minWidth } : {}}
-      >
-        {[...Array(20)].map((_, i) => {
-          const val = (i + 1) * 100;
-          return <MenuItem key={val} value={val}>{val.toLocaleString()} points</MenuItem>;
-        })}
-      </Select>
-    </FormControl>
-  );
-}
 
-// Utility to robustly stringify any message for snackbars
-function stringifyMessage(msg) {
-  if (typeof msg === 'string') return msg;
-  if (msg instanceof Error) return msg.message;
-  if (msg === undefined || msg === null) return '';
-  try {
-    return JSON.stringify(msg);
-  } catch {
-    return String(msg);
-  }
-}
+import { stringifyMessage } from '../utils/utils';
 
 export default function PerkAutomationCard({
   buffer, setBuffer,
@@ -365,30 +327,21 @@ export default function PerkAutomationCard({
           </Box>
           <Divider sx={{ mb: 3 }} />
 
-          {/* Wedge Section */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>Wedge Purchase</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
-              <Tooltip title={wedgeDisabled ? wedgeGuardMsg : ''} disableHoverListener={!wedgeDisabled} arrow>
-                <span>
-                  <FormControlLabel
-                    control={<Checkbox checked={autoWedge} onChange={e => setAutoWedge(e.target.checked)} disabled={wedgeDisabled} />}
-                    label={<span>Enable Wedge Automation</span>}
-                    sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-                  />
-                </span>
-              </Tooltip>
-              <FormControl size="small" sx={{ minWidth: 140, mr: 3, flexShrink: 0 }}>
-                <InputLabel>Method</InputLabel>
-                <Select
-                  value={wedgeMethod}
-                  label="Method"
-                  onChange={e => setWedgeMethod(e.target.value)}
-                >
-                  <MenuItem value="points">Points (50,000)</MenuItem>
-                  <MenuItem value="cheese">Cheese (5)</MenuItem>
-                </Select>
-              </FormControl>
+          {/* Wedge Section (modularized) */}
+          <AutomationSection
+            title="Wedge Purchase"
+            enabled={autoWedge}
+            onToggle={e => setAutoWedge(e.target.checked)}
+            toggleLabel="Enable Wedge Automation"
+            toggleDisabled={wedgeDisabled}
+            selectLabel="Method"
+            selectValue={wedgeMethod}
+            selectOptions={[
+              { value: "points", label: "Points (50,000)" },
+              { value: "cheese", label: "Cheese (5)" }
+            ]}
+            onSelectChange={e => setWedgeMethod(e.target.value)}
+            extraControls={
               <TextField
                 label="Frequency (hours)"
                 type="number"
@@ -398,7 +351,8 @@ export default function PerkAutomationCard({
                 inputProps={{ min: 0 }}
                 sx={{ width: 160, mr: 3, flexShrink: 0 }}
               />
-              <Box sx={{ flexGrow: 1 }} />
+            }
+            confirmButton={
               <Tooltip title="This will instantly purchase a wedge using the selected method.">
                 <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmWedgeOpen(true)}>
@@ -406,84 +360,41 @@ export default function PerkAutomationCard({
                   </Button>
                 </span>
               </Tooltip>
-            </Box>
-            {/* Wedge automation options row */}
-            <Grid container spacing={2} alignItems="center" sx={{ mt: 1, mb: 2 }}>
-              <Grid item>
-                <FormControl size="small" sx={{ minWidth: 160 }}>
-                  <InputLabel>Trigger Type</InputLabel>
-                  <Select
-                    value={wedgeTriggerType}
-                    label="Trigger Type"
-                    onChange={e => setWedgeTriggerType(e.target.value)}
-                  >
-                    <MenuItem value="time">Time-based</MenuItem>
-                    <MenuItem value="points">Point-based</MenuItem>
-                    <MenuItem value="both">Both</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              {(wedgeTriggerType === 'time' || wedgeTriggerType === 'both') && (
-                <Grid item>
-                  <TextField
-                    label="Every X Days"
-                    type="number"
-                    value={wedgeTriggerDays}
-                    onChange={e => setWedgeTriggerDays(Number(e.target.value))}
-                    size="small"
-                    sx={{ minWidth: 120 }}
-                  />
-                </Grid>
-              )}
-              {(wedgeTriggerType === 'points' || wedgeTriggerType === 'both') && (
-                <Grid item>
-                  <TextField
-                    label="Point Threshold"
-                    type="number"
-                    value={wedgeTriggerPointThreshold}
-                    onChange={e => setWedgeTriggerPointThreshold(Number(e.target.value))}
-                    size="small"
-                    sx={{ minWidth: 140 }}
-                  />
-                </Grid>
-              )}
-            </Grid>
-          </Box>
+            }
+            tooltip={wedgeDisabled ? wedgeGuardMsg : ''}
+            triggerTypeValue={wedgeTriggerType}
+            onTriggerTypeChange={e => setWedgeTriggerType(e.target.value)}
+            triggerDays={wedgeTriggerDays}
+            onTriggerDaysChange={e => setWedgeTriggerDays(Number(e.target.value))}
+            triggerPointThreshold={wedgeTriggerPointThreshold}
+            onTriggerPointThresholdChange={e => setWedgeTriggerPointThreshold(Number(e.target.value))}
+          />
           <Divider sx={{ mb: 3 }} />
 
-          {/* VIP Section */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>VIP Purchase
+          {/* VIP Section (modularized) */}
+          <AutomationSection
+            title={<span>VIP Purchase
               <Tooltip title="You must be rank Power User or VIP with Power User requirements met in order to purchase VIP">
                 <IconButton size="small" sx={{ ml: 1 }}>
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
-              <Tooltip title={vipDisabled ? vipGuardMsg : ''} disableHoverListener={!vipDisabled} arrow>
-                <span>
-                  <FormControlLabel
-                    control={<Checkbox checked={autoVIP} onChange={e => setAutoVIP(e.target.checked)} disabled={vipDisabled} />}
-                    label={<span>Enable VIP Automation</span>}
-                    sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-                  />
-                </span>
-              </Tooltip>
-              <FormControl size="small" sx={{ minWidth: 120, mr: 1, flexShrink: 0 }}>
-                <InputLabel>Weeks</InputLabel>
-                <Select
-                  value={vipWeeks}
-                  label="Weeks"
-                  onChange={e => setVipWeeks(e.target.value)}
-                >
-                  <MenuItem value={4}>4 Weeks</MenuItem>
-                  <MenuItem value={8}>8 Weeks</MenuItem>
-                  <MenuItem value={90}>Fill me up!</MenuItem>
-                </Select>
-              </FormControl>
+            </span>}
+            enabled={autoVIP}
+            onToggle={e => setAutoVIP(e.target.checked)}
+            toggleLabel="Enable VIP Automation"
+            toggleDisabled={vipDisabled}
+            selectLabel="Weeks"
+            selectValue={vipWeeks}
+            selectOptions={[
+              { value: 4, label: "4 Weeks" },
+              { value: 8, label: "8 Weeks" },
+              { value: 90, label: "Fill me up!" }
+            ]}
+            onSelectChange={e => setVipWeeks(e.target.value)}
+            extraControls={
               <Tooltip title={<span>
-                4 weeks = 5,000 points<br/>
+                4 +weeks = 5,000 points<br/>
                 8 weeks = 10,000 points<br/>
                 Fill me up! = Top up to 90 days (variable points)
               </span>}>
@@ -491,7 +402,8 @@ export default function PerkAutomationCard({
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
-              <Box sx={{ flexGrow: 1 }} />
+            }
+            confirmButton={
               <Tooltip title="This will instantly purchase VIP for the selected duration.">
                 <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmVIPOpen(true)}>
@@ -499,80 +411,36 @@ export default function PerkAutomationCard({
                   </Button>
                 </span>
               </Tooltip>
-            </Box>
-            {/* VIP automation options row */}
-            <Grid container spacing={2} alignItems="center" sx={{ mt: 1, mb: 2 }}>
-              <Grid item>
-                <FormControl size="small" sx={{ minWidth: 160 }}>
-                  <InputLabel>Trigger Type</InputLabel>
-                  <Select
-                    value={vipTriggerType}
-                    label="Trigger Type"
-                    onChange={e => setVipTriggerType(e.target.value)}
-                  >
-                    <MenuItem value="time">Time-based</MenuItem>
-                    <MenuItem value="points">Point-based</MenuItem>
-                    <MenuItem value="both">Both</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              {(vipTriggerType === 'time' || vipTriggerType === 'both') && (
-                <Grid item>
-                  <TextField
-                    label="Every X Days"
-                    type="number"
-                    value={vipTriggerDays}
-                    onChange={e => setVipTriggerDays(Number(e.target.value))}
-                    size="small"
-                    sx={{ minWidth: 120 }}
-                  />
-                </Grid>
-              )}
-              {(vipTriggerType === 'points' || vipTriggerType === 'both') && (
-                <Grid item>
-                  <TextField
-                    label="Point Threshold"
-                    type="number"
-                    value={vipTriggerPointThreshold}
-                    onChange={e => setVipTriggerPointThreshold(Number(e.target.value))}
-                    size="small"
-                    sx={{ minWidth: 140 }}
-                  />
-                </Grid>
-              )}
-            </Grid>
-          </Box>
+            }
+            tooltip={vipDisabled ? vipGuardMsg : ''}
+            triggerTypeValue={vipTriggerType}
+            onTriggerTypeChange={e => setVipTriggerType(e.target.value)}
+            triggerDays={vipTriggerDays}
+            onTriggerDaysChange={e => setVipTriggerDays(Number(e.target.value))}
+            triggerPointThreshold={vipTriggerPointThreshold}
+            onTriggerPointThresholdChange={e => setVipTriggerPointThreshold(Number(e.target.value))}
+          />
           <Divider sx={{ mb: 3 }} />
 
-          {/* Upload Credit Purchase Section */}
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>Upload Credit Purchase</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
-              <Tooltip title={uploadDisabled ? uploadGuardMsg : ''} disableHoverListener={!uploadDisabled} arrow>
-                <span>
-                  <FormControlLabel
-                    control={<Checkbox checked={autoUpload} onChange={e => setAutoUpload(e.target.checked)} disabled={uploadDisabled} />}
-                    label={<span>Enable Upload Credit Automation</span>}
-                    sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
-                  />
-                </span>
-              </Tooltip>
-              <FormControl size="small" sx={{ minWidth: 110, mr: 3, flexShrink: 0 }}>
-                <InputLabel>Amount</InputLabel>
-                <Select
-                  value={uploadAmount}
-                  label="Amount"
-                  onChange={e => setUploadAmount(e.target.value)}
-                >
-                  <MenuItem value={1}>1GB</MenuItem>
-                  <MenuItem value={2.5}>2.5GB</MenuItem>
-                  <MenuItem value={5}>5GB</MenuItem>
-                  <MenuItem value={20}>20GB</MenuItem>
-                  <MenuItem value={50}>50GB</MenuItem>
-                  <MenuItem value={100}>100GB</MenuItem>
-                </Select>
-              </FormControl>
-              <Box sx={{ flexGrow: 1 }} />
+          {/* Upload Credit Purchase Section (modularized) */}
+          <AutomationSection
+            title="Upload Credit Purchase"
+            enabled={autoUpload}
+            onToggle={e => setAutoUpload(e.target.checked)}
+            toggleLabel="Enable Upload Credit Automation"
+            toggleDisabled={uploadDisabled}
+            selectLabel="Amount"
+            selectValue={uploadAmount}
+            selectOptions={[
+              { value: 1, label: "1GB" },
+              { value: 2.5, label: "2.5GB" },
+              { value: 5, label: "5GB" },
+              { value: 20, label: "20GB" },
+              { value: 50, label: "50GB" },
+              { value: 100, label: "100GB" }
+            ]}
+            onSelectChange={e => setUploadAmount(e.target.value)}
+            confirmButton={
               <Tooltip title="This will instantly purchase upload credit for the selected amount.">
                 <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmUploadOpen(true)}>
@@ -580,87 +448,38 @@ export default function PerkAutomationCard({
                   </Button>
                 </span>
               </Tooltip>
-            </Box>
-            {/* Automation Options Row */}
-            <Grid container spacing={2} alignItems="center" sx={{ mt: 1 }}>
-              <Grid item>
-                <FormControl size="small" sx={{ minWidth: 160 }}>
-                  <InputLabel>Trigger Type</InputLabel>
-                  <Select
-                    value={triggerType}
-                    label="Trigger Type"
-                    onChange={e => setTriggerType(e.target.value)}
-                  >
-                    <MenuItem value="time">Time-based</MenuItem>
-                    <MenuItem value="points">Point-based</MenuItem>
-                    <MenuItem value="both">Both</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              {(triggerType === 'time' || triggerType === 'both') && (
-                <Grid item>
-                  <TextField
-                    label="Every X Days"
-                    type="number"
-                    value={triggerDays}
-                    onChange={e => setTriggerDays(Number(e.target.value))}
-                    size="small"
-                    sx={{ minWidth: 120 }}
-                  />
-                </Grid>
-              )}
-              {(triggerType === 'points' || triggerType === 'both') && (
-                <Grid item>
-                  <TextField
-                    label="Point Threshold"
-                    type="number"
-                    value={triggerPointThreshold}
-                    onChange={e => setTriggerPointThreshold(Number(e.target.value))}
-                    size="small"
-                    sx={{ minWidth: 140 }}
-                  />
-                </Grid>
-              )}
-            </Grid>
-          </Box>
+            }
+            tooltip={uploadDisabled ? uploadGuardMsg : ''}
+            triggerTypeValue={triggerType}
+            onTriggerTypeChange={e => setTriggerType(e.target.value)}
+            triggerDays={triggerDays}
+            onTriggerDaysChange={e => setTriggerDays(Number(e.target.value))}
+            triggerPointThreshold={triggerPointThreshold}
+            onTriggerPointThresholdChange={e => setTriggerPointThreshold(Number(e.target.value))}
+          />
 
-          {/* Confirmation Dialogs */}
-          <Dialog open={confirmWedgeOpen} onClose={() => setConfirmWedgeOpen(false)}>
-            <DialogTitle>Confirm Wedge Purchase</DialogTitle>
-            <DialogContent>
-              <DialogContentText>
-                Are you sure you want to instantly purchase a wedge using {wedgeMethod === 'points' ? 'Points (50,000)' : 'Cheese (5)'}?
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setConfirmWedgeOpen(false)}>Cancel</Button>
-              <Button onClick={() => { setConfirmWedgeOpen(false); triggerManualWedge(wedgeMethod); }} color="primary" variant="contained">Confirm</Button>
-            </DialogActions>
-          </Dialog>
-          <Dialog open={confirmVIPOpen} onClose={() => setConfirmVIPOpen(false)}>
-            <DialogTitle>Confirm VIP Purchase</DialogTitle>
-            <DialogContent>
-              <DialogContentText>
-                Are you sure you want to instantly purchase VIP for {vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`}?
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setConfirmVIPOpen(false)}>Cancel</Button>
-              <Button onClick={() => { setConfirmVIPOpen(false); triggerVIPManual(); }} color="primary" variant="contained">Confirm</Button>
-            </DialogActions>
-          </Dialog>
-          <Dialog open={confirmUploadOpen} onClose={() => setConfirmUploadOpen(false)}>
-            <DialogTitle>Confirm Upload Credit Purchase</DialogTitle>
-            <DialogContent>
-              <DialogContentText>
-                Are you sure you want to instantly purchase {uploadAmount}GB of upload credit?
-              </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setConfirmUploadOpen(false)}>Cancel</Button>
-              <Button onClick={() => { setConfirmUploadOpen(false); triggerUploadManual(); }} color="primary" variant="contained">Confirm</Button>
-            </DialogActions>
-          </Dialog>
+          {/* Confirmation Dialogs (modularized) */}
+          <ConfirmDialog
+            open={confirmWedgeOpen}
+            onClose={() => setConfirmWedgeOpen(false)}
+            onConfirm={() => triggerManualWedge(wedgeMethod)}
+            title="Confirm Wedge Purchase"
+            message={`Are you sure you want to instantly purchase a wedge using ${wedgeMethod === 'points' ? 'Points (50,000)' : 'Cheese (5)'}?`}
+          />
+          <ConfirmDialog
+            open={confirmVIPOpen}
+            onClose={() => setConfirmVIPOpen(false)}
+            onConfirm={triggerVIPManual}
+            title="Confirm VIP Purchase"
+            message={`Are you sure you want to instantly purchase VIP for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`}?`}
+          />
+          <ConfirmDialog
+            open={confirmUploadOpen}
+            onClose={() => setConfirmUploadOpen(false)}
+            onConfirm={triggerUploadManual}
+            title="Confirm Upload Credit Purchase"
+            message={`Are you sure you want to instantly purchase ${uploadAmount}GB of upload credit?`}
+          />
 
           <Divider sx={{ mb: 1 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
@@ -673,15 +492,12 @@ export default function PerkAutomationCard({
             </Tooltip>
           </Box>
 
-          <Snackbar
+          <FeedbackSnackbar
             open={snackbar.open}
-            autoHideDuration={6000}
+            message={snackbar.message}
+            severity={snackbar.severity}
             onClose={() => setSnackbar({ ...snackbar, open: false })}
-          >
-            <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>
-              {stringifyMessage(snackbar.message)}
-            </Alert>
-          </Snackbar>
+          />
         </CardContent>
       </Collapse>
     </Card>

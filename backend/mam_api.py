@@ -160,44 +160,6 @@ def dummy_purchase(item):
         "message": f"Dummy purchase of {item} completed (stub)."
     }
 
-def buy_wedge_with_cheese(mam_id=None, proxy_cfg=None):
-    """
-    Attempt to buy a wedge using cheese. Returns a dict with success/failure, message, and raw response.
-    """
-    if not mam_id:
-        return {
-            "success": False,
-            "message": "No MaM ID provided.",
-            "raw": None
-        }
-    url = "https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=wedges&source=cheese"
-    cookies = {"mam_id": mam_id}
-    proxies = build_proxy_dict(proxy_cfg)
-    try:
-        resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies)
-        resp.raise_for_status()
-        data = resp.json()
-        # Determine success/failure from response
-        if data.get("success") or data.get("result") == "success":
-            message = data.get("message", "Wedge purchased with cheese successfully.")
-            return {
-                "success": True,
-                "message": message,
-                "raw": data
-            }
-        else:
-            message = data.get("message", "Purchase failed.")
-            return {
-                "success": False,
-                "message": message,
-                "raw": data
-            }
-    except Exception as e:
-        return {
-            "success": False,
-            "message": f"Exception during cheese wedge purchase: {e}",
-            "raw": None
-        }
 
 def get_mam_seen_ip_info(mam_id=None, proxy_cfg=None):
     """
