@@ -1,3 +1,32 @@
+import os
+import json
+from threading import Lock
+
+# --- UI Event Log Helper ---
+_ui_event_log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ui_event_log.json')
+_ui_event_log_dir = os.path.dirname(_ui_event_log_path)
+_ui_event_log_lock = Lock()
+def append_ui_event_log(event: dict):
+    """Append an event (dict) to the persistent UI event log file as a JSON array."""
+    try:
+        _ui_event_log_lock.acquire()
+        # Ensure the logs directory exists
+        if not os.path.exists(_ui_event_log_dir):
+            os.makedirs(_ui_event_log_dir, exist_ok=True)
+        # Read existing log
+        try:
+            with open(_ui_event_log_path, 'r', encoding='utf-8') as f:
+                log = json.load(f)
+        except Exception:
+            log = []
+        log.append(event)
+        # Keep log at most 200 entries
+        if len(log) > 200:
+            log = log[-200:]
+        with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
+            json.dump(log, f, indent=2)
+    finally:
+        _ui_event_log_lock.release()
 # --- Status Message Helper ---
 def build_status_message(status):
     auto_update = status.get('auto_update_seedbox')
@@ -147,7 +176,36 @@ from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.last_session_api import router as last_session_router
 
 
+# --- FastAPI app creation ---
 app = FastAPI(title="MouseTrap API")
+
+
+
+# --- API endpoint to serve the UI event log as JSON ---
+@app.get("/api/ui_event_log")
+def api_ui_event_log():
+    try:
+        with open(_ui_event_log_path, 'r', encoding='utf-8') as f:
+            log = json.load(f)
+        return log
+    except Exception:
+        return []
+
+# --- API endpoint to clear the UI event log ---
+@app.delete("/api/ui_event_log")
+def api_ui_event_log_delete():
+    try:
+        # Overwrite the log file with an empty array
+        with _ui_event_log_lock:
+            with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
+                json.dump([], f)
+        return {"success": True}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+# Serve logs directory as static files for UI event log access (must be before any catch-all routes)
+logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+if os.path.isdir(logs_dir):
+    app.mount("/logs", StaticFiles(directory=logs_dir), name="logs")
 @app.get("/api/automation/guardrails")
 def api_automation_guardrails():
     """
@@ -540,6 +598,22 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 # Use cached status/times
                 status = session_status_cache[label]["status"]
                 last_check_time = session_status_cache[label]["last_check_time"]
+
+    # Log every status check (even if not forced)
+    # Defensive: ensure status is a dict and keys exist
+    safe_status = status if isinstance(status, dict) else {}
+    event = {
+        "timestamp": now.isoformat(),
+        "label": label,
+        "status_message": build_status_message(safe_status),
+        "details": {
+            "auto_update": safe_status.get('auto_update_seedbox'),
+            "points": safe_status.get('points'),
+            "ip": safe_status.get('configured_ip'),
+            "asn": safe_status.get('configured_asn'),
+        }
+    }
+    append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
     status['detected_public_ip'] = detected_public_ip
