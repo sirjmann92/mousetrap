@@ -14,6 +14,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 
 // Component imports
 import StatusCard from "./components/StatusCard";
+import EventLogModalButton from "./components/EventLogModalButton";
 import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
@@ -192,6 +193,7 @@ export default function App() {
             onDeleteSession={handleDeleteSession}
             sx={{ background: mode === "dark" ? "#222" : "#fff", borderRadius: 1, ml: 2 }}
           />
+          <EventLogModalButton sessionLabel={selectedLabel} />
           <IconButton color="inherit" onClick={() => setMode(mode === "light" ? "dark" : "light")}
             sx={{ ml: 2 }}>
             {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
@@ -222,6 +224,7 @@ export default function App() {
           sessionLabel={selectedLabel}
           onSessionDataChanged={() => loadSession(selectedLabel)}
         />
+  {/* EventLogPanel now shown in modal, not inline */}
         <MouseTrapConfigCard
           mamId={mamId}
           setMamId={setMamId}
