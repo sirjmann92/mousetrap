@@ -35,10 +35,12 @@ export default function EventLogModalButton({ sessionLabel }) {
   }, [open, fetchLog]);
 
 
-  // Copy log to clipboard as JSON
+  // Copy all currently displayed log entries (as shown in the modal)
   const handleCopy = () => {
     try {
-      navigator.clipboard.writeText(JSON.stringify(log, null, 2));
+      // Copy all visible log entries (not just a subset)
+      const allVisible = Array.isArray(log) ? [...log] : [];
+      navigator.clipboard.writeText(JSON.stringify(allVisible, null, 2));
     } catch {}
   };
 

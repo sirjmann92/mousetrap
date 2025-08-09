@@ -319,7 +319,8 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     proxy_cfg = cfg.get('proxy', {})
     proxies = None
     proxy_url = None
-    if proxy_cfg:
+    # Only use proxy if proxy config is present and has a host
+    if proxy_cfg and proxy_cfg.get('host'):
         # If config is already a URL string
         proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
         # If not, try to build from host/port/username/password
@@ -341,7 +342,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 logging.warning(f"[AutoUpdate] label={label} proxy config is incomplete or malformed; skipping proxy usage.")
             # If all are empty, just ignore (proxy is optional)
             proxies = None
-    # If no proxy config, proxies remains None (no error)
+    # If no proxy config or no host, proxies remains None (no error, direct connection)
     # Do not log proxies dict (may contain sensitive info)
     # Only trigger update if something changed (IP or ASN)
     update_needed = False
@@ -377,9 +378,14 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
             return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
-    # For both session types, trigger update if the IP to use has changed
+    # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
     proxied_ip = cfg.get('proxied_public_ip')
-    ip_to_check = proxied_ip if proxied_ip else ip_to_use
+    if proxied_ip:
+        ip_to_check = proxied_ip
+    else:
+        # For non-proxied, get detected public IP (not mam_ip)
+        detected_ip = get_public_ip()
+        ip_to_check = detected_ip
     if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
@@ -407,9 +413,12 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 logging.warning(f"[AutoUpdate][TRACE] label={label} Non-JSON response from seedbox API (error: {e_json})")
                 result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
             if resp.status_code == 200 and result.get("Success"):
-                # Update last_seedbox_ip and mam_ip to the proxied_public_ip if present, else ip_to_use
+                # Update last_seedbox_ip and mam_ip to the new detected/proxied IP
                 proxied_ip = cfg.get('proxied_public_ip')
-                new_ip = proxied_ip if proxied_ip else ip_to_use
+                if proxied_ip:
+                    new_ip = proxied_ip
+                else:
+                    new_ip = get_public_ip()
                 cfg["last_seedbox_ip"] = new_ip
                 cfg["mam_ip"] = new_ip
                 cfg["last_seedbox_update"] = now.isoformat()
@@ -424,7 +433,10 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
             elif resp.status_code == 200 and result.get("msg") == "No change":
                 proxied_ip = cfg.get('proxied_public_ip')
-                new_ip = proxied_ip if proxied_ip else ip_to_use
+                if proxied_ip:
+                    new_ip = proxied_ip
+                else:
+                    new_ip = get_public_ip()
                 cfg["last_seedbox_ip"] = new_ip
                 cfg["mam_ip"] = new_ip
                 cfg["last_seedbox_update"] = now.isoformat()
@@ -599,21 +611,21 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 status = session_status_cache[label]["status"]
                 last_check_time = session_status_cache[label]["last_check_time"]
 
-    # Log every status check (even if not forced)
-    # Defensive: ensure status is a dict and keys exist
-    safe_status = status if isinstance(status, dict) else {}
-    event = {
-        "timestamp": now.isoformat(),
-        "label": label,
-        "status_message": build_status_message(safe_status),
-        "details": {
-            "auto_update": safe_status.get('auto_update_seedbox'),
-            "points": safe_status.get('points'),
-            "ip": safe_status.get('configured_ip'),
-            "asn": safe_status.get('configured_asn'),
+    # Log only force=1 (real backend check) events, after all status/auto-update logic
+    if force:
+        safe_status = status if isinstance(status, dict) else {}
+        event = {
+            "timestamp": now.isoformat(),
+            "label": label,
+            "status_message": build_status_message(safe_status),
+            "details": {
+                "auto_update": safe_status.get('auto_update_seedbox'),
+                "points": safe_status.get('points'),
+                "ip": safe_status.get('configured_ip'),
+                "asn": safe_status.get('configured_asn'),
+            }
         }
-    }
-    append_ui_event_log(event)
+        append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
     status['detected_public_ip'] = detected_public_ip
