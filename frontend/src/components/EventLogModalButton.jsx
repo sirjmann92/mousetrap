@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { FormControlLabel, Switch } from "@mui/material";
 import { Dialog, DialogTitle, DialogContent, IconButton, Tooltip, Typography, Box, CircularProgress, Alert, useTheme } from "@mui/material";
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
@@ -8,6 +9,7 @@ export default function EventLogModalButton({ sessionLabel }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [log, setLog] = useState([]);
+  const [showNoChange, setShowNoChange] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -38,10 +40,16 @@ export default function EventLogModalButton({ sessionLabel }) {
   // Copy all currently displayed log entries (as shown in the modal)
   const handleCopy = () => {
     try {
-      // Copy all visible log entries (not just a subset)
-      const allVisible = Array.isArray(log) ? [...log] : [];
-      navigator.clipboard.writeText(JSON.stringify(allVisible, null, 2));
+      // Copy only visible log entries (after filter)
+      const visible = getVisibleLog();
+      navigator.clipboard.writeText(JSON.stringify(visible, null, 2));
     } catch {}
+  };
+
+  // Helper to get visible log entries based on filter
+  const getVisibleLog = () => {
+    if (showNoChange) return log;
+    return log.filter(e => !e.status_message || !/no change detected|no change needed/i.test(e.status_message));
   };
 
   // Clear log handler
@@ -93,17 +101,24 @@ export default function EventLogModalButton({ sessionLabel }) {
           </Box>
         </Box>
         <DialogContent dividers>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <FormControlLabel
+              control={<Switch checked={showNoChange} onChange={e => setShowNoChange(e.target.checked)} color="primary" />}
+              label="Show 'No Change Needed' Entries"
+              sx={{ ml: 0 }}
+            />
+          </Box>
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 60 }}>
               <CircularProgress size={28} />
             </Box>
           ) : error ? (
             <Alert severity="error">{error}</Alert>
-          ) : log.length === 0 ? (
+          ) : getVisibleLog().length === 0 ? (
             <Typography color="text.secondary">No events yet.</Typography>
           ) : (
             <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-              {log.map((event, idx) => (
+              {getVisibleLog().map((event, idx) => (
                 <Box
                   key={idx}
                   sx={{
