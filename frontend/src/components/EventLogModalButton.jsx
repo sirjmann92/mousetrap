@@ -62,7 +62,7 @@ export default function EventLogModalButton({ sessionLabel }) {
   return (
     <>
       <Tooltip title="View Event Log">
-        <IconButton color="inherit" onClick={() => setOpen(true)} size="large">
+        <IconButton color="inherit" onClick={() => setOpen(true)} size="medium">
           <DescriptionIcon />
         </IconButton>
       </Tooltip>
@@ -117,16 +117,19 @@ export default function EventLogModalButton({ sessionLabel }) {
                   <Typography variant="caption" color="text.secondary">
                     {new Date(event.timestamp).toLocaleString()} — <b>{event.label}</b>
                   </Typography>
+                  {event.details && (
+                    <Box sx={{ mt: 0.5, fontSize: 13, color: theme.palette.text.secondary }}>
+                      {event.details.ip_compare && (
+                        <div>IP: {event.details.ip_compare}</div>
+                      )}
+                      {event.details.asn_compare && (
+                        <div>ASN: {event.details.asn_compare}</div>
+                      )}
+                    </Box>
+                  )}
                   <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
                     {event.status_message}
                   </Typography>
-                  {event.details && (
-                    <Box sx={{ mt: 0.5, fontSize: 13, color: theme.palette.text.secondary }}>
-                      {event.details.ip && <span>IP: {event.details.ip} </span>}
-                      {event.details.asn && <span>ASN: {event.details.asn} </span>}
-                      {event.details.points !== undefined && <span>Points: {event.details.points}</span>}
-                    </Box>
-                  )}
                 </Box>
               ))}
             </Box>
