@@ -159,29 +159,11 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     };
   }, [status && status.next_check_time, sessionLabel]);
 
-  // Always fetch status immediately after config save or session change
+  // Always perform a force=1 status check on first load/session select
   useEffect(() => {
-    // Smart refresh: only force if cache is stale
-    const checkAndFetch = async () => {
-      if (!sessionLabel) return;
-      // Fetch cached status to check last_check_time
-      let url = `/api/status?label=${encodeURIComponent(sessionLabel)}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      let shouldForce = false;
-      if (data.last_check_time && data.check_freq) {
-        const lastCheck = Date.parse(data.last_check_time);
-        const now = Date.now();
-        const freqMs = data.check_freq * 60 * 1000;
-        if (now - lastCheck > freqMs) {
-          shouldForce = true;
-        }
-      } else {
-        shouldForce = true; // No cache, force fetch
-      }
-      await fetchStatus(shouldForce);
-    };
-    checkAndFetch();
+    if (!sessionLabel) return;
+    setStatus(null); // Clear status to show loading/blank until check completes
+    fetchStatus(true);
     // eslint-disable-next-line
   }, [sessionLabel]);
 

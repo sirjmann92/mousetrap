@@ -68,17 +68,7 @@ export default function App() {
   const [proxiedIp, setProxiedIp] = React.useState("");
   const [proxiedAsn, setProxiedAsn] = React.useState("");
 
-  // On mount, fetch detected IP and ASN for new sessions
-  React.useEffect(() => {
-    fetch('/api/status?label=' + encodeURIComponent(label || ''))
-      .then(res => res.json())
-      .then(data => {
-        if (data.detected_public_ip) setDetectedIp(data.detected_public_ip);
-        if (data.detected_public_ip_asn) setCurrentASN(data.detected_public_ip_asn);
-        if (data.proxied_public_ip) setProxiedIp(data.proxied_public_ip); else setProxiedIp("");
-        if (data.proxied_public_ip_asn) setProxiedAsn(data.proxied_public_ip_asn); else setProxiedAsn("");
-      });
-  }, [label]);
+  // Removed redundant /api/status fetch. StatusCard will handle status fetching and update detectedIp/currentASN via props.
 
   // Load session config by label
   const loadSession = async (labelToLoad) => {
