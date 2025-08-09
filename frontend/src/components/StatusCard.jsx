@@ -27,7 +27,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
     );
   };
 
-const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved }, ref) {
+const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved, onSessionDataChanged }, ref) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -117,9 +117,23 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 
     const startPolling = () => {
       polling = true;
+      let lastCheckTime = status && status.last_check_time;
+      let lastStatusMsg = status && status.status_message;
+      let lastPoints = status && status.points;
       pollInterval = setInterval(async () => {
         await fetchStatus(false);
-        // After fetch, check if next_check_time has updated
+        // After fetch, check if a backend update is detected
+        if (
+          (status && status.last_check_time && status.last_check_time !== lastCheckTime) ||
+          (status && status.status_message && status.status_message !== lastStatusMsg) ||
+          (status && status.points && status.points !== lastPoints)
+        ) {
+          lastCheckTime = status.last_check_time;
+          lastStatusMsg = status.status_message;
+          lastPoints = status.points;
+          if (onSessionDataChanged) onSessionDataChanged();
+        }
+        // After fetch, check if next_check_time has updated (for timer restart)
         if (status && status.next_check_time && status.next_check_time !== lastNextCheckTime) {
           clearInterval(pollInterval);
           pollInterval = null;
@@ -350,8 +364,28 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                     </Box>
                   </Box>
                   <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
-                    {/* Show user-friendly status message */}
-                    Status: <b>{status.status_message || status.last_result || "unknown"}</b>
+                    {/* Unified, styled status message */}
+                    {(() => {
+                      const msg = status.status_message || status.last_result || "unknown";
+                      let color = 'text.primary';
+                      let severity = 'info';
+                      if (/update successful|no change detected|asn changed, no seedbox update needed/i.test(msg)) {
+                        color = 'success.main'; severity = 'success';
+                      } else if (/rate limit|rate-limited|change detected\. rate limited/i.test(msg)) {
+                        color = 'warning.main'; severity = 'warning';
+                      } else if (/update failed|error|forbidden|failed/i.test(msg)) {
+                        color = 'error.main'; severity = 'error';
+                      } else if (/not needed|no update attempted/i.test(msg)) {
+                        color = 'text.secondary'; severity = 'info';
+                      }
+                      return (
+                        <Box sx={{ mt: 1, textAlign: 'center' }}>
+                          <Typography variant="subtitle2" color={color} sx={{ fontWeight: 600, letterSpacing: 0.5 }}>
+                            {msg}
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
                   </Typography>
                   {/* MAM Details section (collapsed by default) */}
                   {status.details && status.details.raw && (

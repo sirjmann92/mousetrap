@@ -220,6 +220,7 @@ export default function App() {
           setPoints={setPoints}
           setCheese={setCheese}
           sessionLabel={selectedLabel}
+          onSessionDataChanged={() => loadSession(selectedLabel)}
         />
         <MouseTrapConfigCard
           mamId={mamId}
