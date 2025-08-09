@@ -20,13 +20,13 @@ def wedge_automation_job():
             points = status.get('points', 0) if isinstance(status, dict) else 0
             # Guardrails (example: only trigger if points >= threshold)
             if trigger_type in ('points', 'both') and points < trigger_point_threshold:
-                logging.info(f"[WedgeAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")
+                logging.debug(f"[WedgeAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")
                 continue
             # (Time-based triggers would need last-run tracking, omitted for brevity)
             # Each wedge costs 50,000 points
             total_cost = 50000
             if points < total_cost:
-                logging.info(f"[WedgeAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} cost={total_cost}")
+                logging.debug(f"[WedgeAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} cost={total_cost}")
                 continue
             # Trigger automation
             result = buy_wedge(mam_id, method="points", proxy_cfg=proxy_cfg)
@@ -61,14 +61,14 @@ def vip_automation_job():
             points = status.get('points', 0) if isinstance(status, dict) else 0
             # Guardrails (example: only trigger if points >= threshold)
             if trigger_type in ('points', 'both') and points < trigger_point_threshold:
-                logging.info(f"[VIPAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")
+                logging.debug(f"[VIPAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")
                 continue
             # (Time-based triggers would need last-run tracking, omitted for brevity)
             # Each 4 weeks costs 5,000 points (adjust as needed)
             weeks = 4
             total_cost = 5000
             if points < total_cost:
-                logging.info(f"[VIPAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} cost={total_cost}")
+                logging.debug(f"[VIPAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} cost={total_cost}")
                 continue
             # Trigger automation
             result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
@@ -163,9 +163,9 @@ def get_asn_and_timezone_from_ip(ip):
         url = f"https://ipinfo.io/{ip}/json"
         if token:
             url += f"?token={token}"
-        logging.debug(f"ASN lookup for IP: {ip} (url: {url})")
+        logging.debug(f"ASN lookup for IP: {ip}")
         resp = requests.get(url, timeout=4)
-        logging.debug(f"ipinfo.io response: {resp.status_code} {resp.text}")
+        logging.debug(f"ipinfo.io response: {resp.status_code}")
         if resp.status_code == 200:
             data = resp.json()
             asn = data.get("org", "Unknown ASN")
@@ -191,73 +191,151 @@ def get_public_ip():
         return None
 
 def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
-    session_type = cfg.get('session_type', '').lower()  # 'ip locked' or 'asn locked'
+    session_type = cfg.get('mam', {}).get('session_type', '').lower()  # 'ip locked' or 'asn locked'
     last_seedbox_ip = cfg.get('last_seedbox_ip')
     last_seedbox_asn = cfg.get('last_seedbox_asn')
     last_seedbox_update = cfg.get('last_seedbox_update')
     mam_id = cfg.get('mam', {}).get('mam_id', "")
+    # Do not log mam_id value
     update_needed = False
     reason = None
-    # Only trigger update for IP-locked sessions when IP changes
-    if session_type == 'ip locked' and ip_to_use and ip_to_use != last_seedbox_ip:
+    # Remove all IP logic for the API call; only use mam_id and proxy
+    proxy_cfg = cfg.get('proxy', {})
+    proxies = None
+    proxy_url = None
+    if proxy_cfg:
+        # If config is already a URL string
+        proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
+        # If not, try to build from host/port/username/password
+        if not proxy_url and 'host' in proxy_cfg and 'port' in proxy_cfg:
+            userpass = ''
+            if proxy_cfg.get('username') and proxy_cfg.get('password'):
+                userpass = f"{proxy_cfg['username']}:{proxy_cfg['password']}@"
+            proxy_url = f"http://{userpass}{proxy_cfg['host']}:{proxy_cfg['port']}"
+        if proxy_url:
+            proxies = {
+                'http': proxy_url,
+                'https': proxy_url
+            }
+        elif any(k in proxy_cfg for k in ['host', 'port', 'username', 'password']):
+            # Proxy config is present but malformed
+            logging.warning(f"[AutoUpdate] label={label} proxy config is incomplete or malformed; skipping proxy usage.")
+            proxies = None
+    # If no proxy config, proxies remains None (no error)
+    # Do not log proxies dict (may contain sensitive info)
+    # Only trigger update if something changed (IP or ASN)
+    update_needed = False
+    reason = None
+    # If ASN-locked and ASN changed but IP did not, update ASN in config only
+    if session_type == 'asn locked' and asn and asn != last_seedbox_asn:
+        reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
+        logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
+        cfg["last_seedbox_asn"] = asn
+        save_session(cfg, old_label=label)
+        logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
+        return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+    # For both session types, trigger update if the IP to use has changed
+    proxied_ip = cfg.get('proxied_public_ip')
+    ip_to_check = proxied_ip if proxied_ip else ip_to_use
+    if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         update_needed = True
-        reason = f"IP changed: {last_seedbox_ip} -> {ip_to_use}"
-    # For ASN-locked sessions, trigger update if proxied IP changes
-    elif session_type == 'asn locked':
-        proxied_ip = cfg.get('proxied_public_ip')
-        last_proxied_ip = cfg.get('last_seedbox_ip')
-        if proxied_ip and proxied_ip != last_proxied_ip:
-            update_needed = True
-            reason = f"Proxied IP changed: {last_proxied_ip} -> {proxied_ip}"
-            ip_to_use = proxied_ip
-        elif asn and asn != last_seedbox_asn:
-            # ASN changed but proxied IP did not; update ASN in config only
-            reason = f"ASN changed: {last_seedbox_asn} -> {asn}"
-            logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
-            cfg["last_seedbox_asn"] = asn
-            save_session(cfg, old_label=label)
-            return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+        reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
+    logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
     # If update is needed (IP or proxied IP changed), call seedbox API
-    if update_needed and mam_id:
+    if update_needed:
+        logging.info(f"[AutoUpdate] label={label} update_needed=True asn={asn} reason={reason}")
+        if not mam_id:
+            logging.warning(f"[AutoUpdate] label={label} update_needed=True but mam_id is missing. Skipping seedbox API call.")
+            logging.debug(f"[AutoUpdate][RETURN] label={label} Returning due to missing mam_id. reason={reason}")
+            return False, {"success": False, "error": "mam_id missing", "reason": reason}
         # Check rate limit
         if last_seedbox_update:
             last_update_dt = datetime.fromisoformat(last_seedbox_update)
             if (now - last_update_dt) < timedelta(hours=1):
+                # Update last_seedbox_ip and mam_ip to the proxied_public_ip if present, else ip_to_use, even on rate-limit
+                proxied_ip = cfg.get('proxied_public_ip')
+                new_ip = proxied_ip if proxied_ip else ip_to_use
+                cfg["last_seedbox_ip"] = new_ip
+                cfg["mam_ip"] = new_ip
+                cfg["last_seedbox_update"] = now.isoformat()
+                cfg["last_seedbox_asn"] = asn
+                logging.debug(f"[AutoUpdate][DEBUG] label={label} about to save config (rate-limit)")
+                try:
+                    save_session(cfg, old_label=label)
+                    logging.debug(f"[AutoUpdate][DEBUG] label={label} save_session successful (rate-limit).")
+                except Exception as e:
+                    logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed (rate-limit): {e}")
                 logging.info(f"[AutoUpdate] label={label} update_needed=True result=rate_limited reason={reason}")
+                logging.debug(f"[AutoUpdate][RETURN] label={label} Returning due to rate limit. reason={reason}")
                 return False, {"success": False, "error": "Rate limit: auto-update skipped (wait 1 hour)", "reason": reason}
         try:
+            logging.debug(f"[AutoUpdate][TRACE] label={label} About to call seedbox API (using proxy)")
             cookies = {"mam_id": mam_id}
-            resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10)
-            logging.info(f"[AutoUpdate] label={label} update_needed=True MaM_API_status={resp.status_code}")
+            resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10, proxies=proxies)
+            logging.debug(f"[AutoUpdate][TRACE] label={label} Seedbox API call complete. Status={resp.status_code}")
             try:
                 result = resp.json()
-            except Exception:
+                logging.debug(f"[AutoUpdate][TRACE] label={label} Seedbox API response JSON received")
+            except Exception as e_json:
+                logging.warning(f"[AutoUpdate][TRACE] label={label} Non-JSON response from seedbox API (error: {e_json})")
                 result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
             if resp.status_code == 200 and result.get("Success"):
-                cfg["last_seedbox_ip"] = ip_to_use
-                cfg["last_seedbox_asn"] = asn
+                # Update last_seedbox_ip and mam_ip to the proxied_public_ip if present, else ip_to_use
+                proxied_ip = cfg.get('proxied_public_ip')
+                new_ip = proxied_ip if proxied_ip else ip_to_use
+                cfg["last_seedbox_ip"] = new_ip
+                cfg["mam_ip"] = new_ip
                 cfg["last_seedbox_update"] = now.isoformat()
-                save_session(cfg, old_label=label)
+                cfg["last_seedbox_asn"] = asn
+                logging.debug(f"[AutoUpdate][DEBUG] label={label} about to save config")
+                try:
+                    save_session(cfg, old_label=label)
+                    logging.debug(f"[AutoUpdate][DEBUG] label={label} save_session successful.")
+                except Exception as e:
+                    logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed: {e}")
                 logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
                 return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
             elif resp.status_code == 200 and result.get("msg") == "No change":
-                cfg["last_seedbox_ip"] = ip_to_use
-                cfg["last_seedbox_asn"] = asn
+                proxied_ip = cfg.get('proxied_public_ip')
+                new_ip = proxied_ip if proxied_ip else ip_to_use
+                cfg["last_seedbox_ip"] = new_ip
+                cfg["mam_ip"] = new_ip
                 cfg["last_seedbox_update"] = now.isoformat()
-                save_session(cfg, old_label=label)
+                cfg["last_seedbox_asn"] = asn
+                logging.debug(f"[AutoUpdate][DEBUG] label={label} about to save config")
+                try:
+                    save_session(cfg, old_label=label)
+                    logging.debug(f"[AutoUpdate][DEBUG] label={label} save_session successful.")
+                except Exception as e:
+                    logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed: {e}")
                 logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
                 return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
             elif resp.status_code == 429 or (
                 isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
             ):
-                logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason}")
+                # Update last_seedbox_ip and mam_ip to the proxied_public_ip if present, else ip_to_use, even on rate-limit
+                proxied_ip = cfg.get('proxied_public_ip')
+                new_ip = proxied_ip if proxied_ip else ip_to_use
+                cfg["last_seedbox_ip"] = new_ip
+                cfg["mam_ip"] = new_ip
+                cfg["last_seedbox_update"] = now.isoformat()
+                cfg["last_seedbox_asn"] = asn
+                logging.debug(f"[AutoUpdate][DEBUG] label={label} about to save config")
+                try:
+                    save_session(cfg, old_label=label)
+                    logging.debug(f"[AutoUpdate][DEBUG] label={label} save_session successful.")
+                except Exception as e:
+                    logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed: {e}")
+                logging.info(f"[AutoUpdate] label={label} result=rate_limited (config updated to break retry loop) reason={reason}")
                 return True, {"success": False, "error": "Rate limit: last change too recent. Try again later.", "reason": reason}
             else:
-                logging.info(f"[AutoUpdate] label={label} result=error reason={reason} msg={result.get('msg', 'Unknown error')}")
+                logging.info(f"[AutoUpdate] label={label} result=error reason={reason}")
                 return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
         except Exception as e:
-            logging.info(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
+            logging.error(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
+            logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after exception in seedbox API call. reason={reason}")
             return True, {"success": False, "error": str(e), "reason": reason}
+    logging.debug(f"[AutoUpdate][RETURN] label={label} Returning default path (no update needed or triggered).")
     return False, None
 
 @app.get("/api/status")
@@ -383,6 +461,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             }
     if force or not status:
         if force:
+            logging.info(f"[SessionCheck][TRIGGER] label={label} source=forced_api_status")
             mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             mam_status['configured_ip'] = ip_to_use
             mam_status['configured_asn'] = asn
@@ -396,6 +475,8 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
             if auto_update_triggered and auto_update_result:
                 status['auto_update_seedbox'] = auto_update_result
+            # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
+            cfg = load_session(label)
             # Save last status to session file
             cfg['last_status'] = status
             cfg['last_check_time'] = last_check_time
@@ -429,11 +510,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     # --- Improved status message logic ---
     status_message_parts = []
     auto_update = status.get('auto_update_seedbox')
-    # Determine if IP or ASN changed for this check
-    last_seedbox_ip = cfg.get('last_seedbox_ip')
-    last_seedbox_asn = cfg.get('last_seedbox_asn')
-    ip_changed = last_seedbox_ip and ip_to_use and ip_to_use != last_seedbox_ip
-    asn_changed = last_seedbox_asn and asn and asn != last_seedbox_asn
     # If there is an error or forbidden message, show only the error
     error_message = None
     if status.get('message') and ("forbidden" in status.get('message', '').lower() or "error" in status.get('message', '').lower() or "failed" in status.get('message', '').lower() or status.get('code') == 403):
@@ -445,15 +521,15 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     else:
         if auto_update:
             if auto_update.get('success'):
-                if auto_update.get('msg', '').startswith('No change'):
+                msg = auto_update.get('msg', '').lower()
+                if msg.startswith('no change'):
                     status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+                elif 'asn' in msg and 'change' in msg:
+                    status_message_parts.append('ASN changed. Updated MAM session.')
+                elif 'ip' in msg and 'change' in msg:
+                    status_message_parts.append('IP address changed. Updated MAM session.')
                 else:
-                    if ip_changed:
-                        status_message_parts.append('IP address changed. Updated MAM session.')
-                    elif asn_changed:
-                        status_message_parts.append('ASN changed. Updated MAM session.')
-                    else:
-                        status_message_parts.append('IP/ASN changed. Updated MAM session.')
+                    status_message_parts.append('IP/ASN changed. Updated MAM session.')
             else:
                 if 'rate limit' in (auto_update.get('error', '') or '').lower():
                     status_message_parts.append('IP/ASN changed, but update was rate-limited.')
@@ -898,6 +974,14 @@ def serve_react_app(full_path: str):
 
 def session_check_job(label):
     try:
+        trigger_source = "scheduled"
+        import inspect
+        frame = inspect.currentframe()
+        if frame is not None:
+            args, _, _, values = inspect.getargvalues(frame)
+            if 'trigger_source' in values:
+                trigger_source = values['trigger_source']
+        logging.debug(f"[SessionCheck][TRIGGER] label={label} source={trigger_source}")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         check_freq = cfg.get("check_freq", 5)
@@ -921,16 +1005,67 @@ def session_check_job(label):
             auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
             if auto_update_triggered and auto_update_result:
                 mam_status['auto_update_seedbox'] = auto_update_result
+            # --- Always update last_status with the latest automation result ---
+            # Build status_message just like in api_status
+            status = mam_status
+            auto_update = status.get('auto_update_seedbox')
+            status_message_parts = []
+            error_message = None
+            if status.get('message') and ("forbidden" in status.get('message', '').lower() or "error" in status.get('message', '').lower() or "failed" in status.get('message', '').lower() or status.get('code') == 403):
+                error_message = status.get('message')
+            elif auto_update and not auto_update.get('success'):
+                error_message = auto_update.get('error') or auto_update.get('msg')
+            if error_message:
+                status_message_parts.append(error_message)
+            else:
+                if auto_update:
+                    if auto_update.get('success'):
+                        msg = auto_update.get('msg', '').lower()
+                        if msg.startswith('no change'):
+                            status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+                        elif 'asn' in msg and 'change' in msg:
+                            status_message_parts.append('ASN changed. Updated MAM session.')
+                        elif 'ip' in msg and 'change' in msg:
+                            status_message_parts.append('IP address changed. Updated MAM session.')
+                        else:
+                            status_message_parts.append('IP/ASN changed. Updated MAM session.')
+                    else:
+                        if 'rate limit' in (auto_update.get('error', '') or '').lower():
+                            status_message_parts.append('IP/ASN changed, but update was rate-limited.')
+                        else:
+                            status_message_parts.append(f"Seedbox update failed: {auto_update.get('error', 'Unknown error')}")
+                else:
+                    status_message_parts.append('IP/ASN Unchanged. Status fetched successfully.')
+                msg_val = status.get('message') or ''
+                if msg_val and isinstance(msg_val, str) and 'failed' in msg_val.lower():
+                    status_message_parts.append(msg_val)
+            status['status_message'] = ' '.join(status_message_parts)
+            # Save last_status to config for UI
+            cfg['last_status'] = status
             save_session(cfg, old_label=label)
             # Custom concise log for session check result
-            status_msg = mam_status.get('message', 'OK')
-            points = mam_status.get('points')
+            status_msg = status.get('status_message', status.get('message', 'OK'))
+            points = status.get('points')
             logging.info(f"[SessionCheck] label={label} status={status_msg} points={points}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
 
 # --- APScheduler setup ---
 scheduler = BackgroundScheduler()
+
+# On startup, reset last_check_time to now for all sessions to keep timers in sync
+def reset_all_last_check_times():
+    now = datetime.now(timezone.utc).isoformat()
+    session_labels = list_sessions()
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            cfg['last_check_time'] = now
+            save_session(cfg, old_label=label)
+        except Exception as e:
+            logging.warning(f"[Startup] Failed to reset last_check_time for session '{label}': {e}")
+
+reset_all_last_check_times()
 
 # Register jobs for all sessions on startup
 def register_all_session_jobs():

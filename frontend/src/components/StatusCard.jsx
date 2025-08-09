@@ -90,32 +90,59 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 
   // Timer logic: always use backend next_check_time
   useEffect(() => {
-    let interval;
-    if (status && status.next_check_time) {
-      const updateTimer = () => {
-        const nextCheck = Date.parse(status.next_check_time);
-        const now = Date.now();
-        let secondsLeft = Math.floor((nextCheck - now) / 1000);
-        secondsLeft = Math.max(0, secondsLeft);
-        setTimer(secondsLeft);
-        if (secondsLeft === 0) {
-          // Only force a status check if next_check_time has changed since last forced check
-          if (lastForcedCheckRef.current !== status.next_check_time) {
-            lastForcedCheckRef.current = status.next_check_time;
-            fetchStatus(true);
+    let timerInterval = null;
+    let pollInterval = null;
+    let polling = false;
+    let lastNextCheckTime = status && status.next_check_time;
+
+    const startTimer = () => {
+      timerInterval = setInterval(() => {
+        if (status && status.next_check_time) {
+          const nextCheck = Date.parse(status.next_check_time);
+          const now = Date.now();
+          let secondsLeft = Math.floor((nextCheck - now) / 1000);
+          secondsLeft = Math.max(0, secondsLeft);
+          setTimer(secondsLeft);
+          if (secondsLeft === 0) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            startPolling();
           }
         } else {
-          // Reset the forced check tracker if timer is not zero
+          setTimer(0);
           lastForcedCheckRef.current = null;
         }
-      };
-      updateTimer();
-      interval = setInterval(updateTimer, 1000);
+      }, 1000);
+    };
+
+    const startPolling = () => {
+      polling = true;
+      pollInterval = setInterval(async () => {
+        await fetchStatus(false);
+        // After fetch, check if next_check_time has updated
+        if (status && status.next_check_time && status.next_check_time !== lastNextCheckTime) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+          polling = false;
+          lastNextCheckTime = status.next_check_time;
+          startTimer();
+        }
+      }, 5000);
+    };
+
+    // Start the timer on mount or when next_check_time/sessionLabel changes
+    if (status && status.next_check_time) {
+      setTimer(Math.max(0, Math.floor((Date.parse(status.next_check_time) - Date.now()) / 1000)));
+      startTimer();
     } else {
       setTimer(0);
       lastForcedCheckRef.current = null;
     }
-    return () => interval && clearInterval(interval);
+
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [status && status.next_check_time, sessionLabel]);
 
   // Always fetch status immediately after config save or session change
