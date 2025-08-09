@@ -2,10 +2,24 @@ import os
 import json
 from threading import Lock
 
-# --- UI Event Log Helper ---
-_ui_event_log_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs', 'ui_event_log.json')
-_ui_event_log_dir = os.path.dirname(_ui_event_log_path)
+import logging
+_ui_event_log_path = '/app/logs/ui_event_log.json'
+_ui_event_log_dir = '/app/logs'
 _ui_event_log_lock = Lock()
+
+# Ensure logs directory and event log file exist at startup
+def _init_ui_event_log():
+    try:
+        if not os.path.exists(_ui_event_log_dir):
+            os.makedirs(_ui_event_log_dir, exist_ok=True)
+        if not os.path.exists(_ui_event_log_path):
+            with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
+                json.dump([], f)
+    except Exception as e:
+        logging.error(f"[UIEventLog] Failed to initialize event log: {e}")
+
+_init_ui_event_log()
+
 def append_ui_event_log(event: dict):
     """Append an event (dict) to the persistent UI event log file as a JSON array."""
     try:
@@ -23,8 +37,13 @@ def append_ui_event_log(event: dict):
         # Keep log at most 200 entries
         if len(log) > 200:
             log = log[-200:]
-        with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
-            json.dump(log, f, indent=2)
+        try:
+            with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
+                json.dump(log, f, indent=2)
+        except Exception as e:
+            logging.error(f"[UIEventLog] Failed to write event log: {e}")
+    except Exception as e:
+        logging.error(f"[UIEventLog] Unexpected error: {e}")
     finally:
         _ui_event_log_lock.release()
 # --- Status Message Helper ---
@@ -372,12 +391,16 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         if norm_check:
             cfg["last_seedbox_asn"] = norm_check
             save_session(cfg, old_label=label)
+        # Always log ASN compare for visibility
+        logging.info(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check}")
         # Only log ASN changed if the ASN actually changed
         if norm_last != norm_check:
             reason = f"ASN changed: {norm_last} -> {norm_check}"
             logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
             return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+        else:
+            logging.info(f"[AutoUpdate] label={label} ASN result: No change needed.")
     # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
     proxied_ip = cfg.get('proxied_public_ip')
     if proxied_ip:
@@ -391,6 +414,8 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
     # Always log the IP comparison for visibility
     logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check}")
+    if last_seedbox_ip == ip_to_check:
+        logging.info(f"[AutoUpdate] label={label} IP result: No change needed.")
     logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
     # If update is needed (IP or proxied IP changed), call seedbox API
     if update_needed:
@@ -614,16 +639,20 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     # Log only force=1 (real backend check) events, after all status/auto-update logic
     if force:
         safe_status = status if isinstance(status, dict) else {}
+        # Gather previous and current IP/ASN for comparison
+        prev_ip = cfg.get('last_seedbox_ip')
+        prev_asn = cfg.get('last_seedbox_asn')
+        curr_ip = safe_status.get('configured_ip')
+        curr_asn = safe_status.get('configured_asn')
         event = {
             "timestamp": now.isoformat(),
             "label": label,
-            "status_message": build_status_message(safe_status),
             "details": {
+                "ip_compare": f"{prev_ip} -> {curr_ip}",
+                "asn_compare": f"{prev_asn} -> {curr_asn}",
                 "auto_update": safe_status.get('auto_update_seedbox'),
-                "points": safe_status.get('points'),
-                "ip": safe_status.get('configured_ip'),
-                "asn": safe_status.get('configured_asn'),
-            }
+            },
+            "status_message": build_status_message(safe_status)
         }
         append_ui_event_log(event)
     # Always include the current session's saved proxy config in status

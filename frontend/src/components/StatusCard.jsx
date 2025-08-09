@@ -293,36 +293,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Box>
           ) : (
             <Box>
-              {/* ...existing code... */}
-              <Box sx={{ mt: 2, mb: 1 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>Automation:</Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>Wedge:</Typography>
-                    {autoWedge ? (
-                      <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                    ) : (
-                      <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>VIP Time:</Typography>
-                    {autoVIP ? (
-                      <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                    ) : (
-                      <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                    )}
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>Upload Credit:</Typography>
-                    {autoUpload ? (
-                      <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                    ) : (
-                      <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                    )}
-                  </Box>
-                </Box>
-              </Box>
+              {/* Timer, status message, and automation row (single instance) */}
               {status.last_check_time && (
                 <>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2, mb: 1 }}>
@@ -369,6 +340,36 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       );
                     })()}
                   </Typography>
+                  {/* Automation row (restored, below status message) */}
+                  <Box sx={{ mt: 2, mb: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>Automation:</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Wedge:</Typography>
+                        {autoWedge ? (
+                          <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                        ) : (
+                          <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>VIP Time:</Typography>
+                        {autoVIP ? (
+                          <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                        ) : (
+                          <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Upload Credit:</Typography>
+                        {autoUpload ? (
+                          <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                        ) : (
+                          <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
+                        )}
+                      </Box>
+                    </Box>
+                  </Box>
                   {/* MAM Details section (collapsed by default) */}
                   {status.details && status.details.raw && (
                     <Accordion sx={{ mt: 2 }} defaultExpanded={false}>
@@ -379,6 +380,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                         <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
                           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Username:</Typography>
                           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.username ?? 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>UID:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uid ?? 'N/A'}</Typography>
                           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Rank:</Typography>
                           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
                           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connectable:</Typography>
