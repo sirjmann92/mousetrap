@@ -16,7 +16,7 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 - Notifications: email, webhook, and in-app event log
 - Status dashboard with real-time updates and color-coded feedback
 - Per-session proxy support (with authentication)
-- Multi-session: manage multiple MAM accounts/IPs in one instance
+- Multi-session: manage multiple MAM IDs in one instance
 - Detects and updates on public IP/ASN changes (VPN/proxy aware)
 - Rate limit handling and clear error/warning messages
 - Designed for Docker Compose and ease of use
@@ -24,7 +24,7 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 ## Quick Start
 
 ```bash
-git clone https://github.com/YOURREPO/mousetrap.git
+git clone https://github.com/sirjmann92/mousetrap.git
 cd mousetrap
 docker-compose up --build
 ```
@@ -44,21 +44,21 @@ All user settings and state are stored in the `/config` directory (mapped as a v
 
 - `TZ`: Set the timezone for logs and scheduling (e.g. `Europe/London`).
 - `PUID`/`PGID`: Set user/group IDs for Docker volume permissions (optional).
-- `IPINFO_TOKEN`: (Optional) For more reliable ASN lookups.
+- `IPINFO_TOKEN`: (Optional) ipinfo.io API token or more reliable IP/ASN lookups.
 - `LOGLEVEL`: Set backend log level (`DEBUG`, `INFO`, `WARNING`, etc). Default: `INFO`.
 - `PORT`: (Advanced) Override backend port (default: 39842; not recommended).
 
 ## Automation & Status
 
 - The backend checks each session at the configured interval (`check_freq` in minutes; minimum 5).
-- If the IP or ASN changes (and session type matches), MouseTrap auto-updates your MAM seedbox session (rate-limited to once per hour).
+- If the IP changes, MouseTrap auto-updates your MAM seedbox session (rate-limited to once per hour).
 - All status checks and updates are logged to a persistent event log (viewable in the UI).
 - Use the "Check Now" and "Update Seedbox" buttons in the UI to force checks/updates.
 - Event log includes both successful updates and warnings/errors (e.g., unable to determine IP/ASN).
 
 ## Testing IP/ASN Changes
 
-1. Change the session's `mam_ip` in the UI or YAML.
+1. Change the session's `IP Address` in the UI or `mam_ip` in session-LABEL.yaml.
 2. Save and use "Update Seedbox" or wait for the next scheduled check.
 3. The backend will update MAM if the IP/ASN is different and log the result.
 4. For ASN changes, use an IP from a different provider (VPN/proxy).
@@ -77,7 +77,7 @@ MouseTrap can connect to MyAnonaMouse via your VPN container in two ways:
 
 ### 1. Native Networking (Docker Compose network)
 - Place MouseTrap and your VPN container (e.g., Gluetun, binhex/arch-delugevpn) on the same Docker network.
-- Set the `mam_ip` in your session config to the VPN's external IP.
+- Set the `mam_ip` in your session config (`IP Address` in the UI) to the VPN's external IP.
 - All MAM API calls will go out via the VPN container if you set the `network_mode` in Compose:
 
 ```yaml
@@ -89,7 +89,7 @@ services:
 ```
 
 ### 2. HTTP Proxy (Recommended for multi-session/multi-IP)
-- Use your VPN container's built-in HTTP proxy (e.g., Gluetun, binhex/arch-delugevpn, qmcgaw/gluetun).
+- Use your VPN container's built-in HTTP proxy (e.g. qmcgaw/gluetun).
 - Enter the proxy details (host, port, username, password) in each session's config in the MouseTrap UI.
 - MouseTrap will route MAM API calls for that session through the proxy, using the VPN's IP.
 
@@ -97,13 +97,8 @@ services:
 - Enable HTTP proxy in Gluetun: [Gluetun HTTP Proxy Docs](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
 - Use the proxy address (e.g., `gluetun:8888`) in your session config.
 
-#### Example: binhex/arch-delugevpn HTTP Proxy
-- Enable Privoxy: [binhex/arch-delugevpn Privoxy Docs](https://github.com/binhex/documentation/blob/master/docker/faq/vpn.md#privoxy-support)
-- Use the proxy address (e.g., `delugevpn:8118`) in your session config.
-
 #### More Info
 - [qmcgaw/gluetun HTTP Proxy](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
-- [binhex/arch-delugevpn Privoxy](https://github.com/binhex/documentation/blob/master/docker/faq/vpn.md#privoxy-support)
 
 ## Session Management
 
@@ -117,7 +112,7 @@ services:
 ### 1. Native VPN Networking (network_mode)
 
 ```yaml
-version: '3.8'
+version: '3.8' # Not needed for newer versions of Docker/Compose
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -153,7 +148,7 @@ services:
 ### 2. HTTP Proxy Mode (recommended for multi-session)
 
 ```yaml
-version: '3.8'
+version: '3.8' # Not needed for newer versions of Docker/Compose
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -188,13 +183,12 @@ services:
       - gluetun
 ```
 
-- In HTTP proxy mode, enter `gluetun:8888` and your proxy credentials in each session's proxy config in the MouseTrap UI.
-- For other VPN containers (e.g., binhex/arch-delugevpn), see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
-- Do NOT set a `PORT` environment variable—MouseTrap always runs on 39842.
+- In HTTP proxy mode, enter your proxy credentials in each session's proxy config in the MouseTrap UI that you want to route through the proxy's connection.
+- For other VPN containers see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
 
 **Note:**
 - In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
-- The backend always listens on port 39842 by default; no need to set or override `PORT`.
+- The backend listens on port 39842 by default; you can override this with the `PORT` environment variable in case of conflicts.
 
 ## Logging & Debugging
 
@@ -221,7 +215,3 @@ services:
 You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
 Logs will include timestamps, log level, and message for easy troubleshooting.
-
-## License
-
-<!-- You may add your license details here if desired. -->

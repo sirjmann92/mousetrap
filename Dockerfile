@@ -47,4 +47,6 @@ COPY logconfig.yaml /app/logconfig.yaml
 
 EXPOSE 39842
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "39842", "--log-config", "logconfig.yaml", "--no-access-log"]
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+ENTRYPOINT ["/app/start.sh"]
