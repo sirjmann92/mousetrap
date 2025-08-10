@@ -27,7 +27,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
     );
   };
 
-const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved, onSessionDataChanged }, ref) {
+const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved, onSessionDataChanged, onStatusUpdate }, ref) {
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -53,7 +53,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         return;
       }
       const detectedIp = data.detected_public_ip || data.current_ip || "";
-      setStatus({
+  const newStatus = {
         last_update_mamid: data.mam_id || "",
         ratelimit: data.ratelimit || 0, // seconds, from backend
         check_freq: data.check_freq || 5, // minutes, from backend
@@ -76,7 +76,9 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         cheese: data.cheese || null,
         status_message: data.status_message || "", // user-friendly status message
         details: data.details || {}, // raw backend details
-      });
+  };
+  setStatus(newStatus);
+  if (onStatusUpdate) onStatusUpdate(newStatus);
       if (setDetectedIp) setDetectedIp(detectedIp);
       if (setPoints) setPoints(data.points || null);
       if (setCheese) setCheese(data.cheese || null);

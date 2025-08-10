@@ -127,11 +127,25 @@ def wedge_automation_job():
             # Trigger automation
             result = buy_wedge(mam_id, method="points", proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
+            event = {
+                "timestamp": now.isoformat(),
+                "label": label,
+                "trigger": "automation",
+                "purchase_type": "wedge",
+                "amount": 1,
+                "details": {
+                    "points_before": points,
+                },
+                "result": "success" if success else "failed",
+                "error": None,
+            }
             if success:
                 logging.info(f"[WedgeAuto] label={label} trigger=automation result=success points_before={points}")
             else:
                 err_msg = result.get('error') or result.get('response') or 'Unknown error'
+                event["error"] = err_msg
                 logging.warning(f"[WedgeAuto] label={label} trigger=automation result=failed points_before={points} error={err_msg}")
+            append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[WedgeAuto] label={label} trigger=automation result=exception error={e}")
 
@@ -169,11 +183,25 @@ def vip_automation_job():
             # Trigger automation
             result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
+            event = {
+                "timestamp": now.isoformat(),
+                "label": label,
+                "trigger": "automation",
+                "purchase_type": "vip",
+                "amount": weeks,
+                "details": {
+                    "points_before": points,
+                },
+                "result": "success" if success else "failed",
+                "error": None,
+            }
             if success:
                 logging.info(f"[VIPAuto] label={label} trigger=automation result=success points_before={points}")
             else:
                 err_msg = result.get('error') or result.get('response') or 'Unknown error'
+                event["error"] = err_msg
                 logging.warning(f"[VIPAuto] label={label} trigger=automation result=failed points_before={points} error={err_msg}")
+            append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[VIPAuto] label={label} trigger=automation result=exception error={e}")
 from fastapi import FastAPI, Request, HTTPException, Query
@@ -640,10 +668,19 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     if force:
         safe_status = status if isinstance(status, dict) else {}
         # Gather previous and current IP/ASN for comparison
+        # prev_ip/curr_ip: prev = old (before update), curr = new (after update)
+        # To get the correct direction, use the IP/ASN before updating config as prev, and the new detected/proxied IP as curr
         prev_ip = cfg.get('last_seedbox_ip')
         prev_asn = cfg.get('last_seedbox_asn')
-        curr_ip = safe_status.get('configured_ip')
-        curr_asn = safe_status.get('configured_asn')
+        # Determine what the new IP/ASN would be if an update is needed
+        # Use the same logic as auto_update_seedbox_if_needed to determine the new IP
+        proxied_ip = cfg.get('proxied_public_ip')
+        mam_ip_override = cfg.get('mam_ip', "").strip()
+        detected_ip = detected_public_ip
+        curr_ip = mam_ip_override or proxied_ip or detected_ip
+        asn_full, _ = get_asn_and_timezone_from_ip(curr_ip) if curr_ip else (None, None)
+        match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
+        curr_asn = match.group(2) if match else asn_full
         event = {
             "timestamp": now.isoformat(),
             "label": label,
@@ -801,11 +838,32 @@ async def api_automation_vip(request: Request):
             result = buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
         except Exception as e:
             logging.error(f"[VIP] buy_vip exception: {e}")
+            event = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "label": label,
+                "trigger": "manual",
+                "purchase_type": "vip",
+                "amount": duration,
+                "result": "failed",
+                "error": f"buy_vip exception: {e}",
+            }
+            append_ui_event_log(event)
             return {"success": False, "error": f"buy_vip exception: {e}"}
         success = result.get("success", False) if result else False
+        event = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "label": label,
+            "trigger": "manual",
+            "purchase_type": "vip",
+            "amount": duration,
+            "result": "success" if success else "failed",
+            "error": None,
+        }
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during VIP purchase."
+            event["error"] = err_msg
             logging.error(f"[VIP] Purchase failed: {err_msg}")
+            append_ui_event_log(event)
             return {"success": False, "error": err_msg}
         logging.info(f"[VIP] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
@@ -817,6 +875,7 @@ async def api_automation_vip(request: Request):
         cfg['last_check_time'] = now.isoformat()
         save_session(cfg, old_label=label)
         logging.info(f"[Purchase] label={label} type=vip result=success points={mam_status.get('points')}")
+        append_ui_event_log(event)
         return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
         logging.error(f"[VIP] Exception: {e}")
@@ -842,11 +901,32 @@ async def api_automation_upload(request: Request):
             result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
         except Exception as e:
             logging.error(f"[Upload] buy_upload_credit failed: {e}")
+            event = {
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "label": label,
+                "trigger": "manual",
+                "purchase_type": "upload_credit",
+                "amount": gb,
+                "result": "failed",
+                "error": f"Failed to purchase upload credit: {e}",
+            }
+            append_ui_event_log(event)
             return {"success": False, "error": f"Failed to purchase upload credit: {e}"}
         success = result.get("success", False) if result else False
+        event = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "label": label,
+            "trigger": "manual",
+            "purchase_type": "upload_credit",
+            "amount": gb,
+            "result": "success" if success else "failed",
+            "error": None,
+        }
         if not success:
             err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
+            event["error"] = err_msg
             logging.error(f"[Upload] Purchase failed: {err_msg}")
+            append_ui_event_log(event)
             return {"success": False, "error": err_msg}
         logging.info(f"[Upload] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
@@ -858,6 +938,7 @@ async def api_automation_upload(request: Request):
         cfg['last_check_time'] = now.isoformat()
         save_session(cfg, old_label=label)
         logging.info(f"[Purchase] label={label} type=upload result=success points={mam_status.get('points')} gb={gb}")
+        append_ui_event_log(event)
         return {"success": True, "result": result, "status": mam_status}
     except Exception as e:
         logging.error(f"[Upload] Exception: {e}")
@@ -908,6 +989,16 @@ async def api_automation_upload_auto(request: Request):
             return {"success": False, "error": msg}
         # Purchase upload credit (pass mam_id and proxy_cfg)
         result = buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
+        event = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "label": label,
+            "trigger": "manual",
+            "purchase_type": "upload_credit",
+            "amount": amount,
+            "result": "success" if result.get("success", False) else "failed",
+            "error": None if result.get("success", False) else result.get("error") or result.get("response") or "Unknown error during upload purchase.",
+        }
+        append_ui_event_log(event)
         success = result.get("success", False) if result else False
         if not success:
             if result:
@@ -1257,11 +1348,25 @@ def upload_credit_automation_job():
             # Trigger automation
             result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
+            event = {
+                "timestamp": now.isoformat(),
+                "label": label,
+                "trigger": "automation",
+                "purchase_type": "upload_credit",
+                "amount": gb,
+                "details": {
+                    "points_before": points,
+                },
+                "result": "success" if success else "failed",
+                "error": None,
+            }
             if success:
                 logging.info(f"[UploadAuto] label={label} trigger=automation result=success gb={gb} points_before={points}")
             else:
                 err_msg = result.get('error') or result.get('response') or 'Unknown error'
+                event["error"] = err_msg
                 logging.warning(f"[UploadAuto] label={label} trigger=automation result=failed gb={gb} points_before={points} error={err_msg}")
+            append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[UploadAuto] label={label} trigger=automation result=exception error={e}")
 

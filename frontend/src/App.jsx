@@ -166,6 +166,14 @@ export default function App() {
     loadSession(nextLabel);
   };
 
+  // Handler to update proxiedIp/proxiedAsn from StatusCard
+  const handleStatusUpdate = (status) => {
+    if (status && status.proxied_public_ip) setProxiedIp(status.proxied_public_ip);
+    else setProxiedIp("");
+    if (status && status.proxied_public_ip_asn) setProxiedAsn(status.proxied_public_ip_asn);
+    else setProxiedAsn("");
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -213,8 +221,9 @@ export default function App() {
           setCheese={setCheese}
           sessionLabel={selectedLabel}
           onSessionDataChanged={() => loadSession(selectedLabel)}
+          onStatusUpdate={handleStatusUpdate}
         />
-  {/* EventLogPanel now shown in modal, not inline */}
+        {/* EventLogPanel now shown in modal, not inline */}
         <MouseTrapConfigCard
           mamId={mamId}
           setMamId={setMamId}
