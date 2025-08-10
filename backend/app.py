@@ -59,8 +59,10 @@ def build_status_message(status):
         if 'asn changed' in reason and 'no seedbox api call' in reason:
             error_message = 'ASN changed, no seedbox update needed.'
         elif ('ip changed' in reason or 'asn changed' in reason):
-            if 'rate limit' in (error or '').lower():
-                error_message = 'Change detected. Rate limited.'
+            if 'rate limit' in (error or '').lower() and auto_update.get('rate_limit_minutes') is not None:
+                error_message = f"Update needed. Rate limited. Estimated {auto_update.get('rate_limit_minutes')} minutes remaining."
+            elif 'rate limit' in (error or '').lower():
+                error_message = 'Rate limit: last change too recent. Try again later.'
             else:
                 error_message = f"Update failed: {error or 'Unknown error'}"
         else:
@@ -82,8 +84,10 @@ def build_status_message(status):
             else:
                 reason = (auto_update.get('reason') or '').lower()
                 if 'ip changed' in reason or 'asn changed' in reason:
-                    if 'rate limit' in (auto_update.get('error', '') or '').lower():
-                        status_message_parts.append('Change detected. Rate limited.')
+                    if 'rate limit' in (auto_update.get('error', '') or '').lower() and auto_update.get('rate_limit_minutes') is not None:
+                        status_message_parts.append(f"Update needed. Rate limited. Estimated {auto_update.get('rate_limit_minutes')} minutes remaining.")
+                    elif 'rate limit' in (auto_update.get('error', '') or '').lower():
+                        status_message_parts.append('Rate limit: last change too recent. Try again later.')
                     else:
                         status_message_parts.append(f"Update failed: {auto_update.get('error', 'Unknown error')}")
                 else:
@@ -442,18 +446,15 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
     # Always log the IP comparison for visibility
     logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check}")
-    if last_seedbox_ip == ip_to_check:
-        logging.info(f"[AutoUpdate] label={label} IP result: No change needed.")
-    logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
-    # If update is needed (IP or proxied IP changed), call seedbox API
     if update_needed:
         logging.info(f"[AutoUpdate] label={label} update_needed=True asn={asn} reason={reason}")
+        logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
+        # If update is needed (IP or proxied IP changed), call seedbox API
         if not mam_id:
             logging.warning(f"[AutoUpdate] label={label} update_needed=True but mam_id is missing. Skipping seedbox API call.")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning due to missing mam_id. reason={reason}")
             return False, {"success": False, "error": "mam_id missing", "reason": reason}
-        # Check rate limit
-    # Only treat as rate-limited if the API actually returns 429 or 'too recent', not just based on timer
+        # Only treat as rate-limited if the API actually returns 429 or 'too recent', not just based on timer
         try:
             logging.debug(f"[AutoUpdate][TRACE] label={label} About to call seedbox API (using proxy)")
             cookies = {"mam_id": mam_id}
@@ -520,6 +521,9 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             logging.warning(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after exception in seedbox API call. reason={reason}")
             return True, {"success": False, "error": str(e), "reason": reason}
+    else:
+        logging.info(f"[AutoUpdate] label={label} IP result: No change needed.")
+        logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
     logging.debug(f"[AutoUpdate][RETURN] label={label} Returning default path (no update needed or triggered).")
     return False, None
 
@@ -1212,11 +1216,20 @@ def session_check_job(label):
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         check_freq = cfg.get("check_freq", 5)
         mam_ip_override = cfg.get('mam_ip', "").strip()
+        proxy_cfg = cfg.get("proxy", {})
         detected_public_ip = get_public_ip()
-        ip_to_use = mam_ip_override if mam_ip_override else detected_public_ip
+        # If proxy is configured, actively detect proxied public IP and update config
+        if proxy_cfg and proxy_cfg.get('host'):
+            from backend.mam_api import get_proxied_public_ip
+            proxied_ip = get_proxied_public_ip(proxy_cfg)
+            if proxied_ip:
+                cfg['proxied_public_ip'] = proxied_ip
+                save_session(cfg, old_label=label)
+        # Use mam_ip_override if set, else proxied_public_ip if set, else detected_public_ip
+        ip_to_use = mam_ip_override or cfg.get('proxied_public_ip') or detected_public_ip
         # Get ASN for IP sent to MaM (current_ip)
         if ip_to_use:
-            asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use)
+            asn_full, _ = get_asn_and_timezone_from_ip(ip_to_use, proxy_cfg if (proxy_cfg and proxy_cfg.get('host') and ip_to_use == cfg.get('proxied_public_ip')) else None)
             match = re.search(r'(AS)?(\d+)', asn_full or "")
             asn = match.group(2) if match else asn_full
         else:
@@ -1231,6 +1244,11 @@ def session_check_job(label):
             auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
             if auto_update_result is not None:
                 mam_status['auto_update_seedbox'] = auto_update_result
+                # Log the result of the update attempt for visibility
+                if auto_update_result.get('success'):
+                    logging.info(f"[AutoUpdate] label={label} update result: {auto_update_result.get('msg', 'Success')} reason={auto_update_result.get('reason')}")
+                else:
+                    logging.info(f"[AutoUpdate] label={label} update result: {auto_update_result.get('error', 'Error')} reason={auto_update_result.get('reason')}")
             # --- Always update last_status with the latest automation result ---
             # Build status_message just like in api_status
             status = mam_status
@@ -1315,6 +1333,18 @@ def register_all_session_jobs():
             max_instances=1
         )
         logging.info(f"[APScheduler] Registered job for session '{label}' every {check_freq} min")
+
+# --- Immediate session check for all sessions at startup ---
+def run_initial_session_checks():
+    session_labels = list_sessions()
+    for label in session_labels:
+        try:
+            logging.info(f"[Startup] Running initial session check for '{label}'")
+            session_check_job(label)
+        except Exception as e:
+            logging.warning(f"[Startup] Initial session check failed for '{label}': {e}")
+
+run_initial_session_checks()
 
 register_all_session_jobs()
 scheduler.start()
