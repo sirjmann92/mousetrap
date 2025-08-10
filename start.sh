@@ -6,13 +6,20 @@ PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 USERNAME=appuser
 
-# Create group if needed
+
+# Create group if needed (Debian/Ubuntu syntax)
 if ! getent group "$PGID" >/dev/null; then
-	addgroup -g "$PGID" "$USERNAME" || true
+	ADDGROUP_OUT=$(addgroup --gid "$PGID" "$USERNAME" 2>&1) || true
+	if [ "${DEBUG:-0}" = "1" ]; then
+		echo "$ADDGROUP_OUT"
+	fi
 fi
-# Create user if needed
+# Create user if needed (Debian/Ubuntu syntax)
 if ! id -u "$PUID" >/dev/null 2>&1; then
-	adduser -D -u "$PUID" -G "$USERNAME" "$USERNAME" || true
+	ADDUSER_OUT=$(adduser --uid "$PUID" --gid "$PGID" --disabled-password --gecos "" "$USERNAME" 2>&1) || true
+	if [ "${DEBUG:-0}" = "1" ]; then
+		echo "$ADDUSER_OUT"
+	fi
 fi
 
 # Ensure ownership of /app/logs and /config if they exist

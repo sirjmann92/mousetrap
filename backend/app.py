@@ -866,6 +866,7 @@ async def api_automation_vip(request: Request):
             append_ui_event_log(event)
             return {"success": False, "error": err_msg}
         logging.info(f"[VIP] Purchase successful for {label}")
+        # Immediately refetch points after purchase
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -876,7 +877,7 @@ async def api_automation_vip(request: Request):
         save_session(cfg, old_label=label)
         logging.info(f"[Purchase] label={label} type=vip result=success points={mam_status.get('points')}")
         append_ui_event_log(event)
-        return {"success": True, "result": result, "status": mam_status}
+        return {"success": True, "result": result, "status": mam_status, "points": mam_status.get('points')}
     except Exception as e:
         logging.error(f"[VIP] Exception: {e}")
         return {"success": False, "error": str(e)}
@@ -929,6 +930,7 @@ async def api_automation_upload(request: Request):
             append_ui_event_log(event)
             return {"success": False, "error": err_msg}
         logging.info(f"[Upload] Purchase successful for {label}")
+        # Immediately refetch points after purchase
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
         mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
@@ -939,7 +941,7 @@ async def api_automation_upload(request: Request):
         save_session(cfg, old_label=label)
         logging.info(f"[Purchase] label={label} type=upload result=success points={mam_status.get('points')} gb={gb}")
         append_ui_event_log(event)
-        return {"success": True, "result": result, "status": mam_status}
+        return {"success": True, "result": result, "status": mam_status, "points": mam_status.get('points')}
     except Exception as e:
         logging.error(f"[Upload] Exception: {e}")
         return {"success": False, "error": str(e)}
@@ -999,6 +1001,9 @@ async def api_automation_upload_auto(request: Request):
             "error": None if result.get("success", False) else result.get("error") or result.get("response") or "Unknown error during upload purchase.",
         }
         append_ui_event_log(event)
+        # Immediately refetch points after purchase
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        return {"success": result.get("success", False), "result": result, "status": mam_status, "points": mam_status.get('points')}
         success = result.get("success", False) if result else False
         if not success:
             if result:
