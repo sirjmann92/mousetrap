@@ -1228,6 +1228,17 @@ def session_check_job(label):
         now = datetime.now(timezone.utc)
         if mam_id:
             proxy_cfg = cfg.get("proxy", {})
+            # Capture old IP/ASN before update
+            prev_ip = cfg.get('last_seedbox_ip')
+            prev_asn = cfg.get('last_seedbox_asn')
+            # Determine new IP/ASN (what we want to set)
+            detected_ip = get_public_ip()
+            proxied_ip = cfg.get('proxied_public_ip')
+            mam_ip_override = cfg.get('mam_ip', "").strip()
+            new_ip = proxied_ip or detected_ip
+            asn_full, _ = get_asn_and_timezone_from_ip(new_ip) if new_ip else (None, None)
+            match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
+            new_asn = match.group(2) if match else asn_full
             mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
@@ -1247,19 +1258,15 @@ def session_check_job(label):
             # Save last_status to config for UI
             cfg['last_status'] = status
             save_session(cfg, old_label=label)
-            # Always use updated config values after AutoUpdate for logging/event log
-            prev_ip = cfg.get('last_seedbox_ip')
-            prev_asn = cfg.get('last_seedbox_asn')
-            curr_ip = prev_ip
-            curr_asn = prev_asn
-            if curr_ip is None or curr_asn is None:
-                warn_msg = "Unable to determine current IP/ASN—check connectivity or configuration. No update performed."
+            # Log event using pre-update (old) and detected/proxied (new) values
+            if prev_ip is None or prev_asn is None or new_ip is None or new_asn is None:
+                warn_msg = "Unable to determine current or new IP/ASN—check connectivity or configuration. No update performed."
                 event = {
                     "timestamp": now.isoformat(),
                     "label": label,
                     "details": {
-                        "ip_compare": f"{prev_ip} -> {curr_ip}",
-                        "asn_compare": f"{prev_asn} -> {curr_asn}",
+                        "ip_compare": f"{prev_ip} -> {new_ip}",
+                        "asn_compare": f"{prev_asn} -> {new_asn}",
                         "auto_update": status.get('auto_update_seedbox'),
                     },
                     "status_message": warn_msg
@@ -1271,8 +1278,8 @@ def session_check_job(label):
                     "timestamp": now.isoformat(),
                     "label": label,
                     "details": {
-                        "ip_compare": f"{prev_ip} -> {curr_ip}",
-                        "asn_compare": f"{prev_asn} -> {curr_asn}",
+                        "ip_compare": f"{prev_ip} -> {new_ip}",
+                        "asn_compare": f"{prev_asn} -> {new_asn}",
                         "auto_update": status.get('auto_update_seedbox'),
                     },
                     "status_message": status.get('status_message', status.get('message', 'OK'))
