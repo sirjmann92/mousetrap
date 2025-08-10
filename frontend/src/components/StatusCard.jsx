@@ -324,7 +324,10 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       const msg = status.status_message || status.last_result || "unknown";
                       let color = 'text.primary';
                       let severity = 'info';
-                      if (/update successful|no change detected|asn changed, no seedbox update needed/i.test(msg)) {
+                      // If the backend returned a rate limit message with minutes, display it exactly
+                      if (msg.match(/Rate limit: last change too recent\. Try again in (\d+) minutes\./i)) {
+                        color = 'warning.main'; severity = 'warning';
+                      } else if (/update successful|no change detected|asn changed, no seedbox update needed/i.test(msg)) {
                         color = 'success.main'; severity = 'success';
                       } else if (/rate limit|rate-limited|change detected\. rate limited/i.test(msg)) {
                         color = 'warning.main'; severity = 'warning';
