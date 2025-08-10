@@ -31,6 +31,7 @@ docker-compose up --build
 
 Access the web UI at [http://localhost:39842](http://localhost:39842)
 
+
 ## Configuration
 
 All user settings and state are stored in the `/config` directory (mapped as a volume).
@@ -39,6 +40,71 @@ All user settings and state are stored in the `/config` directory (mapped as a v
 - Each session has its own config: `config/session-*.yaml` (created via the UI).
 - **Proxy support:** Enter HTTP proxy details (host, port, username, password) per session in the UI. Passwords are encrypted at rest.
 - **IP/ASN:** Enter the IP you want MAM to see for each session. The backend will use this for all MAM API calls.
+
+---
+
+## Networking & Proxy Setup
+
+MouseTrap supports two main networking modes for VPN/proxy integration. Choosing the right setup is important for correct routing and security:
+
+### 1. VPN Container with `network_mode: service:gluetun` (Recommended for single-IP)
+
+- Attach MouseTrap directly to your VPN container using `network_mode: service:gluetun` in your gluetun Compose file.
+- All outbound traffic from MouseTrap will be routed through the VPN container.
+- You do NOT need to configure a proxy in MouseTrap for this mode.
+- The IP Address in your MouseTrap session config should match the VPN's external IP (you can use the "Detected Public IP in MouseTrap).
+- Only the VPN container should expose ports (e.g., `39842:39842` on gluetun).
+
+**When to use:**
+- You want all sessions to use the same VPN IP.
+- You do not need per-session proxies or multiple exit IPs.
+
+### 2. Standalone/HTTP Proxy Mode (Recommended for multi-session or multi-IP)
+
+- Run MouseTrap and your VPN container (e.g., Gluetun) as separate services, but on the same Docker network.
+- Enable the HTTP proxy feature in your VPN container (see Gluetun docs).
+- In MouseTrap, configure the proxy for each session you want proxied using the proxy's Docker network address (e.g. the Gluetun container's Docker IP).
+    - **Do NOT use your host's IP address.** Use the Docker container name or its internal IP.
+- Both containers must be on the same Docker network (default for Compose is `bridge`, but you can define a custom network for clarity).
+
+**When to use:**
+- You want different sessions to use different proxies or VPN exit IPs.
+- You want to run MouseTrap and Gluetun as independent containers.
+
+#### Example: Custom Docker Network
+
+```yaml
+networks:
+  vpnnet:
+
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    networks:
+      - vpnnet
+    # ...
+  mousetrap:
+    build: .
+    networks:
+      - vpnnet
+    # ...
+```
+
+#### Example: Proxy Configuration in MouseTrap UI
+
+- Host: `gluetun` (the container name, or use the container's Docker IP)
+- Port: `8888` (or whatever you set in Gluetun)
+- Username/Password: (if set in Gluetun)
+
+**Important:**
+- If MouseTrap and Gluetun are not on the same Docker network, they cannot communicate via container name or Docker IP.
+- If you use the host's IP address for the proxy, it will not work as expected—always use the Docker network address.
+
+#### Troubleshooting
+- If you see connection errors, double-check that both containers are on the same Docker network and that the proxy is enabled in Gluetun.
+- You can inspect Docker networks with `docker network ls` and `docker network inspect <network>`.
+
+---
 
 ## Environment Variables
 
