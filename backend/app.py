@@ -34,9 +34,9 @@ def append_ui_event_log(event: dict):
         except Exception:
             log = []
         log.append(event)
-        # Keep log at most 200 entries
-        if len(log) > 200:
-            log = log[-200:]
+        # Keep log at most 1000 entries
+        if len(log) > 1000:
+            log = log[-1000:]
         try:
             with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
                 json.dump(log, f, indent=2)
@@ -1142,11 +1142,11 @@ def session_check_job(label):
             # Save last_status to config for UI
             cfg['last_status'] = status
             save_session(cfg, old_label=label)
-            # Log event to UI event log (same as force=1 in api_status), but handle None IP/ASN as warning
+            # Always use updated config values after AutoUpdate for logging/event log
             prev_ip = cfg.get('last_seedbox_ip')
             prev_asn = cfg.get('last_seedbox_asn')
-            curr_ip = status.get('configured_ip')
-            curr_asn = status.get('configured_asn')
+            curr_ip = prev_ip
+            curr_asn = prev_asn
             if curr_ip is None or curr_asn is None:
                 warn_msg = "Unable to determine current IP/ASN—check connectivity or configuration. No update performed."
                 event = {
@@ -1173,7 +1173,6 @@ def session_check_job(label):
                     "status_message": status.get('status_message', status.get('message', 'OK'))
                 }
                 append_ui_event_log(event)
-                # Demote redundant SessionCheck log to DEBUG (no points)
                 logging.debug(f"[SessionCheck] label={label} status={status.get('status_message', status.get('message', 'OK'))}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
