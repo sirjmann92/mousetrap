@@ -10,8 +10,7 @@ _ui_event_log_lock = Lock()
 # Ensure logs directory and event log file exist at startup
 def _init_ui_event_log():
     try:
-        if not os.path.exists(_ui_event_log_dir):
-            os.makedirs(_ui_event_log_dir, exist_ok=True)
+        os.makedirs(_ui_event_log_dir, exist_ok=True)
         if not os.path.exists(_ui_event_log_path):
             with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
                 json.dump([], f)
@@ -22,11 +21,8 @@ _init_ui_event_log()
 
 def append_ui_event_log(event: dict):
     """Append an event (dict) to the persistent UI event log file as a JSON array."""
+    _ui_event_log_lock.acquire()
     try:
-        _ui_event_log_lock.acquire()
-        # Ensure the logs directory exists
-        if not os.path.exists(_ui_event_log_dir):
-            os.makedirs(_ui_event_log_dir, exist_ok=True)
         # Read existing log
         try:
             with open(_ui_event_log_path, 'r', encoding='utf-8') as f:
@@ -37,38 +33,33 @@ def append_ui_event_log(event: dict):
         # Keep log at most 1000 entries
         if len(log) > 1000:
             log = log[-1000:]
-        try:
-            with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
-                json.dump(log, f, indent=2)
-        except Exception as e:
-            logging.error(f"[UIEventLog] Failed to write event log: {e}")
+        with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
+            json.dump(log, f, indent=2)
     except Exception as e:
-        logging.error(f"[UIEventLog] Unexpected error: {e}")
+        logging.error(f"[UIEventLog] Failed to append event: {e}")
     finally:
         _ui_event_log_lock.release()
 # --- Status Message Helper ---
 def build_status_message(status):
     auto_update = status.get('auto_update_seedbox')
     status_message_parts = []
-    error_message = None
+    # Prefer error message if present
     if status.get('message') and ("forbidden" in status.get('message', '').lower() or "error" in status.get('message', '').lower() or "failed" in status.get('message', '').lower() or status.get('code') == 403):
-        error_message = status.get('message')
+        status_message_parts.append(status.get('message'))
     elif auto_update and not auto_update.get('success'):
         reason = (auto_update.get('reason') or '').lower()
         error = auto_update.get('error') or auto_update.get('msg')
         if 'asn changed' in reason and 'no seedbox api call' in reason:
-            error_message = 'ASN changed, no seedbox update needed.'
+            status_message_parts.append('ASN changed, no seedbox update needed.')
         elif ('ip changed' in reason or 'asn changed' in reason):
             if 'rate limit' in (error or '').lower() and auto_update.get('rate_limit_minutes') is not None:
-                error_message = f"Update needed. Rate limited. Estimated {auto_update.get('rate_limit_minutes')} minutes remaining."
+                status_message_parts.append(f"Update needed. Rate limited. Estimated {auto_update.get('rate_limit_minutes')} minutes remaining.")
             elif 'rate limit' in (error or '').lower():
-                error_message = 'Rate limit: last change too recent. Try again later.'
+                status_message_parts.append('Rate limit: last change too recent. Try again later.')
             else:
-                error_message = f"Update failed: {error or 'Unknown error'}"
+                status_message_parts.append(f"Update failed: {error or 'Unknown error'}")
         else:
-            error_message = error
-    if error_message:
-        status_message_parts.append(error_message)
+            status_message_parts.append(error)
     else:
         if auto_update:
             if auto_update.get('success'):
