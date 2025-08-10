@@ -2,15 +2,23 @@
 
 _A Dockerized web interface for automating MyAnonaMouse seedbox and account management tasks._
 
-![MouseTrap logo](frontend/src/assets/logo.svg)
+<!-- Updated logo August 2025 -->
+<p align="center">
+  <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
+</p>
 
 ## Features
 
-- Web config for all automation parameters
-- Auto-purchase (wedges, VIP, upload)
-- Notifications (email, webhook)
-- Status dashboard
+- Modern web UI for all automation and session parameters
+- Persistent, timestamped event log (viewable in the UI)
+- Auto-purchase: wedges, VIP, upload credit (per session)
+- Perk automation (auto-spend points for perks)
+- Notifications: email, webhook, and in-app event log
+- Status dashboard with real-time updates and color-coded feedback
 - Per-session proxy support (with authentication)
+- Multi-session: manage multiple MAM accounts/IPs in one instance
+- Detects and updates on public IP/ASN changes (VPN/proxy aware)
+- Rate limit handling and clear error/warning messages
 - Designed for Docker Compose and ease of use
 
 ## Quick Start
@@ -37,12 +45,16 @@ All user settings and state are stored in the `/config` directory (mapped as a v
 - `TZ`: Set the timezone for logs and scheduling (e.g. `Europe/London`).
 - `PUID`/`PGID`: Set user/group IDs for Docker volume permissions (optional).
 - `IPINFO_TOKEN`: (Optional) For more reliable ASN lookups.
+- `LOGLEVEL`: Set backend log level (`DEBUG`, `INFO`, `WARNING`, etc). Default: `INFO`.
+- `PORT`: (Advanced) Override backend port (default: 39842; not recommended).
 
 ## Automation & Status
 
-- The backend checks each session at the configured interval (`check_freq` in minutes).
+- The backend checks each session at the configured interval (`check_freq` in minutes; minimum 5).
 - If the IP or ASN changes (and session type matches), MouseTrap auto-updates your MAM seedbox session (rate-limited to once per hour).
+- All status checks and updates are logged to a persistent event log (viewable in the UI).
 - Use the "Check Now" and "Update Seedbox" buttons in the UI to force checks/updates.
+- Event log includes both successful updates and warnings/errors (e.g., unable to determine IP/ASN).
 
 ## Testing IP/ASN Changes
 
@@ -55,8 +67,9 @@ All user settings and state are stored in the `/config` directory (mapped as a v
 
 - **Proxy errors:** Ensure your proxy supports HTTP CONNECT and credentials are correct.
 - **Rate limit:** MAM only allows seedbox updates once per hour per session.
-- **Session not updating?** Check backend logs for errors and confirm your entered IP is correct.
+- **Session not updating?** Check backend logs and the UI event log for errors and confirm your entered IP is correct.
 - **Permissions:** If running in Docker, set `PUID`/`PGID` to match your user for config volume access.
+- **Event log missing entries?** Only real backend checks (not cached status) are logged. Warnings/errors are also shown in the event log.
 
 ## VPN Integration
 
@@ -189,6 +202,7 @@ MouseTrap uses Python's standard logging with timestamps and log levels (DEBUG, 
 
 - **Control log level with the `LOGLEVEL` environment variable.**
 - Default is `INFO`. For troubleshooting, set `LOGLEVEL=DEBUG` in your Compose file or environment.
+- All backend checks, updates, and warnings/errors are also logged to the persistent event log (viewable in the UI).
 
 ### Example: Enable DEBUG Logging in Docker Compose
 
