@@ -47,6 +47,9 @@ COPY logconfig.yaml /app/logconfig.yaml
 
 EXPOSE 39842
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gosu passwd \
+    && rm -rf /var/lib/apt/lists/*
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 ENTRYPOINT ["/app/start.sh"]
