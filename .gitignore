@@ -20,4 +20,5 @@ logs/
 *.sqlite
 *.db
 *.pid
-docs/millionaires_vault_cookie_requirements.md
+docs/
+config/
