@@ -51,31 +51,41 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
             if resp.status_code != 200:
                 continue
             data = resp.json()
+            logging.debug(f"{provider} raw response for IP {ip or 'self'}: {data}")
             # Normalize output
             if provider == 'ipinfo':
+                asn_val = str(data.get('org', ''))
                 return {
                     'ip': data.get('ip'),
-                    'asn': data.get('org', ''),
+                    'asn': asn_val,
                     'org': data.get('org', ''),
                     'timezone': data.get('timezone', None)
                 }
             elif provider == 'ipwho':
+                # ipwho.is: ASN is in 'asn' (e.g., 'AS15169'), org in 'org', fallback to 'connection'->'asn' if missing
+                asn_val = data.get('asn') or (data.get('connection', {}).get('asn') if data.get('connection') else '')
+                asn_val = str(asn_val) if asn_val is not None else ''
+                org_val = data.get('org') or (data.get('connection', {}).get('org') if data.get('connection') else '')
                 return {
                     'ip': data.get('ip'),
-                    'asn': data.get('asn', ''),
-                    'org': data.get('org', ''),
+                    'asn': asn_val,
+                    'org': org_val,
                     'timezone': data.get('timezone', None)
                 }
             elif provider == 'ipapi':
+                # ip-api.com: ASN is in 'as' (e.g., 'AS15169 Google LLC'), org in 'org'
+                asn_val = str(data.get('as', ''))
                 return {
                     'ip': data.get('query'),
-                    'asn': data.get('as', ''),
+                    'asn': asn_val,
                     'org': data.get('org', ''),
                     'timezone': data.get('timezone', None)
                 }
             elif provider == 'ipdata':
+                # ipdata.co: ASN is in 'asn' dict, org in 'asn'->'name'
                 asn = data.get('asn', {})
                 asn_str = f"AS{asn.get('asn', '')} {asn.get('name', '')}" if asn else ''
+                asn_str = str(asn_str)
                 return {
                     'ip': data.get('ip'),
                     'asn': asn_str,
@@ -619,8 +629,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         proxied_ipinfo_data = get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
         proxied_public_ip = get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
         asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip, proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
-        match_proxied = re.search(r'(AS)?(\d+)', asn_full_proxied or "") if asn_full_proxied else None
-        proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_full_proxied
+        asn_str = str(asn_full_proxied) if asn_full_proxied is not None else ""
+        match_proxied = re.search(r'(AS)?(\d+)', asn_str) if asn_str else None
+        proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_str
         # Save to config if changed
         if proxied_public_ip and cfg.get("proxied_public_ip") != proxied_public_ip:
             cfg["proxied_public_ip"] = proxied_public_ip
