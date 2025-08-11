@@ -150,7 +150,7 @@ export default function MouseTrapConfigCard({
               />
             </Grid>
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
-              <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165 }} error={!!sessionTypeError}>
+              <FormControl size="small" sx={{ minWidth: 130, maxWidth: 175 }} error={!!sessionTypeError}>
                 <InputLabel>Session Type*</InputLabel>
                 <Select
                   value={sessionType || ""}
@@ -165,7 +165,7 @@ export default function MouseTrapConfigCard({
             </Grid>
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControl size="small" sx={{ minWidth: 100, maxWidth: 145 }} error={!!freqError}>
+                <FormControl size="small" sx={{ minWidth: 110, maxWidth: 155 }} error={!!freqError}>
                   <InputLabel>Frequency*</InputLabel>
                   <Select
                     value={checkFrequency || ""}
@@ -218,7 +218,7 @@ export default function MouseTrapConfigCard({
                   inputProps={{ maxLength: 16 }}
                   placeholder="e.g. 203.0.113.99"
                   helperText="IP to associate with MAM ID"
-                  sx={{ width: 210 }}
+                  sx={{ width: 205 }}
                 />
                 <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', minWidth: 120, gap: 2, height: 64 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>

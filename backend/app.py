@@ -318,6 +318,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         }
     cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
+    mam_ip_override = cfg.get('mam_ip', "").strip()
     # If session is not configured (no mam_id), return not configured status
     if not mam_id:
         return {
@@ -329,7 +330,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             "detected_public_ip": detected_public_ip,
             "detected_public_ip_asn": detected_public_ip_asn,
         }
-    mam_ip_override = cfg.get('mam_ip', "").strip()
     # Use proxied public IP if available, else fallback
     ip_to_use = mam_ip_override or proxied_public_ip or detected_public_ip
     # Get ASN for configured IP
