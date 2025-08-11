@@ -106,11 +106,44 @@ services:
 
 ---
 
+
+## IP/ASN Lookup & Fallbacks
+
+MouseTrap uses a robust, privacy-friendly fallback chain to determine your public IP address and ASN for each session:
+
+- **Primary:** [ipinfo.io](https://ipinfo.io/) (recommended, supports free API token)
+- **Fallbacks:** [ipwho.is](https://ipwho.is/), [ip-api.com](http://ip-api.com/), [ipdata.co](https://ipdata.co/)
+
+If the primary provider is unavailable or rate-limited, MouseTrap will automatically try the next provider in the chain. This ensures reliable detection of your public IP and ASN, even if one or more services are down or blocked.
+
+**No extra setup is required for fallback support.**
+
+### Using an ipinfo.io API Token (Recommended)
+
+ipinfo.io offers a free API token with generous limits for non-commercial use. Using a token increases reliability and reduces the chance of hitting rate limits.
+
+1. Sign up for a free account at [ipinfo.io/signup](https://ipinfo.io/signup).
+2. Copy your API token from the dashboard.
+3. Set the token as an environment variable in your Docker Compose file or host:
+
+   ```yaml
+   environment:
+     - IPINFO_TOKEN=your_token_here
+   ```
+
+   Or export it in your shell before running Docker:
+
+   ```bash
+   export IPINFO_TOKEN=your_token_here
+   ```
+
+If you do not set a token, MouseTrap will still work, but may fall back to other providers more often if you exceed the free rate limit.
+
 ## Environment Variables
 
 - `TZ`: Set the timezone for logs and scheduling (e.g. `Europe/London`).
 - `PUID`/`PGID`: Set user/group IDs for Docker volume permissions (optional).
-- `IPINFO_TOKEN`: (Optional) ipinfo.io API token or more reliable IP/ASN lookups.
+- `IPINFO_TOKEN`: (Recommended) ipinfo.io API token for reliable IP/ASN lookups and higher rate limits. See above for details.
 - `LOGLEVEL`: Set backend log level (`DEBUG`, `INFO`, `WARNING`, etc). Default: `INFO`.
 - `PORT`: (Advanced) Override backend port (default: 39842; not recommended).
 
