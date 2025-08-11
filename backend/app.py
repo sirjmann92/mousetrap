@@ -1,3 +1,91 @@
+import requests
+from typing import Optional, Tuple
+# --- Unified IP/ASN Lookup with Fallbacks ---
+def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
+    """
+    Try ipinfo.io, ipwho.is, ip-api.com, and ipdata.co in order. Return normalized dict with keys: ip, asn, org, timezone.
+    """
+    providers = []
+    token = os.environ.get("IPINFO_TOKEN")
+    # ipinfo.io
+    if ip:
+        url_ipinfo = f"https://ipinfo.io/{ip}/json"
+    else:
+        url_ipinfo = "https://ipinfo.io/json"
+    if token:
+        url_ipinfo += f"?token={token}"
+    providers.append((url_ipinfo, 'ipinfo'))
+    # ipwho.is
+    if ip:
+        url_ipwho = f"https://ipwho.is/{ip}"
+    else:
+        url_ipwho = "https://ipwho.is/"
+    providers.append((url_ipwho, 'ipwho'))
+    # ip-api.com
+    if ip:
+        url_ipapi = f"http://ip-api.com/json/{ip}"
+    else:
+        url_ipapi = "http://ip-api.com/json/"
+    providers.append((url_ipapi, 'ipapi'))
+    # ipdata.co (test key, low rate limit)
+    if ip:
+        url_ipdata = f"https://api.ipdata.co/{ip}?api-key=test"
+    else:
+        url_ipdata = "https://api.ipdata.co/?api-key=test"
+    providers.append((url_ipdata, 'ipdata'))
+
+    proxies = None
+    if proxy_cfg:
+        proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
+        if not proxy_url and 'host' in proxy_cfg and 'port' in proxy_cfg:
+            userpass = ''
+            if proxy_cfg.get('username') and proxy_cfg.get('password'):
+                userpass = f"{proxy_cfg['username']}:{proxy_cfg['password']}@"
+            proxy_url = f"http://{userpass}{proxy_cfg['host']}:{proxy_cfg['port']}"
+        if proxy_url:
+            proxies = {'http': proxy_url, 'https': proxy_url}
+
+    for url, provider in providers:
+        try:
+            resp = requests.get(url, timeout=5, proxies=proxies)
+            if resp.status_code != 200:
+                continue
+            data = resp.json()
+            # Normalize output
+            if provider == 'ipinfo':
+                return {
+                    'ip': data.get('ip'),
+                    'asn': data.get('org', ''),
+                    'org': data.get('org', ''),
+                    'timezone': data.get('timezone', None)
+                }
+            elif provider == 'ipwho':
+                return {
+                    'ip': data.get('ip'),
+                    'asn': data.get('asn', ''),
+                    'org': data.get('org', ''),
+                    'timezone': data.get('timezone', None)
+                }
+            elif provider == 'ipapi':
+                return {
+                    'ip': data.get('query'),
+                    'asn': data.get('as', ''),
+                    'org': data.get('org', ''),
+                    'timezone': data.get('timezone', None)
+                }
+            elif provider == 'ipdata':
+                asn = data.get('asn', {})
+                asn_str = f"AS{asn.get('asn', '')} {asn.get('name', '')}" if asn else ''
+                return {
+                    'ip': data.get('ip'),
+                    'asn': asn_str,
+                    'org': asn.get('name', ''),
+                    'timezone': data.get('time_zone', None)
+                }
+        except Exception as e:
+            logging.warning(f"{provider} lookup failed for IP {ip or 'self'}: {e}")
+            continue
+    return {'ip': None, 'asn': 'Unknown ASN', 'org': '', 'timezone': None}
 import os
 import json
 from threading import Lock
@@ -305,46 +393,26 @@ logging.getLogger('apscheduler').setLevel(logging.WARNING)
 # Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-def get_asn_and_timezone_from_ip(ip, proxy_cfg=None):
+def get_asn_and_timezone_from_ip(ip, proxy_cfg=None, ipinfo_data=None):
+    """
+    Returns (asn, timezone) for the given IP, using provided data or by calling get_ipinfo_with_fallback.
+    """
     try:
-        token = os.environ.get("IPINFO_TOKEN")
-        url = f"https://ipinfo.io/{ip}/json"
-        if token:
-            url += f"?token={token}"
-        logging.debug(f"ASN lookup for IP: {ip} (proxy: {bool(proxy_cfg)})")
-        proxies = None
-        if proxy_cfg:
-            proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
-            if not proxy_url and 'host' in proxy_cfg and 'port' in proxy_cfg:
-                userpass = ''
-                if proxy_cfg.get('username') and proxy_cfg.get('password'):
-                    userpass = f"{proxy_cfg['username']}:{proxy_cfg['password']}@"
-                proxy_url = f"http://{userpass}{proxy_cfg['host']}:{proxy_cfg['port']}"
-            if proxy_url:
-                proxies = {'http': proxy_url, 'https': proxy_url}
-        resp = requests.get(url, timeout=4, proxies=proxies)
-        logging.debug(f"ipinfo.io response: {resp.status_code}")
-        if resp.status_code == 200:
-            data = resp.json()
-            asn = data.get("org", "Unknown ASN")
-            tz = data.get("timezone", None)
-            return asn, tz
-        return "Unknown ASN", None
+        data = ipinfo_data or get_ipinfo_with_fallback(ip, proxy_cfg)
+        asn = data.get('asn', 'Unknown ASN')
+        tz = data.get('timezone', None)
+        return asn, tz
     except Exception as e:
         logging.warning(f"ASN lookup failed for IP {ip}: {e}")
         return "Unknown ASN", None
 
-def get_public_ip():
+def get_public_ip(proxy_cfg=None, ipinfo_data=None):
+    """
+    Returns the public IP, using provided data or by calling get_ipinfo_with_fallback.
+    """
     try:
-        token = os.environ.get("IPINFO_TOKEN")
-        url = "https://ipinfo.io/json"
-        if token:
-            url += f"?token={token}"
-        resp = requests.get(url, timeout=4)
-        if resp.status_code == 200:
-            data = resp.json()
-            return data.get("ip")
-        return None
+        data = ipinfo_data or get_ipinfo_with_fallback(None, proxy_cfg)
+        return data.get('ip')
     except Exception:
         return None
 
