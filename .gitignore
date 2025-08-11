@@ -9,9 +9,7 @@ __pycache__/
 frontend/node_modules/
 frontend/.cache/
 scripts/
-config/session-*.yaml
-config/config.yaml
-config/last_session.yaml
+config/
 logs/
 *.log
 *.bak
@@ -21,4 +19,3 @@ logs/
 *.db
 *.pid
 docs/
-config/
