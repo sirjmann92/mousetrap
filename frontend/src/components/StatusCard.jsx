@@ -289,7 +289,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             <Alert severity="error">{status.error}</Alert>
           </Box>
         ) : status ? (
-          status.configured === false ? (
+          (status.configured === false || (status.status_message && status.status_message === "Session not configured. Please save session details to begin.")) ? (
             <Box sx={{ mt: 2, mb: 2 }}>
               <Alert severity="info">{status.status_message || "Session not configured. Please save session details to begin."}</Alert>
             </Box>
