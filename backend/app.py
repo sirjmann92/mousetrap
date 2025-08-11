@@ -1,5 +1,5 @@
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
-from backend.event_log import append_ui_event_log, get_ui_event_log, clear_ui_event_log, UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
+from backend.event_log import append_ui_event_log, UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message
 from backend.utils import extract_asn_number
@@ -19,24 +19,18 @@ from backend.config import load_config, save_config, list_sessions, load_session
 from backend.mam_api import get_status, get_mam_seen_ip_info
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.last_session_api import router as last_session_router
+from backend.api_event_log import router as event_log_router
+from backend.api_config import router as config_router
+from backend.api_automation import router as automation_router
 
 
 # --- FastAPI app creation ---
 app = FastAPI(title="MouseTrap API")
 
-
-
-@app.get("/api/ui_event_log")
-def api_ui_event_log():
-    return get_ui_event_log()
-
-@app.delete("/api/ui_event_log")
-def api_ui_event_log_delete():
-    success = clear_ui_event_log()
-    if success:
-        return {"success": True}
-    else:
-        return {"success": False, "error": "Failed to clear event log."}
+# Mount API routers
+app.include_router(event_log_router, prefix="/api")
+app.include_router(config_router, prefix="/api")
+app.include_router(automation_router, prefix="/api")
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):
@@ -495,268 +489,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     }
     return response
 
-@app.get("/api/config")
-def api_config():
-    cfg = load_config()
-    # Ensure new field is always present
-    if "mam_ip" not in cfg:
-        cfg["mam_ip"] = ""
-    return cfg
-
-@app.post("/api/config")
-async def api_config_save(request: Request):
-    try:
-        cfg = await request.json()
-        if "mam_ip" not in cfg:
-            cfg["mam_ip"] = ""
-        save_config(cfg)
-        return {"success": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save config: {e}")
-
-@app.post("/api/automation/wedge")
-async def api_automation_wedge(request: Request):
-    """
-    Purchase wedge using real MaM API call. Accepts label and method (default 'points'). Returns updated status on success.
-    """
-    try:
-        data = await request.json()
-        label = data.get('label')
-        method = data.get('method', 'points')
-        if not label:
-            raise HTTPException(status_code=400, detail="Session label required.")
-        cfg = load_session(label)
-        mam_id = cfg.get('mam', {}).get('mam_id', "")
-        if not mam_id:
-            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        proxy_cfg = cfg.get("proxy", {})
-        try:
-            result = buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
-        except Exception as e:
-            logging.error(f"[Wedge] buy_wedge exception: {e}")
-            return {"success": False, "error": f"buy_wedge exception: {e}"}
-        success = result.get("success", False) if result else False
-        if not success:
-            err_msg = result.get("error") or result.get("response") or "Unknown error during wedge purchase."
-            logging.error(f"[Wedge] Purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg, "result": result}
-        logging.info(f"[Wedge] Purchase successful for {label}")
-        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        now = datetime.now(timezone.utc)
-        mam_status['configured_asn'] = None
-        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-        cfg['last_status'] = mam_status
-        cfg['last_check_time'] = now.isoformat()
-        save_session(cfg, old_label=label)
-        logging.info(f"[Purchase] label={label} type=wedge result=success points={mam_status.get('points')}")
-        return {"success": True, "result": result, "status": mam_status}
-    except Exception as e:
-        logging.error(f"[Wedge] Exception: {e}")
-        return {"success": False, "error": str(e)}
-
-@app.post("/api/automation/vip")
-async def api_automation_vip(request: Request):
-    """
-    Purchase VIP using real MaM API call. Accepts label and weeks (duration). Returns updated status on success.
-    """
-    try:
-        data = await request.json()
-        label = data.get('label')
-        weeks = data.get('weeks', 4)  # Default to 4 weeks if not provided
-        if not label:
-            raise HTTPException(status_code=400, detail="Session label required.")
-        cfg = load_session(label)
-        mam_id = cfg.get('mam', {}).get('mam_id', "")
-        if not mam_id:
-            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        proxy_cfg = cfg.get("proxy", {})
-        # Map weeks to duration param: 4 -> '4', 8 -> '8', 90 -> 'max'
-        if weeks == 90:
-            duration = 'max'
-        else:
-            duration = str(weeks)
-        try:
-            result = buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
-        except Exception as e:
-            logging.error(f"[VIP] buy_vip exception: {e}")
-            event = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "label": label,
-                "trigger": "manual",
-                "purchase_type": "vip",
-                "amount": duration,
-                "result": "failed",
-                "error": f"buy_vip exception: {e}",
-            }
-            append_ui_event_log(event)
-            return {"success": False, "error": f"buy_vip exception: {e}"}
-        success = result.get("success", False) if result else False
-        event = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "label": label,
-            "trigger": "manual",
-            "purchase_type": "vip",
-            "amount": duration,
-            "result": "success" if success else "failed",
-            "error": None,
-        }
-        if not success:
-            err_msg = result.get("error") or result.get("response") or "Unknown error during VIP purchase."
-            event["error"] = err_msg
-            logging.error(f"[VIP] Purchase failed: {err_msg}")
-            append_ui_event_log(event)
-            return {"success": False, "error": err_msg}
-        logging.info(f"[VIP] Purchase successful for {label}")
-        # Immediately refetch points after purchase
-        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        now = datetime.now(timezone.utc)
-        mam_status['configured_asn'] = None
-        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-        cfg['last_status'] = mam_status
-        cfg['last_check_time'] = now.isoformat()
-        save_session(cfg, old_label=label)
-        logging.info(f"[Purchase] label={label} type=vip result=success points={mam_status.get('points')}")
-        append_ui_event_log(event)
-        return {"success": True, "result": result, "status": mam_status, "points": mam_status.get('points')}
-    except Exception as e:
-        logging.error(f"[VIP] Exception: {e}")
-        return {"success": False, "error": str(e)}
-
-@app.post("/api/automation/upload")
-async def api_automation_upload(request: Request):
-    """
-    Purchase upload credit using real MaM API call. Accepts label and gb. Returns updated status on success.
-    """
-    try:
-        data = await request.json()
-        label = data.get('label')
-        gb = data.get("gb", 1)
-        if not label:
-            raise HTTPException(status_code=400, detail="Session label required.")
-        cfg = load_session(label)
-        mam_id = cfg.get('mam', {}).get('mam_id', "")
-        if not mam_id:
-            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        proxy_cfg = cfg.get("proxy", {})
-        try:
-            result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
-        except Exception as e:
-            logging.error(f"[Upload] buy_upload_credit failed: {e}")
-            event = {
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "label": label,
-                "trigger": "manual",
-                "purchase_type": "upload_credit",
-                "amount": gb,
-                "result": "failed",
-                "error": f"Failed to purchase upload credit: {e}",
-            }
-            append_ui_event_log(event)
-            return {"success": False, "error": f"Failed to purchase upload credit: {e}"}
-        success = result.get("success", False) if result else False
-        event = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "label": label,
-            "trigger": "manual",
-            "purchase_type": "upload_credit",
-            "amount": gb,
-            "result": "success" if success else "failed",
-            "error": None,
-        }
-        if not success:
-            err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
-            event["error"] = err_msg
-            logging.error(f"[Upload] Purchase failed: {err_msg}")
-            append_ui_event_log(event)
-            return {"success": False, "error": err_msg}
-        logging.info(f"[Upload] Purchase successful for {label}")
-        # Immediately refetch points after purchase
-        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        now = datetime.now(timezone.utc)
-        mam_status['configured_asn'] = None
-        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-        cfg['last_status'] = mam_status
-        cfg['last_check_time'] = now.isoformat()
-        save_session(cfg, old_label=label)
-        logging.info(f"[Purchase] label={label} type=upload result=success points={mam_status.get('points')} gb={gb}")
-        append_ui_event_log(event)
-        return {"success": True, "result": result, "status": mam_status, "points": mam_status.get('points')}
-    except Exception as e:
-        logging.error(f"[Upload] Exception: {e}")
-        return {"success": False, "error": str(e)}
-
-@app.post("/api/automation/upload_auto")
-async def api_automation_upload_auto(request: Request):
-    """
-    Auto-purchase upload credit if points >= minimum. Accepts label, amount (GB), and min_points.
-    """
-    try:
-        data = await request.json()
-        label = data.get('label')
-        amount = int(data.get('amount', 1))
-        min_points = int(data.get('min_points', 0))
-        if not label:
-            logging.error("[UploadAuto] No session label provided.")
-            raise HTTPException(status_code=400, detail="Session label required.")
-        cfg = load_session(label)
-        mam_id = cfg.get('mam', {}).get('mam_id', "")
-        if not mam_id:
-            logging.error(f"[UploadAuto] No MaM ID configured for session {label}.")
-            raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
-        # Get current points (reuse get_status, now with proxy_cfg)
-        proxy_cfg = cfg.get("proxy", {})
-        # Redact password for logging
-        proxy_cfg_log = dict(proxy_cfg) if proxy_cfg else {}
-        if "password" in proxy_cfg_log:
-            proxy_cfg_log["password"] = "***REDACTED***"
-        try:
-            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        except Exception as e:
-            logging.error(f"[UploadAuto] get_status failed: {e}")
-            return {"success": False, "error": f"Failed to fetch status from MaM: {e}"}
-        points = status.get('points', 0) if isinstance(status, dict) else 0
-        if points is None:
-            logging.error(f"[UploadAuto] Could not fetch current points for mam_id={mam_id}.")
-            return {"success": False, "error": "Could not fetch current points. (Check session and MaM ID)"}
-        if points < min_points:
-            msg = f"Not enough points (have {points}, need {min_points})"
-            logging.warning(f"[UploadAuto] {msg}")
-            return {"success": False, "error": msg}
-        # Each GB costs 500 points
-        total_cost = amount * 500
-        if points < total_cost:
-            msg = f"Not enough points for {amount}GB (need {total_cost}, have {points})"
-            logging.warning(f"[UploadAuto] {msg}")
-            return {"success": False, "error": msg}
-        # Purchase upload credit (pass mam_id and proxy_cfg)
-        result = buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
-        event = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "label": label,
-            "trigger": "manual",
-            "purchase_type": "upload_credit",
-            "amount": amount,
-            "result": "success" if result.get("success", False) else "failed",
-            "error": None if result.get("success", False) else result.get("error") or result.get("response") or "Unknown error during upload purchase.",
-        }
-        append_ui_event_log(event)
-        # Immediately refetch points after purchase
-        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        return {"success": result.get("success", False), "result": result, "status": mam_status, "points": mam_status.get('points')}
-        success = result.get("success", False) if result else False
-        if not success:
-            if result:
-                err_msg = result.get("error") or result.get("response") or "Unknown error during upload purchase."
-            else:
-                err_msg = "Unknown error during upload purchase. (No result returned)"
-            logging.error(f"[UploadAuto] Upload purchase failed: {err_msg}")
-            return {"success": False, "error": err_msg}
-        logging.info(f"[UploadAuto] Upload purchase successful: {amount}GB for {label}")
-        logging.info(f"[Automation] label={label} type=upload_auto amount={amount} result=success points_before={points}")
-        return {"success": True, "result": result, "points_before": points, "amount": amount}
-    except Exception as e:
-        logging.error(f"[UploadAuto] Exception: {e}")
-        return {"success": False, "error": str(e)}
 
 @app.post("/api/session/refresh")
 def api_session_refresh(request: Request):
