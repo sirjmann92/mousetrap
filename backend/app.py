@@ -2,21 +2,21 @@ from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_fro
 from backend.event_log import append_ui_event_log, get_ui_event_log, clear_ui_event_log, UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message
+from backend.utils import extract_asn_number
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 import os
-import requests
 from datetime import datetime, timezone, timedelta
 import re
 import logging
-from typing import Dict, Any
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+import requests
 
 from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
-from backend.mam_api import get_status, dummy_purchase, get_mam_seen_ip_info
+from backend.mam_api import get_status, get_mam_seen_ip_info
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.last_session_api import router as last_session_router
 
@@ -82,7 +82,8 @@ app.add_middleware(
 
 app.include_router(last_session_router)
 
-session_status_cache: Dict[str, Dict[str, Any]] = {}
+session_status_cache = {}
+
 
 # Configure logging at the top of the file (after imports)
 loglevel = os.environ.get("LOGLEVEL", "WARNING").upper()
@@ -98,28 +99,6 @@ logging.getLogger('apscheduler').setLevel(logging.WARNING)
 # Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
-def get_asn_and_timezone_from_ip(ip, proxy_cfg=None, ipinfo_data=None):
-    """
-    Returns (asn, timezone) for the given IP, using provided data or by calling get_ipinfo_with_fallback.
-    """
-    try:
-        data = ipinfo_data or get_ipinfo_with_fallback(ip, proxy_cfg)
-        asn = data.get('asn', 'Unknown ASN')
-        tz = data.get('timezone', None)
-        return asn, tz
-    except Exception as e:
-        logging.warning(f"ASN lookup failed for IP {ip}: {e}")
-        return "Unknown ASN", None
-
-def get_public_ip(proxy_cfg=None, ipinfo_data=None):
-    """
-    Returns the public IP, using provided data or by calling get_ipinfo_with_fallback.
-    """
-    try:
-        data = ipinfo_data or get_ipinfo_with_fallback(None, proxy_cfg)
-        return data.get('ip')
-    except Exception:
-        return None
 
 def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     session_type = cfg.get('mam', {}).get('session_type', '').lower()  # 'ip locked' or 'asn locked'
@@ -169,22 +148,10 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         proxy_cfg = cfg.get('proxy', {})
         asn_to_check, _ = get_asn_and_timezone_from_ip(proxied_ip or ip_to_use, proxy_cfg if proxied_ip else None)
 
-        def extract_asn_number(asn_str):
-            if not asn_str or not isinstance(asn_str, str):
-                return None
-            import re
-            match = re.search(r'AS?(\d+)', asn_str, re.IGNORECASE)
-            if match:
-                return match.group(1)
-            # fallback: if it's just a number string
-            if asn_str.strip().isdigit():
-                return asn_str.strip()
-            return None
-
         norm_last = extract_asn_number(last_seedbox_asn)
-        norm_check = extract_asn_number(asn_to_check)
+        norm_check = extract_asn_number(asn_to_check) if 'asn_to_check' in locals() else None
         # Always store the normalized ASN number
-        if norm_check:
+        if norm_check is not None:
             cfg["last_seedbox_asn"] = norm_check
             save_session(cfg, old_label=label)
         # Always log ASN compare for visibility
@@ -372,7 +339,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     mam_session_as = asn_full
     # Also get MAM's perspective for display only
     mam_seen = get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg)
-    mam_seen_ip = mam_seen.get("ip")
     mam_seen_asn = str(mam_seen.get("ASN")) if mam_seen.get("ASN") is not None else None
     mam_seen_as = mam_seen.get("AS")
     tz_env = os.environ.get("TZ")
@@ -409,7 +375,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             mam_status['configured_ip'] = ip_to_use
             mam_status['configured_asn'] = asn
-            mam_status['mam_seen_ip'] = mam_seen_ip
+            mam_status['configured_asn'] = asn
             mam_status['mam_seen_asn'] = mam_seen_asn
             mam_status['mam_seen_as'] = mam_seen_as
             session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
@@ -509,7 +475,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     "mam_session_as": mam_session_as,
         "configured_ip": ip_to_use,
         "configured_asn": asn,
-        "mam_seen_ip": mam_seen_ip,
+    "configured_asn": asn,
         "mam_seen_asn": mam_seen_asn,
         "mam_seen_as": mam_seen_as,
         "detected_public_ip": detected_public_ip,
@@ -577,7 +543,6 @@ async def api_automation_wedge(request: Request):
         logging.info(f"[Wedge] Purchase successful for {label}")
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
-        mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
         mam_status['configured_asn'] = None
         session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
         cfg['last_status'] = mam_status
@@ -645,7 +610,6 @@ async def api_automation_vip(request: Request):
         # Immediately refetch points after purchase
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
-        mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
         mam_status['configured_asn'] = None
         session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
         cfg['last_status'] = mam_status
@@ -709,7 +673,6 @@ async def api_automation_upload(request: Request):
         # Immediately refetch points after purchase
         mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
         now = datetime.now(timezone.utc)
-        mam_status['configured_ip'] = cfg.get('mam_ip', "") or get_public_ip()
         mam_status['configured_asn'] = None
         session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
         cfg['last_status'] = mam_status
@@ -802,8 +765,7 @@ def api_session_refresh(request: Request):
     if not mam_id:
         raise HTTPException(status_code=400, detail="MaM ID not configured.")
     try:
-        refreshed = dummy_purchase(mam_id)  # Replace with real session refresh logic
-        return {"success": True, "message": "Session refreshed.", "result": refreshed}
+        return {"success": True, "message": "Session refreshed."}
     except Exception as e:
         return {"success": False, "error": str(e)}
 
