@@ -323,18 +323,13 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                     {(() => {
                       const msg = status.status_message || status.last_result || "unknown";
                       let color = 'text.primary';
-                      let severity = 'info';
-                      // If the backend returned a rate limit message with minutes, display it exactly
+                      // Color logic for new backend messages
                       if (msg.match(/Rate limit: last change too recent\. Try again in (\d+) minutes\./i)) {
-                        color = 'warning.main'; severity = 'warning';
-                      } else if (/update successful|no change detected|asn changed, no seedbox update needed/i.test(msg)) {
-                        color = 'success.main'; severity = 'success';
-                      } else if (/rate limit|rate-limited|change detected\. rate limited/i.test(msg)) {
-                        color = 'warning.main'; severity = 'warning';
+                        color = 'warning.main';
+                      } else if (/^IP\/ASN Unchanged\. Status fetched successfully\.$/i.test(msg) || /^IP Changed\. Seedbox IP updated\.$/i.test(msg) || /^ASN changed, no update needed\.$/i.test(msg)) {
+                        color = 'success.main';
                       } else if (/update failed|error|forbidden|failed/i.test(msg)) {
-                        color = 'error.main'; severity = 'error';
-                      } else if (/not needed|no update attempted/i.test(msg)) {
-                        color = 'text.secondary'; severity = 'info';
+                        color = 'error.main';
                       }
                       return (
                         <Box sx={{ mt: 1, textAlign: 'center' }}>

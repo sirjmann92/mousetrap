@@ -129,17 +129,14 @@ def get_status(mam_id=None, proxy_cfg=None):
                 logging.debug(f"Cheese scrape failed: {scrape_e}")
                 cheese = None
         # --- Compose a more informative status message ---
-        msg = []
-        if data.get("ip") or data.get("asn"):
-            msg.append("IP/ASN Unchanged.")
-        msg.append("Status fetched successfully.")
+        msg = "IP/ASN Unchanged. Status fetched successfully."
         return {
             "mam_cookie_exists": True,
             "points": points,
             "cheese": cheese,
             "wedge_active": wedge_active,
             "vip_active": vip_active,
-            "message": " ".join(msg),
+            "message": msg,
             "raw": data
         }
     except Exception as e:
