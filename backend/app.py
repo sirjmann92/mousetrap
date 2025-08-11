@@ -589,10 +589,12 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
     global session_status_cache
-    detected_public_ip = get_public_ip()
+    # Only fetch non-proxied IP/ASN for UI display (not for backend automation if proxied session is active)
+    detected_ipinfo_data = get_ipinfo_with_fallback()
+    detected_public_ip = get_public_ip(ipinfo_data=detected_ipinfo_data)
     detected_public_ip_asn = None
     if detected_public_ip:
-        asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip)
+        asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip, ipinfo_data=detected_ipinfo_data)
         match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
 
@@ -613,7 +615,12 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     proxy_cfg = cfg.get("proxy", {})
     proxied_public_ip, proxied_public_ip_asn = None, None
     if proxy_cfg and proxy_cfg.get("host"):
-        proxied_public_ip, proxied_public_ip_asn = get_proxied_public_ip_and_asn(proxy_cfg)
+        # Only fetch proxied IP/ASN for backend logic if proxied session is active
+        proxied_ipinfo_data = get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
+        proxied_public_ip = get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
+        asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip, proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
+        match_proxied = re.search(r'(AS)?(\d+)', asn_full_proxied or "") if asn_full_proxied else None
+        proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_full_proxied
         # Save to config if changed
         if proxied_public_ip and cfg.get("proxied_public_ip") != proxied_public_ip:
             cfg["proxied_public_ip"] = proxied_public_ip
