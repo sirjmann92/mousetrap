@@ -151,11 +151,15 @@ export default function MouseTrapConfigCard({
             </Grid>
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <FormControl size="small" sx={{ minWidth: 130, maxWidth: 175 }} error={!!sessionTypeError}>
-                <InputLabel>Session Type*</InputLabel>
+                <InputLabel required error={!!sessionTypeError} sx={{ color: !!sessionTypeError ? 'error.main' : undefined }}>
+                  Session Type
+                </InputLabel>
                 <Select
                   value={sessionType || ""}
                   label="Session Type*"
                   onChange={e => setSessionType(e.target.value)}
+                  error={!!sessionTypeError}
+                  sx={{ minWidth: 150, maxWidth: 195 }}
                 >
                   <MenuItem value="">Select...</MenuItem>
                   <MenuItem value="IP Locked">IP Locked</MenuItem>
@@ -165,12 +169,13 @@ export default function MouseTrapConfigCard({
             </Grid>
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControl size="small" sx={{ minWidth: 110, maxWidth: 155 }} error={!!freqError}>
-                  <InputLabel>Frequency*</InputLabel>
+                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165 }} error={!!freqError}>
+                  <InputLabel>Interval*</InputLabel>
                   <Select
                     value={checkFrequency || ""}
-                    label="Frequency*"
+                    label="Interval*"
                     onChange={e => setCheckFrequency(Number(e.target.value))}
+                    sx={{ minWidth: 100, maxWidth: 145 }}
                   >
                     <MenuItem value="">Select...</MenuItem>
                     <MenuItem value={1}>1</MenuItem>
@@ -199,9 +204,9 @@ export default function MouseTrapConfigCard({
                 inputProps={{ maxLength: 300 }}
                 multiline
                 minRows={2}
-                maxRows={4}
+                maxRows={6}
                 helperText="Paste your full MAM ID here (required)"
-                sx={{ width: 300 }}
+                sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
               />
             </Grid>
           </Grid>
@@ -332,7 +337,7 @@ export default function MouseTrapConfigCard({
             </AccordionDetails>
           </Accordion>
           <Box sx={{ textAlign: "right", mt: 2 }}>
-            <Button variant="contained" color="primary" onClick={handleSave} disabled={!allValid}>
+            <Button variant="contained" color="primary" onClick={handleSave} disabled={!allValid || !sessionType}>
               SAVE
             </Button>
           </Box>

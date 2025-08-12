@@ -129,7 +129,7 @@ def get_status(mam_id=None, proxy_cfg=None):
                 logging.debug(f"Cheese scrape failed: {scrape_e}")
                 cheese = None
         # --- Compose a more informative status message ---
-        msg = "IP/ASN Unchanged. Status fetched successfully."
+        msg = "No change detected. Update not needed."
         return {
             "mam_cookie_exists": True,
             "points": points,
