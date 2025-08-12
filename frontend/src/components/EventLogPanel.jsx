@@ -52,7 +52,17 @@ export default function EventLogPanel({ sessionLabel }) {
                 <Typography variant="caption" color="text.secondary">
                   {new Date(event.timestamp).toLocaleString()} — <b>{event.label}</b>
                 </Typography>
-                <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    mt: 0.5,
+                    fontWeight: 500,
+                    color:
+                      event.status_message === "No change detected. Update not needed."
+                        ? "#43a047" // green
+                        : undefined,
+                  }}
+                >
                   {event.status_message}
                 </Typography>
                 {event.details && (

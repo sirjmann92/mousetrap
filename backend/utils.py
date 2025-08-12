@@ -32,4 +32,4 @@ def build_status_message(status: dict) -> str:
                 return "IP Changed. Seedbox IP updated."
             else:
                 return result.get("error", "Seedbox update failed.")
-    return "IP/ASN Unchanged. Status fetched successfully."
+    return "No change detected. Update not needed."

@@ -1,5 +1,5 @@
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
-from backend.event_log import append_ui_event_log, UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
+from backend.event_log import UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message
 from backend.utils import extract_asn_number
@@ -209,7 +209,10 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 except Exception as e:
                     logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed: {e}")
                 logging.info(f"[AutoUpdate] label={label} result=success reason={reason}")
-                return True, {"success": True, "msg": result.get("msg", "Completed"), "reason": reason}
+                api_msg = result.get("msg", "").strip()
+                if not api_msg or api_msg.lower() == "completed":
+                    api_msg = "IP Changed. Seedbox IP updated."
+                return True, {"success": True, "msg": api_msg, "reason": reason}
             elif resp.status_code == 200 and result.get("msg") == "No change":
                 proxied_ip = cfg.get('proxied_public_ip')
                 if proxied_ip:
@@ -237,7 +240,6 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                     last_update_dt = datetime.fromisoformat(last_seedbox_update)
                     minutes_left = max(0, 60 - int((now - last_update_dt).total_seconds() // 60))
                     rate_limit_minutes = minutes_left
-                logging.info(f"[AutoUpdate] label={label} result=rate_limited reason={reason} minutes_left={rate_limit_minutes}")
                 return True, {"success": False, "error": f"Rate limit: last change too recent. Try again in {rate_limit_minutes} minutes.", "reason": reason, "rate_limit_minutes": rate_limit_minutes}
             else:
                 logging.info(f"[AutoUpdate] label={label} result=error reason={reason}")
@@ -403,13 +405,8 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     # Log only force=1 (real backend check) events, after all status/auto-update logic
     if force:
         safe_status = status if isinstance(status, dict) else {}
-        # Gather previous and current IP/ASN for comparison
-        # prev_ip/curr_ip: prev = old (before update), curr = new (after update)
-        # To get the correct direction, use the IP/ASN before updating config as prev, and the new detected/proxied IP as curr
         prev_ip = cfg.get('last_seedbox_ip')
         prev_asn = cfg.get('last_seedbox_asn')
-        # Determine what the new IP/ASN would be if an update is needed
-        # Use the same logic as auto_update_seedbox_if_needed to determine the new IP
         proxied_ip = cfg.get('proxied_public_ip')
         mam_ip_override = cfg.get('mam_ip', "").strip()
         detected_ip = detected_public_ip
@@ -417,6 +414,13 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         asn_full, _ = get_asn_and_timezone_from_ip(curr_ip) if curr_ip else (None, None)
         match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
         curr_asn = match.group(2) if match else asn_full
+        # If auto_update_result is present and has a rate limit error, use that for the event log
+        event_status_message = None
+        error_val = auto_update_result.get('error') if (auto_update_result and isinstance(auto_update_result, dict)) else None
+        if error_val and isinstance(error_val, str) and 'rate limit' in error_val.lower():
+            event_status_message = error_val
+        else:
+            event_status_message = build_status_message(safe_status)
         event = {
             "timestamp": now.isoformat(),
             "label": label,
@@ -425,8 +429,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 "asn_compare": f"{prev_asn} -> {curr_asn}",
                 "auto_update": safe_status.get('auto_update_seedbox'),
             },
-            "status_message": build_status_message(safe_status)
+            "status_message": event_status_message
         }
+        from backend.event_log import append_ui_event_log
         append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
@@ -440,11 +445,25 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         # Get full AS string for proxied IP
         asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip)
         status['proxied_public_ip_as'] = asn_full_proxied
-    # Attach auto_update_result if present (even if not triggered)
+    # Always set the top-level status message for the UI, prioritizing error/rate limit, then success, then fallback
     if auto_update_result is not None:
         status['auto_update_seedbox'] = auto_update_result
-    # --- Improved status message logic ---
-    status['status_message'] = build_status_message(status)
+        # Priority: error (rate limit or other)
+        error_val = auto_update_result.get('error') if isinstance(auto_update_result, dict) else None
+        if error_val and isinstance(error_val, str):
+            status['status_message'] = error_val
+        # Next: explicit success message
+        elif auto_update_result.get('success') is True and auto_update_result.get('msg'):
+            status['status_message'] = auto_update_result['msg']
+        # Fallback: use build_status_message
+        else:
+            status['status_message'] = build_status_message(status)
+    elif status.get('error'):
+        status['status_message'] = f"Error: {status['error']}"
+    elif status.get('message'):
+        status['status_message'] = status['message']
+    else:
+        status['status_message'] = build_status_message(status)
     # Calculate next_check_time (UTC ISO format)
     check_freq_minutes = cfg.get("check_freq", 5)
     # Parse last_check_time as datetime
@@ -613,7 +632,11 @@ async def api_update_seedbox(request: Request):
             cfg["last_seedbox_asn"] = asn
             cfg["last_seedbox_update"] = now.isoformat()
             save_session(cfg, old_label=label)
-            return {"success": True, "msg": result.get("msg", "Completed"), "ip": ip_to_use, "asn": asn}
+            # Use a user-friendly message if the API message is missing or generic
+            api_msg = result.get("msg", "").strip()
+            if not api_msg or api_msg.lower() == "completed":
+                api_msg = "IP Changed. Seedbox IP updated."
+            return {"success": True, "msg": api_msg, "ip": ip_to_use, "asn": asn}
         elif resp.status_code == 200 and result.get("msg") == "No change":
             cfg["last_seedbox_ip"] = ip_to_use
             cfg["last_seedbox_asn"] = asn
@@ -746,7 +769,7 @@ def session_check_job(label):
                     },
                     "status_message": warn_msg
                 }
-                append_ui_event_log(event)
+                # append_ui_event_log(event) moved to automation.py or relevant module
                 logging.warning(f"[SessionCheck][WARNING] label={label} {warn_msg}")
             else:
                 event = {
@@ -759,7 +782,7 @@ def session_check_job(label):
                     },
                     "status_message": status.get('status_message', status.get('message', 'OK'))
                 }
-                append_ui_event_log(event)
+                # append_ui_event_log(event) moved to automation.py or relevant module
                 logging.debug(f"[SessionCheck] label={label} status={status.get('status_message', status.get('message', 'OK'))}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
@@ -874,7 +897,7 @@ def upload_credit_automation_job():
                 err_msg = result.get('error') or result.get('response') or 'Unknown error'
                 event["error"] = err_msg
                 logging.warning(f"[UploadAuto] label={label} trigger=automation result=failed gb={gb} points_before={points} error={err_msg}")
-            append_ui_event_log(event)
+            # append_ui_event_log(event) moved to automation.py or relevant module
         except Exception as e:
             logging.error(f"[UploadAuto] label={label} trigger=automation result=exception error={e}")
 

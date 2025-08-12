@@ -326,7 +326,11 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       // Color logic for new backend messages
                       if (msg.match(/Rate limit: last change too recent\. Try again in (\d+) minutes\./i)) {
                         color = 'warning.main';
-                      } else if (/^IP\/ASN Unchanged\. Status fetched successfully\.$/i.test(msg) || /^IP Changed\. Seedbox IP updated\.$/i.test(msg) || /^ASN changed, no update needed\.$/i.test(msg)) {
+                      } else if (
+                        /^IP Changed\. Seedbox IP updated\.$/i.test(msg) ||
+                        /^ASN changed, no update needed\.$/i.test(msg) ||
+                        /^No change detected\. Update not needed\.$/i.test(msg)
+                      ) {
                         color = 'success.main';
                       } else if (/update failed|error|forbidden|failed/i.test(msg)) {
                         color = 'error.main';
