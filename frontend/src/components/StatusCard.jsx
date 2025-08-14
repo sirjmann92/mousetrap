@@ -108,6 +108,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
           if (secondsLeft === 0) {
             clearInterval(timerInterval);
             timerInterval = null;
+            // When timer hits zero, just fetch the latest status (do NOT force a backend check)
+            fetchStatus(false);
             startPolling();
           }
         } else {
@@ -162,10 +164,11 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   }, [status && status.next_check_time, sessionLabel]);
 
   // Always perform a force=1 status check on first load/session select
+  // On initial load/session select, fetch latest status (do NOT force a backend check)
   useEffect(() => {
     if (!sessionLabel) return;
     setStatus(null); // Clear status to show loading/blank until check completes
-    fetchStatus(true);
+    fetchStatus(false);
     // eslint-disable-next-line
   }, [sessionLabel]);
 
@@ -279,6 +282,14 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                 </Typography>
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connection Proxied:</Typography>
                 <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
+                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Auto Update:</Typography>
+                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
+                  {status.details && status.details.auto_update == null
+                    ? 'N/A'
+                    : typeof status.details.auto_update === 'object'
+                      ? (status.details.auto_update.msg || status.details.auto_update.error || JSON.stringify(status.details.auto_update))
+                      : String(status.details.auto_update)}
+                </Typography>
               </Box>
             </AccordionDetails>
           </Accordion>

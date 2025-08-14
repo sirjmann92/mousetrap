@@ -17,12 +17,6 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
     if token:
         url_ipinfo += f"?token={token}"
     providers.append((url_ipinfo, 'ipinfo'))
-    # ipwho.is
-    if ip:
-        url_ipwho = f"https://ipwho.is/{ip}"
-    else:
-        url_ipwho = "https://ipwho.is/"
-    providers.append((url_ipwho, 'ipwho'))
     # ip-api.com
     if ip:
         url_ipapi = f"http://ip-api.com/json/{ip}"
