@@ -1,3 +1,22 @@
+def get_auto_update_val(status):
+    val = status.get('auto_update_seedbox') if isinstance(status, dict) else None
+    if val is None or val == '' or val is False:
+        return 'N/A'
+    if isinstance(val, dict):
+        msg = val.get('msg')
+        reason = val.get('reason')
+        error = val.get('error')
+        if val.get('success') and msg:
+            # If reason is present, append it for clarity
+            if reason:
+                return f"{msg} ({reason})"
+            return msg
+        if error:
+            if reason:
+                return f"{error} ({reason})"
+            return error
+        return 'N/A'
+    return str(val)
 
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
@@ -447,6 +466,8 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             event_type = "automation"
         else:
             event_type = "scheduled"
+        # All variables are defined in this scope, so log event here
+        auto_update_val = get_auto_update_val(safe_status)
         event = {
             "timestamp": now.isoformat(),
             "label": label,
@@ -454,9 +475,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             "details": {
                 "ip_compare": event_ip_compare,
                 "asn_compare": event_asn_compare,
-                "auto_update": safe_status.get('auto_update_seedbox'),
+                "auto_update": auto_update_val,  # Always a string
             },
-            "status_message": event_status_message
+            "status_message": status.get('status_message') or event_status_message or build_status_message(status)
         }
         from backend.event_log import append_ui_event_log
         append_ui_event_log(event)
@@ -764,27 +785,29 @@ def session_check_job(label):
             asn_full, _ = get_asn_and_timezone_from_ip(new_ip) if new_ip else (None, None)
             match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
             new_asn = match.group(2) if match else asn_full
-            mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # --- Auto-update logic ---
             auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
             if auto_update_result is not None:
-                mam_status['auto_update_seedbox'] = auto_update_result
+                status['auto_update_seedbox'] = auto_update_result
                 # Log the result of the update attempt for visibility
                 if auto_update_result.get('success'):
                     logging.info(f"[AutoUpdate] label={label} update result: {auto_update_result.get('msg', 'Success')} reason={auto_update_result.get('reason')}")
                 else:
                     logging.info(f"[AutoUpdate] label={label} update result: {auto_update_result.get('error', 'Error')} reason={auto_update_result.get('reason')}")
+            else:
+                status['auto_update_seedbox'] = 'N/A'
             # --- Always update last_status with the latest automation result ---
-            # Build status_message just like in api_status
-            status = mam_status
             status['status_message'] = build_status_message(status)
-            # Save last_status to config for UI
             cfg['last_status'] = status
             save_session(cfg, old_label=label)
             # Log event using pre-update (old) and detected/proxied (new) values
             from backend.event_log import append_ui_event_log
+            # Ensure auto_update is always a string, never None/null in JSON
+            auto_update_val = get_auto_update_val(status)
+            # ...removed debug logging...
             if prev_ip is None or prev_asn is None or new_ip is None or new_asn is None:
                 warn_msg = "Unable to determine current or new IP/ASN—check connectivity or configuration. No update performed."
                 event = {
@@ -794,7 +817,7 @@ def session_check_job(label):
                     "details": {
                         "ip_compare": f"{prev_ip} -> {new_ip}",
                         "asn_compare": f"{prev_asn} -> {new_asn}",
-                        "auto_update": status.get('auto_update_seedbox'),
+                        "auto_update": auto_update_val,  # Always a string
                     },
                     "status_message": warn_msg
                 }
@@ -808,12 +831,12 @@ def session_check_job(label):
                     "details": {
                         "ip_compare": f"{prev_ip} -> {new_ip}",
                         "asn_compare": f"{prev_asn} -> {new_asn}",
-                        "auto_update": status.get('auto_update_seedbox'),
+                        "auto_update": auto_update_val,  # Always a string
                     },
                     "status_message": status.get('status_message', status.get('message', 'OK'))
                 }
                 append_ui_event_log(event)
-                logging.debug(f"[SessionCheck] label={label} status={status.get('status_message', status.get('message', 'OK'))}")
+                # ...removed debug logging...
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")
 
