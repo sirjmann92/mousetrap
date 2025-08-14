@@ -131,6 +131,11 @@ export default function EventLogModalButton({ sessionLabel }) {
                 >
                   <Typography variant="caption" color="text.secondary">
                     {new Date(event.timestamp).toLocaleString()} — <b>{event.label}</b>
+                    {event.event_type && (
+                      <span style={{ marginLeft: 8, fontStyle: 'italic', color: '#888' }}>
+                        [{event.event_type}]
+                      </span>
+                    )}
                   </Typography>
                   {event.details && (
                     <Box sx={{ mt: 0.5, fontSize: 13, color: theme.palette.text.secondary }}>
@@ -139,6 +144,18 @@ export default function EventLogModalButton({ sessionLabel }) {
                       )}
                       {event.details.asn_compare && (
                         <div>ASN: {event.details.asn_compare}</div>
+                      )}
+                      {event.details.points_before !== undefined && (
+                        <div>Points Before: {event.details.points_before}</div>
+                      )}
+                      {event.details.auto_update !== undefined && (
+                        <div>Auto Update: {JSON.stringify(event.details.auto_update)}</div>
+                      )}
+                      {event.purchase_type && (
+                        <div>Purchase: {event.purchase_type} {event.amount ? `(${event.amount})` : ''}</div>
+                      )}
+                      {event.config_changes && (
+                        <div>Config Changes: {JSON.stringify(event.config_changes)}</div>
                       )}
                     </Box>
                   )}

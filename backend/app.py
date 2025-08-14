@@ -1,4 +1,6 @@
+
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
+import re
 from backend.event_log import UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message
@@ -9,7 +11,6 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 import os
 from datetime import datetime, timezone, timedelta
-import re
 import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -402,8 +403,8 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 status = session_status_cache[label]["status"]
                 last_check_time = session_status_cache[label]["last_check_time"]
 
-    # Log only force=1 (real backend check) events, after all status/auto-update logic
-    if force:
+    # Only log an event if a real check was performed (force=1 or no cached status)
+    if force or not (label in session_status_cache and session_status_cache[label].get("status")):
         safe_status = status if isinstance(status, dict) else {}
         prev_ip = cfg.get('last_seedbox_ip')
         prev_asn = cfg.get('last_seedbox_asn')
@@ -414,19 +415,45 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         asn_full, _ = get_asn_and_timezone_from_ip(curr_ip) if curr_ip else (None, None)
         match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
         curr_asn = match.group(2) if match else asn_full
-        # If auto_update_result is present and has a rate limit error, use that for the event log
         event_status_message = None
         error_val = auto_update_result.get('error') if (auto_update_result and isinstance(auto_update_result, dict)) else None
+        # If rate limit, show attempted new IP/ASN in event log
         if error_val and isinstance(error_val, str) and 'rate limit' in error_val.lower():
             event_status_message = error_val
+            attempted_ip = None
+            attempted_asn = None
+            if auto_update_result and isinstance(auto_update_result, dict):
+                reason = auto_update_result.get('reason', '')
+                ip_match = re.search(r'IP changed: ([^ ]+) -> ([^ ]+)', reason)
+                asn_match = re.search(r'ASN changed: ([^ ]+) -> ([^ ]+)', reason)
+                if ip_match:
+                    attempted_ip = ip_match.group(2)
+                if asn_match:
+                    attempted_asn = asn_match.group(2)
+            if not attempted_ip:
+                attempted_ip = proxied_ip or detected_ip
+            if not attempted_asn:
+                attempted_asn = curr_asn
+            event_ip_compare = f"{prev_ip} -> {attempted_ip}"
+            event_asn_compare = f"{prev_asn} -> {attempted_asn}"
         else:
             event_status_message = build_status_message(safe_status)
+            event_ip_compare = f"{prev_ip} -> {curr_ip}"
+            event_asn_compare = f"{prev_asn} -> {curr_asn}"
+        # Determine event type
+        if force:
+            event_type = "manual"
+        elif auto_update_result is not None:
+            event_type = "automation"
+        else:
+            event_type = "scheduled"
         event = {
             "timestamp": now.isoformat(),
             "label": label,
+            "event_type": event_type,
             "details": {
-                "ip_compare": f"{prev_ip} -> {curr_ip}",
-                "asn_compare": f"{prev_asn} -> {curr_asn}",
+                "ip_compare": event_ip_compare,
+                "asn_compare": event_asn_compare,
                 "auto_update": safe_status.get('auto_update_seedbox'),
             },
             "status_message": event_status_message
@@ -757,11 +784,13 @@ def session_check_job(label):
             cfg['last_status'] = status
             save_session(cfg, old_label=label)
             # Log event using pre-update (old) and detected/proxied (new) values
+            from backend.event_log import append_ui_event_log
             if prev_ip is None or prev_asn is None or new_ip is None or new_asn is None:
                 warn_msg = "Unable to determine current or new IP/ASN—check connectivity or configuration. No update performed."
                 event = {
                     "timestamp": now.isoformat(),
                     "label": label,
+                    "event_type": "scheduled",
                     "details": {
                         "ip_compare": f"{prev_ip} -> {new_ip}",
                         "asn_compare": f"{prev_asn} -> {new_asn}",
@@ -769,12 +798,13 @@ def session_check_job(label):
                     },
                     "status_message": warn_msg
                 }
-                # append_ui_event_log(event) moved to automation.py or relevant module
+                append_ui_event_log(event)
                 logging.warning(f"[SessionCheck][WARNING] label={label} {warn_msg}")
             else:
                 event = {
                     "timestamp": now.isoformat(),
                     "label": label,
+                    "event_type": "scheduled",
                     "details": {
                         "ip_compare": f"{prev_ip} -> {new_ip}",
                         "asn_compare": f"{prev_asn} -> {new_asn}",
@@ -782,7 +812,7 @@ def session_check_job(label):
                     },
                     "status_message": status.get('status_message', status.get('message', 'OK'))
                 }
-                # append_ui_event_log(event) moved to automation.py or relevant module
+                append_ui_event_log(event)
                 logging.debug(f"[SessionCheck] label={label} status={status.get('status_message', status.get('message', 'OK'))}")
     except Exception as e:
         logging.error(f"[APScheduler] Error in job for '{label}': {e}")

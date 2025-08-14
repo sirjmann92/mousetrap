@@ -67,8 +67,8 @@ export default function EventLogPanel({ sessionLabel }) {
                 </Typography>
                 {event.details && (
                   <Box sx={{ mt: 0.5, fontSize: 13, color: '#555' }}>
-                    {event.details.ip && <span>IP: {event.details.ip} </span>}
-                    {event.details.asn && <span>ASN: {event.details.asn} </span>}
+                    {event.details.ip_compare && <span>IP: {event.details.ip_compare} </span>}
+                    {event.details.asn_compare && <span>ASN: {event.details.asn_compare} </span>}
                     {event.details.points !== undefined && <span>Points: {event.details.points}</span>}
                   </Box>
                 )}
