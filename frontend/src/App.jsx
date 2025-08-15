@@ -18,6 +18,7 @@ import EventLogModalButton from "./components/EventLogModalButton";
 import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
+import PortMonitorCard from "./components/PortMonitorCard";
 import SessionSelector from "./components/SessionSelector";
 
 // Asset imports
@@ -270,6 +271,7 @@ export default function App() {
             }
           }}
         />
+        <PortMonitorCard />
         <NotificationsCard />
       </Container>
     </ThemeProvider>

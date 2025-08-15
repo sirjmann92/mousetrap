@@ -7,3 +7,4 @@ beautifulsoup4
 apscheduler
 watchdog
 cryptography
+docker
