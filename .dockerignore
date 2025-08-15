@@ -27,3 +27,7 @@ Dockerfile*
 .env
 *.bak
 *.tmp
+.git
+.gitignore
+docs/
+tests/
