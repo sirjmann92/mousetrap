@@ -10,10 +10,12 @@ RUN npm run build
 FROM python:3.11-slim AS backend
 WORKDIR /app
 
+
 # Install system dependencies (if needed)
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
+        gettext \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables
@@ -21,10 +23,14 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENV=production
 
+
 # Copy backend code and requirements
 COPY backend/ /app/backend/
 COPY backend/app.py /app/app.py
 COPY backend/requirements.txt /app/requirements.txt
+
+# Copy logging config template for dynamic log level
+COPY logconfig.yaml.template /app/logconfig.yaml.template
 
 # Install Python dependencies with build-essential, then remove build-essential in a single layer
 RUN apt-get update \
@@ -44,7 +50,7 @@ COPY frontend/public/favicon.ico /app/frontend/public/favicon.ico
 COPY frontend/public/favicon.svg /app/frontend/public/svg
 COPY favicon_io/ /app/frontend/public/
 
-COPY logconfig.yaml /app/logconfig.yaml
+
 
 EXPOSE 39842
 

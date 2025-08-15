@@ -103,12 +103,20 @@ session_status_cache = {}
 
 
 # Configure logging at the top of the file (after imports)
-loglevel = os.environ.get("LOGLEVEL", "WARNING").upper()
+
+# Configure logging at the top of the file (after imports)
+loglevel = os.environ.get("LOGLEVEL", "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, loglevel, logging.WARNING),
     format='[%(asctime)s %(levelname)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S %Z',
 )
+
+# Suppress overly verbose DEBUG logs from requests, urllib3, httpx unless explicitly set to DEBUG
+if getattr(logging, loglevel, logging.WARNING) > logging.DEBUG:
+    logging.getLogger("urllib3").setLevel(logging.INFO)
+    logging.getLogger("httpx").setLevel(logging.INFO)
+    logging.getLogger("requests").setLevel(logging.INFO)
 
 # Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
@@ -171,16 +179,14 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         if norm_check is not None:
             cfg["last_seedbox_asn"] = norm_check
             save_session(cfg, old_label=label)
-        # Always log ASN compare for visibility
-        logging.info(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check}")
-        # Only log ASN changed if the ASN actually changed
+        # Log ASN compare and result at INFO level, but only once per check
         if norm_last != norm_check:
             reason = f"ASN changed: {norm_last} -> {norm_check}"
             logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
             return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
         else:
-            logging.info(f"[AutoUpdate] label={label} ASN result: No change needed.")
+            logging.info(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check} | ASN result: No change needed.")
     # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
     proxied_ip = cfg.get('proxied_public_ip')
     if proxied_ip:
@@ -192,8 +198,11 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
-    # Always log the IP comparison for visibility
-    logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check}")
+    # Log IP compare and result at INFO level, but only once per check
+    if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
+        logging.info(f"[AutoUpdate] label={label} IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}")
+    else:
+        logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check} | IP result: No change needed.")
     if update_needed:
         logging.info(f"[AutoUpdate] label={label} update_needed=True asn={asn} reason={reason}")
         logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
@@ -272,9 +281,8 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after exception in seedbox API call. reason={reason}")
             return True, {"success": False, "error": str(e), "reason": reason}
     else:
-        logging.info(f"[AutoUpdate] label={label} IP result: No change needed.")
-        logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
-    logging.debug(f"[AutoUpdate][RETURN] label={label} Returning default path (no update needed or triggered).")
+        # Already logged IP/ASN compare and result above, so just add a single debug trace for return
+        logging.debug(f"[AutoUpdate][RETURN] label={label} Returning default path (no update needed or triggered).")
     return False, None
 
 @app.get("/api/status")
