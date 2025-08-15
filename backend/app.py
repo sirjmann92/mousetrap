@@ -39,9 +39,11 @@ from backend.config import load_config, save_config, list_sessions, load_session
 from backend.mam_api import get_status, get_mam_seen_ip_info
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.last_session_api import router as last_session_router
+
 from backend.api_event_log import router as event_log_router
 from backend.api_config import router as config_router
 from backend.api_automation import router as automation_router
+from backend.api_port_monitor import router as port_monitor_router
 
 
 # --- FastAPI app creation ---
@@ -51,6 +53,7 @@ app = FastAPI(title="MouseTrap API")
 app.include_router(event_log_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(automation_router, prefix="/api")
+app.include_router(port_monitor_router)
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):
@@ -60,10 +63,10 @@ def api_automation_guardrails():
     """
     Returns a mapping of session labels to MaM usernames and enabled automations for guardrail logic.
     Example:
-    {
-      "Gluetun": {"username": "sirjmann92", "autoUpload": true, "autoWedge": false, "autoVIP": false},
-      ...
-    }
+        {
+            "Gluetun": {"username": "example_user", "autoUpload": true, "autoWedge": false, "autoVIP": false},
+            ...
+        }
     """
     sessions = list_sessions()
     result = {}
@@ -394,6 +397,14 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             mam_status['configured_asn'] = asn
             mam_status['mam_seen_asn'] = mam_seen_asn
             mam_status['mam_seen_as'] = mam_seen_as
+            """
+            Returns a mapping of session labels to MaM usernames and enabled automations for guardrail logic.
+            Example:
+                {
+                    "Gluetun": {"username": "sirjmann92", "autoUpload": true, "autoWedge": false, "autoVIP": false},
+                    ...
+                }
+            """
             session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
             status = mam_status
             last_check_time = now.isoformat()
@@ -601,8 +612,28 @@ async def api_save_session(request: Request):
             if (not proxy_cfg.get("password")) and prev_cfg and prev_cfg.get("proxy", {}).get("password"):
                 proxy_cfg["password"] = prev_cfg["proxy"]["password"]
             cfg["proxy"] = proxy_cfg
+        import os
+        from backend.config import get_session_path
+        from backend.event_log import append_ui_event_log
+        label = cfg.get('label')
+        session_path = get_session_path(label)
+        is_new = not os.path.exists(session_path)
         save_session(cfg, old_label=old_label)
-        logging.info(f"[Session] Saved session: label={cfg.get('label')} old_label={old_label}")
+        logging.info(f"[Session] Saved session: label={label} old_label={old_label}")
+        if is_new:
+            append_ui_event_log({
+                "event": "session_created",
+                "label": label,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user_action": True
+            })
+        append_ui_event_log({
+            "event": "session_saved",
+            "label": label,
+            "old_label": old_label,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_action": True
+        })
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
@@ -612,6 +643,13 @@ def api_delete_session(label: str):
     try:
         delete_session(label)
         logging.info(f"[Session] Deleted session: label={label}")
+        from backend.event_log import append_ui_event_log
+        append_ui_event_log({
+            "event": "session_deleted",
+            "label": label,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "user_action": True
+        })
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete session: {e}")

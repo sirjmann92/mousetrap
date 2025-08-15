@@ -32,6 +32,7 @@ RUN apt-get update \
     && pip install --no-cache-dir -r /app/requirements.txt \
     && apt-get purge -y --auto-remove build-essential \
     && rm -rf /var/lib/apt/lists/*
+# (docker SDK for Python is installed via requirements.txt)
 
 # Copy frontend build output and static assets
 COPY --from=frontend-build /frontend/build /frontend/build
