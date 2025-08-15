@@ -259,6 +259,7 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
+      - ./logs:/app/logs  # Persist logs outside the container
       # Optional: Enable port monitoring by mounting the Docker socket
       - /var/run/docker.sock:/var/run/docker.sock:ro
     # No ports here! All traffic is routed through gluetun
@@ -302,6 +303,7 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
+      - ./logs:/app/logs  # Persist logs outside the container
       # Optional: Enable port monitoring by mounting the Docker socket
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
@@ -310,7 +312,9 @@ services:
       - gluetun
 ```
 
-> **Note:** The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
+> **Note:**
+> - The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
+> - The `./logs:/app/logs` volume is recommended to persist logs outside the container. This allows you to view logs even if the container is removed or recreated.
 
 - In HTTP proxy mode, enter your proxy credentials in each session's proxy config in the MouseTrap UI that you want to route through the proxy's connection.
 - For other VPN containers see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
