@@ -7,6 +7,7 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
   <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
 </p>
 
+
 ## Features
 
 - Modern web UI for all automation and session parameters
@@ -20,6 +21,8 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 - Detects and updates on public IP/ASN changes (VPN/proxy aware)
 - Rate limit handling and clear error/warning messages
 - Designed for Docker Compose and ease of use
+- **Port Monitoring:** Global card for monitoring container ports, with auto-restart and event logging. Feature is robust to missing Docker permissions.
+- **Sensitive Data Handling:** Compose files are now in `.gitignore` by default. Never commit secrets (like API tokens) to version control. If secrets are exposed, use `git filter-repo` to remove them and rotate the token.
 
 ## Quick Start
 
@@ -31,6 +34,14 @@ docker-compose up --build
 
 Access the web UI at [http://localhost:39842](http://localhost:39842)
 
+
+
+## Security & Sensitive Data
+
+- All common Docker Compose file names are now included in `.gitignore` by default.
+- If you accidentally commit secrets (like API tokens) to git, use `git filter-repo` to scrub them from history and force-push. All collaborators must re-clone after a history rewrite.
+- Never store secrets in version control. Use environment variables or Docker secrets for sensitive data.
+- If you exposed an API token, rotate it immediately after removing it from git history.
 
 ## Configuration
 
@@ -199,12 +210,21 @@ services:
 #### More Info
 - [qmcgaw/gluetun HTTP Proxy](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
 
-## Session Management
+
+## Session Management & Event Logging
 
 - Each session in MouseTrap is independent: you can set a different MAM account, IP, proxy, and automation settings per session.
 - Session configs are stored in `/config/session-*.yaml`.
 - You can switch between sessions in the UI, and each will use its own proxy and IP for MAM API calls.
-- This allows you to manage both VPN and non-VPN sessions from a single MouseTrap instance.
+- **Session creation, save, and delete actions are now logged as global events in the UI event log.** These events are always visible, not session-specific.
+- All port monitoring actions (add/delete check, container restart) are also logged globally.
+
+
+## Port Monitoring
+
+- The Port Monitoring card is global (not per-session) and allows you to monitor the reachability of Docker container ports.
+- If Docker permissions are missing, the UI disables controls and shows a warning, but the rest of the app remains fully functional.
+- All port check actions and container restarts are logged in the UI event log.
 
 ## Full Docker Compose Examples
 
