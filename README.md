@@ -228,10 +228,11 @@ services:
 
 ## Full Docker Compose Examples
 
+
 ### 1. Native VPN Networking (network_mode)
 
 ```yaml
-version: '3.8' # Not needed for newer versions of Docker/Compose
+version: '3.8'
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -258,16 +259,21 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
+      # Optional: Enable port monitoring by mounting the Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     # No ports here! All traffic is routed through gluetun
 ```
+
+> **Note:** The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
 
 - Access the UI at `http://localhost:39842` (traffic is routed through the VPN container).
 - Do NOT set a `PORT` environment variable—MouseTrap always runs on 39842.
 
+
 ### 2. HTTP Proxy Mode (recommended for multi-session)
 
 ```yaml
-version: '3.8' # Not needed for newer versions of Docker/Compose
+version: '3.8'
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -296,11 +302,15 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
+      # Optional: Enable port monitoring by mounting the Docker socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - 39842:39842
     depends_on:
       - gluetun
 ```
+
+> **Note:** The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
 
 - In HTTP proxy mode, enter your proxy credentials in each session's proxy config in the MouseTrap UI that you want to route through the proxy's connection.
 - For other VPN containers see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
