@@ -21,7 +21,7 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 - Detects and updates on public IP/ASN changes (VPN/proxy aware)
 - Rate limit handling and clear error/warning messages
 - Designed for Docker Compose and ease of use
-- **Port Monitoring:** Global card for monitoring container ports, with auto-restart and event logging. Feature is robust to missing Docker permissions.
+- **Port Monitoring:** Global card for monitoring container ports, with auto-restart, persistent config (`/config/port_monitoring.yaml`), color-coded status, interval logic, and event logging. Robust to missing Docker permissions; disables controls if Docker socket is not available.
 - **Sensitive Data Handling:** Compose files are now in `.gitignore` by default. Never commit secrets (like API tokens) to version control. If secrets are exposed, use `git filter-repo` to remove them and rotate the token.
 
 ## Quick Start
@@ -45,12 +45,12 @@ Access the web UI at [http://localhost:39842](http://localhost:39842)
 
 ## Configuration
 
-All user settings and state are stored in the `/config` directory (mapped as a volume).
-
-- Edit `config/config.yaml` for global options.
-- Each session has its own config: `config/session-*.yaml` (created via the UI).
-- **Proxy support:** Enter HTTP proxy details (host, port, username, password) per session in the UI. Passwords are encrypted at rest.
-- **IP/ASN:** Enter the IP you want MAM to see for each session. The backend will use this for all MAM API calls.
+- All user settings and state are stored in the `/config` directory (mapped as a volume).
+  - Edit `config/config.yaml` for global options.
+  - Each session has its own config: `config/session-*.yaml` (created via the UI).
+  - **Port Monitoring:** Persistent checks and settings are stored in `/config/port_monitoring.yaml` (auto-created/updated by the backend and UI).
+  - **Proxy support:** Enter HTTP proxy details (host, port, username, password) per session in the UI. Passwords are encrypted at rest.
+  - **IP/ASN:** Enter the IP you want MAM to see for each session. The backend will use this for all MAM API calls.
 
 ---
 
@@ -216,15 +216,18 @@ services:
 - Each session in MouseTrap is independent: you can set a different MAM account, IP, proxy, and automation settings per session.
 - Session configs are stored in `/config/session-*.yaml`.
 - You can switch between sessions in the UI, and each will use its own proxy and IP for MAM API calls.
+- **Event Log Filtering:** The event log modal supports filtering by Global events, All Events, or by session label. The dropdown is dynamic and always reflects available sessions and global actions.
 - **Session creation, save, and delete actions are now logged as global events in the UI event log.** These events are always visible, not session-specific.
-- All port monitoring actions (add/delete check, container restart) are also logged globally.
+- All port monitoring actions (add/delete check, container restart) are also logged globally and filterable in the event log.
 
 
 ## Port Monitoring
 
 - The Port Monitoring card is global (not per-session) and allows you to monitor the reachability of Docker container ports.
+- All port checks and settings are persisted in `/config/port_monitoring.yaml`.
+- Each check can be configured with its own interval (minimum 1 minute). Status is color-coded (green/yellow/red) based on reachability and last check time.
 - If Docker permissions are missing, the UI disables controls and shows a warning, but the rest of the app remains fully functional.
-- All port check actions and container restarts are logged in the UI event log.
+- All port check actions and container restarts are logged in the UI event log and filterable by label.
 
 ## Full Docker Compose Examples
 
@@ -329,7 +332,7 @@ MouseTrap uses Python's standard logging with timestamps and log levels (DEBUG, 
 
 - **Control log level with the `LOGLEVEL` environment variable.**
 - Default is `INFO`. For troubleshooting, set `LOGLEVEL=DEBUG` in your Compose file or environment.
-- All backend checks, updates, and warnings/errors are also logged to the persistent event log (viewable in the UI).
+- All backend checks, updates, warnings/errors, and port monitoring actions are also logged to the persistent event log (viewable in the UI and filterable).
 
 ### Example: Enable DEBUG Logging in Docker Compose
 
@@ -348,3 +351,9 @@ services:
 You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
 Logs will include timestamps, log level, and message for easy troubleshooting.
+
+---
+
+## Changelog
+
+See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for a summary of recent features, bugfixes, and upgrade notes.
