@@ -10,19 +10,27 @@ RUN npm run build
 FROM python:3.11-slim AS backend
 WORKDIR /app
 
-
-# Install system dependencies (if needed)
+# Install system dependencies and create app user/group with Docker group membership
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
         gettext \
-    && rm -rf /var/lib/apt/lists/*
+        gosu \
+        passwd \
+    && rm -rf /var/lib/apt/lists/* \
+    # Create docker group with GID 992 if not present
+    && (getent group 992 || groupadd -g 992 docker) \
+    # Create app group and user with PUID/PGID defaults, and add to docker group
+    && groupadd -g 1000 appgroup \
+    && useradd -u 1000 -g 1000 -m -s /bin/sh appuser \
+    && usermod -aG 992 appuser
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    ENV=production
-
+    ENV=production \
+    PUID=1000 \
+    PGID=1000
 
 # Copy backend code and requirements
 COPY backend/ /app/backend/
@@ -50,13 +58,8 @@ COPY frontend/public/favicon.ico /app/frontend/public/favicon.ico
 COPY frontend/public/favicon.svg /app/frontend/public/svg
 COPY favicon_io/ /app/frontend/public/
 
-
-
 EXPOSE 39842
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends gosu passwd \
-    && rm -rf /var/lib/apt/lists/*
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 ENTRYPOINT ["/app/start.sh"]

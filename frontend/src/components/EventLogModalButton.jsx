@@ -1,17 +1,19 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { FormControlLabel, Switch } from "@mui/material";
+import { FormControlLabel, Switch, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { Dialog, DialogTitle, DialogContent, IconButton, Tooltip, Typography, Box, CircularProgress, Alert, useTheme } from "@mui/material";
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
-export default function EventLogModalButton({ sessionLabel }) {
+export default function EventLogModalButton({ sessionLabel, allSessionLabels = [] }) {
   const theme = useTheme();
   const [open, setOpen] = useState(false);
   const [log, setLog] = useState([]);
   const [showNoChange, setShowNoChange] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState(sessionLabel || 'all');
+  const [labels, setLabels] = useState([]);
 
 
   // Fetch log from backend
@@ -22,20 +24,30 @@ export default function EventLogModalButton({ sessionLabel }) {
       const res = await fetch("/api/ui_event_log?_=" + Date.now());
       if (!res.ok) throw new Error("Failed to fetch event log");
       const data = await res.json();
-      const filtered = sessionLabel ? data.filter(e => e.label === sessionLabel) : data;
+      // Collect all unique labels (excluding 'global')
+      const uniqueLabels = Array.from(new Set(data.map(e => e.label).filter(l => l && l !== 'global')));
+      setLabels(uniqueLabels);
+      // Filter by dropdown
+      let filtered = data;
+      if (filter === 'global') {
+        filtered = data.filter(e => e.label === 'global');
+      } else if (filter === 'all') {
+        filtered = data;
+      } else if (filter) {
+        filtered = data.filter(e => e.label === filter);
+      }
       setLog(filtered.reverse());
     } catch (e) {
       setError(e.message || "Failed to load event log");
     } finally {
       setLoading(false);
     }
-  }, [sessionLabel]);
+  }, [filter]);
 
-  // Fetch log when modal opens
+  // Fetch log when modal opens or filter changes
   useEffect(() => {
     if (open) fetchLog();
   }, [open, fetchLog]);
-
 
   // Copy all currently displayed log entries (as shown in the modal)
   const handleCopy = () => {
@@ -51,7 +63,6 @@ export default function EventLogModalButton({ sessionLabel }) {
     if (showNoChange) return log;
     return log.filter(e => !e.status_message || !/no change detected|no change needed/i.test(e.status_message));
   };
-
 
   // Clear log handler (session-specific if sessionLabel is set)
   const handleClear = async () => {
@@ -71,6 +82,13 @@ export default function EventLogModalButton({ sessionLabel }) {
       setLoading(false);
     }
   };
+
+  // Build dropdown options: Global, All Events, and all unique session labels
+  const dropdownOptions = [
+    { value: 'global', label: 'Global' },
+    { value: 'all', label: 'All Events' },
+    ...labels.map(l => ({ value: l, label: l }))
+  ];
 
   return (
     <>
@@ -106,12 +124,25 @@ export default function EventLogModalButton({ sessionLabel }) {
           </Box>
         </Box>
         <DialogContent dividers>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexDirection: 'row', gap: 3, justifyContent: 'space-between' }}>
             <FormControlLabel
               control={<Switch checked={showNoChange} onChange={e => setShowNoChange(e.target.checked)} color="primary" />}
               label="Show 'No Change Needed' Entries"
-              sx={{ ml: 0 }}
+              sx={{ ml: 0, mr: 2 }}
             />
+            <FormControl size="small" sx={{ minWidth: 180, marginLeft: 'auto' }}>
+              <InputLabel id="eventlog-filter-label">Filter</InputLabel>
+              <Select
+                labelId="eventlog-filter-label"
+                value={filter}
+                label="Filter"
+                onChange={e => setFilter(e.target.value)}
+              >
+                {dropdownOptions.map(opt => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 60 }}>
@@ -135,38 +166,30 @@ export default function EventLogModalButton({ sessionLabel }) {
                   }}
                 >
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(event.timestamp).toLocaleString()} — <b>{event.label}</b>
-                    {event.event_type && (
-                      <span style={{ marginLeft: 8, fontStyle: 'italic', color: '#888' }}>
-                        [{event.event_type}]
-                      </span>
-                    )}
+                    {new Date(event.timestamp).toLocaleString()} — <b>{event.label === 'global' ? 'Global' : event.label}</b>
                   </Typography>
-                  {event.details && (
-                    <Box sx={{ mt: 0.5, fontSize: 13, color: theme.palette.text.secondary }}>
-                      {event.details.ip_compare && (
-                        <div>IP: {event.details.ip_compare}</div>
-                      )}
-                      {event.details.asn_compare && (
-                        <div>ASN: {event.details.asn_compare}</div>
-                      )}
-                      {event.details.points_before !== undefined && (
-                        <div>Points Before: {event.details.points_before}</div>
-                      )}
-                      {event.details.auto_update !== undefined && (
-                        <div>Auto Update: {JSON.stringify(event.details.auto_update)}</div>
-                      )}
-                      {event.purchase_type && (
-                        <div>Purchase: {event.purchase_type} {event.amount ? `(${event.amount})` : ''}</div>
-                      )}
-                      {event.config_changes && (
-                        <div>Config Changes: {JSON.stringify(event.config_changes)}</div>
-                      )}
-                    </Box>
-                  )}
-                  <Typography variant="body2" sx={{ mt: 0.5, fontWeight: 500 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      mt: 0.5,
+                      fontWeight: 500,
+                      color:
+                        event.status_message === "No change detected. Update not needed."
+                          ? "#43a047"
+                          : undefined,
+                    }}
+                  >
                     {event.status_message}
                   </Typography>
+                  {event.details && (
+                    <Box sx={{ mt: 0.5, fontSize: 13, color: '#555' }}>
+                      {event.details.ip_compare && <span>IP: {event.details.ip_compare} </span>}
+                      {event.details.asn_compare && <span>ASN: {event.details.asn_compare} </span>}
+                      {event.details.points !== undefined && <span>Points: {event.details.points}</span>}
+                      {event.details.container && <span>Container: {event.details.container} </span>}
+                      {event.details.port && <span>Port: {event.details.port}</span>}
+                    </Box>
+                  )}
                 </Box>
               ))}
             </Box>

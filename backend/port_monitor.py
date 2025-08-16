@@ -13,66 +13,159 @@ except ImportError:
     docker = None
     DockerException = Exception
 
-PORT_MONITOR_CONFIG_PATH = 'config/port_monitoring.yaml'
+import os
+PORT_MONITOR_CONFIG_PATH = os.environ.get('PORT_MONITOR_CONFIG_PATH', '/config/port_monitoring.yaml')
 
 class PortCheck:
-    def __init__(self, container_name: str, port: int):
+    def __init__(self, container_name: str, port: int, ip: Optional[str] = None, interval: Optional[int] = None):
         self.container_name = container_name
         self.port = port
         self.status = 'Unknown'
         self.last_checked: Optional[float] = None
         self.last_result: Optional[bool] = None
+        self.ip: Optional[str] = ip
+        self.interval: Optional[int] = interval
 
 class PortMonitor:
+
     def __init__(self, interval: int = 60):
         self.interval = interval
         self.checks: List[PortCheck] = []
         self.running = False
         self.thread = None
         self._docker_client = None  # Lazy init
+        self.load_checks()
 
+    def load_checks(self):
+        import os, yaml
+        if not os.path.exists(PORT_MONITOR_CONFIG_PATH):
+            self.checks = []
+            return
+        try:
+            with open(PORT_MONITOR_CONFIG_PATH, 'r') as f:
+                data = yaml.safe_load(f) or []
+            self.checks = [PortCheck(d['container_name'], d['port'], d.get('ip'), d.get('interval')) for d in data]
+        except Exception as e:
+            import logging
+            logging.error(f"[PortMonitor] Failed to load checks: {e}")
+            self.checks = []
+
+    def save_checks(self):
+        import yaml
+        try:
+            with open(PORT_MONITOR_CONFIG_PATH, 'w') as f:
+                yaml.safe_dump([
+                    {'container_name': c.container_name, 'port': c.port, 'ip': c.ip, 'interval': c.interval}
+                    for c in self.checks
+                ], f)
+        except Exception as e:
+            import logging
+            logging.error(f"[PortMonitor] Failed to save checks: {e}")
     def get_docker_client(self):
+        import logging
+        # Only cache a valid client; always retry if previous attempt failed
         if self._docker_client is not None:
+            logging.debug("[PortMonitor] get_docker_client: Returning cached client.")
             return self._docker_client
         if not docker:
+            logging.info("[PortMonitor] docker module not available in backend environment.")
             return None
         try:
-            self._docker_client = docker.from_env()
-            # Test connection
-            self._docker_client.ping()
+            client = docker.from_env()
+            client.ping()
+            self._docker_client = client
+            logging.debug("[PortMonitor] get_docker_client: Docker client created and ping succeeded.")
             return self._docker_client
-        except Exception:
-            self._docker_client = None
+        except Exception as e:
+            logging.info(f"[PortMonitor] Docker client creation or ping failed: {e}")
+            # Do not cache failure; always retry next time
             return None
 
-    def add_check(self, container_name: str, port: int):
-        self.checks.append(PortCheck(container_name, port))
+    def add_check(self, container_name: str, port: int, interval: Optional[int] = None):
+        check = PortCheck(container_name, port, interval=interval)
+        check.interval = interval
+        self.checks.append(check)
+        self.save_checks()
+        # Log creation
+        try:
+            from backend.event_log import append_ui_event_log
+            import logging
+            event = {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "label": "global",
+                "event_type": "port_monitor_add",
+                "details": {"container": container_name, "port": port, "interval": interval},
+                "status_message": f"Port check created for {container_name}:{port}"
+            }
+            append_ui_event_log(event)
+            logging.info(f"[PortMonitor] {event['status_message']}")
+        except Exception:
+            pass
+        # Immediate check
+        ip, result = self.check_port_with_ip(container_name, port)
+        check.last_checked = time.time()
+        check.last_result = result
+        check.status = 'OK' if result else 'Restarted'
+        check.ip = ip
+        self.save_checks()
+        # Log result
+        try:
+            from backend.event_log import append_ui_event_log
+            import logging
+            event = {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "label": "global",
+                "event_type": "port_monitor_check",
+                "details": {"container": container_name, "port": port, "result": result, "ip": ip, "interval": interval},
+                "status_message": f"Initial port check for {container_name}:{port}: {'OK' if result else 'Restarted'}"
+            }
+            append_ui_event_log(event)
+            logging.info(f"[PortMonitor] {event['status_message']}")
+        except Exception:
+            pass
 
     def remove_check(self, container_name: str, port: int):
         self.checks = [c for c in self.checks if not (c.container_name == container_name and c.port == port)]
+        self.save_checks()
 
     def list_running_containers(self) -> List[str]:
+        import logging
         client = self.get_docker_client()
         if not client:
+            logging.info("[PortMonitor] list_running_containers: No Docker client available.")
             return []
         try:
-            return [c.name for c in client.containers.list()]
-        except Exception:
+            containers = client.containers.list()
+            names = [c.name for c in containers]
+            logging.debug(f"[PortMonitor] list_running_containers: Found containers: {names}")
+            return names
+        except Exception as e:
+            logging.info(f"[PortMonitor] list_running_containers: Exception: {e}")
             return []
 
     def check_port(self, container_name: str, port: int) -> bool:
+        ip, result = self.check_port_with_ip(container_name, port)
+        # Update IP for the check if it exists
+        for c in self.checks:
+            if c.container_name == container_name and c.port == port:
+                c.ip = ip
+        self.save_checks()
+        return result
+
+    def check_port_with_ip(self, container_name: str, port: int):
         client = self.get_docker_client()
         if not client:
-            return False
+            return None, False
+        ip = None
         try:
             container = client.containers.get(container_name)
             ip = container.exec_run('wget -qO- https://ipinfo.io/ip').output.decode().strip()
             if not ip:
-                return False
+                return None, False
             with socket.create_connection((ip, port), timeout=3):
-                return True
+                return ip, True
         except Exception:
-            return False
+            return ip, False
 
     def restart_container(self, container_name: str):
         client = self.get_docker_client()
@@ -85,20 +178,42 @@ class PortMonitor:
         except Exception:
             return False
 
+    def set_interval(self, interval_seconds: int):
+        self.interval = interval_seconds
+
     def monitor_loop(self):
         self.running = True
         while self.running:
             for check in self.checks:
-                result = self.check_port(check.container_name, check.port)
+                ip, result = self.check_port_with_ip(check.container_name, check.port)
                 check.last_checked = time.time()
                 check.last_result = result
                 check.status = 'OK' if result else 'Restarted'
+                check.ip = ip
+                self.save_checks()
+                # Log result
+                try:
+                    from backend.event_log import append_ui_event_log
+                    import logging
+                    event = {
+                        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                        "label": "global",
+                        "event_type": "port_monitor_check",
+                        "details": {"container": check.container_name, "port": check.port, "result": result, "ip": ip, "interval": check.interval},
+                        "status_message": f"Port check for {check.container_name}:{check.port}: {'OK' if result else 'Restarted'}"
+                    }
+                    append_ui_event_log(event)
+                    logging.info(f"[PortMonitor] {event['status_message']}")
+                except Exception:
+                    pass
                 if not result:
                     self.restart_container(check.container_name)
-                    # TODO: Log event to backend log and UI event log
-            time.sleep(self.interval)
+            # Use per-check interval if set, else global
+            sleep_time = min([c.interval for c in self.checks if c.interval] or [self.interval])
+            time.sleep(sleep_time if sleep_time else self.interval)
 
     def start(self):
+        self.load_checks()
         if not self.running:
             self.thread = threading.Thread(target=self.monitor_loop, daemon=True)
             self.thread.start()
