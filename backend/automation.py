@@ -59,24 +59,23 @@ def wedge_automation_job():
             # Trigger automation
             result = buy_wedge(mam_id, proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
+            status_message = f"Automated purchase: Wedge (points)" if success else f"Automated wedge purchase failed (points)"
             event = {
                 "timestamp": now.isoformat(),
                 "label": label,
+                "event_type": "automation",
                 "trigger": "automation",
                 "purchase_type": "wedge",
                 "amount": 1,
-                "details": {
-                    "points_before": points,
-                },
+                "details": {"points_before": points},
                 "result": "success" if success else "failed",
-                "error": None,
+                "error": None if success else (result.get('error') or result.get('response') or 'Unknown error'),
+                "status_message": status_message
             }
             if success:
-                logging.info(f"[WedgeAuto] label={label} trigger=automation result=success points_before={points}")
+                logging.info(f"[WedgeAuto] Automated purchase: Wedge (points) for session '{label}' succeeded.")
             else:
-                err_msg = result.get('error') or result.get('response') or 'Unknown error'
-                event["error"] = err_msg
-                logging.warning(f"[WedgeAuto] label={label} trigger=automation result=failed points_before={points} error={err_msg}")
+                logging.warning(f"[WedgeAuto] Automated purchase: Wedge (points) for session '{label}' FAILED. Error: {event['error']}")
             append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[WedgeAuto] label={label} trigger=automation result=exception error={e}")
@@ -185,29 +184,28 @@ def vip_automation_job():
             # Trigger automation
             result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
+            status_message = f"Automated purchase: VIP ({weeks} weeks)" if success else f"Automated VIP purchase failed ({weeks} weeks)"
             event = {
                 "timestamp": now.isoformat(),
                 "label": label,
+                "event_type": "automation",
                 "trigger": "automation",
                 "purchase_type": "vip",
                 "amount": weeks,
-                "details": {
-                    "points_before": points,
-                },
+                "details": {"points_before": points},
                 "result": "success" if success else "failed",
-                "error": None,
+                "error": None if success else (result.get('error') or result.get('response') or 'Unknown error'),
+                "status_message": status_message
             }
             if success:
-                logging.info(f"[VIPAuto] label={label} trigger=automation result=success points_before={points}")
+                logging.info(f"[VIPAuto] Automated purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
                 # Reset retry state on success
                 automation['retry'] = 0
                 automation.pop('cooldown_until', None)
                 automation.pop('last_fail_time', None)
                 save_session(cfg, old_label=label)
             else:
-                err_msg = result.get('error') or result.get('response') or 'Unknown error'
-                event["error"] = err_msg
-                logging.warning(f"[VIPAuto] label={label} trigger=automation result=failed points_before={points} error={err_msg}")
+                logging.warning(f"[VIPAuto] Automated purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {event['error']}")
                 # Retry logic: up to 3 times, 1 minute apart
                 retry = automation.get('retry', 0) + 1
                 automation['retry'] = retry
@@ -215,7 +213,7 @@ def vip_automation_job():
                 if retry >= 3:
                     # Set cooldown until next main run (10 min = 600s)
                     automation['cooldown_until'] = now_ts + 600
-                    logging.warning(f"[VIPAuto] label={label} trigger=automation result=failed retries_exceeded cooldown_until={automation['cooldown_until']}")
+                    logging.warning(f"[VIPAuto] Automated purchase: VIP ({weeks} weeks) for session '{label}' retries_exceeded, cooldown_until={automation['cooldown_until']}")
                 save_session(cfg, old_label=label)
             append_ui_event_log(event)
         except Exception as e:

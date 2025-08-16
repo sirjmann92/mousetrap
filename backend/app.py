@@ -20,7 +20,6 @@ def get_auto_update_val(status):
 
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
-from backend.event_log import UI_EVENT_LOG_PATH, UI_EVENT_LOG_LOCK
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message
 from backend.utils import extract_asn_number
@@ -35,9 +34,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import requests
 
-from backend.config import load_config, save_config, list_sessions, load_session, save_session, delete_session
+from backend.config import load_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, get_mam_seen_ip_info
-from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
+from backend.perk_automation import buy_upload_credit
 from backend.last_session_api import router as last_session_router
 
 from backend.api_event_log import router as event_log_router
@@ -118,8 +117,6 @@ if getattr(logging, loglevel, logging.WARNING) > logging.DEBUG:
     logging.getLogger("httpx").setLevel(logging.INFO)
     logging.getLogger("requests").setLevel(logging.INFO)
 
-# Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
-logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
 # Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
 logging.getLogger('apscheduler').setLevel(logging.WARNING)
@@ -1013,24 +1010,23 @@ def upload_credit_automation_job():
             # Trigger automation
             result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
+            status_message = f"Automated purchase: {gb}GB upload credit" if success else f"Automated upload credit purchase failed ({gb}GB)"
             event = {
                 "timestamp": now.isoformat(),
                 "label": label,
+                "event_type": "automation",
                 "trigger": "automation",
                 "purchase_type": "upload_credit",
                 "amount": gb,
-                "details": {
-                    "points_before": points,
-                },
+                "details": {"points_before": points},
                 "result": "success" if success else "failed",
-                "error": None,
+                "error": None if success else (result.get('error') or result.get('response') or 'Unknown error'),
+                "status_message": status_message
             }
             if success:
-                logging.info(f"[UploadAuto] label={label} trigger=automation result=success gb={gb} points_before={points}")
+                logging.info(f"[UploadAuto] Automated purchase: {gb}GB upload credit for session '{label}' succeeded.")
             else:
-                err_msg = result.get('error') or result.get('response') or 'Unknown error'
-                event["error"] = err_msg
-                logging.warning(f"[UploadAuto] label={label} trigger=automation result=failed gb={gb} points_before={points} error={err_msg}")
+                logging.warning(f"[UploadAuto] Automated purchase: {gb}GB upload credit for session '{label}' FAILED. Error: {event['error']}")
             # append_ui_event_log(event) moved to automation.py or relevant module
         except Exception as e:
             logging.error(f"[UploadAuto] label={label} trigger=automation result=exception error={e}")
