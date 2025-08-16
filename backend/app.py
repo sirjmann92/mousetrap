@@ -299,7 +299,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
 
     cfg = load_session(label) if label else None
     if cfg is None:
-        # Always return detected_public_ip and asn, even if label is missing
+        logging.warning(f"Session '{label}' not found or not configured.")
         return {
             "configured": False,
             "status_message": "Session not configured. Please save session details to begin.",
@@ -441,8 +441,19 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 status = session_status_cache[label]["status"]
                 last_check_time = session_status_cache[label]["last_check_time"]
 
-    # Only log an event if a real check was performed (force=1 or no cached status)
-    if force or not (label in session_status_cache and session_status_cache[label].get("status")):
+    # Only log an event if a real check was performed (force=1 or no cached status),
+    # and suppress the very first status check event after session creation
+    from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
+    suppress_next_event = False
+    if label in session_status_cache and session_status_cache[label].get("suppress_next_event"):
+        suppress_next_event = True
+        session_status_cache[label].pop("suppress_next_event", None)
+    just_created_session = False
+    try:
+        just_created_session = not bool(cfg.get('last_status')) and not bool(cfg.get('last_check_time'))
+    except Exception:
+        just_created_session = False
+    if (force or not (label in session_status_cache and session_status_cache[label].get("status"))) and not just_created_session and not suppress_next_event:
         safe_status = status if isinstance(status, dict) else {}
         prev_ip = cfg.get('last_seedbox_ip')
         prev_asn = cfg.get('last_seedbox_asn')
@@ -498,7 +509,6 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             },
             "status_message": status.get('status_message') or event_status_message or build_status_message(status)
         }
-        from backend.event_log import append_ui_event_log
         append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
     status['proxy'] = cfg.get('proxy', {})
@@ -595,7 +605,11 @@ def api_list_sessions():
 
 @app.get("/api/session/{label}")
 def api_load_session(label: str):
-    return load_session(label)
+    cfg = load_session(label)
+    if cfg is None:
+        logging.warning(f"Session '{label}' not found or not configured.")
+        raise HTTPException(status_code=404, detail=f"Session '{label}' not found.")
+    return cfg
 
 @app.post("/api/session/save")
 async def api_save_session(request: Request):
@@ -626,22 +640,36 @@ async def api_save_session(request: Request):
         label = cfg.get('label')
         session_path = get_session_path(label)
         is_new = not os.path.exists(session_path)
-        save_session(cfg, old_label=old_label)
-        logging.info(f"[Session] Saved session: label={label} old_label={old_label}")
+        global session_status_cache
         if is_new:
+            # Clear any old event log entries for this session label
+            from backend.event_log import clear_ui_event_log_for_session
+            clear_ui_event_log_for_session(label)
+            # Only log creation event
+            save_session(cfg, old_label=old_label)
+            logging.info(f"[Session] Created session: label={label}")
             append_ui_event_log({
                 "event": "session_created",
                 "label": label,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user_action": True,
+                "status_message": f"Session '{label}' created."
+            })
+            # Suppress the first status check event
+            if label:
+                session_status_cache[label] = session_status_cache.get(label, {})
+                session_status_cache[label]["suppress_next_event"] = True
+        else:
+            # Only log save event (update)
+            save_session(cfg, old_label=old_label)
+            logging.info(f"[Session] Saved session: label={label} old_label={old_label}")
+            append_ui_event_log({
+                "event": "session_saved",
+                "label": label,
+                "old_label": old_label,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "user_action": True
             })
-        append_ui_event_log({
-            "event": "session_saved",
-            "label": label,
-            "old_label": old_label,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_action": True
-        })
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
@@ -649,9 +677,10 @@ async def api_save_session(request: Request):
 @app.delete("/api/session/delete/{label}")
 def api_delete_session(label: str):
     try:
+        from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
         delete_session(label)
+        clear_ui_event_log_for_session(label)
         logging.info(f"[Session] Deleted session: label={label}")
-        from backend.event_log import append_ui_event_log
         append_ui_event_log({
             "event": "session_deleted",
             "label": label,
@@ -670,6 +699,9 @@ async def api_save_perkautomation(request: Request):
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
+        if cfg is None:
+            logging.warning(f"Session '{label}' not found or not configured.")
+            return {"success": False, "error": f"Session '{label}' not found."}
         # Save automation settings to session config
         cfg["perk_automation"] = data.get("perk_automation", {})
         save_session(cfg, old_label=label)
@@ -686,6 +718,9 @@ async def api_update_seedbox(request: Request):
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
+        if cfg is None:
+            logging.warning(f"Session '{label}' not found or not configured.")
+            raise HTTPException(status_code=404, detail=f"Session '{label}' not found.")
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")

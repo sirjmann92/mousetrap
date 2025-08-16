@@ -52,12 +52,17 @@ export default function EventLogModalButton({ sessionLabel }) {
     return log.filter(e => !e.status_message || !/no change detected|no change needed/i.test(e.status_message));
   };
 
-  // Clear log handler
+
+  // Clear log handler (session-specific if sessionLabel is set)
   const handleClear = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/ui_event_log", { method: "DELETE" });
+      let url = "/api/ui_event_log";
+      if (sessionLabel) {
+        url += `/${encodeURIComponent(sessionLabel)}`;
+      }
+      const res = await fetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to clear event log");
       setLog([]);
     } catch (e) {

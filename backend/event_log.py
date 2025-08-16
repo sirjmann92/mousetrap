@@ -46,7 +46,9 @@ def get_ui_event_log():
     except Exception:
         return []
 
+
 def clear_ui_event_log():
+    """Clear all events from the event log (all sessions)."""
     try:
         with _ui_event_log_lock:
             with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
@@ -54,6 +56,20 @@ def clear_ui_event_log():
         return True
     except Exception as e:
         logging.error(f"[UIEventLog] Failed to clear event log: {e}")
+        return False
+
+def clear_ui_event_log_for_session(label):
+    """Remove all events for a specific session label from the event log."""
+    try:
+        with _ui_event_log_lock:
+            with open(_ui_event_log_path, 'r', encoding='utf-8') as f:
+                log = json.load(f)
+            filtered_log = [event for event in log if event.get('label') != label]
+            with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
+                json.dump(filtered_log, f, indent=2)
+        return True
+    except Exception as e:
+        logging.error(f"[UIEventLog] Failed to clear event log for session '{label}': {e}")
         return False
 
 # Expose the log path for use in app.py
