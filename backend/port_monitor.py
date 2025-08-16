@@ -17,7 +17,7 @@ import os
 PORT_MONITOR_CONFIG_PATH = os.environ.get('PORT_MONITOR_CONFIG_PATH', '/config/port_monitoring.yaml')
 
 class PortCheck:
-    def __init__(self, container_name: str, port: int, ip: Optional[str] = None, interval: Optional[int] = None):
+    def __init__(self, container_name: str, port: int, ip: Optional[str] = None, interval: Optional[int] = None, restart_on_fail: bool = True, notify_on_fail: bool = False):
         self.container_name = container_name
         self.port = port
         self.status = 'Unknown'
@@ -25,6 +25,8 @@ class PortCheck:
         self.last_result: Optional[bool] = None
         self.ip: Optional[str] = ip
         self.interval: Optional[int] = interval
+        self.restart_on_fail: bool = restart_on_fail
+        self.notify_on_fail: bool = notify_on_fail
 
 class PortMonitor:
 
@@ -44,7 +46,16 @@ class PortMonitor:
         try:
             with open(PORT_MONITOR_CONFIG_PATH, 'r') as f:
                 data = yaml.safe_load(f) or []
-            self.checks = [PortCheck(d['container_name'], d['port'], d.get('ip'), d.get('interval')) for d in data]
+            self.checks = [
+                PortCheck(
+                    d['container_name'],
+                    d['port'],
+                    d.get('ip'),
+                    d.get('interval'),
+                    d.get('restart_on_fail', True),
+                    d.get('notify_on_fail', False)
+                ) for d in data
+            ]
         except Exception as e:
             import logging
             logging.error(f"[PortMonitor] Failed to load checks: {e}")
@@ -55,7 +66,14 @@ class PortMonitor:
         try:
             with open(PORT_MONITOR_CONFIG_PATH, 'w') as f:
                 yaml.safe_dump([
-                    {'container_name': c.container_name, 'port': c.port, 'ip': c.ip, 'interval': c.interval}
+                    {
+                        'container_name': c.container_name,
+                        'port': c.port,
+                        'ip': c.ip,
+                        'interval': c.interval,
+                        'restart_on_fail': getattr(c, 'restart_on_fail', True),
+                        'notify_on_fail': getattr(c, 'notify_on_fail', False)
+                    }
                     for c in self.checks
                 ], f)
         except Exception as e:
@@ -81,8 +99,8 @@ class PortMonitor:
             # Do not cache failure; always retry next time
             return None
 
-    def add_check(self, container_name: str, port: int, interval: Optional[int] = None):
-        check = PortCheck(container_name, port, interval=interval)
+    def add_check(self, container_name: str, port: int, interval: Optional[int] = None, restart_on_fail: bool = True, notify_on_fail: bool = False):
+        check = PortCheck(container_name, port, interval=interval, restart_on_fail=restart_on_fail, notify_on_fail=notify_on_fail)
         check.interval = interval
         self.checks.append(check)
         self.save_checks()
@@ -188,8 +206,30 @@ class PortMonitor:
                 ip, result = self.check_port_with_ip(check.container_name, check.port)
                 check.last_checked = time.time()
                 check.last_result = result
-                check.status = 'OK' if result else 'Restarted'
                 check.ip = ip
+                restart_on_fail = getattr(check, 'restart_on_fail', True)
+                notify_on_fail = getattr(check, 'notify_on_fail', False)
+                status = 'OK'
+                status_message = f"Port check for {check.container_name}:{check.port}: OK"
+                event_type = "port_monitor_check"
+                action_taken = None
+                if not result:
+                    if restart_on_fail:
+                        restarted = self.restart_container(check.container_name)
+                        status = 'Restarted' if restarted else 'Restart Failed'
+                        action_taken = 'Restarted' if restarted else 'Restart Failed'
+                        status_message = f"Port check for {check.container_name}:{check.port}: FAILED. Container restart {'attempted' if restarted else 'FAILED'} due to restart_on_fail."
+                    else:
+                        status = 'Failed'
+                        status_message = f"Port check for {check.container_name}:{check.port}: FAILED. Restart not attempted (restart_on_fail is off)."
+                        action_taken = 'No Restart'
+                    if notify_on_fail:
+                        # You can add notification logic here if implemented
+                        status_message += " Notification sent (notify_on_fail is on)."
+                        action_taken += ' + Notified'
+                    else:
+                        status_message += " Notification not sent (notify_on_fail is off)."
+                check.status = status
                 self.save_checks()
                 # Log result
                 try:
@@ -198,16 +238,23 @@ class PortMonitor:
                     event = {
                         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                         "label": "global",
-                        "event_type": "port_monitor_check",
-                        "details": {"container": check.container_name, "port": check.port, "result": result, "ip": ip, "interval": check.interval},
-                        "status_message": f"Port check for {check.container_name}:{check.port}: {'OK' if result else 'Restarted'}"
+                        "event_type": event_type,
+                        "details": {
+                            "container": check.container_name,
+                            "port": check.port,
+                            "result": result,
+                            "ip": ip,
+                            "interval": check.interval,
+                            "restart_on_fail": restart_on_fail,
+                            "notify_on_fail": notify_on_fail,
+                            "action_taken": action_taken
+                        },
+                        "status_message": status_message
                     }
                     append_ui_event_log(event)
                     logging.info(f"[PortMonitor] {event['status_message']}")
                 except Exception:
                     pass
-                if not result:
-                    self.restart_container(check.container_name)
             # Use per-check interval if set, else global
             sleep_time = min([c.interval for c in self.checks if c.interval] or [self.interval])
             time.sleep(sleep_time if sleep_time else self.interval)
