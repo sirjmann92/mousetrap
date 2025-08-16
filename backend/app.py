@@ -1062,3 +1062,9 @@ if not scheduler.get_job('vip_automation'):
         max_instances=1
     )
     logging.info("[APScheduler] Registered VIP automation job (every 10 min)")
+
+from backend.port_monitor import port_monitor
+
+@app.on_event("startup")
+def start_port_monitor():
+    port_monitor.start()
