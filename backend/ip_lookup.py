@@ -24,18 +24,20 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
             url_ipinfo = "https://ipinfo.io/json"
         providers.append((url_ipinfo, 'ipinfo_standard'))
         logging.debug(f"[IP Lookup] Using IPinfo Standard API (no token) for IP: {ip or 'self'}")
-    # Fallbacks temporarily disabled for testing
-    # # ip-api.com
-    # if ip:
-    #     url_ipapi = f"http://ip-api.com/json/{ip}"
-    # else:
-    #     url_ipapi = "http://ip-api.com/json/"
-    # # ipdata.co (test key, low rate limit)
-    # if ip:
-    #     url_ipdata = f"https://api.ipdata.co/{ip}?api-key=test"
-    # else:
-    #     url_ipdata = "https://api.ipdata.co/?api-key=test"
-    # providers.append((url_ipdata, 'ipdata'))
+    # Enable fallback providers
+    # ip-api.com
+    if ip:
+        url_ipapi = f"http://ip-api.com/json/{ip}"
+    else:
+        url_ipapi = "http://ip-api.com/json/"
+    providers.append((url_ipapi, 'ipapi'))
+    # ipdata.co (test key, low rate limit)
+    ipdata_api_key = os.environ.get("IPDATA_API_KEY", "test")
+    if ip:
+        url_ipdata = f"https://api.ipdata.co/{ip}?api-key={ipdata_api_key}"
+    else:
+        url_ipdata = f"https://api.ipdata.co/?api-key={ipdata_api_key}"
+    providers.append((url_ipdata, 'ipdata'))
 
     proxies = None
     if proxy_cfg:
