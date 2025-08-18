@@ -52,7 +52,7 @@ app = FastAPI(title="MouseTrap API")
 app.include_router(event_log_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(automation_router, prefix="/api")
-app.include_router(port_monitor_router)
+app.include_router(port_monitor_router, prefix="/api/port-monitor")
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):
