@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
+// import { fetchWedgesFromStore } from '../utils/scrapeWedges'; // removed: file does not exist
 import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider, Button, Tooltip, IconButton } from "@mui/material";
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -28,6 +29,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
   };
 
 const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved, onSessionDataChanged, onStatusUpdate }, ref) {
+  const [wedges, setWedges] = useState(null);
   const [status, setStatus] = useState(null);
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
@@ -169,6 +171,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     if (!sessionLabel) return;
     setStatus(null); // Clear status to show loading/blank until check completes
     fetchStatus(false);
+  // fetchWedgesFromStore().then(setWedges); // removed: function not defined
     // eslint-disable-next-line
   }, [sessionLabel]);
 
@@ -407,6 +410,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
                           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Cheese:</Typography>
                           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.cheese !== null && status.cheese !== undefined ? status.cheese : 'N/A'}</Typography>
+                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>FL Wedges:</Typography>
+                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{wedges !== null && wedges !== undefined ? wedges : 'N/A'}</Typography>
                           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Downloaded:</Typography>
                           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
                           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Uploaded:</Typography>

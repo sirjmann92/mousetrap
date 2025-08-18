@@ -13,9 +13,7 @@ def get_current_points():
     # Implement API or script to get user points
     pass
 
-def get_current_cheese():
-    # Implement API or script to get user cheese
-    pass
+
 
 def get_vip_weeks():
     # Implement API or script to get current VIP duration
@@ -172,12 +170,11 @@ def can_afford_wedge(points, cheese, config):
         return points >= config['min_points']
 
 def automate_perks(config):
-    points = get_current_points()
-    cheese = get_current_cheese()
-    vip_weeks = get_vip_weeks()
-    last_wedge = get_last_wedge_time()
 
     mam_id = ""  # Retrieve from session or config
+    points = get_current_points()
+    vip_weeks = get_vip_weeks()
+    last_wedge = get_last_wedge_time()
 
     # Upload credit
     if config['perks']['upload_credit']['enabled']:
@@ -200,7 +197,7 @@ def automate_perks(config):
         else:
             hours_since_last = float('inf')  # Treat as eligible if never run
         if hours_since_last >= config['perks']['freeleech_wedge']['cooldown_hours']:
-            if can_afford_wedge(points, cheese, config['perks']['freeleech_wedge']):
+            if can_afford_wedge(points, None, config['perks']['freeleech_wedge']):
                 buy_wedge(mam_id, config['perks']['freeleech_wedge']['method'])
                 # Update last wedge time tracking
 

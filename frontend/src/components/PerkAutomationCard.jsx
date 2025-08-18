@@ -21,6 +21,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 
+
 import { stringifyMessage } from '../utils/utils';
 
 export default function PerkAutomationCard({
@@ -30,11 +31,13 @@ export default function PerkAutomationCard({
   autoVIP, setAutoVIP,
   autoUpload, setAutoUpload,
   points,
-  cheese,
   // autoMillionairesVault removed
   sessionLabel,
   onActionComplete = () => {}, // <-- new prop
 }) {
+  // Snackbar state for notifications
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [wedges, setWedges] = useState(null);
   // Guardrail state (must be inside the function body)
   const [guardrails, setGuardrails] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
@@ -50,20 +53,18 @@ export default function PerkAutomationCard({
   const [triggerDays, setTriggerDays] = useState(7);
   const [triggerPointThreshold, setTriggerPointThreshold] = useState(50000);
   const [expanded, setExpanded] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [uploadAmount, setUploadAmount] = useState(1);
   const [vipWeeks, setVipWeeks] = useState(4);
   const [wedgeMethod, setWedgeMethod] = useState("points");
-  const [millionairesVaultAmount, setMillionairesVaultAmount] = useState(2000);
-  const [confirmWedgeOpen, setConfirmWedgeOpen] = useState(false);
-  const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
-  const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
-
-  // Wedge automation options state
   const [wedgeTriggerType, setWedgeTriggerType] = useState('time');
   const [wedgeTriggerDays, setWedgeTriggerDays] = useState(7);
+  const [millionairesVaultAmount, setMillionairesVaultAmount] = useState(2000);
+  const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
+  const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
+  const [confirmWedgeOpen, setConfirmWedgeOpen] = useState(false);
+
+  // Wedge automation options state
   const [wedgeTriggerPointThreshold, setWedgeTriggerPointThreshold] = useState(50000);
-  // VIP automation options state
   const [vipTriggerType, setVipTriggerType] = useState('time');
   const [vipTriggerDays, setVipTriggerDays] = useState(7);
   const [vipTriggerPointThreshold, setVipTriggerPointThreshold] = useState(50000);
@@ -76,9 +77,6 @@ export default function PerkAutomationCard({
       .then(res => res.json())
       .then(cfg => {
         const pa = cfg.perk_automation || {};
-        setAutoWedge(pa.autoWedge ?? false);
-        setAutoVIP(pa.autoVIP ?? false);
-        setAutoUpload(pa.autoUpload ?? false);
         setBuffer(pa.buffer ?? 0);
         setWedgeHours(pa.wedgeHours ?? 0);
         // --- Upload Credit Automation fields ---
@@ -110,6 +108,7 @@ export default function PerkAutomationCard({
     fetch('/api/automation/guardrails')
       .then(res => res.json())
       .then(data => setGuardrails(data));
+    // Cheese/wedge scraping logic removed
   }, [sessionLabel]);
 
   // Guardrail logic: check if another session with same username has automation enabled
@@ -228,7 +227,9 @@ export default function PerkAutomationCard({
       if (data.success) {
         setSnackbar({ open: true, message: `Upload credit purchased: ${uploadAmount}GB!`, severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || `Upload credit purchase failed`), severity: 'error' });
+      } else {
+        setSnackbar({ open: true, message: stringifyMessage(data.error || `Upload credit purchase failed`), severity: 'error' });
+      }
     } catch (e) {
       setSnackbar({ open: true, message: `Upload credit purchase failed`, severity: 'error' });
     }
@@ -285,9 +286,6 @@ export default function PerkAutomationCard({
       <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
           Perk Purchase & Automation
-        </Typography>
-        <Typography variant="body1" sx={{ mr: 2, color: 'text.secondary' }}>
-          Cheese: <b>{cheese !== null && cheese !== undefined ? cheese : "N/A"}</b>
         </Typography>
         <Typography variant="body1" sx={{ mr: 2, color: 'text.secondary' }}>
           Points: <b>{points !== null ? points : "N/A"}</b>

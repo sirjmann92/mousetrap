@@ -16,14 +16,14 @@ def write_last_session(label):
     with open(LAST_SESSION_FILE, "w") as f:
         yaml.safe_dump({"label": label}, f)
 
-@router.get("/api/last_session")
+@router.get("/last_session")
 def get_last_session():
     label = read_last_session()
     if label is None:
         return {"label": None}
     return {"label": label}
 
-@router.post("/api/last_session")
+@router.post("/last_session")
 async def set_last_session(request: Request):
     data = await request.json()
     label = data.get("label")

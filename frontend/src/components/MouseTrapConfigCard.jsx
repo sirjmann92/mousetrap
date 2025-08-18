@@ -38,7 +38,8 @@ export default function MouseTrapConfigCard({
   onSessionSaved,
   proxy = {}, setProxy,
   proxiedIp = "",
-  proxiedAsn = ""
+  proxiedAsn = "",
+  browserCookie, setBrowserCookie
 }) {
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
@@ -62,6 +63,7 @@ export default function MouseTrapConfigCard({
     setProxyPassword("");
     setHasPassword(!!proxy.password);
   }, [proxy]);
+
 
   // Validation logic
   useEffect(() => {
@@ -89,6 +91,7 @@ export default function MouseTrapConfigCard({
       },
       mam_ip: mamIp,
       check_freq: checkFrequency,
+    browser_cookie: browserCookie,
       proxy: {
         host: proxyHost,
         port: proxyPort ? Number(proxyPort) : 0,
@@ -195,7 +198,7 @@ export default function MouseTrapConfigCard({
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <TextField
-                label="MAM ID"
+                label="MAM ID*"
                 value={mamId}
                 onChange={e => setMamId(e.target.value)}
                 size="small"
@@ -208,6 +211,29 @@ export default function MouseTrapConfigCard({
                 helperText="Paste your full MAM ID here (required)"
                 sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
               />
+            </Grid>
+          </Grid>
+          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                <TextField
+                  label="Browser Cookie (optional)"
+                  value={browserCookie}
+                  onChange={e => setBrowserCookie(e.target.value)}
+                  size="small"
+                  multiline
+                  minRows={2}
+                  maxRows={6}
+                  sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
+                  placeholder="Paste full browser cookie string here"
+                  helperText="Paste the full browser cookie string for this session."
+                />
+                <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>Open your browser's DevTools (F12), go to the Application/Storage tab, find the 'cookie' for myanonamouse.net, and copy the full value. Paste it here.</span>} arrow>
+                  <IconButton size="small" sx={{ mt: 1 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             </Grid>
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>

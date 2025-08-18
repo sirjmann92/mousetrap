@@ -68,6 +68,7 @@ export default function App() {
   const [proxy, setProxy] = React.useState({});
   const [proxiedIp, setProxiedIp] = React.useState("");
   const [proxiedAsn, setProxiedAsn] = React.useState("");
+  const [browserCookie, setBrowserCookie] = React.useState("");
 
   // Removed redundant /api/status fetch. StatusCard will handle status fetching and update detectedIp/currentASN via props.
 
@@ -84,33 +85,14 @@ export default function App() {
       setMamIp(cfg?.mam_ip ?? "");
       setCheckFrequency(cfg?.check_freq ?? "");
       setProxy(cfg?.proxy ?? {});
-      // Add other fields as needed
+  setBrowserCookie(cfg?.browser_cookie ?? "");
     } catch (e) {
       // handle error
     }
   };
 
-  // Persist last used session label
-  React.useEffect(() => {
-    if (selectedLabel) {
-      window.localStorage.setItem('lastSessionLabel', selectedLabel);
-    }
-  }, [selectedLabel]);
 
-  // On mount, fetch last-used session from backend
-  React.useEffect(() => {
-    fetch('/api/last_session')
-      .then(res => res.json())
-      .then(data => {
-        if (data.label) {
-          setSelectedLabel(data.label);
-          loadSession(data.label);
-        }
-      });
-    // eslint-disable-next-line
-  }, []);
-
-  // When selectedLabel changes, persist to backend
+  // Persist last used session label to backend
   React.useEffect(() => {
     if (selectedLabel) {
       fetch('/api/last_session', {
@@ -118,6 +100,31 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: selectedLabel })
       });
+    }
+  }, [selectedLabel]);
+
+  // On mount, fetch sessions and select the previously selected one from backend if available
+  React.useEffect(() => {
+    Promise.all([
+      fetch('/api/sessions').then(res => res.json()),
+      fetch('/api/last_session').then(res => res.json())
+    ]).then(([sessionsData, lastSessionData]) => {
+      if (sessionsData.sessions && sessionsData.sessions.length > 0) {
+        const lastSession = lastSessionData.label;
+        const toSelect = lastSession && sessionsData.sessions.includes(lastSession)
+          ? lastSession
+          : sessionsData.sessions[0];
+        setSelectedLabel(toSelect);
+        loadSession(toSelect);
+      }
+    });
+    // eslint-disable-next-line
+  }, []);
+
+  // Persist selectedLabel to localStorage
+  React.useEffect(() => {
+    if (selectedLabel) {
+      localStorage.setItem('lastSessionLabel', selectedLabel);
     }
   }, [selectedLabel]);
 
@@ -210,6 +217,7 @@ export default function App() {
       {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
       <Toolbar />
       <Container maxWidth="md">
+  {/* MAM Browser Cookie card moved to bottom, pass detectedUid if available */}
         <StatusCard
           ref={statusCardRef}
           detectedIp={detectedIp}
@@ -244,6 +252,8 @@ export default function App() {
           setProxy={setProxy}
           proxiedIp={proxiedIp}
           proxiedAsn={proxiedAsn}
+          browserCookie={browserCookie}
+          setBrowserCookie={setBrowserCookie}
         />
         <PerkAutomationCard
           buffer={buffer}
