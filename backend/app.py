@@ -170,6 +170,11 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         proxy_cfg = cfg.get('proxy', {})
         asn_to_check, _ = get_asn_and_timezone_from_ip(proxied_ip or ip_to_use, proxy_cfg if proxied_ip else None)
 
+        # If ASN lookup failed, skip config update and logging
+        if asn_to_check is None or asn_to_check == "Unknown ASN":
+            logging.warning(f"[AutoUpdate] label={label} Could not detect valid ASN. Skipping config update and ASN/IP change logging.")
+            return False, {"success": False, "msg": "ASN lookup failed. No update performed."}
+
         norm_last = extract_asn_number(last_seedbox_asn)
         norm_check = extract_asn_number(asn_to_check) if 'asn_to_check' in locals() else None
         # Always store the normalized ASN number
@@ -192,11 +197,13 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         # For non-proxied, get detected public IP (not mam_ip)
         detected_ip = get_public_ip()
         ip_to_check = detected_ip
+    # If IP lookup failed, skip config update and logging
+    if ip_to_check is None:
+        logging.warning(f"[AutoUpdate] label={label} Could not detect valid public IP. Skipping config update and ASN/IP change logging.")
+        return False, {"success": False, "msg": "IP lookup failed. No update performed."}
     if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
-    # Log IP compare and result at INFO level, but only once per check
-    if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         logging.info(f"[AutoUpdate] label={label} IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}")
     else:
         logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check} | IP result: No change needed.")
