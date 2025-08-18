@@ -216,23 +216,23 @@ export default function MouseTrapConfigCard({
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                <TextField
-                  label="Browser Cookie (optional)"
-                  value={browserCookie}
-                  onChange={e => setBrowserCookie(e.target.value)}
-                  size="small"
-                  multiline
-                  minRows={2}
-                  maxRows={6}
-                  sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
-                  placeholder="Paste full browser cookie string here"
-                  helperText="Paste the full browser cookie string for this session."
-                />
-                <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>Open your browser's DevTools (F12), go to the Application/Storage tab, find the 'cookie' for myanonamouse.net, and copy the full value. Paste it here.</span>} arrow>
-                  <IconButton size="small" sx={{ mt: 1 }}>
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+                  {/* <TextField
+                    label="Browser Cookie (optional)"
+                    value={browserCookie}
+                    onChange={e => setBrowserCookie(e.target.value)}
+                    size="small"
+                    multiline
+                    minRows={2}
+                    maxRows={6}
+                    sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
+                    placeholder="Paste full browser cookie string here"
+                    helperText="Paste the full browser cookie string for this session."
+                  />
+                  <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>Open your browser's DevTools (F12), go to the Application/Storage tab, find the 'cookie' for myanonamouse.net, and copy the full value. Paste it here.</span>} arrow>
+                    <IconButton size="small" sx={{ mt: 1 }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip> */}
               </Box>
             </Grid>
           </Grid>
