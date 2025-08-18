@@ -233,9 +233,26 @@ class PortMonitor:
                         status_message = f"Port check for {check.container_name}:{check.port}: FAILED. Restart not attempted (restart_on_fail is off)."
                         action_taken = 'No Restart'
                     if notify_on_fail:
-                        # You can add notification logic here if implemented
+                        try:
+                            from backend.notifications_backend import notify_event
+                            notify_event(
+                                event_type="port_monitor_failure",
+                                label=check.container_name,
+                                status="FAILED",
+                                message=f"Port {check.port} check failed for {check.container_name}",
+                                details={
+                                    "container": check.container_name,
+                                    "port": check.port,
+                                    "ip": ip,
+                                    "restart_on_fail": restart_on_fail,
+                                    "notified": True
+                                }
+                            )
+                        except Exception as e:
+                            import logging
+                            logging.error(f"[Notify] Port monitor notification failed: {e}")
                         status_message += " Notification sent (notify_on_fail is on)."
-                        action_taken += ' + Notified'
+                        action_taken = (action_taken or "") + ' + Notified'
                     else:
                         status_message += " Notification not sent (notify_on_fail is off)."
                 check.status = status

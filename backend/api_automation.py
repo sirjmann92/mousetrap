@@ -39,6 +39,26 @@ async def manual_upload_credit(request: Request):
 		"status_message": status_message
 	}
 	append_ui_event_log(event)
+	try:
+		from backend.notifications_backend import notify_event
+		if success:
+			notify_event(
+				event_type="manual_purchase_success",
+				label=label,
+				status="SUCCESS",
+				message=f"Manual upload credit purchase succeeded: {amount}GB",
+				details={"amount": amount}
+			)
+		else:
+			notify_event(
+				event_type="manual_purchase_failure",
+				label=label,
+				status="FAILED",
+				message=f"Manual upload credit purchase failed: {amount}GB",
+				details={"amount": amount, "error": result.get('error')}
+			)
+	except Exception:
+		pass
 	if success:
 		logging.info(f"[ManualUpload] Purchase: {amount}GB upload credit for session '{label}' succeeded.")
 	else:
@@ -75,6 +95,26 @@ async def manual_wedge(request: Request):
 		"status_message": status_message
 	}
 	append_ui_event_log(event)
+	try:
+		from backend.notifications_backend import notify_event
+		if success:
+			notify_event(
+				event_type="manual_purchase_success",
+				label=label,
+				status="SUCCESS",
+				message=f"Manual wedge purchase succeeded: {method}",
+				details={"method": method}
+			)
+		else:
+			notify_event(
+				event_type="manual_purchase_failure",
+				label=label,
+				status="FAILED",
+				message=f"Manual wedge purchase failed: {method}",
+				details={"method": method, "error": result.get('error')}
+			)
+	except Exception:
+		pass
 	if success:
 		logging.info(f"[ManualWedge] Purchase: Wedge ({method}) for session '{label}' succeeded.")
 	else:
@@ -111,6 +151,26 @@ async def manual_vip(request: Request):
 		"status_message": status_message
 	}
 	append_ui_event_log(event)
+	try:
+		from backend.notifications_backend import notify_event
+		if success:
+			notify_event(
+				event_type="manual_purchase_success",
+				label=label,
+				status="SUCCESS",
+				message=f"Manual VIP purchase succeeded: {weeks} weeks",
+				details={"weeks": weeks}
+			)
+		else:
+			notify_event(
+				event_type="manual_purchase_failure",
+				label=label,
+				status="FAILED",
+				message=f"Manual VIP purchase failed: {weeks} weeks",
+				details={"weeks": weeks, "error": result.get('error')}
+			)
+	except Exception:
+		pass
 	if success:
 		logging.info(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
 	else:

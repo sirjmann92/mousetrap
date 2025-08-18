@@ -42,7 +42,9 @@ from backend.last_session_api import router as last_session_router
 from backend.api_event_log import router as event_log_router
 from backend.api_config import router as config_router
 from backend.api_automation import router as automation_router
+
 from backend.api_port_monitor import router as port_monitor_router
+from backend.api_notifications import router as notifications_router
 
 
 # --- FastAPI app creation ---
@@ -52,7 +54,9 @@ app = FastAPI(title="MouseTrap API")
 app.include_router(event_log_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(automation_router, prefix="/api")
+# Mount notifications API
 app.include_router(port_monitor_router, prefix="/api/port-monitor")
+app.include_router(notifications_router, prefix="/api")
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):
@@ -227,6 +231,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             except Exception as e_json:
                 logging.warning(f"[AutoUpdate][TRACE] label={label} Non-JSON response from seedbox API (error: {e_json})")
                 result = {"Success": False, "msg": f"Non-JSON response: {resp.text}"}
+            from backend.notifications_backend import notify_event
             if resp.status_code == 200 and result.get("Success"):
                 # Update last_seedbox_ip and mam_ip to the new detected/proxied IP
                 proxied_ip = cfg.get('proxied_public_ip')
@@ -248,6 +253,13 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 api_msg = result.get("msg", "").strip()
                 if not api_msg or api_msg.lower() == "completed":
                     api_msg = "IP Changed. Seedbox IP updated."
+                notify_event(
+                    event_type="seedbox_update_success",
+                    label=label,
+                    status="SUCCESS",
+                    message=api_msg,
+                    details={"reason": reason, "ip": new_ip, "asn": asn}
+                )
                 return True, {"success": True, "msg": api_msg, "reason": reason}
             elif resp.status_code == 200 and result.get("msg") == "No change":
                 proxied_ip = cfg.get('proxied_public_ip')
@@ -266,6 +278,13 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 except Exception as e:
                     logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed: {e}")
                 logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
+                notify_event(
+                    event_type="seedbox_update_no_change",
+                    label=label,
+                    status="NO_CHANGE",
+                    message="No change: IP/ASN already set.",
+                    details={"reason": reason, "ip": new_ip, "asn": asn}
+                )
                 return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
             elif resp.status_code == 429 or (
                 isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
@@ -276,13 +295,35 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                     last_update_dt = datetime.fromisoformat(last_seedbox_update)
                     minutes_left = max(0, 60 - int((now - last_update_dt).total_seconds() // 60))
                     rate_limit_minutes = minutes_left
+                notify_event(
+                    event_type="seedbox_update_rate_limited",
+                    label=label,
+                    status="RATE_LIMITED",
+                    message="Rate limit: last change too recent.",
+                    details={"reason": reason, "rate_limit_minutes": rate_limit_minutes}
+                )
                 return True, {"success": False, "error": f"Rate limit: last change too recent. Try again in {rate_limit_minutes} minutes.", "reason": reason, "rate_limit_minutes": rate_limit_minutes}
             else:
                 logging.info(f"[AutoUpdate] label={label} result=error reason={reason}")
+                notify_event(
+                    event_type="seedbox_update_failure",
+                    label=label,
+                    status="FAILED",
+                    message=result.get("msg", "Unknown error"),
+                    details={"reason": reason}
+                )
                 return True, {"success": False, "error": result.get("msg", "Unknown error"), "reason": reason}
         except Exception as e:
             logging.warning(f"[AutoUpdate] label={label} result=exception reason={reason} error={e}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after exception in seedbox API call. reason={reason}")
+            from backend.notifications_backend import notify_event
+            notify_event(
+                event_type="seedbox_update_exception",
+                label=label,
+                status="EXCEPTION",
+                message=str(e),
+                details={"reason": reason}
+            )
             return True, {"success": False, "error": str(e), "reason": reason}
     else:
         # Already logged IP/ASN compare and result above, so just add a single debug trace for return
