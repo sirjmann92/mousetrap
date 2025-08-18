@@ -68,7 +68,7 @@ export default function App() {
   const [proxy, setProxy] = React.useState({});
   const [proxiedIp, setProxiedIp] = React.useState("");
   const [proxiedAsn, setProxiedAsn] = React.useState("");
-  const [browserCookie, setBrowserCookie] = React.useState("");
+  // const [browserCookie, setBrowserCookie] = React.useState("");
 
   // Removed redundant /api/status fetch. StatusCard will handle status fetching and update detectedIp/currentASN via props.
 
@@ -85,7 +85,7 @@ export default function App() {
       setMamIp(cfg?.mam_ip ?? "");
       setCheckFrequency(cfg?.check_freq ?? "");
       setProxy(cfg?.proxy ?? {});
-  setBrowserCookie(cfg?.browser_cookie ?? "");
+  // setBrowserCookie(cfg?.browser_cookie ?? "");
     } catch (e) {
       // handle error
     }
@@ -217,7 +217,7 @@ export default function App() {
       {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
       <Toolbar />
       <Container maxWidth="md">
-  {/* MAM Browser Cookie card moved to bottom, pass detectedUid if available */}
+  // {/* MAM Browser Cookie card moved to bottom, pass detectedUid if available */}
         <StatusCard
           ref={statusCardRef}
           detectedIp={detectedIp}
@@ -252,8 +252,8 @@ export default function App() {
           setProxy={setProxy}
           proxiedIp={proxiedIp}
           proxiedAsn={proxiedAsn}
-          browserCookie={browserCookie}
-          setBrowserCookie={setBrowserCookie}
+          // browserCookie={browserCookie}
+          // setBrowserCookie={setBrowserCookie}
         />
         <PerkAutomationCard
           buffer={buffer}

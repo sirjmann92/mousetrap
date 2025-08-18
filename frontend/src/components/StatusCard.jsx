@@ -225,18 +225,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0 }}>
                 Session Status
               </Typography>
-              {/* MAM Cookie Status Icon */}
-              {status && (
-                <Tooltip title={`MAM Cookie Status: ${status.mam_cookie_exists === true ? 'Valid' : (status.mam_cookie_exists === false ? 'Missing' : 'Unknown')}`}> 
-                  <span style={{ display: 'flex', alignItems: 'center', marginLeft: 12 }}>
-                    {status.mam_cookie_exists === true ? (
-                      <CheckCircleIcon sx={{ color: 'success.main', ml: 1 }} />
-                    ) : (
-                      <CancelIcon sx={{ color: 'error.main', ml: 1 }} />
-                    )}
-                  </span>
-                </Tooltip>
-              )}
+              {/* MAM Cookie Status Icon removed for now */}
             </Box>
           </Box>
           <Box>
@@ -458,7 +447,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                   <b>ASN mismatch:</b> The ASN detected by MouseTrap does not match the ASN expected by MAM.<br />
                   <span style={{ color: '#d32f2f' }}>{seedboxStatus.error}</span><br />
                   <span style={{ fontSize: 13 }}>
-                    Please ensure your session is valid for this ASN, or try updating your session/cookie.
+                    Please ensure your session is valid for this ASN, or try updating your session.
                   </span>
                 </>
               )}
