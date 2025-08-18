@@ -35,14 +35,6 @@ docker-compose up --build
 Access the web UI at [http://localhost:39842](http://localhost:39842)
 
 
-
-## Security & Sensitive Data
-
-- All common Docker Compose file names are now included in `.gitignore` by default.
-- If you accidentally commit secrets (like API tokens) to git, use `git filter-repo` to scrub them from history and force-push. All collaborators must re-clone after a history rewrite.
-- Never store secrets in version control. Use environment variables or Docker secrets for sensitive data.
-- If you exposed an API token, rotate it immediately after removing it from git history.
-
 ## Configuration
 
 - All user settings and state are stored in the `/config` directory (mapped as a volume).
