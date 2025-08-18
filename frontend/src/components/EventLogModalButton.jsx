@@ -4,6 +4,7 @@ import { Dialog, DialogTitle, DialogContent, IconButton, Tooltip, Typography, Bo
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import { styled } from '@mui/material/styles';
 
 export default function EventLogModalButton({ sessionLabel, allSessionLabels = [] }) {
   const theme = useTheme();
@@ -12,8 +13,10 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
   const [showNoChange, setShowNoChange] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState(sessionLabel || 'all');
+  const [sessionFilter, setSessionFilter] = useState(sessionLabel || 'all');
+  const [eventTypeFilter, setEventTypeFilter] = useState('all');
   const [labels, setLabels] = useState([]);
+  const [eventTypes, setEventTypes] = useState([]);
 
 
   // Fetch log from backend
@@ -24,17 +27,20 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
       const res = await fetch("/api/ui_event_log?_=" + Date.now());
       if (!res.ok) throw new Error("Failed to fetch event log");
       const data = await res.json();
-      // Collect all unique labels (excluding 'global')
+      // Collect all unique labels (excluding 'global') and event types
       const uniqueLabels = Array.from(new Set(data.map(e => e.label).filter(l => l && l !== 'global')));
       setLabels(uniqueLabels);
-      // Filter by dropdown
+      const uniqueEventTypes = Array.from(new Set(data.map(e => e.event_type).filter(Boolean)));
+      setEventTypes(uniqueEventTypes);
+      // Filter by session and event type
       let filtered = data;
-      if (filter === 'global') {
-        filtered = data.filter(e => e.label === 'global');
-      } else if (filter === 'all') {
-        filtered = data;
-      } else if (filter) {
-        filtered = data.filter(e => e.label === filter);
+      if (sessionFilter === 'global') {
+        filtered = filtered.filter(e => e.label === 'global');
+      } else if (sessionFilter !== 'all') {
+        filtered = filtered.filter(e => e.label === sessionFilter);
+      }
+      if (eventTypeFilter && eventTypeFilter !== 'all') {
+        filtered = filtered.filter(e => e.event_type === eventTypeFilter);
       }
       setLog(filtered.reverse());
     } catch (e) {
@@ -42,7 +48,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [sessionFilter, eventTypeFilter]);
 
   // Fetch log when modal opens or filter changes
   useEffect(() => {
@@ -83,12 +89,43 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
     }
   };
 
-  // Build dropdown options: Global, All Events, and all unique session labels
-  const dropdownOptions = [
+  // Build dropdown options
+  const sessionDropdownOptions = [
     { value: 'global', label: 'Global' },
-    { value: 'all', label: 'All Events' },
+    { value: 'all', label: 'All Sessions' },
     ...labels.map(l => ({ value: l, label: l }))
   ];
+  const eventTypeDropdownOptions = [
+    { value: 'all', label: 'All Event Types' },
+    ...eventTypes.map(t => ({ value: t, label: t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))
+  ];
+
+  // Color coding by event type
+  const eventTypeColors = {
+    port_monitor_add: '#1976d2',
+    port_monitor_check: '#0288d1',
+    port_monitor_delete: '#d32f2f',
+    automation: '#7b1fa2',
+    manual: '#388e3c',
+    // Add more as needed
+  };
+
+  // Custom scrollbar styling
+  const ScrollBox = styled(Box)(({ theme }) => ({
+    maxHeight: 400,
+    overflowY: 'auto',
+    paddingRight: 2,
+    scrollbarColor: theme.palette.mode === 'dark' ? '#444 #222' : '#bbb #fafbfc',
+    scrollbarWidth: 'thin',
+    '&::-webkit-scrollbar': {
+      width: 8,
+      background: theme.palette.mode === 'dark' ? '#222' : '#fafbfc',
+    },
+    '&::-webkit-scrollbar-thumb': {
+      background: theme.palette.mode === 'dark' ? '#444' : '#bbb',
+      borderRadius: 4,
+    },
+  }));
 
   return (
     <>
@@ -124,25 +161,40 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
           </Box>
         </Box>
         <DialogContent dividers>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexDirection: 'row', gap: 3, justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexDirection: 'row' }}>
             <FormControlLabel
               control={<Switch checked={showNoChange} onChange={e => setShowNoChange(e.target.checked)} color="primary" />}
               label="Show 'No Change Needed' Entries"
               sx={{ ml: 0, mr: 2 }}
             />
-            <FormControl size="small" sx={{ minWidth: 180, marginLeft: 'auto' }}>
-              <InputLabel id="eventlog-filter-label">Filter</InputLabel>
-              <Select
-                labelId="eventlog-filter-label"
-                value={filter}
-                label="Filter"
-                onChange={e => setFilter(e.target.value)}
-              >
-                {dropdownOptions.map(opt => (
-                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box sx={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="eventlog-session-filter-label">Session</InputLabel>
+                <Select
+                  labelId="eventlog-session-filter-label"
+                  value={sessionFilter}
+                  label="Session"
+                  onChange={e => setSessionFilter(e.target.value)}
+                >
+                  {sessionDropdownOptions.map(opt => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="eventlog-type-filter-label">Event Type</InputLabel>
+                <Select
+                  labelId="eventlog-type-filter-label"
+                  value={eventTypeFilter}
+                  label="Event Type"
+                  onChange={e => setEventTypeFilter(e.target.value)}
+                >
+                  {eventTypeDropdownOptions.map(opt => (
+                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
           </Box>
           {loading ? (
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 60 }}>
@@ -153,7 +205,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
           ) : getVisibleLog().length === 0 ? (
             <Typography color="text.secondary">No events yet.</Typography>
           ) : (
-            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+            <ScrollBox>
               {getVisibleLog().map((event, idx) => (
                 <Box
                   key={idx}
@@ -163,6 +215,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                     border: `1px solid ${theme.palette.divider}`,
                     borderRadius: 1,
                     background: theme.palette.background.paper,
+                    mr: 0.5,
                   }}
                 >
                   <Typography variant="caption" color="text.secondary">
@@ -174,9 +227,10 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                       mt: 0.5,
                       fontWeight: 500,
                       color:
-                        event.status_message === "No change detected. Update not needed."
+                        eventTypeColors[event.event_type] ||
+                        (event.status_message === "No change detected. Update not needed."
                           ? "#43a047"
-                          : undefined,
+                          : undefined),
                     }}
                   >
                     {event.status_message}
@@ -192,7 +246,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                   )}
                 </Box>
               ))}
-            </Box>
+            </ScrollBox>
           )}
         </DialogContent>
       </Dialog>
