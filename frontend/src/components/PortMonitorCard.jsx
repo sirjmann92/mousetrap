@@ -18,7 +18,7 @@ export default function PortMonitorCard() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [dockerPermission, setDockerPermission] = useState(false);
+  const [dockerPermission, setDockerPermission] = useState(true);
   const [interval, setInterval] = useState(60);
   const [intervalLoading, setIntervalLoading] = useState(false);
   const [editIdx, setEditIdx] = useState(null);
@@ -80,13 +80,23 @@ export default function PortMonitorCard() {
     try {
       const res = await fetch(`${API_BASE}/containers`);
       if (!res.ok) {
-        setDockerPermission(false);
-        setError('Docker Engine permission error.');
+        let showPerm = false;
+        try {
+          const data = await res.json();
+          if (data && (data.detail || data.error)) {
+            if ((data.detail || data.error).includes('Docker Engine is not accessible') || (data.detail || data.error).includes('Docker Engine permission')) {
+              showPerm = true;
+            }
+          }
+        } catch {}
+        setDockerPermission(!showPerm);
+        setError(showPerm ? null : 'Failed to fetch containers.');
         return;
       }
       const data = await res.json();
-  setContainers(data.sort((a, b) => a.localeCompare(b)));
+      setContainers(data.sort((a, b) => a.localeCompare(b)));
       setDockerPermission(true);
+      setError(null);
     } catch (e) {
       setDockerPermission(false);
       setError('Failed to fetch containers.');
@@ -97,13 +107,23 @@ export default function PortMonitorCard() {
     try {
       const res = await fetch(`${API_BASE}/checks`);
       if (!res.ok) {
-        setDockerPermission(false);
-        setError('Docker Engine permission error.');
+        let showPerm = false;
+        try {
+          const data = await res.json();
+          if (data && (data.detail || data.error)) {
+            if ((data.detail || data.error).includes('Docker Engine is not accessible') || (data.detail || data.error).includes('Docker Engine permission')) {
+              showPerm = true;
+            }
+          }
+        } catch {}
+        setDockerPermission(!showPerm);
+        setError(showPerm ? null : 'Failed to fetch port checks.');
         return;
       }
       const data = await res.json();
       setChecks(data);
       setDockerPermission(true);
+      setError(null);
     } catch (e) {
       setDockerPermission(false);
       setError('Failed to fetch port checks.');

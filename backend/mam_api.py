@@ -93,7 +93,6 @@ def get_status(mam_id=None, proxy_cfg=None):
             }
         # Parse points, cheese, wedge, VIP status from response
         points = data.get("seedbonus")
-        cheese = data.get("cheese")
         wedge_active = data.get("wedge_active")
         vip_active = data.get("vip_active")
         # Fallbacks for legacy/alternate keys
@@ -101,39 +100,11 @@ def get_status(mam_id=None, proxy_cfg=None):
             wedge_active = data.get("wedge", False)
         if vip_active is None:
             vip_active = data.get("vip", False)
-        # Fallback: If cheese is None, try to scrape it from /store.php
-        if cheese is None:
-            try:
-                store_url = "https://www.myanonamouse.net/store.php"
-                store_resp = requests.get(store_url, cookies=cookies, timeout=10, proxies=proxies)
-                store_resp.raise_for_status()
-                soup = BeautifulSoup(store_resp.text, "html.parser")
-                cheese_span = soup.find("span", id="currentCheese")
-                if cheese_span and cheese_span.text.isdigit():
-                    cheese = int(cheese_span.text)
-                else:
-                    # Try to find <a> with text like 'Cheese: NNN'
-                    def cheese_match(t):
-                        return isinstance(t, str) and t.strip().startswith("Cheese:")
-                    cheese_link = soup.find("a", string=cheese_match)
-                    if cheese_link:
-                        import re
-                        match = re.search(r"Cheese:\s*(\d+)", cheese_link.text)
-                        if match:
-                            cheese = int(match.group(1))
-                        else:
-                            cheese = None
-                    else:
-                        cheese = None
-            except Exception as scrape_e:
-                logging.debug(f"Cheese scrape failed: {scrape_e}")
-                cheese = None
         # --- Compose a more informative status message ---
         msg = "No change detected. Update not needed."
         return {
             "mam_cookie_exists": True,
             "points": points,
-            "cheese": cheese,
             "wedge_active": wedge_active,
             "vip_active": vip_active,
             "message": msg,

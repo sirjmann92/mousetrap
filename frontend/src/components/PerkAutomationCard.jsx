@@ -27,14 +27,32 @@ import { stringifyMessage } from '../utils/utils';
 export default function PerkAutomationCard({
   buffer, setBuffer,
   wedgeHours, setWedgeHours,
-  autoWedge, setAutoWedge,
-  autoVIP, setAutoVIP,
-  autoUpload, setAutoUpload,
+  _autoWedge, setAutoWedge,
+  _autoVIP, setAutoVIP,
+  _autoUpload, setAutoUpload,
   points,
   // autoMillionairesVault removed
   sessionLabel,
   onActionComplete = () => {}, // <-- new prop
 }) {
+  // Local state for automation toggles, initialized from props if provided
+  const [autoWedge, setAutoWedgeLocal] = useState(_autoWedge ?? false);
+  const [autoVIP, setAutoVIPLocal] = useState(_autoVIP ?? false);
+  const [autoUpload, setAutoUploadLocal] = useState(_autoUpload ?? false);
+
+  // Ensure prop setters update both local and parent state
+  const setAutoWedgeCombined = (val) => {
+    setAutoWedgeLocal(val);
+    if (typeof setAutoWedge === 'function') setAutoWedge(val);
+  };
+  const setAutoVIPCombined = (val) => {
+    setAutoVIPLocal(val);
+    if (typeof setAutoVIP === 'function') setAutoVIP(val);
+  };
+  const setAutoUploadCombined = (val) => {
+    setAutoUploadLocal(val);
+    if (typeof setAutoUpload === 'function') setAutoUpload(val);
+  };
   // Snackbar state for notifications
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [wedges, setWedges] = useState(null);
@@ -72,7 +90,6 @@ export default function PerkAutomationCard({
   // Load automation settings from session on mount/session change
   useEffect(() => {
     if (!sessionLabel) return;
-    // Fetch session config
     fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
       .then(res => res.json())
       .then(cfg => {
@@ -81,7 +98,7 @@ export default function PerkAutomationCard({
         setWedgeHours(pa.wedgeHours ?? 0);
         // --- Upload Credit Automation fields ---
         const upload = (pa.upload_credit || {});
-        setAutoUpload(upload.enabled ?? pa.autoUpload ?? false);
+  setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
         setUploadAmount(upload.gb ?? 1);
         setPointsToKeep(upload.points_to_keep ?? 0);
         setTriggerType(upload.trigger_type ?? 'time');
@@ -89,14 +106,16 @@ export default function PerkAutomationCard({
         setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
         // --- Wedge Automation fields ---
         const wedge = (pa.wedge_automation || {});
+  setAutoWedgeCombined(wedge.enabled ?? pa.autoWedge ?? false);
         setWedgeTriggerType(wedge.trigger_type ?? 'time');
         setWedgeTriggerDays(wedge.trigger_days ?? 7);
         setWedgeTriggerPointThreshold(wedge.trigger_point_threshold ?? 50000);
         // --- VIP Automation fields ---
         const vip = (pa.vip_automation || {});
-        setVipTriggerType(vip.trigger_type ?? 'time');
-        setVipTriggerDays(vip.trigger_days ?? 7);
-        setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
+  setAutoVIPCombined(vip.enabled ?? pa.autoVIP ?? false);
+  setVipTriggerType(vip.trigger_type ?? 'time');
+  setVipTriggerDays(vip.trigger_days ?? 7);
+  setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
         // Save username for guardrails
         let username = null;
         if (cfg.last_status && cfg.last_status.raw && cfg.last_status.raw.username) {
@@ -104,11 +123,9 @@ export default function PerkAutomationCard({
         }
         setCurrentUsername(username);
       });
-    // Fetch guardrails info
     fetch('/api/automation/guardrails')
       .then(res => res.json())
       .then(data => setGuardrails(data));
-    // Cheese/wedge scraping logic removed
   }, [sessionLabel]);
 
   // Guardrail logic: check if another session with same username has automation enabled
@@ -329,7 +346,7 @@ export default function PerkAutomationCard({
           <AutomationSection
             title="Wedge Purchase"
             enabled={autoWedge}
-            onToggle={e => setAutoWedge(e.target.checked)}
+            onToggle={e => setAutoWedgeCombined(e.target.checked)}
             toggleLabel="Enable Wedge Automation"
             toggleDisabled={wedgeDisabled}
             selectLabel="Method"
@@ -379,7 +396,7 @@ export default function PerkAutomationCard({
               </Tooltip>
             </span>}
             enabled={autoVIP}
-            onToggle={e => setAutoVIP(e.target.checked)}
+            onToggle={e => setAutoVIPCombined(e.target.checked)}
             toggleLabel="Enable VIP Automation"
             toggleDisabled={vipDisabled}
             selectLabel="Weeks"
@@ -424,7 +441,7 @@ export default function PerkAutomationCard({
           <AutomationSection
             title="Upload Credit Purchase"
             enabled={autoUpload}
-            onToggle={e => setAutoUpload(e.target.checked)}
+            onToggle={e => setAutoUploadCombined(e.target.checked)}
             toggleLabel="Enable Upload Credit Automation"
             toggleDisabled={uploadDisabled}
             selectLabel="Amount"

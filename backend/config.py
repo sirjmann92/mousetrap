@@ -36,18 +36,30 @@ def decrypt_password(token):
 def load_session(label):
     path = get_session_path(label)
     if not os.path.exists(path):
-        return get_default_config(label)
-    with LOCK, open(path, "r") as f:
-        cfg = yaml.safe_load(f) or get_default_config(label)
-        if "mam_ip" not in cfg:
-            cfg["mam_ip"] = ""
-        if "last_check_time" not in cfg:
-            cfg["last_check_time"] = None
-        if "label" not in cfg:
-            cfg["label"] = label
-        if "browser_cookie" not in cfg:
-            cfg["browser_cookie"] = ""
-        return cfg
+        cfg = get_default_config(label)
+    else:
+        with LOCK, open(path, "r") as f:
+            cfg = yaml.safe_load(f) or get_default_config(label)
+    # --- Ensure wedge_automation config is always present and complete ---
+    perk_auto = cfg.setdefault('perk_automation', {})
+    wedge_defaults = {
+        'enabled': False,
+        'trigger_days': 7,
+        'trigger_point_threshold': 50000,
+        'trigger_type': 'time',
+    }
+    wedge_auto = perk_auto.setdefault('wedge_automation', {})
+    for k, v in wedge_defaults.items():
+        wedge_auto.setdefault(k, v)
+    if "mam_ip" not in cfg:
+        cfg["mam_ip"] = ""
+    if "last_check_time" not in cfg:
+        cfg["last_check_time"] = None
+    if "label" not in cfg:
+        cfg["label"] = label
+    if "browser_cookie" not in cfg:
+        cfg["browser_cookie"] = ""
+    return cfg
 
 def save_session(cfg, old_label=None):
     label = cfg.get("label", "Session01")

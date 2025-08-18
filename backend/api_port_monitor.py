@@ -99,9 +99,13 @@ def update_port_check(
 
 @router.get("/containers", response_model=List[str])
 def list_running_containers():
+    import logging
+    client = port_monitor.get_docker_client()
+    if not client:
+        logging.warning("[API] Docker Engine is not accessible (no client) in /containers endpoint.")
+        return []  # Always return a list, never error unless truly broken
     containers = port_monitor.list_running_containers()
-    if not port_monitor.get_docker_client() or containers is None:
-        raise HTTPException(status_code=500, detail="Docker Engine is not accessible. Please ensure the Docker socket is mounted and permissions are correct.")
+    logging.debug(f"[API] /containers returning: {containers}")
     return containers
 
 
@@ -136,9 +140,12 @@ def add_port_check(req: AddPortCheckRequest):
 
 @router.get("/checks", response_model=List[PortCheckModel])
 def list_port_checks():
-    if not port_monitor.get_docker_client():
-        raise HTTPException(status_code=500, detail="Docker Engine is not accessible. Please ensure the Docker socket is mounted and permissions are correct.")
-    return [PortCheckModel(
+    import logging
+    client = port_monitor.get_docker_client()
+    if not client:
+        logging.warning("[API] Docker Engine is not accessible (no client) in /checks endpoint.")
+        return []  # Always return a list, never error unless truly broken
+    checks = [PortCheckModel(
         container_name=c.container_name,
         port=c.port,
         status=c.status,
@@ -149,6 +156,8 @@ def list_port_checks():
         restart_on_fail=getattr(c, 'restart_on_fail', True),
         notify_on_fail=getattr(c, 'notify_on_fail', False)
     ) for c in port_monitor.checks]
+    logging.debug(f"[API] /checks returning: {checks}")
+    return checks
 
 @router.get("/interval", response_model=int)
 def get_port_monitor_interval():
