@@ -216,8 +216,7 @@ export default function App() {
 
       {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
       <Toolbar />
-      <Container maxWidth="md">
-  // {/* MAM Browser Cookie card moved to bottom, pass detectedUid if available */}
+  <Container maxWidth="md">
         <StatusCard
           ref={statusCardRef}
           detectedIp={detectedIp}

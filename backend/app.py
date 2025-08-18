@@ -54,7 +54,7 @@ app = FastAPI(title="MouseTrap API")
 
 # Mount API routers
 # Mount API routers
-# Restore last_session endpoint
+app.include_router(automation_router, prefix="/api")
 app.include_router(last_session_router, prefix="/api")
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')

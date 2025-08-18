@@ -90,12 +90,11 @@ class PortMonitor:
             return None
         try:
             client = docker.from_env()
-            client.ping()
             self._docker_client = client
-            logging.debug("[PortMonitor] get_docker_client: Docker client created and ping succeeded.")
+            logging.debug("[PortMonitor] get_docker_client: Docker client created.")
             return self._docker_client
         except Exception as e:
-            logging.info(f"[PortMonitor] Docker client creation or ping failed: {e}")
+            logging.info(f"[PortMonitor] Docker client creation failed: {e}")
             # Do not cache failure; always retry next time
             return None
 
