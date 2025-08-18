@@ -201,7 +201,7 @@ export default function PortMonitorCard() {
   };
 
   return (
-    <Accordion sx={{ mb: 2 }} defaultExpanded={false}>
+    <Accordion sx={{ mb: 3 }} defaultExpanded={false}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Typography variant="h6">Port Monitoring</Typography>
       </AccordionSummary>

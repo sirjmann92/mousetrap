@@ -326,6 +326,51 @@ services:
 - In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
 - The backend listens on port 39842 by default; you can override this with the `PORT` environment variable in case of conflicts.
 
+
+
+## Port Monitor Notifications: Global vs Per-Port
+
+MouseTrap supports two ways to notify you of port check failures:
+
+- **Global Notification Rule:**
+  - In the Notifications card, enable "Port Monitor Failure" for global notifications.
+  - Any port check failure will trigger a notification via the selected channels (email/webhook/Discord).
+  - Use this for a simple, all-or-nothing approach.
+
+- **Per-Port "Notify on Fail":**
+  - In the Port Monitoring card, enable "Notify on Fail" for each port check you want to monitor individually.
+  - Only failures for ports with this setting enabled will trigger a notification.
+  - Use this for granular control when monitoring multiple ports.
+
+**If both are enabled, you may receive duplicate notifications for the same failure.**
+For most users, the per-port setting is more flexible. For simple setups, the global rule is easier to manage.
+
+---
+## Notifications & Email
+
+MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord). Configure these in the Notifications card in the UI.
+
+### Email (SMTP)
+
+- Enter your SMTP server details, username, password, and recipient email in the UI.
+- For Gmail, you must use an <b>App Password</b> (not your main password) and enable 2-Step Verification on your account.
+- Host: <b>smtp.gmail.com</b>
+- Port: <b>587</b> (TLS) or <b>465</b> (SSL)
+- See the UI tooltip for a quick Gmail setup guide, or visit:
+  - [Create App Password](https://support.google.com/mail/answer/185833?hl=en)
+  - [SMTP Setup Instructions](https://support.google.com/a/answer/176600?hl=en)
+
+### Webhook
+
+- Enter your webhook URL in the UI. For Discord, check the "Discord" box to send Discord-compatible messages.
+- You can test both Email and Webhook notifications directly from the UI.
+
+### Security
+
+- All notification and email config files are excluded from git by default (see `.gitignore`).
+- Never commit secrets or passwords to version control.
+
+---
 ## Logging & Debugging
 
 MouseTrap uses Python's standard logging with timestamps and log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL).

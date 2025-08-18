@@ -38,6 +38,17 @@ def wedge_automation_job():
                     "result": "skipped",
                     "status_message": f"Below point threshold: {points} < {trigger_point_threshold}"
                 })
+                try:
+                    from backend.notifications_backend import notify_event
+                    notify_event(
+                        event_type="automation_skipped",
+                        label=label,
+                        status="SKIPPED",
+                        message=f"Wedge automation skipped: below point threshold ({points} < {trigger_point_threshold})",
+                        details={"points": points, "threshold": trigger_point_threshold}
+                    )
+                except Exception:
+                    pass
                 continue
             # (Time-based triggers would need last-run tracking, omitted for brevity)
             # Each wedge costs 10,000 points (adjust as needed)
@@ -55,6 +66,17 @@ def wedge_automation_job():
                     "result": "skipped",
                     "status_message": f"Not enough points: {points} < {total_cost}"
                 })
+                try:
+                    from backend.notifications_backend import notify_event
+                    notify_event(
+                        event_type="automation_skipped",
+                        label=label,
+                        status="SKIPPED",
+                        message=f"Wedge automation skipped: not enough points ({points} < {total_cost})",
+                        details={"points": points, "cost": total_cost}
+                    )
+                except Exception:
+                    pass
                 continue
             # Trigger automation
             result = buy_wedge(mam_id, proxy_cfg=proxy_cfg)
@@ -74,8 +96,30 @@ def wedge_automation_job():
             }
             if success:
                 logging.info(f"[WedgeAuto] Automated purchase: Wedge (points) for session '{label}' succeeded.")
+                try:
+                    from backend.notifications_backend import notify_event
+                    notify_event(
+                        event_type="automation_success",
+                        label=label,
+                        status="SUCCESS",
+                        message="Automated wedge purchase succeeded.",
+                        details={"points": points}
+                    )
+                except Exception:
+                    pass
             else:
                 logging.warning(f"[WedgeAuto] Automated purchase: Wedge (points) for session '{label}' FAILED. Error: {event['error']}")
+                try:
+                    from backend.notifications_backend import notify_event
+                    notify_event(
+                        event_type="automation_failure",
+                        label=label,
+                        status="FAILED",
+                        message="Automated wedge purchase failed.",
+                        details={"points": points, "error": event['error']}
+                    )
+                except Exception:
+                    pass
             append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[WedgeAuto] label={label} trigger=automation result=exception error={e}")

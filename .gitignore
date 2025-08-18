@@ -22,4 +22,11 @@ docker-compose.yml
 docker-compose.yaml
 compose.yml
 compose.yaml
-New Document
+# Sensitive notification/email config files
+/config/notify.yaml
+backend/notify.yaml
+config/notify.yaml
+config.yaml
+last_session.yaml
+port_monitoring.yaml
+session-*.yaml
