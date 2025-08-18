@@ -7,7 +7,7 @@ from backend.port_monitor import port_monitor
 
 
 # DELETE endpoint to remove a port check by container_name and port
-@router.delete("/api/port-monitor/checks", response_model=dict)
+@router.delete("/checks", response_model=dict)
 def delete_port_check(
     container_name: str = Query(..., description="Docker container name"),
     port: int = Query(..., description="Port to check")
@@ -21,13 +21,27 @@ def delete_port_check(
             break
     if not found:
         raise HTTPException(status_code=404, detail="Port check not found.")
+    import logging
     port_monitor.remove_check(container_name, port)
+    logging.info(f"[PortMonitor] Deleted port check: container_name={container_name}, port={port}")
+    # Add event log entry (global)
+    try:
+        from backend.event_log import append_ui_event_log
+        import time
+        append_ui_event_log({
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "label": "global",
+            "event_type": "port_monitor_delete",
+            "details": {
+                "container": container_name,
+                "port": port,
+                "scope": "global"
+            },
+            "status_message": f"Port check deleted for {container_name}:{port}"
+        })
+    except Exception as e:
+        logging.error(f"[PortMonitor] Failed to log port check deletion event: {e}")
     return {"success": True, "container_name": container_name, "port": port}
-
-from fastapi import APIRouter, HTTPException, Request, Body
-from pydantic import BaseModel, Field
-from typing import List, Optional
-from backend.port_monitor import port_monitor
 
 
 
@@ -50,10 +64,8 @@ class AddPortCheckRequest(BaseModel):
     restart_on_fail: Optional[bool] = Field(True, description="Restart container on failure")
     notify_on_fail: Optional[bool] = Field(False, description="Notify on failure")
 
-router = APIRouter()
-
 # PATCH endpoint to update an existing port check's options
-@router.patch("/api/port-monitor/checks", response_model=PortCheckModel)
+@router.patch("/checks", response_model=PortCheckModel)
 def update_port_check(
     container_name: str = Body(...),
     port: int = Body(...),
@@ -85,7 +97,7 @@ def update_port_check(
         notify_on_fail=getattr(check, 'notify_on_fail', False)
     )
 
-@router.get("/api/port-monitor/containers", response_model=List[str])
+@router.get("/containers", response_model=List[str])
 def list_running_containers():
     containers = port_monitor.list_running_containers()
     if not port_monitor.get_docker_client() or containers is None:
@@ -93,7 +105,7 @@ def list_running_containers():
     return containers
 
 
-@router.post("/api/port-monitor/checks", response_model=PortCheckModel)
+@router.post("/checks", response_model=PortCheckModel)
 def add_port_check(req: AddPortCheckRequest):
     if not port_monitor.get_docker_client():
         raise HTTPException(status_code=500, detail="Docker Engine is not accessible. Please ensure the Docker socket is mounted and permissions are correct.")
@@ -122,7 +134,7 @@ def add_port_check(req: AddPortCheckRequest):
         notify_on_fail=getattr(c, 'notify_on_fail', False)
     )
 
-@router.get("/api/port-monitor/checks", response_model=List[PortCheckModel])
+@router.get("/checks", response_model=List[PortCheckModel])
 def list_port_checks():
     if not port_monitor.get_docker_client():
         raise HTTPException(status_code=500, detail="Docker Engine is not accessible. Please ensure the Docker socket is mounted and permissions are correct.")
@@ -138,11 +150,11 @@ def list_port_checks():
         notify_on_fail=getattr(c, 'notify_on_fail', False)
     ) for c in port_monitor.checks]
 
-@router.get("/api/port-monitor/interval", response_model=int)
+@router.get("/interval", response_model=int)
 def get_port_monitor_interval():
     return port_monitor.interval // 60
 
-@router.post("/api/port-monitor/interval", response_model=int)
+@router.post("/interval", response_model=int)
 async def set_port_monitor_interval(request: Request):
     data = await request.json()
     minutes = int(data.get("interval", 1))

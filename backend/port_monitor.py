@@ -123,7 +123,16 @@ class PortMonitor:
         ip, result = self.check_port_with_ip(container_name, port)
         check.last_checked = time.time()
         check.last_result = result
-        check.status = 'OK' if result else 'Restarted'
+        if result:
+            check.status = 'OK'
+            status_str = 'OK'
+        else:
+            if restart_on_fail:
+                check.status = 'Restarted'
+                status_str = 'Restarted'
+            else:
+                check.status = 'Failed'
+                status_str = 'Failed'
         check.ip = ip
         self.save_checks()
         # Log result
@@ -134,8 +143,8 @@ class PortMonitor:
                 "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "label": "global",
                 "event_type": "port_monitor_check",
-                "details": {"container": container_name, "port": port, "result": result, "ip": ip, "interval": interval},
-                "status_message": f"Initial port check for {container_name}:{port}: {'OK' if result else 'Restarted'}"
+                "details": {"container": container_name, "port": port, "result": result, "ip": ip, "interval": interval, "restart_on_fail": restart_on_fail},
+                "status_message": f"Initial port check for {container_name}:{port}: {status_str}"
             }
             append_ui_event_log(event)
             logging.info(f"[PortMonitor] {event['status_message']}")
