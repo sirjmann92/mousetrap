@@ -37,26 +37,25 @@ import requests
 from backend.config import load_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, get_mam_seen_ip_info
 from backend.perk_automation import buy_upload_credit
-from backend.last_session_api import router as last_session_router
 
 from backend.api_event_log import router as event_log_router
 from backend.api_config import router as config_router
 from backend.api_automation import router as automation_router
 
+
 from backend.api_port_monitor import router as port_monitor_router
+
 from backend.api_notifications import router as notifications_router
+from backend.last_session_api import router as last_session_router
 
 
 # --- FastAPI app creation ---
 app = FastAPI(title="MouseTrap API")
 
 # Mount API routers
-app.include_router(event_log_router, prefix="/api")
-app.include_router(config_router, prefix="/api")
-app.include_router(automation_router, prefix="/api")
-# Mount notifications API
-app.include_router(port_monitor_router, prefix="/api/port-monitor")
-app.include_router(notifications_router, prefix="/api")
+# Mount API routers
+# Restore last_session endpoint
+app.include_router(last_session_router, prefix="/api")
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):
@@ -100,7 +99,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(last_session_router)
 
 session_status_cache = {}
 
@@ -278,13 +276,6 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 except Exception as e:
                     logging.error(f"[AutoUpdate][ERROR] label={label} save_session failed: {e}")
                 logging.info(f"[AutoUpdate] label={label} result=no_change reason={reason}")
-                notify_event(
-                    event_type="seedbox_update_no_change",
-                    label=label,
-                    status="NO_CHANGE",
-                    message="No change: IP/ASN already set.",
-                    details={"reason": reason, "ip": new_ip, "asn": asn}
-                )
                 return True, {"success": True, "msg": "No change: IP/ASN already set.", "reason": reason}
             elif resp.status_code == 429 or (
                 isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")

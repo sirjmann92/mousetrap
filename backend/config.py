@@ -1,11 +1,17 @@
-import yaml
+
+
 import os
+import yaml
 import threading
 import glob
 
 CONFIG_DIR = "/config"
 CONFIG_PATH = os.path.join(CONFIG_DIR, "config.yaml")
 LOCK = threading.Lock()
+
+
+
+
 
 SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
@@ -39,6 +45,8 @@ def load_session(label):
             cfg["last_check_time"] = None
         if "label" not in cfg:
             cfg["label"] = label
+        if "browser_cookie" not in cfg:
+            cfg["browser_cookie"] = ""
         return cfg
 
 def save_session(cfg, old_label=None):
@@ -52,6 +60,8 @@ def save_session(cfg, old_label=None):
     config_dir = os.path.dirname(path)
     os.makedirs(config_dir, exist_ok=True)
     # No encryption: just save password as-is
+    if "browser_cookie" not in cfg:
+        cfg["browser_cookie"] = ""
     with LOCK, open(path, "w") as f:
         yaml.safe_dump(cfg, f)
 
@@ -69,6 +79,7 @@ def get_default_config(label="Session01"):
                 "upload": False
             }
         },
+        "browser_cookie": "",
         "mam_ip": "",
         "proxy": {
             "host": "",
