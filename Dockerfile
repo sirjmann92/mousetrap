@@ -58,7 +58,11 @@ COPY frontend/public/favicon.ico /app/frontend/public/favicon.ico
 COPY frontend/public/favicon.svg /app/frontend/public/svg
 COPY favicon_io/ /app/frontend/public/
 
+
 EXPOSE 39842
+
+# TEMP: Install curl for debugging
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
