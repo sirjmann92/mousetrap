@@ -723,7 +723,8 @@ def api_delete_session(label: str):
             "event": "session_deleted",
             "label": label,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_action": True
+            "user_action": True,
+            "status_message": f"Session '{label}' deleted."
         })
         return {"success": True}
     except Exception as e:

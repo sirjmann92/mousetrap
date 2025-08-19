@@ -7,8 +7,8 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 export default function NotificationsCard() {
   const defaultEvents = [
     { key: "port_monitor_failure", label: "Port Monitor Failure" },
-    { key: "automation_success", label: "Automation Success" },
-    { key: "automation_failure", label: "Automation Failure" },
+  { key: "automation_success", label: "Purchase Automation Success" },
+  { key: "automation_failure", label: "Purchase Automation Failure" },
     { key: "manual_purchase_success", label: "Manual Purchase Success" },
     { key: "manual_purchase_failure", label: "Manual Purchase Failure" },
     { key: "seedbox_update_success", label: "Seedbox Update Success" },
