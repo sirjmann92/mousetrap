@@ -244,7 +244,8 @@ services:
       - ./gluetun:/gluetun
 
   mousetrap:
-    build: .
+    image: ghcr.io/sirjmann92/mousetrap:latest # If you prefer to build your own, remove this line & uncomment the next line
+    # build: .
     container_name: mousetrap
     network_mode: "service:gluetun"
     environment:
@@ -289,7 +290,8 @@ services:
       - ./gluetun:/gluetun
 
   mousetrap:
-    build: .
+    image: ghcr.io/sirjmann92/mousetrap:latest # If you prefer to build your own, remove this line & uncomment the next line
+    # build: .
     container_name: mousetrap
     environment:
       - TZ=Europe/London
