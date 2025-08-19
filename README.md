@@ -28,7 +28,7 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 ```bash
 git clone https://github.com/sirjmann92/mousetrap.git
 cd mousetrap
-docker-compose up --build
+docker-compose up --build -d
 ```
 
 Access the web UI at [http://localhost:39842](http://localhost:39842)
