@@ -23,6 +23,8 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 - Designed for Docker Compose and ease of use
 - **Port Monitoring:** Global card for monitoring container ports, with auto-restart, persistent config (`/config/port_monitoring.yaml`), color-coded status, interval logic, and event logging. Robust to missing Docker permissions; disables controls if Docker socket is not available.
 
+![MouseTrap UI](images/mousetrap-001.png)
+
 ## Quick Start
 
 ```bash
