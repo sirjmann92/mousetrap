@@ -6,3 +6,21 @@ html, body {
 html, body {
   scrollbar-gutter: stable;
 }
+
+/* Make scrollbar thinner in Chromium browsers */
+body::-webkit-scrollbar {
+  width: 8px;
+}
+body::-webkit-scrollbar-thumb {
+  background: #bbb;
+  border-radius: 4px;
+}
+body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Make scrollbar thinner in Firefox */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #bbb transparent;
+}

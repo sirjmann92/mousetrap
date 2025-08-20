@@ -190,6 +190,14 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             reason = f"ASN changed: {norm_last} -> {norm_check}"
             logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
             logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
+            from backend.notifications_backend import notify_event
+            notify_event(
+                event_type="asn_changed",
+                label=label,
+                status="CHANGED",
+                message=reason,
+                details={"old_asn": norm_last, "new_asn": norm_check}
+            )
             return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
         else:
             logging.info(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check} | ASN result: No change needed.")

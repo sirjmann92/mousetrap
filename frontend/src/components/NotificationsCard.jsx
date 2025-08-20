@@ -8,13 +8,14 @@ export default function NotificationsCard() {
   const [expanded, setExpanded] = useState(false);
   const defaultEvents = [
     { key: "port_monitor_failure", label: "Port Monitor Failure" },
-  { key: "automation_success", label: "Purchase Automation Success" },
-  { key: "automation_failure", label: "Purchase Automation Failure" },
+    { key: "automation_success", label: "Purchase Automation Success" },
+    { key: "automation_failure", label: "Purchase Automation Failure" },
     { key: "manual_purchase_success", label: "Manual Purchase Success" },
     { key: "manual_purchase_failure", label: "Manual Purchase Failure" },
     { key: "seedbox_update_success", label: "Seedbox Update Success" },
     { key: "seedbox_update_failure", label: "Seedbox Update Failure" },
     { key: "seedbox_update_rate_limited", label: "Seedbox Update Rate Limited" },
+    { key: "asn_changed", label: "ASN Changed" },
     // Add more as needed
   ];
   const [config, setConfig] = useState({ webhook_url: "", smtp: {}, event_rules: {} });
