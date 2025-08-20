@@ -134,10 +134,16 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
           <DescriptionIcon />
         </IconButton>
       </Tooltip>
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pl: 3, pr: 1, pt: 2 }}>
-          <DialogTitle sx={{ p: 0 }}>Event Log</DialogTitle>
-          <Box>
+      <Dialog 
+  open={open} 
+  onClose={() => setOpen(false)} 
+  maxWidth="md" 
+  fullWidth
+  PaperProps={{ sx: { borderRadius: 2, bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default } }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pl: 3, pr: 1, pt: 2, bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default }}>
+          <DialogTitle sx={{ p: 0, borderRadius: 0 }}>Event Log</DialogTitle>
+          <Box sx={{ borderRadius: 2 }}>
             <Tooltip title="Refresh">
               <IconButton onClick={fetchLog} size="small" sx={{ mr: 1 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10"></path><path d="M20.49 15A9 9 0 015.87 18.36L1 14"></path></svg>
@@ -160,7 +166,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
             </Tooltip>
           </Box>
         </Box>
-        <DialogContent dividers>
+  <DialogContent dividers sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexDirection: 'row' }}>
             <FormControlLabel
               control={<Switch checked={showNoChange} onChange={e => setShowNoChange(e.target.checked)} color="primary" />}
@@ -212,13 +218,18 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                   sx={{
                     mb: 2,
                     p: 1.5,
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1,
-                    background: theme.palette.background.paper,
+                    border: 'none',
+                    borderRadius: 2,
+                    background: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
                     mr: 0.5,
                   }}
                 >
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: (theme) => theme.palette.mode === 'dark' ? '#b0b0b0' : 'text.secondary',
+                    }}
+                  >
                     {new Date(event.timestamp).toLocaleString()} — <b>{event.label === 'global' ? 'Global' : event.label}</b>
                   </Typography>
                   <Typography
@@ -236,7 +247,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                     {event.status_message}
                   </Typography>
                   {event.details && (
-                    <Box sx={{ mt: 0.5, fontSize: 13, color: '#555' }}>
+                    <Box sx={{ mt: 0.5, fontSize: 13, color: (theme) => theme.palette.mode === 'dark' ? '#e0e0e0' : '#555' }}>
                       {event.details.ip_compare && <span>IP: {event.details.ip_compare} </span>}
                       {event.details.asn_compare && <span>ASN: {event.details.asn_compare} </span>}
                       {event.details.points !== undefined && <span>Points: {event.details.points}</span>}

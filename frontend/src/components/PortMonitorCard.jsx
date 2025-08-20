@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '@mui/material';
-import { Card, CardContent, Typography, Button, TextField, Box, List, ListItem, ListItemText, IconButton, Alert, Tooltip, Accordion, AccordionSummary, AccordionDetails, Select, MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel } from '@mui/material';
+import { Card, CardContent, Typography, Button, TextField, Box, List, ListItem, ListItemText, IconButton, Alert, Tooltip, Select, MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel, Collapse } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -11,6 +11,7 @@ const INTERVAL_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
 export default function PortMonitorCard() {
   const theme = useTheme();
+  const [expanded, setExpanded] = useState(false);
   const [containers, setContainers] = useState([]);
   const [checks, setChecks] = useState([]);
   const [port, setPort] = useState('');
@@ -221,14 +222,20 @@ export default function PortMonitorCard() {
   };
 
   return (
-    <Accordion sx={{ mb: 3 }} defaultExpanded={false}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6">Port Monitoring</Typography>
-      </AccordionSummary>
-      <AccordionDetails>
-        <Typography variant="body2" color="text.secondary" gutterBottom>
-          Monitor forwarded ports for any running container. Add a check below.
+  <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          Port Monitoring
         </Typography>
+        <IconButton size="small">
+          {expanded ? <ExpandMoreIcon sx={{ transform: 'rotate(180deg)' }} /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <CardContent sx={{ pt: 0 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Monitor forwarded ports for any running container. Add a check below.
+          </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap', width: '100%' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1 }}>
             <FormControl size="small" sx={{ minWidth: 180, maxWidth: 220 }} disabled={!dockerPermission || loading}>
@@ -306,22 +313,21 @@ export default function PortMonitorCard() {
         )}
         {error && error !== 'Docker Engine permission error.' && <Alert severity="error" sx={{ mb: 1 }}>{error}</Alert>}
         {success && <Alert severity="success" sx={{ mb: 1 }}>{success}</Alert>}
-        <Typography variant="subtitle2" sx={{ mt: 2 }}>Active Port Checks</Typography>
-        <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
-          {checks.length === 0 && <Typography color="text.secondary">No port checks configured.</Typography>}
-          {checks.map((check, idx) => (
-            <Box
-              key={check.container_name + ':' + check.port}
-              sx={{
-                mb: 2,
-                p: 1.5,
-                border: `1px solid ${theme.palette.divider}`,
-                borderRadius: 1,
-                background: theme.palette.background.paper,
-                boxShadow: 1,
-                position: 'relative',
-              }}
-            >
+          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>Active Port Checks</Typography>
+          <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+            {checks.length === 0 && <Typography color="text.secondary">No port checks configured.</Typography>}
+            {checks.map((check, idx) => (
+              <Box
+                key={check.container_name + ':' + check.port}
+                sx={theme => ({
+                  mb: 2,
+                  p: 2,
+                  borderRadius: 2,
+                  background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
+                  boxShadow: 0,
+                  position: 'relative',
+                })}
+              >
               <IconButton
                 edge="end"
                 aria-label="delete"
@@ -412,7 +418,8 @@ export default function PortMonitorCard() {
             </Box>
           ))}
         </Box>
-      </AccordionDetails>
-    </Accordion>
+        </CardContent>
+      </Collapse>
+    </Card>
   );
 }

@@ -185,7 +185,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AppBar position="fixed" sx={{ mb: 3 }}>
+  <AppBar position="fixed" sx={{ mb: 3, width: '100%', left: 0, right: 0, boxSizing: 'border-box' }}>
         <Toolbar>
           <img src={MouseTrapIcon} alt="MouseTrap" style={{ width: 48, height: 48, marginRight: 20 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>

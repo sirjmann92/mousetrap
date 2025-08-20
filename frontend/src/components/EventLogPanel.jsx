@@ -1,1 +1,0 @@
-// Deleted: EventLogPanel.jsx is no longer used in the project.
