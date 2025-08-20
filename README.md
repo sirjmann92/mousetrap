@@ -360,11 +360,6 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 - Enter your webhook URL in the UI. For Discord, check the "Discord" box to send Discord-compatible messages.
 - You can test both Email and Webhook notifications directly from the UI.
 
-### Security
-
-- All notification and email config files are excluded from git by default (see `.gitignore`).
-- Never commit secrets or passwords to version control.
-
 ---
 ## Logging & Debugging
 
