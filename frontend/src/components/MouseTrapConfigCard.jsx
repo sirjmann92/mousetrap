@@ -117,7 +117,7 @@ export default function MouseTrapConfigCard({
   };
 
   return (
-    <Card sx={{ mb: 3 }}>
+  <Card sx={{ mb: 3, borderRadius: 2 }}>
       {/* Snackbar for save status */}
       <Snackbar
         open={!!saveStatus || !!saveError}
@@ -297,69 +297,71 @@ export default function MouseTrapConfigCard({
           </Grid>
           {/* Session Type row removed; now in top row */}
           {/* Divider and VPN Proxy Configuration label */}
-          <Accordion defaultExpanded={false}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Accordion defaultExpanded={false} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>VPN Proxy Configuration</Typography>
             </AccordionSummary>
-            <AccordionDetails>
-              {/* Proxy Host/Port row */}
-              <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <TextField
-                      label="Proxy Host"
-                      value={proxyHost}
-                      onChange={e => setProxyHost(e.target.value)}
-                      size="small"
-                      placeholder="proxy.example.com"
-                      sx={{ width: 180 }}
-                    />
-                    <TextField
-                      label="Port"
-                      value={proxyPort}
-                      onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
-                      size="small"
-                      placeholder="8080"
-                      sx={{ width: 90 }}
-                      inputProps={{ maxLength: 5 }}
-                    />
-                  </Box>
-                </Grid>
-              </Grid>
-              {/* Username/Password row */}
-              <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <TextField
-                      label="Username"
-                      value={proxyUsername}
-                      onChange={e => setProxyUsername(e.target.value)}
-                      size="small"
-                      placeholder="user"
-                      sx={{ width: 140 }}
-                    />
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AccordionDetails sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
+              <Box sx={{ p: 0 }}>
+                {/* Proxy Host/Port row */}
+                <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                       <TextField
-                        label="Password"
-                        value={proxyPassword}
-                        onChange={e => setProxyPassword(e.target.value)}
+                        label="Proxy Host"
+                        value={proxyHost}
+                        onChange={e => setProxyHost(e.target.value)}
                         size="small"
-                        placeholder={hasPassword ? "(password set)" : ""}
-                        type="password"
-                        sx={{ width: 140 }}
-                        autoComplete="new-password"
+                        placeholder="proxy.example.com"
+                        sx={{ width: 180 }}
                       />
-                      {hasPassword && !proxyPassword && (
-                        <Tooltip title="Leave blank to keep existing password">
-                          <IconButton size="small" sx={{ ml: 0.5 }}>
-                            <InfoOutlinedIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
+                      <TextField
+                        label="Port"
+                        value={proxyPort}
+                        onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
+                        size="small"
+                        placeholder="8080"
+                        sx={{ width: 90 }}
+                        inputProps={{ maxLength: 5 }}
+                      />
                     </Box>
-                  </Box>
+                  </Grid>
                 </Grid>
-              </Grid>
+                {/* Username/Password row */}
+                <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+                  <Grid item xs={12}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <TextField
+                        label="Username"
+                        value={proxyUsername}
+                        onChange={e => setProxyUsername(e.target.value)}
+                        size="small"
+                        placeholder="user"
+                        sx={{ width: 140 }}
+                      />
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TextField
+                          label="Password"
+                          value={proxyPassword}
+                          onChange={e => setProxyPassword(e.target.value)}
+                          size="small"
+                          placeholder={hasPassword ? "(password set)" : ""}
+                          type="password"
+                          sx={{ width: 140 }}
+                          autoComplete="new-password"
+                        />
+                        {hasPassword && !proxyPassword && (
+                          <Tooltip title="Leave blank to keep existing password">
+                            <IconButton size="small" sx={{ ml: 0.5 }}>
+                              <InfoOutlinedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
             </AccordionDetails>
           </Accordion>
           <Box sx={{ textAlign: "right", mt: 2 }}>

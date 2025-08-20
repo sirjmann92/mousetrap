@@ -1,0 +1,8 @@
+html, body {
+  margin: 0;
+  padding: 0;
+}
+/* Always reserve space for the main browser scrollbar and always show vertical scrollbar */
+html, body {
+  scrollbar-gutter: stable;
+}

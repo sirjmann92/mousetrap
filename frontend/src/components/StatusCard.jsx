@@ -135,7 +135,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
           (status && status.points && status.points !== lastPoints)
         ) {
           lastCheckTime = status.last_check_time;
-          lastStatusMsg = status.status_message;
           lastPoints = status.points;
           if (onSessionDataChanged) onSessionDataChanged();
         }
@@ -216,7 +215,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   }));
 
   return (
-    <Card sx={{ mb: 3 }}>
+    <Card sx={{ mb: 3, borderRadius: 2 }}>
       <CardContent>
         {/* Session Status Header: align text and icon vertically with buttons */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -247,12 +246,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
           </Box>
         </Box>
         {/* Network & Proxy Details Rollup */}
-        {status && (
-          <Accordion sx={{ mt: 2, mb: 2 }} defaultExpanded={false}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+  {status && (
+          <Accordion sx={{ mt: 2, mb: 2, borderRadius: 2, overflow: 'hidden', bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }} defaultExpanded={false}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Network & Proxy Details</Typography>
             </AccordionSummary>
-            <AccordionDetails>
+            <AccordionDetails sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
               <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
                 <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public IP Address:</Typography>
                 <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.detected_public_ip || "N/A"}</Typography>
@@ -286,6 +285,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </AccordionDetails>
           </Accordion>
         )}
+        {/* MAM Details Accordion (restored, styled to match) */}
         {/* Robust error handling: if status is set and has error, only render the error alert */}
         {status && status.error ? (
           <Box sx={{ mt: 2, mb: 2 }}>
@@ -300,7 +300,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             <Box>
               {/* Timer, status message, and automation row (single instance) */}
               {status.last_check_time && (
-                <>
+                <React.Fragment>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2, mb: 1 }}>
                     <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600, letterSpacing: 1 }}>
                       Next check in:
@@ -377,43 +377,46 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       </Box>
                     </Box>
                   </Box>
-                  {/* MAM Details section (collapsed by default) */}
+                  {/* MAM Details Accordion (moved below automation row) */}
                   {status.details && status.details.raw && (
-                    <Accordion sx={{ mt: 2 }} defaultExpanded={false}>
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>MAM Details</Typography>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Username:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.username ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>UID:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uid ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Rank:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connectable:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.connectable ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Country:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.country_name ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Points:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Downloaded:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Uploaded:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uploaded ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Ratio:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.ratio ?? 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Seeding:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.sSat && typeof status.details.raw.sSat.count === 'number' ? status.details.raw.sSat.count : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.count === 'number' ? status.details.raw.unsat.count : 'N/A'}</Typography>
-                          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied Limit:</Typography>
-                          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.limit === 'number' ? status.details.raw.unsat.limit : 'N/A'}</Typography>
-                        </Box>
-                      </AccordionDetails>
-                    </Accordion>
+                    <React.Fragment>
+                      <Accordion sx={{ mt: 2, mb: 2, borderRadius: 2, overflow: 'hidden', bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }} defaultExpanded={false}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>MAM Details</Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
+                          <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Username:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.username ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>UID:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uid ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Rank:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connectable:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.connectable ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Country:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.country_name ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Points:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Downloaded:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Uploaded:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uploaded ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Ratio:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.ratio ?? 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Seeding:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.sSat && typeof status.details.raw.sSat.count === 'number' ? status.details.raw.sSat.count : 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.count === 'number' ? status.details.raw.unsat.count : 'N/A'}</Typography>
+                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied Limit:</Typography>
+                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.limit === 'number' ? status.details.raw.unsat.limit : 'N/A'}</Typography>
+                          </Box>
+                        </AccordionDetails>
+                      </Accordion>
+                      <Box sx={{ height: 1 }} />
+                    </React.Fragment>
                   )}
-                </>
+                </React.Fragment>
               )}
             </Box>
           )
@@ -429,42 +432,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         {/* Seedbox update status */}
         {seedboxStatus && (
           <Box sx={{ mb: 2 }}>
-            <Alert severity={
-              seedboxStatus.success
-                ? 'success'
-                : (seedboxStatus.error && seedboxStatus.error.toLowerCase().includes('asn mismatch')
-                    ? 'error'
-                    : (seedboxStatus.error && seedboxStatus.error.includes('Rate limit') ? 'info' : 'warning'))
-            }>
-              {seedboxStatus.success && seedboxStatus.msg && seedboxStatus.msg.toLowerCase().includes('no change') && (
-                <>No change: IP/ASN already set.</>
-              )}
-              {seedboxStatus.success && seedboxStatus.msg && !seedboxStatus.msg.toLowerCase().includes('no change') && (
-                <>Seedbox update successful!</>
-              )}
-              {!seedboxStatus.success && seedboxStatus.error && seedboxStatus.error.toLowerCase().includes('asn mismatch') && (
-                <>
-                  <b>ASN mismatch:</b> The ASN detected by MouseTrap does not match the ASN expected by MAM.<br />
-                  <span style={{ color: '#d32f2f' }}>{seedboxStatus.error}</span><br />
-                  <span style={{ fontSize: 13 }}>
-                    Please ensure your session is valid for this ASN, or try updating your session.
-                  </span>
-                </>
-              )}
-              {!seedboxStatus.success && seedboxStatus.error && seedboxStatus.error.includes('Rate limit') && (
-                <>
-                  Rate limited: Please wait before updating again.<br />
-                  {seedboxStatus.error.match(/\d+/) && (
-                    <RateLimitTimer minutes={parseInt(seedboxStatus.error.match(/\d+/)[0], 10)} />
-                  )}
-                </>
-              )}
-              {!seedboxStatus.success && !seedboxStatus.error?.toLowerCase().includes('asn mismatch') && (!seedboxStatus.error || !seedboxStatus.error.includes('Rate limit')) && (
-                <>{seedboxStatus.error || 'Seedbox update failed.'}</>
-              )}
+            <Alert severity={seedboxStatus.success ? 'success' : 'warning'}>
+              {seedboxStatus.msg || seedboxStatus.error || 'Seedbox update status unknown.'}
             </Alert>
           </Box>
         )}
+      {/* Make sure this is the end of CardContent, after all conditional Boxes are closed */}
       </CardContent>
     </Card>
   );

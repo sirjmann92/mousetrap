@@ -34,9 +34,9 @@ ENV PYTHONUNBUFFERED=1 \
 # Now copy the rest of the backend code and config
 COPY backend/ /app/backend/
 COPY backend/app.py logconfig.yaml.template /app/
-
 # Copy frontend build output once, then symlink /frontend/build to /app/frontend/build to save space
 COPY --from=frontend-build /frontend/build /app/frontend/build
+COPY frontend/public /app/frontend/public
 RUN mkdir -p /frontend && ln -s /app/frontend/build /frontend/build
 
 EXPOSE 39842

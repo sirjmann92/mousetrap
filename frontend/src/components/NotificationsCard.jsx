@@ -1,10 +1,11 @@
 
 import React, { useEffect, useState } from "react";
-import { Box, CardContent, Typography, TextField, Button, Switch, FormControlLabel, Divider, Alert, CircularProgress, Checkbox, FormGroup, Tooltip, IconButton, Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import { Box, Card, CardContent, Typography, TextField, Button, Switch, FormControlLabel, Divider, Alert, CircularProgress, Checkbox, FormGroup, Tooltip, IconButton, Collapse } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function NotificationsCard() {
+  const [expanded, setExpanded] = useState(false);
   const defaultEvents = [
     { key: "port_monitor_failure", label: "Port Monitor Failure" },
   { key: "automation_success", label: "Purchase Automation Success" },
@@ -121,9 +122,9 @@ export default function NotificationsCard() {
   if (loading) return <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
-    <Accordion sx={{ width: '100%', maxWidth: 'none', mb: 3 }} defaultExpanded={false}>
-      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center' }}>
+    <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
+        <Typography variant="h6" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
           Notifications
           <Tooltip title="Choose which events trigger notifications and which channels to use" arrow>
             <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
@@ -131,9 +132,12 @@ export default function NotificationsCard() {
             </IconButton>
           </Tooltip>
         </Typography>
-      </AccordionSummary>
-      <AccordionDetails>
-        <CardContent sx={{ p: 0 }}>
+        <IconButton size="small">
+          {expanded ? <ExpandMoreIcon sx={{ transform: 'rotate(180deg)' }} /> : <ExpandMoreIcon />}
+        </IconButton>
+      </Box>
+      <Collapse in={expanded} timeout="auto" unmountOnExit>
+        <CardContent sx={{ pt: 0 }}>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
           <FormGroup sx={{ mb: 3 }}>
@@ -257,7 +261,7 @@ export default function NotificationsCard() {
           </Box>
           {testResult && <Alert severity={testResult.includes("failed") ? "error" : "success"} sx={{ mt: 2 }}>{testResult}</Alert>}
         </CardContent>
-      </AccordionDetails>
-    </Accordion>
+      </Collapse>
+    </Card>
   );
 }
