@@ -224,7 +224,21 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0, mr: 1 }}>
                 Session Status
               </Typography>
-              <CheckCircleIcon sx={{ color: 'success.main', fontSize: 28, verticalAlign: 'middle' }} />
+              {/* Session Status Icon Logic (finalized) */}
+              {(() => {
+                if (!status || status.configured === false || !status.mam_cookie_exists) return null;
+                const details = status.details || {};
+                // Show red X if last check was unsuccessful (error present, or success false)
+                if (details.error || details.success === false) {
+                  return <CancelIcon sx={{ color: 'error.main', fontSize: 28, verticalAlign: 'middle' }} titleAccess="Session error" />;
+                }
+                // Show green check if last check was successful (no error, and success is true or missing/undefined/null)
+                if (!details.error && (details.success === true || details.success === undefined || details.success === null)) {
+                  return <CheckCircleIcon sx={{ color: 'success.main', fontSize: 28, verticalAlign: 'middle' }} titleAccess="Session valid" />;
+                }
+                // Show yellow question mark if status is unknown (no error, no explicit success/failure)
+                return <InfoOutlinedIcon sx={{ color: 'warning.main', fontSize: 28, verticalAlign: 'middle' }} titleAccess="Session unknown" />;
+              })()}
             </Box>
           </Box>
           <Box>
