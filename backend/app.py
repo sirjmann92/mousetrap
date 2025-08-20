@@ -553,7 +553,13 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 "asn_compare": event_asn_compare,
                 "auto_update": auto_update_val,  # Always a string
             },
-            "status_message": status.get('status_message') or event_status_message or build_status_message(status)
+            # If auto_update_result indicates a successful IP change, use its message
+            "status_message": (
+                auto_update_result["msg"]
+                if auto_update_result and isinstance(auto_update_result, dict)
+                and auto_update_result.get("success") is True and auto_update_result.get("msg")
+                else status.get('status_message') or event_status_message or build_status_message(status)
+            )
         }
         append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
