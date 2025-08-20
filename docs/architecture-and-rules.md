@@ -27,12 +27,6 @@ MouseTrap is a modular automation and monitoring tool for MaM (MyAnonamouse) see
 	- All backend actions (manual, automation, scheduled), session add/save/delete, and port monitoring actions are logged.
 	- Session add/delete and port monitoring events are always global (not session-specific).
 	- Each log entry includes timestamp, label (if applicable), event type, details, and status message.
-## Sensitive Data & Security
-
-- All common Docker Compose file names are now included in `.gitignore` by default.
-- If you accidentally commit secrets (like API tokens) to git, use `git filter-repo` to scrub them from history and force-push. All collaborators must re-clone after a history rewrite.
-- Never store secrets in version control. Use environment variables or Docker secrets for sensitive data.
-- If you exposed an API token, rotate it immediately after removing it from git history.
 
 - **Auto Update Field:**
 	- The `auto_update` field in event log entries is always a user-friendly string.
@@ -70,13 +64,13 @@ MouseTrap is a modular automation and monitoring tool for MaM (MyAnonamouse) see
 
 ## ASN Changed Notification
 
-- MouseTrap now detects ASN changes for sessions and logs them as events.
+- MouseTrap detects ASN changes for sessions and logs them as events.
 - Users can enable notifications for ASN changes in the Notifications card (email/webhook/Discord).
 - Event log entries for ASN changes include old and new ASN values for auditing.
 
-## Port Monitoring (Implemented)
+## Port Monitoring
 
-- Port Monitoring is a fully implemented feature, not just a plan.
+- Port Monitoring is a fully implemented feature.
 - The Port Monitoring card on the dashboard allows users to monitor Docker container ports, auto-restart containers, and receive notifications on failures.
 - All port monitoring events are logged globally and surfaced in the UI event log.
 - Robust to missing Docker permissions; disables gracefully if Docker is unavailable.
@@ -86,12 +80,6 @@ MouseTrap is a modular automation and monitoring tool for MaM (MyAnonamouse) see
 - Notification event types are now fully configurable in the UI, including new event types like ASN Changed.
 - Webhook and email notification options improved for reliability and clarity.
 - All documentation and event log examples use only example data—no real IDs, usernames, IPs, or ASNs.
-
-## Maintenance
-
-
-## Efficiency & Rate Limiting
-
 
 # Docker Image Optimization & Static File Handling (2025-08)
 
@@ -147,11 +135,6 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 - Enter your webhook URL in the UI. For Discord, check the "Discord" box to send Discord-compatible messages.
 - You can test both Email and Webhook notifications directly from the UI.
 
-### Security
-
-- All notification and email config files are excluded from git by default (see `.gitignore`).
-- Never commit secrets or passwords to version control.
-
 ---
 ## File/Directory Structure (Key Parts)
 - `backend/`: FastAPI app, automation logic, event log, config/session management
@@ -184,4 +167,4 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 ---
 
 ## Last Updated
-August 13, 2025
+August 20, 2025
