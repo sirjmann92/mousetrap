@@ -76,8 +76,9 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
     setError(null);
     try {
       let url = "/api/ui_event_log";
-      if (sessionLabel) {
-        url += `/${encodeURIComponent(sessionLabel)}`;
+      // Use the session filter from the modal dropdown, not the parent page's sessionLabel
+      if (sessionFilter && sessionFilter !== 'all') {
+        url += `/${encodeURIComponent(sessionFilter)}`;
       }
       const res = await fetch(url, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to clear event log");

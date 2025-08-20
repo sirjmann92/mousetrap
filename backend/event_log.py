@@ -50,12 +50,14 @@ def get_ui_event_log():
 def clear_ui_event_log():
     """Clear all events from the event log (all sessions)."""
     try:
+        logging.info(f"[UIEventLog] Attempting to clear event log at: {_ui_event_log_path}")
         with _ui_event_log_lock:
             with open(_ui_event_log_path, 'w', encoding='utf-8') as f:
                 json.dump([], f)
+        logging.info(f"[UIEventLog] Successfully cleared event log at: {_ui_event_log_path}")
         return True
     except Exception as e:
-        logging.error(f"[UIEventLog] Failed to clear event log: {e}")
+        logging.error(f"[UIEventLog] Failed to clear event log at {_ui_event_log_path}: {e}")
         return False
 
 def clear_ui_event_log_for_session(label):
