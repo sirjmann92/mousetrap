@@ -41,7 +41,7 @@ export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoa
     <Box sx={{ display: 'flex', alignItems: 'center', ...sx }}>
       <FormControl size="small" sx={{ minWidth: 160, maxWidth: 240 }}>
         <InputLabel>Session</InputLabel>
-        <Select value={selectedLabel} label="Session" onChange={handleChange} sx={{ width: 180 }}>
+  <Select value={selectedLabel} label="Session" onChange={handleChange} sx={{ width: 180 }} MenuProps={{ disableScrollLock: true }}>
           {sessions.map(label => (
             <MenuItem key={label} value={label}>{label}</MenuItem>
           ))}
@@ -57,7 +57,7 @@ export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoa
           <DeleteOutlineIcon />
         </IconButton>
       </Tooltip>
-      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
+  <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} disableScrollLock={true}>
         <DialogTitle>Delete Session</DialogTitle>
         <DialogContent>
           <Typography>Are you sure you want to delete session <b>{selectedLabel}</b>? This cannot be undone.</Typography>
