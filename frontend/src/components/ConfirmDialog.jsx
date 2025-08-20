@@ -24,7 +24,7 @@ export default function ConfirmDialog({
   confirmColor = 'primary',
 }) {
   return (
-    <Dialog open={open} onClose={onClose}>
+  <Dialog open={open} onClose={onClose} disableScrollLock={true}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <DialogContentText>{message}</DialogContentText>
