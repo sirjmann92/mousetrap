@@ -221,10 +221,10 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 48 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
-              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0 }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0, mr: 1 }}>
                 Session Status
               </Typography>
-              {/* MAM Cookie Status Icon removed for now */}
+              <CheckCircleIcon sx={{ color: 'success.main', fontSize: 28, verticalAlign: 'middle' }} />
             </Box>
           </Box>
           <Box>
