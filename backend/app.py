@@ -581,9 +581,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         error_val = auto_update_result.get('error') if isinstance(auto_update_result, dict) else None
         if error_val and isinstance(error_val, str):
             status['status_message'] = error_val
-        # Next: explicit success message
-        elif auto_update_result.get('success') is True and auto_update_result.get('msg'):
-            status['status_message'] = auto_update_result['msg']
+        # Next: explicit success message or reason
+        elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
+            status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
         # Fallback: use build_status_message
         else:
             status['status_message'] = build_status_message(status)
