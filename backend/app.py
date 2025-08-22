@@ -553,11 +553,11 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 "asn_compare": event_asn_compare,
                 "auto_update": auto_update_val,  # Always a string
             },
-            # If auto_update_result indicates a successful IP change, use its message
+            # Always show the real update message if an update occurred
             "status_message": (
-                auto_update_result["msg"]
+                (auto_update_result.get("msg") or auto_update_result.get("reason") or "IP Changed. Seedbox IP updated.")
                 if auto_update_result and isinstance(auto_update_result, dict)
-                and auto_update_result.get("success") is True and auto_update_result.get("msg")
+                and auto_update_result.get("success") is True and (auto_update_result.get("msg") or auto_update_result.get("reason"))
                 else status.get('status_message') or event_status_message or build_status_message(status)
             )
         }
