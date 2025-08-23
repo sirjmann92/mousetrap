@@ -1,3 +1,23 @@
+/**
+ * Get color for a status message (MUI palette key or hex).
+ * @param {string} msg
+ * @returns {string}
+ */
+export function getStatusMessageColor(msg) {
+  if (!msg) return 'text.primary';
+  if (/Rate limit: last change too recent\. Try again in (\d+) minutes\./i.test(msg)) {
+    return 'warning.main';
+  } else if (
+    /^IP Changed\. Seedbox IP updated\.$/i.test(msg) ||
+    /^ASN changed, no update needed\.$/i.test(msg) ||
+    /^No change detected\. Update not needed\.$/i.test(msg)
+  ) {
+    return 'success.main';
+  } else if (/update failed|error|forbidden|failed/i.test(msg)) {
+    return 'error.main';
+  }
+  return 'text.primary';
+}
 // Shared frontend utilities
 
 /**
