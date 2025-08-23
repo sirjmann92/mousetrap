@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { FormControlLabel, Switch, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
 import { Dialog, DialogTitle, DialogContent, IconButton, Tooltip, Typography, Box, CircularProgress, Alert, useTheme } from "@mui/material";
+import { getStatusMessageColor } from '../utils/utils';
 import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -241,9 +242,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                       fontWeight: 500,
                       color:
                         eventTypeColors[event.event_type] ||
-                        (event.status_message === "No change detected. Update not needed."
-                          ? "#43a047"
-                          : undefined),
+                        getStatusMessageColor(event.status_message),
                     }}
                   >
                     {event.status_message}

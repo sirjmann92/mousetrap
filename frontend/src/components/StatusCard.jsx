@@ -9,6 +9,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { getStatusMessageColor } from '../utils/utils';
   // Helper to extract ASN number and provide tooltip for full AS string
   const renderASN = (asn, fullAs) => {
     let asnNum = asn;
@@ -339,19 +340,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                     {/* Unified, styled status message */}
                     {(() => {
                       const msg = status.status_message || status.last_result || "unknown";
-                      let color = 'text.primary';
-                      // Color logic for new backend messages
-                      if (msg.match(/Rate limit: last change too recent\. Try again in (\d+) minutes\./i)) {
-                        color = 'warning.main';
-                      } else if (
-                        /^IP Changed\. Seedbox IP updated\.$/i.test(msg) ||
-                        /^ASN changed, no update needed\.$/i.test(msg) ||
-                        /^No change detected\. Update not needed\.$/i.test(msg)
-                      ) {
-                        color = 'success.main';
-                      } else if (/update failed|error|forbidden|failed/i.test(msg)) {
-                        color = 'error.main';
-                      }
+                      const color = getStatusMessageColor(msg);
                       return (
                         <Box sx={{ mt: 1, textAlign: 'center' }}>
                           <Typography variant="subtitle2" color={color} sx={{ fontWeight: 600, letterSpacing: 0.5 }}>
