@@ -142,8 +142,8 @@ def vip_automation_job():
             trigger_days = automation.get('trigger_days', 7)
             trigger_point_threshold = automation.get('trigger_point_threshold', 50000)
             proxy_cfg = cfg.get('proxy', {})
-            # Always define weeks before any code path that uses it
-            weeks = 4
+            # Read weeks from automation config (default 4)
+            weeks = automation.get('weeks', 4)
             status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get('points', 0) if isinstance(status, dict) else 0
             # Guardrails (example: only trigger if points >= threshold)
@@ -225,10 +225,12 @@ def vip_automation_job():
                 })
                 continue
 
-            # Trigger automation
-            result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
+            # Support 'max' for automation as well
+            is_max = str(weeks).lower() in ["max", "90"]
+            duration = "max" if is_max else str(weeks)
+            result = buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
             success = result.get('success', False) if result else False
-            status_message = f"Automated purchase: VIP ({weeks} weeks)" if success else f"Automated VIP purchase failed ({weeks} weeks)"
+            status_message = f"Automated purchase: VIP ({'Max me out!' if is_max else f'{weeks} weeks'})" if success else f"Automated VIP purchase failed ({'Max me out!' if is_max else f'{weeks} weeks'})"
             event = {
                 "timestamp": now.isoformat(),
                 "label": label,
@@ -242,14 +244,14 @@ def vip_automation_job():
                 "status_message": status_message
             }
             if success:
-                logging.info(f"[VIPAuto] Automated purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
+                logging.info(f"[VIPAuto] Automated purchase: VIP ({'max' if is_max else weeks}) for session '{label}' succeeded.")
                 # Reset retry state on success
                 automation['retry'] = 0
                 automation.pop('cooldown_until', None)
                 automation.pop('last_fail_time', None)
                 save_session(cfg, old_label=label)
             else:
-                logging.warning(f"[VIPAuto] Automated purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {event['error']}")
+                logging.warning(f"[VIPAuto] Automated purchase: VIP ({'max' if is_max else weeks}) for session '{label}' FAILED. Error: {event['error']}")
                 # Retry logic: up to 3 times, 1 minute apart
                 retry = automation.get('retry', 0) + 1
                 automation['retry'] = retry
@@ -257,7 +259,7 @@ def vip_automation_job():
                 if retry >= 3:
                     # Set cooldown until next main run (10 min = 600s)
                     automation['cooldown_until'] = now_ts + 600
-                    logging.warning(f"[VIPAuto] Automated purchase: VIP ({weeks} weeks) for session '{label}' retries_exceeded, cooldown_until={automation['cooldown_until']}")
+                    logging.warning(f"[VIPAuto] Automated purchase: VIP ({'max' if is_max else weeks}) for session '{label}' retries_exceeded, cooldown_until={automation['cooldown_until']}")
                 save_session(cfg, old_label=label)
             append_ui_event_log(event)
         except Exception as e:

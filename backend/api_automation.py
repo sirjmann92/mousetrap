@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Request, HTTPException
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
@@ -135,44 +134,89 @@ async def manual_vip(request: Request):
 	mam_id = cfg.get('mam', {}).get('mam_id', "")
 	proxy_cfg = cfg.get('proxy', {})
 	now = datetime.now(timezone.utc)
-	result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
-	success = result.get('success', False)
-	status_message = f"Purchased VIP ({weeks} weeks)" if success else f"VIP purchase failed ({weeks} weeks)"
-	event = {
-		"timestamp": now.isoformat(),
-		"label": label,
-		"event_type": "manual",
-		"trigger": "manual",
-		"purchase_type": "vip",
-		"amount": weeks,
-		"details": {},
-		"result": "success" if success else "failed",
-		"error": result.get('error') if not success else None,
-		"status_message": status_message
-	}
-	append_ui_event_log(event)
-	try:
-		from backend.notifications_backend import notify_event
+	is_max = str(weeks).lower() in ["max", "90"]
+	if is_max:
+		result = buy_vip(mam_id, duration="max", proxy_cfg=proxy_cfg)
+		success = result.get('success', False)
+		status_message = "Purchased VIP (Max me out!)" if success else "VIP purchase failed (Max me out!)"
+		event = {
+			"timestamp": now.isoformat(),
+			"label": label,
+			"event_type": "manual",
+			"trigger": "manual",
+			"purchase_type": "vip",
+			"amount": "max",
+			"details": {},
+			"result": "success" if success else "failed",
+			"error": result.get('error') if not success else None,
+			"status_message": status_message
+		}
+		append_ui_event_log(event)
+		try:
+			from backend.notifications_backend import notify_event
+			if success:
+				notify_event(
+					event_type="manual_purchase_success",
+					label=label,
+					status="SUCCESS",
+					message="Manual VIP purchase succeeded: Max me out!",
+					details={"weeks": "max"}
+				)
+			else:
+				notify_event(
+					event_type="manual_purchase_failure",
+					label=label,
+					status="FAILED",
+					message="Manual VIP purchase failed: Max me out!",
+					details={"weeks": "max", "error": result.get('error')}
+				)
+		except Exception:
+			pass
 		if success:
-			notify_event(
-				event_type="manual_purchase_success",
-				label=label,
-				status="SUCCESS",
-				message=f"Manual VIP purchase succeeded: {weeks} weeks",
-				details={"weeks": weeks}
-			)
+			logging.info(f"[ManualVIP] Purchase: VIP (max) for session '{label}' succeeded.")
 		else:
-			notify_event(
-				event_type="manual_purchase_failure",
-				label=label,
-				status="FAILED",
-				message=f"Manual VIP purchase failed: {weeks} weeks",
-				details={"weeks": weeks, "error": result.get('error')}
-			)
-	except Exception:
-		pass
-	if success:
-		logging.info(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
+			logging.warning(f"[ManualVIP] Purchase: VIP (max) for session '{label}' FAILED. Error: {result.get('error')}")
+		return {"success": success, **result}
 	else:
-		logging.warning(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {result.get('error')}")
+		# For 4 or 8 weeks, just send the value as string
+		result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
+		success = result.get('success', False)
+		status_message = f"Purchased VIP ({weeks} weeks)" if success else f"VIP purchase failed ({weeks} weeks)"
+		event = {
+			"timestamp": now.isoformat(),
+			"label": label,
+			"event_type": "manual",
+			"trigger": "manual",
+			"purchase_type": "vip",
+			"amount": weeks,
+			"details": {},
+			"result": "success" if success else "failed",
+			"error": result.get('error') if not success else None,
+			"status_message": status_message
+		}
+		append_ui_event_log(event)
+		try:
+			from backend.notifications_backend import notify_event
+			if success:
+				notify_event(
+					event_type="manual_purchase_success",
+					label=label,
+					status="SUCCESS",
+					message=f"Manual VIP purchase succeeded: {weeks} weeks",
+					details={"weeks": weeks}
+				)
+			else:
+				notify_event(
+					event_type="manual_purchase_failure",
+					label=label,
+					status="FAILED",
+					message=f"Manual VIP purchase failed: {weeks} weeks",
+					details={"weeks": weeks, "error": result.get('error')}
+				)
+		except Exception:
+			pass
+		if success:
+			logging.info(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
+		else:
+			logging.warning(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {result.get('error')}")
 	return {"success": success, **result}
