@@ -246,6 +246,7 @@ export default function PortMonitorCard() {
                 label="Container"
                 onChange={e => setContainerName(e.target.value)}
                 disabled={!dockerPermission || loading}
+                MenuProps={{ disableScrollLock: true }}
               >
                 <MenuItem value="" disabled>{containers.length === 0 ? "No running containers" : "Select container"}</MenuItem>
                 {containers.map(c => (
@@ -272,6 +273,7 @@ export default function PortMonitorCard() {
                 label="Check Interval (min)"
                 onChange={handleIntervalChange}
                 disabled={intervalLoading}
+                MenuProps={{ disableScrollLock: true }}
               >
                 {INTERVAL_OPTIONS.map(opt => (
                   <MenuItem key={opt} value={opt}>{opt} minutes</MenuItem>
@@ -378,6 +380,7 @@ export default function PortMonitorCard() {
                         label="Interval (min)"
                         onChange={e => setEditInterval(Number(e.target.value))}
                         disabled={loading}
+                        MenuProps={{ disableScrollLock: true }}
                       >
                         {INTERVAL_OPTIONS.map(opt => (
                           <MenuItem key={opt} value={opt}>{opt} minutes</MenuItem>

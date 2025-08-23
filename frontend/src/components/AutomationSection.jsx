@@ -65,6 +65,7 @@ export default function AutomationSection({
               value={selectValue}
               label={selectLabel}
               onChange={onSelectChange}
+              MenuProps={{ disableScrollLock: true }}
             >
               {selectOptions.map(opt => (
                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
@@ -85,6 +86,7 @@ export default function AutomationSection({
               value={triggerTypeValue}
               label="Trigger Type"
               onChange={onTriggerTypeChange}
+              MenuProps={{ disableScrollLock: true }}
             >
               <MenuItem value="time">Time-based</MenuItem>
               <MenuItem value="points">Point-based</MenuItem>

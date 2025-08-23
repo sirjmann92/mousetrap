@@ -163,6 +163,7 @@ export default function MouseTrapConfigCard({
                   onChange={e => setSessionType(e.target.value)}
                   error={!!sessionTypeError}
                   sx={{ minWidth: 150, maxWidth: 195 }}
+                  MenuProps={{ disableScrollLock: true }}
                 >
                   <MenuItem value="">Select...</MenuItem>
                   <MenuItem value="IP Locked">IP Locked</MenuItem>
@@ -179,6 +180,7 @@ export default function MouseTrapConfigCard({
                     label="Interval*"
                     onChange={e => setCheckFrequency(Number(e.target.value))}
                     sx={{ minWidth: 100, maxWidth: 145 }}
+                    MenuProps={{ disableScrollLock: true }}
                   >
                     <MenuItem value="">Select...</MenuItem>
                     <MenuItem value={1}>1</MenuItem>

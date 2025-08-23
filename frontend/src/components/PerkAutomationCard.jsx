@@ -226,11 +226,11 @@ export default function PerkAutomationCard({
       });
       const data = await res.json();
       if (data.success) {
-        setSnackbar({ open: true, message: `VIP purchased for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`}!`, severity: 'success' });
+  setSnackbar({ open: true, message: `VIP purchased for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}!`, severity: 'success' });
         onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`} failed`), severity: 'error' });
+  } else setSnackbar({ open: true, message: stringifyMessage(data.error || `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`), severity: 'error' });
     } catch (e) {
-      setSnackbar({ open: true, message: `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`} failed`, severity: 'error' });
+  setSnackbar({ open: true, message: `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`, severity: 'error' });
     }
   };
   const triggerUploadManual = async () => {
@@ -284,6 +284,7 @@ export default function PerkAutomationCard({
         trigger_type: vipTriggerType,
         trigger_days: Number(vipTriggerDays),
         trigger_point_threshold: Number(vipTriggerPointThreshold),
+        weeks: vipWeeks,
       },
     };
     const res = await fetch("/api/session/perkautomation/save", {
@@ -404,14 +405,14 @@ export default function PerkAutomationCard({
             selectOptions={[
               { value: 4, label: "4 Weeks" },
               { value: 8, label: "8 Weeks" },
-              { value: 90, label: "Fill me up!" }
+              { value: 90, label: "Max me out!" }
             ]}
             onSelectChange={e => setVipWeeks(e.target.value)}
             extraControls={
               <Tooltip title={<span>
                 4 +weeks = 5,000 points<br/>
                 8 weeks = 10,000 points<br/>
-                Fill me up! = Top up to 90 days (variable points)
+                Max me out! = Top up to 90 days (variable points)
               </span>}>
                 <IconButton size="small" sx={{ ml: 1 }}>
                   <InfoOutlinedIcon fontSize="small" />
@@ -486,7 +487,7 @@ export default function PerkAutomationCard({
             onClose={() => setConfirmVIPOpen(false)}
             onConfirm={triggerVIPManual}
             title="Confirm VIP Purchase"
-            message={`Are you sure you want to instantly purchase VIP for ${vipWeeks === 90 ? 'up to 90 days (Fill me up!)' : `${vipWeeks} weeks`}?`}
+            message={`Are you sure you want to instantly purchase VIP for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}?`}
           />
           <ConfirmDialog
             open={confirmUploadOpen}

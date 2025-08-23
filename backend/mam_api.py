@@ -100,14 +100,13 @@ def get_status(mam_id=None, proxy_cfg=None):
             wedge_active = data.get("wedge", False)
         if vip_active is None:
             vip_active = data.get("vip", False)
-        # --- Compose a more informative status message ---
-        msg = "No change detected. Update not needed."
+        # Do not set a default message here; let the main logic in app.py set the status_message
         return {
             "mam_cookie_exists": True,
             "points": points,
             "wedge_active": wedge_active,
             "vip_active": vip_active,
-            "message": msg,
+            # No 'message' key unless there is an error
             "raw": data
         }
     except Exception as e:

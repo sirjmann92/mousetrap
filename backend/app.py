@@ -443,49 +443,36 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 "details": {},
             }
     if force or not status:
-        if force:
-            logging.debug(f"[SessionCheck][TRIGGER] label={label} source=forced_api_status")
-            mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            mam_status['configured_ip'] = ip_to_use
-            mam_status['configured_asn'] = asn
-            mam_status['configured_asn'] = asn
-            mam_status['mam_seen_asn'] = mam_seen_asn
-            mam_status['mam_seen_as'] = mam_seen_as
-            """
-            Returns a mapping of session labels to MaM usernames and enabled automations for guardrail logic.
-            Example:
-                {
-                    "Gluetun": {"username": "sirjmann92", "autoUpload": true, "autoWedge": false, "autoVIP": false},
-                    ...
-                }
-            """
-            session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-            status = mam_status
-            last_check_time = now.isoformat()
-            # --- Auto-update logic ---
-            auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
-            if auto_update_triggered and auto_update_result:
-                status['auto_update_seedbox'] = auto_update_result
-            # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
-            cfg = load_session(label)
-            # Save last status to session file
-            cfg['last_status'] = status
-            cfg['last_check_time'] = last_check_time
-            save_session(cfg, old_label=label)
-        else:
-            # Only load from session file if cache is empty
-            if label not in session_status_cache or not session_status_cache[label].get("status"):
-                last_status = cfg.get('last_status')
-                last_check_time = cfg.get('last_check_time')
-                if last_status:
-                    status = last_status
-                    session_status_cache[label] = {"status": status, "last_check_time": last_check_time}
-                else:
-                    status = {}
+        # Always perform a fresh status check and update both cache and YAML
+        logging.debug(f"[SessionCheck][TRIGGER] label={label} source={'forced_api_status' if force else 'auto_api_status'}")
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        mam_status['configured_ip'] = ip_to_use
+        mam_status['configured_asn'] = asn
+        mam_status['mam_seen_asn'] = mam_seen_asn
+        mam_status['mam_seen_as'] = mam_seen_as
+        # --- Auto-update logic ---
+        auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+        if auto_update_triggered and auto_update_result:
+            mam_status['auto_update_seedbox'] = auto_update_result
+            # Always persist the correct status_message after an update
+            if auto_update_result.get('error'):
+                mam_status['status_message'] = auto_update_result.get('error')
+            elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
+                mam_status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
             else:
-                # Use cached status/times
-                status = session_status_cache[label]["status"]
-                last_check_time = session_status_cache[label]["last_check_time"]
+                mam_status['status_message'] = build_status_message(mam_status)
+        else:
+            mam_status['status_message'] = build_status_message(mam_status)
+        # Update in-memory cache and YAML file with the latest status
+        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+        status = mam_status
+        last_check_time = now.isoformat()
+        # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
+        cfg = load_session(label)
+        # Save last status to session file
+        cfg['last_status'] = status
+        cfg['last_check_time'] = last_check_time
+        save_session(cfg, old_label=label)
 
     # Only log an event if a real check was performed (force=1 or no cached status),
     # and suppress the very first status check event after session creation
