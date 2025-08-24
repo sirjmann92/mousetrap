@@ -62,7 +62,9 @@ def load_session(label):
     return cfg
 
 def save_session(cfg, old_label=None):
-    label = cfg.get("label", "Session01")
+    label = cfg.get("label")
+    if not label:
+        raise ValueError("Session label is required to save a session.")
     path = get_session_path(label)
     # If label changed, rename file
     if old_label and old_label != label:
@@ -77,9 +79,9 @@ def save_session(cfg, old_label=None):
     with LOCK, open(path, "w") as f:
         yaml.safe_dump(cfg, f)
 
-def get_default_config(label="Session01"):
+def get_default_config(label=None):
     cfg = {
-        "label": label,
+        "label": label or "",
         "mam": {
             "mam_id": "",
             "session_type": "ip",
@@ -115,7 +117,7 @@ def load_config():
         if "last_check_time" not in cfg:
             cfg["last_check_time"] = None
         if "label" not in cfg:
-            cfg["label"] = "Session01"
+            cfg["label"] = ""
         return cfg
 
 def save_config(cfg):

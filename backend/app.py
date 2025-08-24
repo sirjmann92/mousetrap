@@ -717,8 +717,13 @@ async def api_save_session(request: Request):
 def api_delete_session(label: str):
     try:
         from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
+        from backend.last_session_api import write_last_session
+        from backend.config import list_sessions
         delete_session(label)
         clear_ui_event_log_for_session(label)
+        # If no sessions remain, blank out last_session.yaml
+        if len(list_sessions()) == 0:
+            write_last_session(None)
         logging.info(f"[Session] Deleted session: label={label}")
         append_ui_event_log({
             "event": "session_deleted",

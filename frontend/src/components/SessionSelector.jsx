@@ -16,12 +16,14 @@ export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoa
   const handleChange = (e) => {
     setSelectedLabel(e.target.value);
     if (onLoadSession) onLoadSession(e.target.value);
-    // Persist to backend
-    fetch('/api/last_session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label: e.target.value })
-    });
+    // Only persist to backend if the label exists in the sessions list
+    if (sessions.includes(e.target.value)) {
+      fetch('/api/last_session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: e.target.value })
+      });
+    }
   };
 
   const handleDeleteClick = () => {
@@ -53,9 +55,11 @@ export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoa
         </IconButton>
       </Tooltip>
       <Tooltip title="Delete Session">
-        <IconButton color="error" sx={{ ml: 1 }} onClick={handleDeleteClick} disabled={sessions.length <= 1}>
-          <DeleteOutlineIcon />
-        </IconButton>
+        <span>
+          <IconButton color="error" sx={{ ml: 1 }} onClick={handleDeleteClick} disabled={sessions.length === 0}>
+            <DeleteOutlineIcon />
+          </IconButton>
+        </span>
       </Tooltip>
   <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} disableScrollLock={true}>
         <DialogTitle>Delete Session</DialogTitle>

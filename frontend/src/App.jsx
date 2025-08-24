@@ -68,6 +68,10 @@ export default function App() {
   const [proxy, setProxy] = React.useState({});
   const [proxiedIp, setProxiedIp] = React.useState("");
   const [proxiedAsn, setProxiedAsn] = React.useState("");
+  // Track sessions for config card CTA logic
+  const [sessions, setSessions] = React.useState([]);
+  // Track if we should force expand the config card (after creating a new session)
+  const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
   // const [browserCookie, setBrowserCookie] = React.useState("");
 
   // Removed redundant /api/status fetch. StatusCard will handle status fetching and update detectedIp/currentASN via props.
@@ -109,6 +113,7 @@ export default function App() {
       fetch('/api/sessions').then(res => res.json()),
       fetch('/api/last_session').then(res => res.json())
     ]).then(([sessionsData, lastSessionData]) => {
+      if (sessionsData.sessions) setSessions(sessionsData.sessions);
       if (sessionsData.sessions && sessionsData.sessions.length > 0) {
         const lastSession = lastSessionData.label;
         const toSelect = lastSession && sessionsData.sessions.includes(lastSession)
@@ -119,6 +124,13 @@ export default function App() {
       }
     });
     // eslint-disable-next-line
+  }, []);
+
+  // Keep sessions state up to date after create/delete/save
+  const refreshSessions = React.useCallback(() => {
+    fetch('/api/sessions').then(res => res.json()).then(data => {
+      if (data.sessions) setSessions(data.sessions);
+    });
   }, []);
 
   // Persist selectedLabel to localStorage
@@ -135,6 +147,7 @@ export default function App() {
   const handleSessionSaved = (label, oldLabel) => {
     // Always reload session after save to get latest proxy/password info
     loadSession(label);
+    refreshSessions();
     // Always force status refresh to update timer immediately
     if (statusCardRef.current && statusCardRef.current.forceStatusRefresh) {
       statusCardRef.current.forceStatusRefresh();
@@ -161,17 +174,20 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ label: newLabel })
     });
-    loadSession(newLabel);
+  loadSession(newLabel);
+  refreshSessions();
+  setForceExpandConfig(true); // Expand config card after creating a new session
   };
 
   // Delete session handler
   const handleDeleteSession = async (label) => {
     await fetch(`/api/session/delete/${label}`, { method: "DELETE" });
     // After delete, load the first available session
+    refreshSessions();
     const res = await fetch("/api/sessions");
     const data = await res.json();
-    const nextLabel = data.sessions[0] || "Session01";
-    loadSession(nextLabel);
+  const nextLabel = data.sessions[0] || null;
+  loadSession(nextLabel);
   };
 
   // Handler to update proxiedIp/proxiedAsn from StatusCard
@@ -251,35 +267,41 @@ export default function App() {
           setProxy={setProxy}
           proxiedIp={proxiedIp}
           proxiedAsn={proxiedAsn}
+          hasSessions={sessions.length > 0}
+          onCreateNewSession={handleCreateSession}
+          forceExpand={forceExpandConfig}
+          onForceExpandHandled={() => setForceExpandConfig(false)}
           // browserCookie={browserCookie}
           // setBrowserCookie={setBrowserCookie}
         />
-        <PerkAutomationCard
-          buffer={buffer}
-          setBuffer={setBuffer}
-          wedgeHours={wedgeHours}
-          setWedgeHours={setWedgeHours}
-          autoWedge={autoWedge}
-          setAutoWedge={setAutoWedge}
-          autoVIP={autoVIP}
-          setAutoVIP={setAutoVIP}
-          autoUpload={autoUpload}
-          setAutoUpload={setAutoUpload}
-          points={points}
-          cheese={cheese}
-          uploadAmount={uploadAmount}
-          setUploadAmount={setUploadAmount}
-          vipWeeks={vipWeeks}
-          setVipWeeks={setVipWeeks}
-          wedgeMethod={wedgeMethod}
-          setWedgeMethod={setWedgeMethod}
-          sessionLabel={selectedLabel}
-          onActionComplete={() => {
-            if (statusCardRef.current && statusCardRef.current.fetchStatus) {
-              statusCardRef.current.fetchStatus();
-            }
-          }}
-        />
+        {sessions.length > 0 && (
+          <PerkAutomationCard
+            buffer={buffer}
+            setBuffer={setBuffer}
+            wedgeHours={wedgeHours}
+            setWedgeHours={setWedgeHours}
+            autoWedge={autoWedge}
+            setAutoWedge={setAutoWedge}
+            autoVIP={autoVIP}
+            setAutoVIP={setAutoVIP}
+            autoUpload={autoUpload}
+            setAutoUpload={setAutoUpload}
+            points={points}
+            cheese={cheese}
+            uploadAmount={uploadAmount}
+            setUploadAmount={setUploadAmount}
+            vipWeeks={vipWeeks}
+            setVipWeeks={setVipWeeks}
+            wedgeMethod={wedgeMethod}
+            setWedgeMethod={setWedgeMethod}
+            sessionLabel={selectedLabel}
+            onActionComplete={() => {
+              if (statusCardRef.current && statusCardRef.current.fetchStatus) {
+                statusCardRef.current.fetchStatus();
+              }
+            }}
+          />
+        )}
         <PortMonitorCard />
         <NotificationsCard />
       </Container>

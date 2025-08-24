@@ -39,12 +39,24 @@ export default function MouseTrapConfigCard({
   proxy = {}, setProxy,
   proxiedIp = "",
   proxiedAsn = "",
-  browserCookie, setBrowserCookie
+  browserCookie, setBrowserCookie,
+  hasSessions = true,
+  onCreateNewSession,
+  forceExpand = false,
+  onForceExpandHandled = () => {}
 }) {
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
   const [expanded, setExpanded] = useState(false);
+
+  // Expand the card if forceExpand becomes true
+  useEffect(() => {
+    if (forceExpand) {
+      setExpanded(true);
+      onForceExpandHandled();
+    }
+  }, [forceExpand, onForceExpandHandled]);
   // Proxy config state
   const [proxyHost, setProxyHost] = useState(proxy.host || "");
   const [proxyPort, setProxyPort] = useState(proxy.port || "");
@@ -116,8 +128,31 @@ export default function MouseTrapConfigCard({
     }
   };
 
+  if (!hasSessions) {
+    // Show only CTA banner and button
+    return (
+      <Card sx={{ mb: 3, borderRadius: 2, p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 220 }}>
+        <Box sx={{ width: '100%', mb: 2 }}>
+          <Alert severity="info" sx={{ fontSize: 17, py: 2, px: 3, textAlign: 'center' }}>
+            Create a new session to get started.
+          </Alert>
+        </Box>
+        <Button
+          variant="contained"
+          color="primary"
+          size="large"
+          sx={{ mt: 1, px: 4, py: 1.5, fontSize: 18, fontWeight: 600, borderRadius: 2 }}
+          onClick={onCreateNewSession}
+        >
+          Create New Session
+        </Button>
+      </Card>
+    );
+  }
+
+  // Restore the full config form rendering
   return (
-  <Card sx={{ mb: 3, borderRadius: 2 }}>
+    <Card sx={{ mb: 3, borderRadius: 2 }}>
       {/* Snackbar for save status */}
       <Snackbar
         open={!!saveStatus || !!saveError}
@@ -398,10 +433,18 @@ MouseTrapConfigCard.propTypes = {
     username: PropTypes.string,
     password: PropTypes.string
   }),
-  setProxy: PropTypes.func
+  setProxy: PropTypes.func,
+  hasSessions: PropTypes.bool,
+  onCreateNewSession: PropTypes.func,
+  forceExpand: PropTypes.bool,
+  onForceExpandHandled: PropTypes.func
 };
 
 MouseTrapConfigCard.defaultProps = {
   proxy: {},
-  setProxy: () => {}
+  setProxy: () => {},
+  hasSessions: true,
+  onCreateNewSession: () => {},
+  forceExpand: false,
+  onForceExpandHandled: () => {}
 };
