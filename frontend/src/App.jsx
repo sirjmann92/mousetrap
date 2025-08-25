@@ -72,9 +72,7 @@ export default function App() {
   const [sessions, setSessions] = React.useState([]);
   // Track if we should force expand the config card (after creating a new session)
   const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
-  // const [browserCookie, setBrowserCookie] = React.useState("");
-
-  // Removed redundant /api/status fetch. StatusCard will handle status fetching and update detectedIp/currentASN via props.
+  // StatusCard will handle status fetching and update detectedIp/currentASN via props.
 
   // Load session config by label
   const loadSession = async (labelToLoad) => {
