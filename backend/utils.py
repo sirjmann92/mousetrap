@@ -1,3 +1,24 @@
+# --- Logging utility ---
+import logging
+import os
+
+def setup_logging():
+    """
+    Set up global logging configuration for the backend.
+    Call this once at app startup (e.g., in app.py).
+    """
+    loglevel = os.environ.get("LOGLEVEL", "INFO").upper()
+    logging.basicConfig(
+        level=getattr(logging, loglevel, logging.INFO),
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    # Suppress overly verbose logs from dependencies unless DEBUG
+    if getattr(logging, loglevel, logging.INFO) > logging.DEBUG:
+        logging.getLogger("urllib3").setLevel(logging.INFO)
+        logging.getLogger("httpx").setLevel(logging.INFO)
+        logging.getLogger("requests").setLevel(logging.INFO)
+    logging.getLogger('apscheduler').setLevel(logging.WARNING)
 import re
 
 def extract_asn_number(asn_str):

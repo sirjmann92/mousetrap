@@ -21,7 +21,7 @@ def get_auto_update_val(status):
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
 from backend.automation import wedge_automation_job, vip_automation_job
-from backend.utils import build_status_message, build_proxy_dict
+from backend.utils import build_status_message, build_proxy_dict, setup_logging
 from backend.utils import extract_asn_number
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +30,9 @@ from starlette.responses import FileResponse
 import os
 from datetime import datetime, timezone, timedelta
 import logging
+
+# Set up global logging configuration
+setup_logging()
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import requests
@@ -105,25 +108,6 @@ app.add_middleware(
 session_status_cache = {}
 
 
-# Configure logging at the top of the file (after imports)
-
-# Configure logging at the top of the file (after imports)
-loglevel = os.environ.get("LOGLEVEL", "INFO").upper()
-logging.basicConfig(
-    level=getattr(logging, loglevel, logging.WARNING),
-    format='[%(asctime)s %(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S %Z',
-)
-
-# Suppress overly verbose DEBUG logs from requests, urllib3, httpx unless explicitly set to DEBUG
-if getattr(logging, loglevel, logging.WARNING) > logging.DEBUG:
-    logging.getLogger("urllib3").setLevel(logging.INFO)
-    logging.getLogger("httpx").setLevel(logging.INFO)
-    logging.getLogger("requests").setLevel(logging.INFO)
-
-
-# Set APScheduler logs to WARNING to suppress DEBUG/INFO from APScheduler internals
-logging.getLogger('apscheduler').setLevel(logging.WARNING)
 
 
 def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
