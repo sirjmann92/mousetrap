@@ -48,7 +48,7 @@ def wedge_automation_job():
                         details={"points": points, "threshold": trigger_point_threshold}
                     )
                 except Exception:
-                    pass
+                    continue  # Skip to next iteration if notification fails
                 continue
             # (Time-based triggers would need last-run tracking, omitted for brevity)
             # Each wedge costs 10,000 points (adjust as needed)
@@ -76,7 +76,7 @@ def wedge_automation_job():
                         details={"points": points, "cost": total_cost}
                     )
                 except Exception:
-                    pass
+                    continue  # Skip to next iteration if notification fails
                 continue
             # Trigger automation
             result = buy_wedge(mam_id, proxy_cfg=proxy_cfg)
@@ -106,7 +106,7 @@ def wedge_automation_job():
                         details={"points": points}
                     )
                 except Exception:
-                    pass
+                    continue  # Skip to next iteration if notification fails
             else:
                 logging.warning(f"[WedgeAuto] Automated purchase: Wedge (points) for session '{label}' FAILED. Error: {event['error']}")
                 try:
@@ -119,7 +119,7 @@ def wedge_automation_job():
                         details={"points": points, "error": event['error']}
                     )
                 except Exception:
-                    pass
+                    continue  # Skip to next iteration if notification fails
             append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[WedgeAuto] label={label} trigger=automation result=exception error={e}")
