@@ -38,20 +38,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 import logging
-
-def build_proxy_dict(proxy_cfg):
-    if not proxy_cfg or not proxy_cfg.get("host"):
-        return None
-    host = proxy_cfg["host"]
-    port = proxy_cfg.get("port", 0)
-    username = proxy_cfg.get("username", "")
-    password = proxy_cfg.get("password", "")
-    if username and password:
-        proxy_url = f"http://{username}:{password}@{host}:{port}" if port else f"http://{username}:{password}@{host}"
-    else:
-        proxy_url = f"http://{host}:{port}" if port else f"http://{host}"
-    proxies = {"http": proxy_url, "https": proxy_url}
-    return proxies
+from backend.utils import build_proxy_dict
 
 def get_status(mam_id=None, proxy_cfg=None):
     if not mam_id:

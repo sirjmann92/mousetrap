@@ -25,7 +25,7 @@ def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
         proxies = None
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
         if proxy_cfg is not None:
-            from backend.mam_api import build_proxy_dict
+            from backend.utils import build_proxy_dict
             proxies = build_proxy_dict(proxy_cfg)
             logging.debug(f"[buy_upload_credit] Using proxy config: {proxy_cfg}")
             logging.debug(f"[buy_upload_credit] Built proxies dict: {proxies}")
