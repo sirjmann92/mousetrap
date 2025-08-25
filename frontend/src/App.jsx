@@ -11,6 +11,7 @@ import {
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
+import { SessionProvider } from "./context/SessionContext";
 
 // Component imports
 import StatusCard from "./components/StatusCard";
@@ -197,112 +198,98 @@ export default function App() {
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-  <AppBar position="fixed" sx={{ mb: 3, width: '100%', left: 0, right: 0, boxSizing: 'border-box' }}>
-        <Toolbar>
-          <img src={MouseTrapIcon} alt="MouseTrap" style={{ width: 48, height: 48, marginRight: 20 }} />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            MouseTrap
-          </Typography>
-          <SessionSelector
-            selectedLabel={selectedLabel}
-            setSelectedLabel={setSelectedLabel}
-            onLoadSession={loadSession}
-            onCreateSession={handleCreateSession}
-            onDeleteSession={handleDeleteSession}
-            sx={{ background: mode === "dark" ? "#222" : "#fff", borderRadius: 1, ml: 2 }}
-          />
-          <EventLogModalButton sessionLabel={selectedLabel} />
-          <IconButton color="inherit" onClick={() => setMode(mode === "light" ? "dark" : "light")}
-            sx={{ ml: 2 }}>
-            {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
-          </IconButton>
-          <Switch
-            checked={mode === "dark"}
-            onChange={() => setMode(mode === "light" ? "dark" : "light")}
-            color="default"
-            inputProps={{ "aria-label": "toggle dark mode" }}
-            sx={{ ml: 1 }}
-          />
-        </Toolbar>
-      </AppBar>
+    <SessionProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <AppBar position="fixed" sx={{ mb: 3, width: '100%', left: 0, right: 0, boxSizing: 'border-box' }}>
+          <Toolbar>
+            <img src={MouseTrapIcon} alt="MouseTrap" style={{ width: 48, height: 48, marginRight: 20 }} />
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              MouseTrap
+            </Typography>
+            <SessionSelector
+              onLoadSession={loadSession}
+              onCreateSession={handleCreateSession}
+              onDeleteSession={handleDeleteSession}
+              sx={{ background: mode === "dark" ? "#222" : "#fff", borderRadius: 1, ml: 2 }}
+            />
+            <EventLogModalButton sessionLabel={selectedLabel} />
+            <IconButton color="inherit" onClick={() => setMode(mode === "light" ? "dark" : "light")}
+              sx={{ ml: 2 }}>
+              {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
+            <Switch
+              checked={mode === "dark"}
+              onChange={() => setMode(mode === "light" ? "dark" : "light")}
+              color="default"
+              inputProps={{ "aria-label": "toggle dark mode" }}
+              sx={{ ml: 1 }}
+            />
+          </Toolbar>
+        </AppBar>
 
-      {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
-      <Toolbar />
-  <Container maxWidth="md">
-        <StatusCard
-          ref={statusCardRef}
-          detectedIp={detectedIp}
-          currentASN={currentASN}
-          autoWedge={autoWedge}
-          autoVIP={autoVIP}
-          autoUpload={autoUpload}
-          setDetectedIp={setDetectedIp}
-          setPoints={setPoints}
-          setCheese={setCheese}
-          sessionLabel={selectedLabel}
-          onSessionDataChanged={() => loadSession(selectedLabel)}
-          onStatusUpdate={handleStatusUpdate}
-        />
-        {/* EventLogPanel now shown in modal, not inline */}
-        <MouseTrapConfigCard
-          mamId={mamId}
-          setMamId={setMamId}
-          sessionType={sessionType}
-          setSessionType={setSessionType}
-          mamIp={mamIp}
-          setMamIp={setMamIp}
-          detectedIp={detectedIp}
-          currentASN={currentASN}
-          checkFrequency={checkFrequency}
-          setCheckFrequency={setCheckFrequency}
-          label={label}
-          setLabel={setLabel}
-          oldLabel={oldLabel}
-          onSessionSaved={handleSessionSaved}
-          proxy={proxy}
-          setProxy={setProxy}
-          proxiedIp={proxiedIp}
-          proxiedAsn={proxiedAsn}
-          hasSessions={sessions.length > 0}
-          onCreateNewSession={handleCreateSession}
-          forceExpand={forceExpandConfig}
-          onForceExpandHandled={() => setForceExpandConfig(false)}
-          // browserCookie={browserCookie}
-          // setBrowserCookie={setBrowserCookie}
-        />
-        {sessions.length > 0 && (
-          <PerkAutomationCard
-            buffer={buffer}
-            setBuffer={setBuffer}
-            wedgeHours={wedgeHours}
-            setWedgeHours={setWedgeHours}
+        {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
+        <Toolbar />
+        <Container maxWidth="md">
+          <StatusCard
+            ref={statusCardRef}
             autoWedge={autoWedge}
-            setAutoWedge={setAutoWedge}
             autoVIP={autoVIP}
-            setAutoVIP={setAutoVIP}
             autoUpload={autoUpload}
-            setAutoUpload={setAutoUpload}
-            points={points}
-            cheese={cheese}
-            uploadAmount={uploadAmount}
-            setUploadAmount={setUploadAmount}
-            vipWeeks={vipWeeks}
-            setVipWeeks={setVipWeeks}
-            wedgeMethod={wedgeMethod}
-            setWedgeMethod={setWedgeMethod}
-            sessionLabel={selectedLabel}
-            onActionComplete={() => {
-              if (statusCardRef.current && statusCardRef.current.fetchStatus) {
-                statusCardRef.current.fetchStatus();
-              }
-            }}
+            onSessionDataChanged={() => loadSession(selectedLabel)}
+            onStatusUpdate={handleStatusUpdate}
           />
-        )}
-        <PortMonitorCard />
-        <NotificationsCard />
-      </Container>
-    </ThemeProvider>
+          {/* EventLogPanel now shown in modal, not inline */}
+          <MouseTrapConfigCard
+            mamId={mamId}
+            setMamId={setMamId}
+            sessionType={sessionType}
+            setSessionType={setSessionType}
+            mamIp={mamIp}
+            setMamIp={setMamIp}
+            currentASN={currentASN}
+            checkFrequency={checkFrequency}
+            setCheckFrequency={setCheckFrequency}
+            oldLabel={oldLabel}
+            onSessionSaved={handleSessionSaved}
+            proxy={proxy}
+            setProxy={setProxy}
+            proxiedIp={proxiedIp}
+            proxiedAsn={proxiedAsn}
+            hasSessions={sessions.length > 0}
+            onCreateNewSession={handleCreateSession}
+            forceExpand={forceExpandConfig}
+            onForceExpandHandled={() => setForceExpandConfig(false)}
+          />
+          {sessions.length > 0 && (
+            <PerkAutomationCard
+              buffer={buffer}
+              setBuffer={setBuffer}
+              wedgeHours={wedgeHours}
+              setWedgeHours={setWedgeHours}
+              autoWedge={autoWedge}
+              setAutoWedge={setAutoWedge}
+              autoVIP={autoVIP}
+              setAutoVIP={setAutoVIP}
+              autoUpload={autoUpload}
+              setAutoUpload={setAutoUpload}
+              uploadAmount={uploadAmount}
+              setUploadAmount={setUploadAmount}
+              vipWeeks={vipWeeks}
+              setVipWeeks={setVipWeeks}
+              wedgeMethod={wedgeMethod}
+              setWedgeMethod={setWedgeMethod}
+              onActionComplete={() => {
+                if (statusCardRef.current && statusCardRef.current.fetchStatus) {
+                  statusCardRef.current.fetchStatus();
+                }
+              }}
+            />
+          )}
+          <PortMonitorCard />
+          <NotificationsCard />
+        </Container>
+      </ThemeProvider>
+    </SessionProvider>
   );
 }
