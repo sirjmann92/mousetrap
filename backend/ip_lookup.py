@@ -1,6 +1,7 @@
 import requests
 import os
 import logging
+from backend.utils import build_proxy_dict
 from typing import Optional, Tuple
 
 def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
@@ -39,16 +40,7 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
         url_ipdata = f"https://api.ipdata.co/?api-key={ipdata_api_key}"
     providers.append((url_ipdata, 'ipdata'))
 
-    proxies = None
-    if proxy_cfg:
-        proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
-        if not proxy_url and 'host' in proxy_cfg and 'port' in proxy_cfg:
-            userpass = ''
-            if proxy_cfg.get('username') and proxy_cfg.get('password'):
-                userpass = f"{proxy_cfg['username']}:{proxy_cfg['password']}@"
-            proxy_url = f"http://{userpass}{proxy_cfg['host']}:{proxy_cfg['port']}"
-        if proxy_url:
-            proxies = {'http': proxy_url, 'https': proxy_url}
+    proxies = build_proxy_dict(proxy_cfg) if proxy_cfg else None
 
     for url, provider in providers:
         try:

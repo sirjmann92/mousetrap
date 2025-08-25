@@ -21,7 +21,7 @@ def get_auto_update_val(status):
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
 from backend.automation import wedge_automation_job, vip_automation_job
-from backend.utils import build_status_message
+from backend.utils import build_status_message, build_proxy_dict
 from backend.utils import extract_asn_number
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -137,32 +137,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     reason = None
     # Remove all IP logic for the API call; only use mam_id and proxy
     proxy_cfg = cfg.get('proxy', {})
-    proxies = None
-    proxy_url = None
-    # Only use proxy if proxy config is present and has a host
-    if proxy_cfg and proxy_cfg.get('host'):
-        # If config is already a URL string
-        proxy_url = proxy_cfg.get('http') or proxy_cfg.get('https') or proxy_cfg.get('all')
-        # If not, try to build from host/port/username/password
-        if not proxy_url and 'host' in proxy_cfg and 'port' in proxy_cfg:
-            userpass = ''
-            if proxy_cfg.get('username') and proxy_cfg.get('password'):
-                userpass = f"{proxy_cfg['username']}:{proxy_cfg['password']}@"
-            proxy_url = f"http://{userpass}{proxy_cfg['host']}:{proxy_cfg['port']}"
-        if proxy_url:
-            proxies = {
-                'http': proxy_url,
-                'https': proxy_url
-            }
-        else:
-            # Check for partial (malformed) config: some but not all fields present
-            proxy_fields = [proxy_cfg.get('host'), proxy_cfg.get('port'), proxy_cfg.get('username'), proxy_cfg.get('password')]
-            filled = [v for v in proxy_fields if v]
-            if 0 < len(filled) < len(proxy_fields):
-                logging.warning(f"[AutoUpdate] label={label} proxy config is incomplete or malformed; skipping proxy usage.")
-            # If all are empty, just ignore (proxy is optional)
-            proxies = None
-    # If no proxy config or no host, proxies remains None (no error, direct connection)
+    proxies = build_proxy_dict(proxy_cfg)
     # Do not log proxies dict (may contain sensitive info)
     # Only trigger update if something changed (IP or ASN)
     update_needed = False
