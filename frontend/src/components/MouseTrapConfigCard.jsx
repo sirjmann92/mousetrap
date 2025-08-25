@@ -29,23 +29,25 @@ import PropTypes from 'prop-types';
 import { useSession } from '../context/SessionContext';
 
 export default function MouseTrapConfigCard({
-  mamId, setMamId,
-  sessionType, setSessionType,
-  mamIp, setMamIp,
-  currentASN,
-  checkFrequency, setCheckFrequency,
-  oldLabel,
   onSessionSaved,
-  proxy = {}, setProxy,
-  proxiedIp = "",
-  proxiedAsn = "",
-  browserCookie, setBrowserCookie,
   hasSessions = true,
   onCreateNewSession,
   forceExpand = false,
   onForceExpandHandled = () => {}
 }) {
-  const { detectedIp, sessionLabel: label, setSessionLabel: setLabel } = useSession();
+  const {
+    detectedIp,
+    sessionLabel: label,
+    setSessionLabel: setLabel,
+    mamId, setMamId,
+    sessionType, setSessionType,
+    mamIp, setMamIp,
+    checkFrequency, setCheckFrequency,
+    oldLabel, setOldLabel,
+    proxy, setProxy,
+    proxiedIp, proxiedAsn,
+    browserCookie, setBrowserCookie
+  } = useSession();
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -70,11 +72,11 @@ export default function MouseTrapConfigCard({
   const [labelError, setLabelError] = useState("");
 
   useEffect(() => {
-    setProxyHost(proxy.host || "");
-    setProxyPort(proxy.port || "");
-    setProxyUsername(proxy.username || "");
+    setProxyHost(proxy?.host || "");
+    setProxyPort(proxy?.port || "");
+    setProxyUsername(proxy?.username || "");
     setProxyPassword("");
-    setHasPassword(!!proxy.password);
+    setHasPassword(!!proxy?.password);
   }, [proxy]);
 
 
@@ -414,27 +416,7 @@ export default function MouseTrapConfigCard({
 }
 
 MouseTrapConfigCard.propTypes = {
-  mamId: PropTypes.string,
-  setMamId: PropTypes.func,
-  sessionType: PropTypes.string,
-  setSessionType: PropTypes.func,
-  mamIp: PropTypes.string,
-  setMamIp: PropTypes.func,
-  detectedIp: PropTypes.string,
-  currentASN: PropTypes.string,
-  checkFrequency: PropTypes.number,
-  setCheckFrequency: PropTypes.func,
-  label: PropTypes.string,
-  setLabel: PropTypes.func,
-  oldLabel: PropTypes.string,
   onSessionSaved: PropTypes.func,
-  proxy: PropTypes.shape({
-    host: PropTypes.string,
-    port: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-    username: PropTypes.string,
-    password: PropTypes.string
-  }),
-  setProxy: PropTypes.func,
   hasSessions: PropTypes.bool,
   onCreateNewSession: PropTypes.func,
   forceExpand: PropTypes.bool,
@@ -442,8 +424,6 @@ MouseTrapConfigCard.propTypes = {
 };
 
 MouseTrapConfigCard.defaultProps = {
-  proxy: {},
-  setProxy: () => {},
   hasSessions: true,
   onCreateNewSession: () => {},
   forceExpand: false,

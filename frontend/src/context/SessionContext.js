@@ -24,12 +24,23 @@ export function SessionProvider({ children }) {
       });
     }
   }, [sessionLabel]);
+
+  // Session/config state
+  const [mamId, setMamId] = useState("");
+  const [sessionType, setSessionType] = useState("");
+  const [mamIp, setMamIp] = useState("");
+  const [checkFrequency, setCheckFrequency] = useState("");
+  const [oldLabel, setOldLabel] = useState("");
+  const [proxy, setProxy] = useState({});
+  const [proxiedIp, setProxiedIp] = useState("");
+  const [proxiedAsn, setProxiedAsn] = useState("");
+  const [browserCookie, setBrowserCookie] = useState("");
+
   const [sessionInfo, setSessionInfo] = useState({});
   const [status, setStatus] = useState(null);
   const [points, setPoints] = useState(null);
   const [cheese, setCheese] = useState(null);
   const [detectedIp, setDetectedIp] = useState("");
-  // Add more shared state as needed
 
   const value = {
     sessionLabel, setSessionLabel,
@@ -38,7 +49,15 @@ export function SessionProvider({ children }) {
     points, setPoints,
     cheese, setCheese,
     detectedIp, setDetectedIp,
-    // Add more setters/getters as needed
+    mamId, setMamId,
+    sessionType, setSessionType,
+    mamIp, setMamIp,
+    checkFrequency, setCheckFrequency,
+    oldLabel, setOldLabel,
+    proxy, setProxy,
+    proxiedIp, setProxiedIp,
+    proxiedAsn, setProxiedAsn,
+    browserCookie, setBrowserCookie,
   };
 
   return (
