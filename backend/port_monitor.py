@@ -117,7 +117,7 @@ class PortMonitor:
             append_ui_event_log(event)
             logging.info(f"[PortMonitor] {event['status_message']}")
         except Exception:
-            pass
+            ...  # Notification failure is ignored
         # Immediate check
         ip, result = self.check_port_with_ip(container_name, port)
         check.last_checked = time.time()
@@ -148,7 +148,7 @@ class PortMonitor:
             append_ui_event_log(event)
             logging.info(f"[PortMonitor] {event['status_message']}")
         except Exception:
-            pass
+            ...  # Notification failure is ignored
 
     def remove_check(self, container_name: str, port: int):
         self.checks = [c for c in self.checks if not (c.container_name == container_name and c.port == port)]
@@ -279,7 +279,7 @@ class PortMonitor:
                     append_ui_event_log(event)
                     logging.info(f"[PortMonitor] {event['status_message']}")
                 except Exception:
-                    pass
+                    ...  # Notification failure is ignored
             # Use per-check interval if set, else global
             sleep_time = min([c.interval for c in self.checks if c.interval] or [self.interval])
             time.sleep(sleep_time if sleep_time else self.interval)

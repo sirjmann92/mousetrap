@@ -102,7 +102,7 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None):
     proxy_cfg: optional proxy config dict
     """
     if method not in ("points", "cheese"):
-        raise Exception(f"Unsupported wedge purchase method: {method}")
+        return {"success": False, "error": f"Unsupported wedge purchase method: {method}"}
     import time
     timestamp = int(time.time() * 1000)
     url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=wedges&source={method}&_={timestamp}"
@@ -157,9 +157,7 @@ def can_afford_wedge(points, cheese, config):
         return points >= config['min_points']
 
 def automate_perks(config):
-    # Placeholder: automate_perks logic requires point, VIP, and wedge info APIs
-    # Not implemented because no such APIs exist at this time.
-    pass
+    """TODO: Implement automate_perks logic when point, VIP, and wedge info APIs are available."""
 
 def main():
     config = load_config()

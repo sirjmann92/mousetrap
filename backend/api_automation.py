@@ -57,7 +57,7 @@ async def manual_upload_credit(request: Request):
 				details={"amount": amount, "error": result.get('error')}
 			)
 	except Exception:
-		pass
+		...  # Notification failure is ignored
 	if success:
 		logging.info(f"[ManualUpload] Purchase: {amount}GB upload credit for session '{label}' succeeded.")
 	else:
@@ -113,7 +113,7 @@ async def manual_wedge(request: Request):
 				details={"method": method, "error": result.get('error')}
 			)
 	except Exception:
-		pass
+		...  # Notification failure is ignored
 	if success:
 		logging.info(f"[ManualWedge] Purchase: Wedge ({method}) for session '{label}' succeeded.")
 	else:
@@ -171,7 +171,7 @@ async def manual_vip(request: Request):
 					details={"weeks": "max", "error": result.get('error')}
 				)
 		except Exception:
-			pass
+			...  # Notification failure is ignored
 		if success:
 			logging.info(f"[ManualVIP] Purchase: VIP (max) for session '{label}' succeeded.")
 		else:
@@ -214,7 +214,7 @@ async def manual_vip(request: Request):
 					details={"weeks": weeks, "error": result.get('error')}
 				)
 		except Exception:
-			pass
+			...  # Notification failure is ignored
 		if success:
 			logging.info(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
 		else:
