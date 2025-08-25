@@ -24,17 +24,17 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 
 import { stringifyMessage } from '../utils/utils';
 
+import { useSession } from '../context/SessionContext';
+
 export default function PerkAutomationCard({
   buffer, setBuffer,
   wedgeHours, setWedgeHours,
   _autoWedge, setAutoWedge,
   _autoVIP, setAutoVIP,
   _autoUpload, setAutoUpload,
-  points,
-  // autoMillionairesVault removed
-  sessionLabel,
   onActionComplete = () => {}, // <-- new prop
 }) {
+  const { sessionLabel, points, setPoints } = useSession();
   // Local state for automation toggles, initialized from props if provided
   const [autoWedge, setAutoWedgeLocal] = useState(_autoWedge ?? false);
   const [autoVIP, setAutoVIPLocal] = useState(_autoVIP ?? false);
@@ -89,8 +89,8 @@ export default function PerkAutomationCard({
 
   // Load automation settings from session on mount/session change
   useEffect(() => {
-    if (!sessionLabel) return;
-    fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
+  if (!sessionLabel) return;
+  fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
       .then(res => res.json())
       .then(cfg => {
         const pa = cfg.perk_automation || {};
@@ -100,7 +100,8 @@ export default function PerkAutomationCard({
         const upload = (pa.upload_credit || {});
   setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
         setUploadAmount(upload.gb ?? 1);
-        setPointsToKeep(upload.points_to_keep ?? 0);
+  setPointsToKeep(upload.points_to_keep ?? 0);
+  setPoints && setPoints(cfg.points ?? null);
         setTriggerType(upload.trigger_type ?? 'time');
         setTriggerDays(upload.trigger_days ?? 7);
         setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
@@ -130,11 +131,11 @@ export default function PerkAutomationCard({
 
   // Guardrail logic: check if another session with same username has automation enabled
   useEffect(() => {
-    if (!guardrails || !currentUsername || !sessionLabel) return;
+  if (!guardrails || !currentUsername || !sessionLabel) return;
     let upload = false, wedge = false, vip = false;
     let uploadMsg = '', wedgeMsg = '', vipMsg = '';
     for (const [label, info] of Object.entries(guardrails)) {
-      if (label === sessionLabel) continue;
+  if (label === sessionLabel) continue;
       if (info.username && info.username === currentUsername) {
         if (info.autoUpload) {
           upload = true;

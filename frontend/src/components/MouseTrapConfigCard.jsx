@@ -26,14 +26,14 @@ import InfoOutlinedIcon from "@mui/icons-material/InfoOutlined";
 import Snackbar from '@mui/material/Snackbar';
 import PropTypes from 'prop-types';
 
+import { useSession } from '../context/SessionContext';
+
 export default function MouseTrapConfigCard({
   mamId, setMamId,
   sessionType, setSessionType,
   mamIp, setMamIp,
-  detectedIp,
   currentASN,
   checkFrequency, setCheckFrequency,
-  label, setLabel,
   oldLabel,
   onSessionSaved,
   proxy = {}, setProxy,
@@ -45,6 +45,7 @@ export default function MouseTrapConfigCard({
   forceExpand = false,
   onForceExpandHandled = () => {}
 }) {
+  const { detectedIp, sessionLabel: label, setSessionLabel: setLabel } = useSession();
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");

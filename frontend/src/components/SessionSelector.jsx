@@ -3,7 +3,10 @@ import { FormControl, InputLabel, Select, MenuItem, IconButton, Box, Tooltip, Di
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 
-export default function SessionSelector({ selectedLabel, setSelectedLabel, onLoadSession, onCreateSession, onDeleteSession, sx }) {
+import { useSession } from '../context/SessionContext';
+
+export default function SessionSelector({ onLoadSession, onCreateSession, onDeleteSession, sx }) {
+  const { sessionLabel: selectedLabel, setSessionLabel: setSelectedLabel } = useSession();
   const [sessions, setSessions] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 

@@ -15,9 +15,12 @@ import MamDetailsAccordion from './MamDetailsAccordion';
 import AutomationStatusRow from './AutomationStatusRow';
 import TimerDisplay from './TimerDisplay';
 
-const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved, onSessionDataChanged, onStatusUpdate }, ref) {
+import { useSession } from '../context/SessionContext';
+
+const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, onSessionSaved, onSessionDataChanged, onStatusUpdate }, ref) {
+  const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus } = useSession();
   const [wedges, setWedges] = useState(null);
-  const [status, setStatus] = useState(null);
+  // Removed local status/setStatus, use context only
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [seedboxStatus, setSeedboxStatus] = useState(null);
@@ -37,12 +40,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       if (data.success === false || data.error) {
         setStatus({ error: data.error || 'Unknown error from backend.' });
         setSnackbar({ open: true, message: stringifyMessage(data.error || 'Unknown error from backend.'), severity: 'error' });
-        if (setPoints) setPoints(null);
-        if (setCheese) setCheese(null);
+        setPoints && setPoints(null);
+        setCheese && setCheese(null);
         return;
       }
       const detectedIp = data.detected_public_ip || data.current_ip || "";
-  const newStatus = {
+      const newStatus = {
         last_update_mamid: data.mam_id || "",
         ratelimit: data.ratelimit || 0, // seconds, from backend
         check_freq: data.check_freq || 5, // minutes, from backend
@@ -65,17 +68,17 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         cheese: data.cheese || null,
         status_message: data.status_message || "", // user-friendly status message
         details: data.details || {}, // raw backend details
-  };
-  setStatus(newStatus);
-  if (onStatusUpdate) onStatusUpdate(newStatus);
-      if (setDetectedIp) setDetectedIp(detectedIp);
-      if (setPoints) setPoints(data.points || null);
-      if (setCheese) setCheese(data.cheese || null);
+      };
+      setStatus(newStatus);
+      if (onStatusUpdate) onStatusUpdate(newStatus);
+      setDetectedIp && setDetectedIp(detectedIp);
+      setPoints && setPoints(data.points || null);
+      setCheese && setCheese(data.cheese || null);
     } catch (e) {
       setStatus({ error: e.message || 'Failed to fetch status.' });
       setSnackbar({ open: true, message: stringifyMessage(e.message || 'Failed to fetch status.'), severity: 'error' });
-      if (setPoints) setPoints(null);
-      if (setCheese) setCheese(null);
+      setPoints && setPoints(null);
+      setCheese && setCheese(null);
     }
   };
 
