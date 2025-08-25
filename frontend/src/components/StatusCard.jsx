@@ -1,33 +1,19 @@
 import React, { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
-// import { fetchWedgesFromStore } from '../utils/scrapeWedges'; // removed: file does not exist
 import { Card, CardContent, Typography, Box, Snackbar, Alert, Divider, Button, Tooltip, IconButton } from "@mui/material";
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { getStatusMessageColor } from '../utils/utils';
-  // Helper to extract ASN number and provide tooltip for full AS string
-  const renderASN = (asn, fullAs) => {
-    let asnNum = asn;
-    const match = asn && typeof asn === 'string' ? asn.match(/(AS)?(\d+)/i) : null;
-    if (match) asnNum = match[2];
-    return (
-      <span style={{ display: 'flex', alignItems: 'center' }}>
-        {asnNum || 'N/A'}
-        {fullAs && (
-          <Tooltip title={fullAs} arrow>
-            <IconButton size="small" sx={{ ml: 0.5, p: 0.2 }}>
-              <InfoOutlinedIcon fontSize="inherit" />
-            </IconButton>
-          </Tooltip>
-        )}
-      </span>
-    );
-  };
+import { stringifyMessage, renderASN } from '../utils/statusUtils';
+import RateLimitTimer from './RateLimitTimer';
+import NetworkProxyDetailsAccordion from './NetworkProxyDetailsAccordion';
+import MamDetailsAccordion from './MamDetailsAccordion';
+import AutomationStatusRow from './AutomationStatusRow';
+import TimerDisplay from './TimerDisplay';
 
 const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUpload, setDetectedIp, setPoints, setCheese, sessionLabel, onSessionSaved, onSessionDataChanged, onStatusUpdate }, ref) {
   const [wedges, setWedges] = useState(null);
@@ -171,7 +157,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     if (!sessionLabel) return;
     setStatus(null); // Clear status to show loading/blank until check completes
     fetchStatus(false);
-  // fetchWedgesFromStore().then(setWedges); // removed: function not defined
     // eslint-disable-next-line
   }, [sessionLabel]);
 
@@ -260,46 +245,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Tooltip>
           </Box>
         </Box>
-        {/* Network & Proxy Details Rollup */}
-  {status && (
-          <Accordion sx={{ mt: 2, mb: 2, borderRadius: 2, overflow: 'hidden', bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }} defaultExpanded={false}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Network & Proxy Details</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
-              <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public IP Address:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.detected_public_ip || "N/A"}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Detected Public ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
-                  {renderASN(status.detected_public_ip_asn, status.detected_public_ip_as)}
-                </Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Proxied Public IP Address:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.proxied_public_ip || "N/A"}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Proxied Public ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
-                  {renderASN(status.proxied_public_ip_asn, status.proxied_public_ip_as)}
-                </Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session IP Address:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip || "N/A"}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session ASN:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
-                  {status.current_ip ? renderASN(status.current_ip_asn, status.mam_session_as) : 'N/A'}
-                </Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connection Proxied:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
-                <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Auto Update:</Typography>
-                <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>
-                  {status.details && status.details.auto_update == null
-                    ? 'N/A'
-                    : typeof status.details.auto_update === 'object'
-                      ? (status.details.auto_update.msg || status.details.auto_update.error || JSON.stringify(status.details.auto_update))
-                      : String(status.details.auto_update)}
-                </Typography>
-              </Box>
-            </AccordionDetails>
-          </Accordion>
-        )}
+  {/* Network & Proxy Details Accordion */}
+  <NetworkProxyDetailsAccordion status={status} />
         {/* MAM Details Accordion (restored, styled to match) */}
         {/* Robust error handling: if status is set and has error, only render the error alert */}
         {status && status.error ? (
@@ -313,29 +260,10 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Box>
           ) : (
             <Box>
-              {/* Timer, status message, and automation row (single instance) */}
+              {/* Timer Display and Automation Status Row */}
               {status.last_check_time && (
                 <React.Fragment>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2, mb: 1 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600, letterSpacing: 1 }}>
-                      Next check in:
-                    </Typography>
-                    <Box sx={{
-                      background: '#222',
-                      color: '#fff',
-                      px: 4,
-                      py: 2,
-                      borderRadius: 2,
-                      fontFamily: 'monospace',
-                      fontSize: { xs: '2.2rem', sm: '2.8rem', md: '3.2rem' },
-                      boxShadow: 2,
-                      minWidth: 220,
-                      textAlign: 'center',
-                      letterSpacing: 2
-                    }}>
-                      {String(Math.floor(timer / 60)).padStart(2, '0')}:{String(timer % 60).padStart(2, '0')}
-                    </Box>
-                  </Box>
+                  <TimerDisplay timer={timer} />
                   <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
                     {/* Unified, styled status message */}
                     {(() => {
@@ -350,75 +278,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       );
                     })()}
                   </Typography>
-                  {/* Automation row (restored, below status message) */}
-                  <Box sx={{ mt: 2, mb: 1 }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>Automation:</Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Wedge:</Typography>
-                        {autoWedge ? (
-                          <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                        ) : (
-                          <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>VIP Time:</Typography>
-                        {autoVIP ? (
-                          <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                        ) : (
-                          <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Upload Credit:</Typography>
-                        {autoUpload ? (
-                          <CheckCircleIcon sx={{ color: 'success.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                        ) : (
-                          <CancelIcon sx={{ color: 'error.main', fontSize: 22, position: 'relative', top: '-1px' }} />
-                        )}
-                      </Box>
-                    </Box>
-                  </Box>
-                  {/* MAM Details Accordion (moved below automation row) */}
-                  {status.details && status.details.raw && (
-                    <React.Fragment>
-                      <Accordion sx={{ mt: 2, mb: 2, borderRadius: 2, overflow: 'hidden', bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }} defaultExpanded={false}>
-                        <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>MAM Details</Typography>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
-                          <Box component="dl" sx={{ m: 0, p: 0, display: 'grid', gridTemplateColumns: 'max-content auto', rowGap: 0.5, columnGap: 2 }}>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Username:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.username ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>UID:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uid ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Rank:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.classname ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connectable:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.connectable ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Country:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.country_name ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Points:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.points !== null && status.points !== undefined ? status.points : 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Downloaded:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.downloaded ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Uploaded:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.uploaded ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Ratio:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.ratio ?? 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Seeding:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.sSat && typeof status.details.raw.sSat.count === 'number' ? status.details.raw.sSat.count : 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.count === 'number' ? status.details.raw.unsat.count : 'N/A'}</Typography>
-                            <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied Limit:</Typography>
-                            <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details.raw.unsat && typeof status.details.raw.unsat.limit === 'number' ? status.details.raw.unsat.limit : 'N/A'}</Typography>
-                          </Box>
-                        </AccordionDetails>
-                      </Accordion>
-                      <Box sx={{ height: 1 }} />
-                    </React.Fragment>
-                  )}
+                  <AutomationStatusRow autoWedge={autoWedge} autoVIP={autoVIP} autoUpload={autoUpload} />
+                  <MamDetailsAccordion status={status} />
                 </React.Fragment>
               )}
             </Box>
@@ -448,27 +309,3 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 
 export default StatusCard;
 
-// Utility to robustly stringify any message for snackbars
-function stringifyMessage(msg) {
-  if (typeof msg === 'string') return msg;
-  if (msg instanceof Error) return msg.message;
-  if (msg === undefined || msg === null) return '';
-  try {
-    return JSON.stringify(msg);
-  } catch {
-    return String(msg);
-  }
-}
-
-// Live rate limit timer component
-function RateLimitTimer({ minutes }) {
-  const [timeLeft, setTimeLeft] = useState(minutes * 60);
-  useEffect(() => {
-    if (timeLeft <= 0) return;
-    const interval = setInterval(() => setTimeLeft(t => t - 1), 1000);
-    return () => clearInterval(interval);
-  }, [timeLeft]);
-  const min = Math.floor(timeLeft / 60);
-  const sec = timeLeft % 60;
-  return <span>Time remaining: <b>{min}m {sec}s</b></span>;
-}
