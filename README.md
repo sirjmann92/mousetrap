@@ -87,6 +87,35 @@ Visit [http://localhost:39842](http://localhost:39842) in your browser.
 
 ---
 
+## 📝 Configuration & Data
+
+- All settings and state are stored in `/config` (if mapped as a volume)
+- Each session: `config/session-*.yaml` (created via the UI)
+- Port Monitoring: `/config/port_monitoring.yaml` (auto-created/updated)
+- Logs: `/logs` (persisted outside the container)
+- Global options: `config/config.yaml` (auto-created/updated)
+
+---
+
+## 🆘 Troubleshooting
+
+- **Error: `no configuration file provided: not found`**
+  - Make sure you have a valid `docker-compose.yml` before running Docker commands.
+- **Can't access UI?**
+  - Confirm port 39842 is exposed and not blocked by firewall.
+- **Proxy/VPN issues?**
+  - Ensure containers are on the same Docker network.
+  - Use VPN's Docker container IP or name for proxy host.
+  - You can inspect Docker networks with `docker network ls` and `docker network inspect <network>`.
+- **Permissions:**
+  - Set `PUID`/`PGID` to match your user for config/logs volume access.
+- **Port Monitoring not working?**
+  - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled.
+- **Session not updating?**
+  - Check backend logs and UI event log for errors. Confirm entered IP is correct.
+
+---
+
 ## 🧑‍💻 Advanced Options
 
 ### Build from Source
@@ -126,36 +155,8 @@ Both containers must be on the same Docker network. Use the container name (not 
 
 ---
 
-## 📝 Configuration & Data
 
-- All settings and state are stored in `/config` (if mapped as a volume)
-- Each session: `config/session-*.yaml` (created via the UI)
-- Port Monitoring: `/config/port_monitoring.yaml` (auto-created/updated)
-- Logs: `/logs` (persisted outside the container)
-- Global options: `config/config.yaml` (auto-created/updated)
-
----
-
-## 🆘 Troubleshooting
-
-- **Error: `no configuration file provided: not found`**
-  - Make sure you have a valid `docker-compose.yml` before running Docker commands.
-- **Can't access UI?**
-  - Confirm port 39842 is exposed and not blocked by firewall.
-- **Proxy/VPN issues?**
-  - Ensure containers are on the same Docker network.
-  - Use VPN's Docker container IP or name for proxy host.
-  - You can inspect Docker networks with `docker network ls` and `docker network inspect <network>`.
-- **Permissions:**
-  - Set `PUID`/`PGID` to match your user for config/logs volume access.
-- **Port Monitoring not working?**
-  - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled.
-- **Session not updating?**
-  - Check backend logs and UI event log for errors. Confirm entered IP is correct.
-
----
-
-## 📚 More Info & Advanced Features
+## 📚 More Info
 
 - [docs/CHANGELOG.md](docs/CHANGELOG.md): Recent features & bugfixes
 - [docs/architecture-and-rules.md](docs/architecture-and-rules.md): Automation logic & rules
@@ -170,23 +171,6 @@ If you get stuck, check the event log in the UI, review logs in `/logs`, or open
 
 ---
 
-## 🏗️ Full Compose Examples (Advanced)
-
-See below for advanced Compose setups (VPN, proxy, port monitoring, etc).
-
-
-#### Example: Proxy Configuration in MouseTrap UI
-
-- Host: `gluetun` (the container name, or use the container's Docker IP)
-- Port: `8888` (or whatever you set in Gluetun)
-- Username/Password: (if set in Gluetun)
-
-**Important:**
-- If MouseTrap and Gluetun are not on the same Docker network, they cannot communicate via container name or Docker IP.
-- If you use the host's IP address for the proxy, it will not work as expected, always use the Docker network address.
-
----
-
 ## IP/ASN Lookup & Fallbacks
 
 MouseTrap uses a robust, privacy-friendly fallback chain to determine your public IP address and ASN for each session:
@@ -197,6 +181,7 @@ MouseTrap uses a robust, privacy-friendly fallback chain to determine your publi
 If the primary provider is unavailable or rate-limited, MouseTrap will automatically try the next provider in the chain. This ensures reliable detection of your public IP and ASN, even if one or more services are down or blocked.
 
 **No extra setup is required for fallback support.**
+
 
 ### Using an ipinfo.io API Token (Recommended)
 
@@ -262,7 +247,7 @@ services:
 - If Docker permissions are missing, the UI disables controls and shows a warning, but the rest of the app remains fully functional.
 - All port check actions and container restarts are logged in the UI event log and filterable by label.
 
-## Full Docker Compose Examples
+## 🏗️ Full Docker Compose Examples
 
 
 ### 1. Native VPN Networking (network_mode)
