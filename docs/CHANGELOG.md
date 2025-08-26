@@ -1,3 +1,17 @@
+## Late August 2025
+
+### New Features & Fixes
+- **Upload Credit Automation:**
+  - Added backend automation for upload credit purchases, supporting both point-based and time-based triggers.
+  - UI and backend now support all three automation types: Wedge, VIP, and Upload Credit.
+- **Integer Guardrails:**
+  - All automation logic now safely handles None values for points and thresholds, preventing comparison errors and automation crashes.
+- **VIP Duration Label:**
+  - The VIP purchase dropdown label in the UI is now "VIP Duration" for clarity.
+- **Bugfixes:**
+  - Fixed rare automation errors when points or thresholds were None.
+  - Improved event log clarity and error reporting for all automation types.
+
 # MouseTrap Changelog & Upgrade Notes
 
 ## August 2025

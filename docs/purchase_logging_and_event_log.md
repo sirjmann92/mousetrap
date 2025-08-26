@@ -1,7 +1,7 @@
 # Purchase Logging and Event Log Behavior
 
 ## Overview
-All manual and automated perk purchases (Upload Credit, VIP, Wedge) are now fully logged in both the backend logs and the UI event log. This applies to both manual (user-triggered) and automated (scheduled/automatic) purchases.
+All manual and automated perk purchases (Upload Credit, VIP, Wedge) are now fully logged in both the backend logs and the UI event log. This applies to both manual (user-triggered) and automated (scheduled/automatic) purchases. As of August 2025, upload credit automation is fully implemented and logged, and all automation types have integer guardrails to prevent errors if points or thresholds are missing or None.
 
 ## Event Log Entries
 - **Manual Purchases:**
