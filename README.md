@@ -174,14 +174,6 @@ If you get stuck, check the event log in the UI, review logs in `/logs`, or open
 
 See below for advanced Compose setups (VPN, proxy, port monitoring, etc).
 
----
-    # ...
-  mousetrap:
-    build: .
-    networks:
-      - vpnnet
-    # ...
-```
 
 #### Example: Proxy Configuration in MouseTrap UI
 
@@ -244,7 +236,7 @@ services:
 - Enter the proxy details (host, port, username, password) in each session's config in the MouseTrap UI.
 - MouseTrap will route MAM API calls for that session through the proxy, using the VPN's IP.
 
-#### Example: Gluetun HTTP Proxy
+#### Gluetun HTTP Proxy
 - Enable HTTP proxy in Gluetun: [Gluetun HTTP Proxy Docs](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
 - Use the proxy address (e.g., `gluetun:8888`) in your session config.
 
@@ -276,7 +268,7 @@ services:
 ### 1. Native VPN Networking (network_mode)
 
 ```yaml
-version: '3.8'
+#version: '3.8'
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -294,8 +286,7 @@ services:
       - ./gluetun:/gluetun
 
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest # If you prefer to build your own, remove this line & uncomment the next line
-    # build: .
+    image: ghcr.io/sirjmann92/mousetrap:latest
     container_name: mousetrap
     network_mode: "service:gluetun"
     environment:
@@ -304,13 +295,10 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
-      - ./logs:/app/logs  # Persist logs outside the container
-      # Optional: Enable port monitoring by mounting the Docker socket
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock:ro #Optional, for port monitoring support
     # No ports here! All traffic is routed through gluetun
 ```
-
-> **Note:** The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
 
 - Access the UI at `http://localhost:39842` (traffic is routed through the VPN container).
 - Do NOT set a `PORT` environment variable—MouseTrap always runs on 39842.
@@ -319,7 +307,7 @@ services:
 ### 2. HTTP Proxy Mode (recommended for multi-session)
 
 ```yaml
-version: '3.8'
+#version: '3.8'
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -340,8 +328,7 @@ services:
       - ./gluetun:/gluetun
 
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest # If you prefer to build your own, remove this line & uncomment the next line
-    # build: .
+    image: ghcr.io/sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
       - TZ=Europe/London
@@ -349,9 +336,8 @@ services:
       - PGID=1000
     volumes:
       - ./config:/config
-      - ./logs:/app/logs  # Persist logs outside the container
-      # Optional: Enable port monitoring by mounting the Docker socket
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs:/app/logs 
+      - /var/run/docker.sock:/var/run/docker.sock:ro #Optional, for port monitoring support
     ports:
       - 39842:39842
     depends_on:
