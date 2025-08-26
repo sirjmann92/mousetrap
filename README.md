@@ -13,21 +13,21 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
 
 **1. Create a `docker-compose.yml` file in your project directory.**
 
-Copy and paste this example (using the prebuilt image):
+Copy and paste this example:
 
 ```yaml
-version: '3.8'
+#version: '3.8' # Only required for older versions of Docker Compose
 services:
   mousetrap:
     image: ghcr.io/sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
-      - TZ=Europe/London
-      - PUID=1000
-      - PGID=1000
+      - TZ=Europe/London # Your timezone: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+      - PUID=1000 # Your host user ID
+      - PGID=1000 # Your host user group
     volumes:
-      - ./config:/config
-      - ./logs:/app/logs
+      - ./config:/config # Map your config directory for persistent settings
+      - ./logs:/app/logs # Map your log directory for troubleshooting
     ports:
       - 39842:39842
 ```
@@ -58,7 +58,32 @@ Visit [http://localhost:39842](http://localhost:39842) in your browser.
 - Multi-session: manage multiple MAM IDs in one instance
 - Detects and updates on public IP/ASN changes (VPN/proxy aware)
 - Rate limit handling and clear error/warning messages
-- **Port Monitoring:** Monitor container ports, auto-restart, persistent config, color-coded status, and event logging
+- Port Monitoring: Monitor container ports and auto-restart
+
+---
+
+## Environment Variables
+
+- `TZ`: Set the timezone for logs and scheduling (e.g. `Europe/London`).
+- `PUID`/`PGID`: Set user/group IDs for Docker volume permissions (optional).
+- `IPINFO_TOKEN`: (Recommended) ipinfo.io API token for reliable IP/ASN lookups and higher rate limits. See above for details.
+- `LOGLEVEL`: Set backend log level (`DEBUG`, `INFO`, `WARNING`, etc). Default: `INFO`.
+- `PORT`: (Advanced) Override backend port (default: 39842; not recommended).
+
+## Automation & Status
+
+- The backend checks each session at the configured interval.
+- If the IP changes, MouseTrap auto-updates your MAM seedbox session (rate-limited to once per hour).
+- All status checks and updates are logged to a persistent event log (viewable in the UI).
+- Use the "Check Now" and "Update Seedbox" buttons in the UI to force checks/updates.
+- Event log includes both successful updates and warnings/errors (e.g., unable to determine IP/ASN).
+
+## Testing IP/ASN Changes
+
+1. Change the session's `IP Address` in the UI or `mam_ip` in session-LABEL.yaml.
+2. Save and use "Update Seedbox" or wait for the next scheduled check.
+3. The backend will update MAM if the IP/ASN is different and log the result.
+4. For ASN changes, use an IP from a different provider (VPN/proxy).
 
 ---
 
@@ -71,7 +96,7 @@ If you want to build your own image:
 ```bash
 git clone https://github.com/sirjmann92/mousetrap.git
 cd mousetrap
-# In your docker-compose.yml, uncomment 'build: .' and remove 'image:'
+# In your docker-compose.yml, use 'build: .' instead of 'image:...'
 docker-compose up --build -d
 ```
 
@@ -103,11 +128,11 @@ Both containers must be on the same Docker network. Use the container name (not 
 
 ## 📝 Configuration & Data
 
-- All settings and state are stored in `/config` (mapped as a volume)
-- Edit `config/config.yaml` for global options
+- All settings and state are stored in `/config` (if mapped as a volume)
 - Each session: `config/session-*.yaml` (created via the UI)
 - Port Monitoring: `/config/port_monitoring.yaml` (auto-created/updated)
 - Logs: `/logs` (persisted outside the container)
+- Global options: `config/config.yaml` (auto-created/updated)
 
 ---
 
@@ -118,11 +143,13 @@ Both containers must be on the same Docker network. Use the container name (not 
 - **Can't access UI?**
   - Confirm port 39842 is exposed and not blocked by firewall.
 - **Proxy/VPN issues?**
-  - Ensure containers are on the same Docker network. Use container name for proxy host.
+  - Ensure containers are on the same Docker network.
+  - Use VPN's Docker container IP or name for proxy host.
+  - You can inspect Docker networks with `docker network ls` and `docker network inspect <network>`.
 - **Permissions:**
   - Set `PUID`/`PGID` to match your user for config/logs volume access.
 - **Port Monitoring not working?**
-  - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled but app works.
+  - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled.
 - **Session not updating?**
   - Check backend logs and UI event log for errors. Confirm entered IP is correct.
 
@@ -139,7 +166,7 @@ Both containers must be on the same Docker network. Use the container name (not 
 
 ## 💬 Support
 
-If you get stuck, check the event log in the UI, review logs in `/logs`, or open an issue on GitHub.
+If you get stuck, check the event log in the UI, review logs in `/logs`, or open an issue.
 
 ---
 
@@ -164,14 +191,9 @@ See below for advanced Compose setups (VPN, proxy, port monitoring, etc).
 
 **Important:**
 - If MouseTrap and Gluetun are not on the same Docker network, they cannot communicate via container name or Docker IP.
-- If you use the host's IP address for the proxy, it will not work as expected—always use the Docker network address.
-
-#### Troubleshooting
-- If you see connection errors, double-check that both containers are on the same Docker network and that the proxy is enabled in Gluetun.
-- You can inspect Docker networks with `docker network ls` and `docker network inspect <network>`.
+- If you use the host's IP address for the proxy, it will not work as expected, always use the Docker network address.
 
 ---
-
 
 ## IP/ASN Lookup & Fallbacks
 
@@ -197,44 +219,8 @@ ipinfo.io offers a free API token with generous limits for non-commercial use. U
      - IPINFO_TOKEN=your_token_here
    ```
 
-   Or export it in your shell before running Docker:
+If you do not set a token, MouseTrap will still work, but may fall back to other providers more often.
 
-   ```bash
-   export IPINFO_TOKEN=your_token_here
-   ```
-
-If you do not set a token, MouseTrap will still work, but may fall back to other providers more often if you exceed the free rate limit.
-
-## Environment Variables
-
-- `TZ`: Set the timezone for logs and scheduling (e.g. `Europe/London`).
-- `PUID`/`PGID`: Set user/group IDs for Docker volume permissions (optional).
-- `IPINFO_TOKEN`: (Recommended) ipinfo.io API token for reliable IP/ASN lookups and higher rate limits. See above for details.
-- `LOGLEVEL`: Set backend log level (`DEBUG`, `INFO`, `WARNING`, etc). Default: `INFO`.
-- `PORT`: (Advanced) Override backend port (default: 39842; not recommended).
-
-## Automation & Status
-
-- The backend checks each session at the configured interval (`check_freq` in minutes; minimum 5).
-- If the IP changes, MouseTrap auto-updates your MAM seedbox session (rate-limited to once per hour).
-- All status checks and updates are logged to a persistent event log (viewable in the UI).
-- Use the "Check Now" and "Update Seedbox" buttons in the UI to force checks/updates.
-- Event log includes both successful updates and warnings/errors (e.g., unable to determine IP/ASN).
-
-## Testing IP/ASN Changes
-
-1. Change the session's `IP Address` in the UI or `mam_ip` in session-LABEL.yaml.
-2. Save and use "Update Seedbox" or wait for the next scheduled check.
-3. The backend will update MAM if the IP/ASN is different and log the result.
-4. For ASN changes, use an IP from a different provider (VPN/proxy).
-
-## Troubleshooting
-
-- **Proxy errors:** Ensure your proxy supports HTTP CONNECT and credentials are correct.
-- **Rate limit:** MAM only allows seedbox updates once per hour per session.
-- **Session not updating?** Check backend logs and the UI event log for errors and confirm your entered IP is correct.
-- **Permissions:** If running in Docker, set `PUID`/`PGID` to match your user for config volume access.
-- **Event log missing entries?** Only real backend checks (not cached status) are logged. Warnings/errors are also shown in the event log.
 
 ## VPN Integration
 
