@@ -401,7 +401,7 @@ export default function PerkAutomationCard({
             onToggle={e => setAutoVIPCombined(e.target.checked)}
             toggleLabel="Enable VIP Automation"
             toggleDisabled={vipDisabled}
-            selectLabel="Weeks"
+            selectLabel="VIP Duration"
             selectValue={vipWeeks}
             selectOptions={[
               { value: 4, label: "4 Weeks" },
