@@ -344,17 +344,13 @@ services:
       - gluetun
 ```
 
-> **Note:**
-> - The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
-> - The `./logs:/app/logs` volume is recommended to persist logs outside the container. This allows you to view logs even if the container is removed or recreated.
-
+**Note:**
+- The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
+- The `./logs:/app/logs` volume is recommended to persist logs outside the container. This allows you to view logs even if the container is removed or recreated.
 - In HTTP proxy mode, enter your proxy credentials in each session's proxy config in the MouseTrap UI that you want to route through the proxy's connection.
 - For other VPN containers see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
-
-**Note:**
 - In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
 - The backend listens on port 39842 by default; you can override this with the `PORT` environment variable in case of conflicts.
-
 
 
 ## Port Monitor Notifications: Global vs Per-Port
