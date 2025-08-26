@@ -1,123 +1,153 @@
+
 # MouseTrap
 
-_A Dockerized web interface for automating MyAnonaMouse seedbox and account management tasks._
+_A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and account management._
 
-<!-- Updated logo August 2025 -->
 <p align="center">
   <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
 </p>
 
+---
 
-## Features
+## 🚀 Quick Start (Recommended for Beginners)
 
-- Modern web UI for all automation and session parameters
-- Persistent, timestamped event log (viewable in the UI)
-- Auto-purchase: wedges, VIP, upload credit (per session)
-- Perk automation (auto-spend points for perks)
-- Notifications: email, webhook, and in-app event log
-- Status dashboard with real-time updates and color-coded feedback
-- Per-session proxy support (with authentication)
-- Multi-session: manage multiple MAM IDs in one instance
-- Detects and updates on public IP/ASN changes (VPN/proxy aware)
-- Rate limit handling and clear error/warning messages
-- Designed for Docker Compose and ease of use
-- **Port Monitoring:** Global card for monitoring container ports, with auto-restart, persistent config (`/config/port_monitoring.yaml`), color-coded status, interval logic, and event logging. Robust to missing Docker permissions; disables controls if Docker socket is not available.
+**1. Create a `docker-compose.yml` file in your project directory.**
 
-![MouseTrap UI](images/mousetrap-001.png)
+Copy and paste this example (using the prebuilt image):
 
+```yaml
+version: '3.8'
+services:
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    container_name: mousetrap
+    environment:
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - ./config:/config
+      - ./logs:/app/logs
+    ports:
+      - 39842:39842
+```
 
-## Quick Start
-
-### 1. Prepare Your docker-compose.yml
-
-Before running any commands, create a `docker-compose.yml` file in your project directory. See the examples below for recommended setups.
-
-
-### 1. Use the Prebuilt Image (Recommended)
-
-Create a `docker-compose.yml` in your project directory using the examples below. Set your environment variables, volumes, and other options as needed.
-
-Start MouseTrap:
+**2. Start MouseTrap:**
 
 ```bash
 docker-compose up -d
 ```
 
+**3. Open the UI:**
+
 Visit [http://localhost:39842](http://localhost:39842) in your browser.
+
+**4. Configure your sessions and automation in the web UI.**
 
 ---
 
-### 2. (Optional) Build Your Own Image from Source
+## 🛠️ What You Get
 
-If you want to build from source, clone the repository and uncomment the `build: .` line in your Compose file:
+- Modern web UI for all automation and session parameters
+- Persistent event log (viewable in the UI)
+- Auto-purchase: wedges, VIP, upload credit (per session)
+- Perk automation (auto-spend points for perks)
+- Notifications: email, webhook, and in-app event log
+- Status dashboard with real-time updates
+- Per-session proxy support (with authentication)
+- Multi-session: manage multiple MAM IDs in one instance
+- Detects and updates on public IP/ASN changes (VPN/proxy aware)
+- Rate limit handling and clear error/warning messages
+- **Port Monitoring:** Monitor container ports, auto-restart, persistent config, color-coded status, and event logging
+
+---
+
+## 🧑‍💻 Advanced Options
+
+### Build from Source
+
+If you want to build your own image:
 
 ```bash
 git clone https://github.com/sirjmann92/mousetrap.git
 cd mousetrap
+# In your docker-compose.yml, uncomment 'build: .' and remove 'image:'
 docker-compose up --build -d
 ```
 
----
+### VPN/Proxy Integration
 
----
+MouseTrap supports two main networking modes:
 
-## Troubleshooting
+#### 1. VPN Container (Single IP)
 
-- If you see errors like `no configuration file provided: not found`, make sure you have created a valid `docker-compose.yml` before running any Docker commands.
-- For full Compose examples, see below.
-
----
-
-## Full Docker Compose Examples
-
-- All user settings and state are stored in the `/config` directory (mapped as a volume).
-  - Edit `config/config.yaml` for global options.
-  - Each session has its own config: `config/session-*.yaml` (created via the UI).
-  - **Port Monitoring:** Persistent checks and settings are stored in `/config/port_monitoring.yaml` (auto-created/updated by the backend and UI).
-  - **Proxy support:** Enter HTTP proxy details (host, port, username, password) per session in the UI. Passwords are encrypted at rest.
-  - **IP/ASN:** Enter the IP you want MAM to see for each session. The backend will use this for all MAM API calls.
-
----
-
-## Networking & Proxy Setup
-
-MouseTrap supports two main networking modes for VPN/proxy integration. Choosing the right setup is important for correct routing and security:
-
-### 1. VPN Container with `network_mode: service:gluetun` (Recommended for single-IP)
-
-- Attach MouseTrap directly to your VPN container using `network_mode: service:gluetun` in your gluetun Compose file.
-- All outbound traffic from MouseTrap will be routed through the VPN container.
-- You do NOT need to configure a proxy in MouseTrap for this mode.
-- The IP Address in your MouseTrap session config should match the VPN's external IP (you can use the "Detected Public IP in MouseTrap).
-- Only the VPN container should expose ports (e.g., `39842:39842` on gluetun).
-
-**When to use:**
-- You want all sessions to use the same VPN IP.
-- You do not need per-session proxies or multiple exit IPs.
-
-### 2. Standalone/HTTP Proxy Mode (Recommended for multi-session or multi-IP)
-
-- Run MouseTrap and your VPN container (e.g., Gluetun) as separate services, but on the same Docker network.
-- Enable the HTTP proxy feature in your VPN container (see Gluetun docs).
-- In MouseTrap, configure the proxy for each session you want proxied using the proxy's Docker network address (e.g. the Gluetun container's Docker IP).
-    - **Do NOT use your host's IP address.** Use the Docker container name or its internal IP.
-- Both containers must be on the same Docker network (default for Compose is `bridge`, but you can define a custom network for clarity).
-
-**When to use:**
-- You want different sessions to use different proxies or VPN exit IPs.
-- You want to run MouseTrap and Gluetun as independent containers.
-
-#### Example: Custom Docker Network
+Attach MouseTrap to your VPN container using `network_mode: service:gluetun`:
 
 ```yaml
-networks:
-  vpnnet:
-
 services:
-  gluetun:
-    image: qmcgaw/gluetun
-    networks:
-      - vpnnet
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    network_mode: "service:gluetun"
+    # ...other config...
+```
+
+All traffic is routed through the VPN. Only the VPN container should expose ports.
+
+#### 2. HTTP Proxy (Multi-session/Multi-IP)
+
+Enable HTTP proxy in your VPN container (see Gluetun docs) and enter proxy details per session in MouseTrap UI.
+
+Both containers must be on the same Docker network. Use the container name (not host IP) for proxy config.
+
+---
+
+## 📝 Configuration & Data
+
+- All settings and state are stored in `/config` (mapped as a volume)
+- Edit `config/config.yaml` for global options
+- Each session: `config/session-*.yaml` (created via the UI)
+- Port Monitoring: `/config/port_monitoring.yaml` (auto-created/updated)
+- Logs: `/logs` (persisted outside the container)
+
+---
+
+## 🆘 Troubleshooting
+
+- **Error: `no configuration file provided: not found`**
+  - Make sure you have a valid `docker-compose.yml` before running Docker commands.
+- **Can't access UI?**
+  - Confirm port 39842 is exposed and not blocked by firewall.
+- **Proxy/VPN issues?**
+  - Ensure containers are on the same Docker network. Use container name for proxy host.
+- **Permissions:**
+  - Set `PUID`/`PGID` to match your user for config/logs volume access.
+- **Port Monitoring not working?**
+  - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled but app works.
+- **Session not updating?**
+  - Check backend logs and UI event log for errors. Confirm entered IP is correct.
+
+---
+
+## 📚 More Info & Advanced Features
+
+- [docs/CHANGELOG.md](docs/CHANGELOG.md): Recent features & bugfixes
+- [docs/architecture-and-rules.md](docs/architecture-and-rules.md): Automation logic & rules
+- [docs/purchase_logging_and_event_log.md](docs/purchase_logging_and_event_log.md): Event log details
+- [Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
+
+---
+
+## 💬 Support
+
+If you get stuck, check the event log in the UI, review logs in `/logs`, or open an issue on GitHub.
+
+---
+
+## 🏗️ Full Compose Examples (Advanced)
+
+See below for advanced Compose setups (VPN, proxy, port monitoring, etc).
+
+---
     # ...
   mousetrap:
     build: .
