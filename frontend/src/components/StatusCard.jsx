@@ -283,6 +283,8 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                   </Typography>
                   <AutomationStatusRow autoWedge={autoWedge} autoVIP={autoVIP} autoUpload={autoUpload} />
                   <MamDetailsAccordion status={status} />
+                  {/* 1px invisible box for padding/squared corners below MAM Details accordion */}
+                  <Box sx={{ height: 1, width: '100%', border: 0, background: 'none', p: 0, m: 0 }} />
                 </React.Fragment>
               )}
             </Box>
