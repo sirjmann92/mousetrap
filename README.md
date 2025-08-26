@@ -32,41 +32,32 @@ _A Dockerized web interface for automating MyAnonaMouse seedbox and account mana
 
 Before running any commands, create a `docker-compose.yml` file in your project directory. See the examples below for recommended setups.
 
-### 2. Clone the Repository
 
-```bash
-git clone https://github.com/sirjmann92/mousetrap.git
-cd mousetrap
-```
+### 1. Use the Prebuilt Image (Recommended)
 
-### 3. Use the Prebuilt Image (Recommended)
+Create a `docker-compose.yml` in your project directory using the examples below. Set your environment variables, volumes, and other options as needed.
 
-Edit your `docker-compose.yml` to use the prebuilt image:
-
-```yaml
-services:
-  mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
-    # ...other config...
-```
-
-Then start MouseTrap:
+Start MouseTrap:
 
 ```bash
 docker-compose up -d
 ```
 
-### 4. (Optional) Build Your Own Image
+Visit [http://localhost:39842](http://localhost:39842) in your browser.
 
-If you want to build from source, uncomment the `build: .` line in your Compose file and run:
+---
+
+### 2. (Optional) Build Your Own Image from Source
+
+If you want to build from source, clone the repository and uncomment the `build: .` line in your Compose file:
 
 ```bash
+git clone https://github.com/sirjmann92/mousetrap.git
+cd mousetrap
 docker-compose up --build -d
 ```
 
-### 5. Access the Web UI
-
-Visit [http://localhost:39842](http://localhost:39842) in your browser.
+---
 
 ---
 
