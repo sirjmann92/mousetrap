@@ -7,6 +7,8 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
   <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
 </p>
 
+![MouseTrap dashboard] (images/mousetrap-001.png)
+
 ---
 
 ## 🚀 Quick Start (Recommended for Beginners)
@@ -89,8 +91,9 @@ If the primary provider is unavailable or rate-limited, MouseTrap will automatic
 
 **No extra setup is required for fallback support.**
 
+---
 
-### Using an ipinfo.io API Token (Recommended)
+## Using an ipinfo.io API Token (Recommended)
 
 ipinfo.io offers a free API token with generous limits for non-commercial use. Using a token increases reliability and reduces the chance of hitting rate limits.
 
