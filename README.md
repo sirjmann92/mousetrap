@@ -7,7 +7,7 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
   <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
 </p>
 
-![MouseTrap dashboard] (images/mousetrap-001.png)
+![MouseTrap dashboard](images/mousetrap-001.png)
 
 ---
 
