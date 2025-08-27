@@ -24,6 +24,26 @@ def upload_credit_automation_job():
                 points = 0
             if trigger_point_threshold is None:
                 trigger_point_threshold = 50000
+
+            # --- H&R Notification Logic ---
+            try:
+                from backend.notifications_backend import notify_event
+                inact_hnr = None
+                if status and isinstance(status, dict):
+                    raw = status.get('raw', {})
+                    inact_hnr = raw.get('inactHnr', {}).get('count')
+                # Only notify if event is enabled and inactHnr > 0
+                if inact_hnr is not None and inact_hnr > 0:
+                    notify_event(
+                        event_type="inactive_hit_and_run",
+                        label=label,
+                        status="WARNING",
+                        message=f"Hit & Run - Inactive (Not Seeding): {inact_hnr}",
+                        details={"inactive_hnr": inact_hnr}
+                    )
+            except Exception:
+                pass
+
             # Guardrails (only trigger if points >= threshold)
             if trigger_type in ('points', 'both') and int(points) < int(trigger_point_threshold):
                 logging.debug(f"[UploadAuto] label={label} trigger=automation result=skipped reason=below_point_threshold points={points} threshold={trigger_point_threshold}")

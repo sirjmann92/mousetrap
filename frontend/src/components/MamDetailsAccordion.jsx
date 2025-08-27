@@ -36,6 +36,12 @@ export default function MamDetailsAccordion({ status }) {
           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.unsat && typeof raw.unsat.count === 'number' ? raw.unsat.count : 'N/A'}</Typography>
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Unsatisfied Limit:</Typography>
           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.unsat && typeof raw.unsat.limit === 'number' ? raw.unsat.limit : 'N/A'}</Typography>
+
+          {/* Hit & Run rows */}
+          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Inactive H&amp;R (Not Seeding):</Typography>
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.inactHnr && typeof raw.inactHnr.count === 'number' ? raw.inactHnr.count : 'N/A'}</Typography>
+          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Active H&amp;R (Seeding):</Typography>
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.seedHnr && typeof raw.seedHnr.count === 'number' ? raw.seedHnr.count : 'N/A'}</Typography>
         </Box>
       </AccordionDetails>
     </Accordion>
