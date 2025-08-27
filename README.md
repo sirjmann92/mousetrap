@@ -78,6 +78,35 @@ Visit [http://localhost:39842](http://localhost:39842) in your browser.
 - Use the "Check Now" and "Update Seedbox" buttons in the UI to force checks/updates.
 - Event log includes both successful updates and warnings/errors (e.g., unable to determine IP/ASN).
 
+## IP/ASN Lookup & Fallbacks
+
+MouseTrap uses a robust, privacy-friendly fallback chain to determine your public IP address and ASN for each session:
+
+- **Primary:** [ipinfo.io](https://ipinfo.io/) (recommended, supports free API token)
+- **Fallbacks:** [ipwho.is](https://ipwho.is/), [ip-api.com](http://ip-api.com/), [ipdata.co](https://ipdata.co/)
+
+If the primary provider is unavailable or rate-limited, MouseTrap will automatically try the next provider in the chain. This ensures reliable detection of your public IP and ASN, even if one or more services are down or blocked.
+
+**No extra setup is required for fallback support.**
+
+
+### Using an ipinfo.io API Token (Recommended)
+
+ipinfo.io offers a free API token with generous limits for non-commercial use. Using a token increases reliability and reduces the chance of hitting rate limits.
+
+1. Sign up for a free account at [ipinfo.io/signup](https://ipinfo.io/signup).
+2. Copy your API token from the dashboard.
+3. Set the token as an environment variable in your Docker Compose file or host:
+
+   ```yaml
+   environment:
+     - IPINFO_TOKEN=your_token_here
+   ```
+
+If you do not set a token, MouseTrap will still work, but may fall back to other providers more often.
+
+---
+
 ## Testing IP/ASN Changes
 
 1. Change the session's `IP Address` in the UI or `mam_ip` in session-LABEL.yaml.
@@ -128,59 +157,6 @@ cd mousetrap
 # In your docker-compose.yml, use 'build: .' instead of 'image:...'
 docker-compose up --build -d
 ```
-
-### VPN/Proxy Integration
-
-MouseTrap supports two main networking modes:
-
-#### 1. VPN Container (Single IP)
-
-Attach MouseTrap to your VPN container using `network_mode: service:gluetun`:
-
-```yaml
-services:
-  mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
-    network_mode: "service:gluetun"
-    # ...other config...
-```
-
-All traffic is routed through the VPN. Only the VPN container should expose ports.
-
-#### 2. HTTP Proxy (Multi-session/Multi-IP)
-
-Enable HTTP proxy in your VPN container (see Gluetun docs) and enter proxy details per session in MouseTrap UI.
-
-Both containers must be on the same Docker network. Use the container name (not host IP) for proxy config.
-
----
-
-## IP/ASN Lookup & Fallbacks
-
-MouseTrap uses a robust, privacy-friendly fallback chain to determine your public IP address and ASN for each session:
-
-- **Primary:** [ipinfo.io](https://ipinfo.io/) (recommended, supports free API token)
-- **Fallbacks:** [ipwho.is](https://ipwho.is/), [ip-api.com](http://ip-api.com/), [ipdata.co](https://ipdata.co/)
-
-If the primary provider is unavailable or rate-limited, MouseTrap will automatically try the next provider in the chain. This ensures reliable detection of your public IP and ASN, even if one or more services are down or blocked.
-
-**No extra setup is required for fallback support.**
-
-
-### Using an ipinfo.io API Token (Recommended)
-
-ipinfo.io offers a free API token with generous limits for non-commercial use. Using a token increases reliability and reduces the chance of hitting rate limits.
-
-1. Sign up for a free account at [ipinfo.io/signup](https://ipinfo.io/signup).
-2. Copy your API token from the dashboard.
-3. Set the token as an environment variable in your Docker Compose file or host:
-
-   ```yaml
-   environment:
-     - IPINFO_TOKEN=your_token_here
-   ```
-
-If you do not set a token, MouseTrap will still work, but may fall back to other providers more often.
 
 ---
 
