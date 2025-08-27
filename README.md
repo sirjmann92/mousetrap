@@ -155,22 +155,6 @@ Both containers must be on the same Docker network. Use the container name (not 
 
 ---
 
-
-## 📚 More Info
-
-- [docs/CHANGELOG.md](docs/CHANGELOG.md): Recent features & bugfixes
-- [docs/architecture-and-rules.md](docs/architecture-and-rules.md): Automation logic & rules
-- [docs/purchase_logging_and_event_log.md](docs/purchase_logging_and_event_log.md): Event log details
-- [Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
-
----
-
-## 💬 Support
-
-If you get stuck, check the event log in the UI, review logs in `/logs`, or open an issue.
-
----
-
 ## IP/ASN Lookup & Fallbacks
 
 MouseTrap uses a robust, privacy-friendly fallback chain to determine your public IP address and ASN for each session:
@@ -198,6 +182,7 @@ ipinfo.io offers a free API token with generous limits for non-commercial use. U
 
 If you do not set a token, MouseTrap will still work, but may fall back to other providers more often.
 
+---
 
 ## VPN Integration
 
@@ -228,16 +213,17 @@ services:
 #### More Info
 - [qmcgaw/gluetun HTTP Proxy](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
 
+---
 
 ## Session Management & Event Logging
 
-- Each session in MouseTrap is independent: you can set a different MAM account, IP, proxy, and automation settings per session.
+- Each session in MouseTrap is independent: you can set a different MAM id, IP, proxy, and automation settings per session.
 - Session configs are stored in `/config/session-*.yaml`.
 - You can switch between sessions in the UI, and each will use its own proxy and IP for MAM API calls.
-- **Event Log Filtering:** The event log modal supports filtering by Global events, All Events, or by session label. The dropdown is dynamic and always reflects available sessions and global actions.
-- **Session creation, save, and delete actions are now logged as global events in the UI event log.** These events are always visible, not session-specific.
+- Event Log Filtering: The event log modal supports filtering by Global events, All Events, or by session label. The dropdown is dynamic and always reflects available sessions and global actions.
 - All port monitoring actions (add/delete check, container restart) are also logged globally and filterable in the event log.
 
+---
 
 ## Port Monitoring
 
@@ -247,8 +233,9 @@ services:
 - If Docker permissions are missing, the UI disables controls and shows a warning, but the rest of the app remains fully functional.
 - All port check actions and container restarts are logged in the UI event log and filterable by label.
 
-## 🏗️ Full Docker Compose Examples
+---
 
+## 🏗️ Full Docker Compose Examples
 
 ### 1. Native VPN Networking (network_mode)
 
@@ -337,26 +324,9 @@ services:
 - In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
 - The backend listens on port 39842 by default; you can override this with the `PORT` environment variable in case of conflicts.
 
-
-## Port Monitor Notifications: Global vs Per-Port
-
-MouseTrap supports two ways to notify you of port check failures:
-
-- **Global Notification Rule:**
-  - In the Notifications card, enable "Port Monitor Failure" for global notifications.
-  - Any port check failure will trigger a notification via the selected channels (email/webhook/Discord).
-  - Use this for a simple, all-or-nothing approach.
-
-- **Per-Port "Notify on Fail":**
-  - In the Port Monitoring card, enable "Notify on Fail" for each port check you want to monitor individually.
-  - Only failures for ports with this setting enabled will trigger a notification.
-  - Use this for granular control when monitoring multiple ports.
-
-**If both are enabled, you may receive duplicate notifications for the same failure.**
-For most users, the per-port setting is more flexible. For simple setups, the global rule is easier to manage.
-
 ---
-## Notifications & Email
+
+## Notifications
 
 MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord). Configure these in the Notifications card in the UI.
 
@@ -375,7 +345,25 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 - Enter your webhook URL in the UI. For Discord, check the "Discord" box to send Discord-compatible messages.
 - You can test both Email and Webhook notifications directly from the UI.
 
+### Port Monitor Notifications: Global vs Per-Port
+
+MouseTrap supports two ways to notify you of port check failures:
+
+- **Global Notification Rule:**
+  - In the Notifications card, enable "Port Monitor Failure" for global notifications.
+  - Any port check failure will trigger a notification via the selected channels (email/webhook/Discord).
+  - Use this for a simple, all-or-nothing approach.
+
+- **Per-Port "Notify on Fail":**
+  - In the Port Monitoring card, enable "Notify on Fail" for each port check you want to monitor individually.
+  - Only failures for ports with this setting enabled will trigger a notification.
+  - Use this for granular control when monitoring multiple ports.
+
+**If both are enabled, you may receive duplicate notifications for the same failure.**
+For most users, the per-port setting is more flexible. For simple setups, the global rule is easier to manage.
+
 ---
+
 ## Logging & Debugging
 
 MouseTrap uses Python's standard logging with timestamps and log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL).
@@ -404,6 +392,15 @@ Logs will include timestamps, log level, and message for easy troubleshooting.
 
 ---
 
-## Changelog
+## 📚 More Info
 
-See [`docs/CHANGELOG.md`](docs/CHANGELOG.md) for a summary of recent features, bugfixes, and upgrade notes.
+- [docs/CHANGELOG.md](docs/CHANGELOG.md): Recent features & bugfixes
+- [docs/architecture-and-rules.md](docs/architecture-and-rules.md): Automation logic & rules
+- [docs/purchase_logging_and_event_log.md](docs/purchase_logging_and_event_log.md): Event log details
+- [Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
+
+---
+
+## 💬 Support
+
+If you get stuck, check the event log in the UI, review logs in `/logs`, or open an issue.
