@@ -1008,7 +1008,7 @@ def register_all_session_jobs():
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         # Only register if frequency is set and valid, and MaM ID is present
         if not check_freq or not isinstance(check_freq, int) or check_freq < 1 or not mam_id:
-            logging.info(f"[APScheduler] Skipping job registration for session '{label}' (missing or invalid frequency or MaM ID)")
+            logging.info(f"[APScheduler] Skipping job registration for session '{label}' (missing or invalid input)")
             continue
         job_id = f"session_check_{label}"
         # Remove any existing job for this label

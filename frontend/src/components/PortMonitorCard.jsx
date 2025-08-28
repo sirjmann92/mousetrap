@@ -3,6 +3,7 @@ import { useTheme } from '@mui/material';
 import { Card, CardContent, Typography, Button, TextField, Box, List, ListItem, ListItemText, IconButton, Alert, Tooltip, Select, MenuItem, FormControl, InputLabel, Checkbox, FormControlLabel, Collapse } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
@@ -10,6 +11,26 @@ const API_BASE = '/api/port-monitor';
 const INTERVAL_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
 export default function PortMonitorCard() {
+  // Refresh a single port check status
+  const handleRefreshCheck = async (container, port) => {
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const res = await fetch(`${API_BASE}/check?container_name=${encodeURIComponent(container)}&port=${port}&force=1`);
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.detail || data.error || 'Failed to refresh port check.');
+      } else {
+        setSuccess('Port check refreshed.');
+        setTimeout(() => setSuccess(null), 2000);
+        fetchChecks();
+      }
+    } catch (e) {
+      setError('Failed to refresh port check.');
+    }
+    setLoading(false);
+  };
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [containers, setContainers] = useState([]);
@@ -332,13 +353,13 @@ export default function PortMonitorCard() {
               >
               <IconButton
                 edge="end"
-                aria-label="delete"
-                onClick={() => handleDeleteCheck(check.container_name, check.port)}
+                aria-label="refresh"
+                onClick={() => handleRefreshCheck(check.container_name, check.port)}
                 disabled={!dockerPermission || loading}
                 size="small"
-                sx={{ position: 'absolute', top: 8, right: 8 }}
+                sx={{ position: 'absolute', top: 8, right: 72 }}
               >
-                <DeleteIcon fontSize="small" />
+                <RefreshIcon fontSize="small" />
               </IconButton>
               <IconButton
                 edge="end"
@@ -349,6 +370,16 @@ export default function PortMonitorCard() {
                 sx={{ position: 'absolute', top: 8, right: 40 }}
               >
                 <EditIcon fontSize="small" />
+              </IconButton>
+              <IconButton
+                edge="end"
+                aria-label="delete"
+                onClick={() => handleDeleteCheck(check.container_name, check.port)}
+                disabled={!dockerPermission || loading}
+                size="small"
+                sx={{ position: 'absolute', top: 8, right: 8 }}
+              >
+                <DeleteIcon fontSize="small" />
               </IconButton>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
                 Container: {check.container_name}
