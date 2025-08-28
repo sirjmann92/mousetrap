@@ -22,6 +22,7 @@ from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_fro
 import re
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message, build_proxy_dict, setup_logging
+from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils import extract_asn_number
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,6 +47,8 @@ from backend.api_config import router as config_router
 from backend.api_automation import router as automation_router
 
 
+
+from backend.api_proxy import router as proxy_router
 from backend.api_port_monitor import router as port_monitor_router
 
 from backend.api_notifications import router as notifications_router
@@ -58,6 +61,7 @@ app = FastAPI(title="MouseTrap API")
 # Mount API routers
 app.include_router(automation_router, prefix="/api")
 app.include_router(last_session_router, prefix="/api")
+app.include_router(proxy_router, prefix="/api")
 app.include_router(port_monitor_router, prefix="/api/port-monitor")
 app.include_router(event_log_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
@@ -120,7 +124,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     update_needed = False
     reason = None
     # Remove all IP logic for the API call; only use mam_id and proxy
-    proxy_cfg = cfg.get('proxy', {})
+    proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     proxies = build_proxy_dict(proxy_cfg)
     # Do not log proxies dict (may contain sensitive info)
     # Only trigger update if something changed (IP or ASN)
@@ -130,7 +134,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
     if session_type == 'asn locked':
         # Always get ASN using proxy if available
         proxied_ip = cfg.get('proxied_public_ip')
-        proxy_cfg = cfg.get('proxy', {})
+        proxy_cfg = resolve_proxy_from_session_cfg(cfg)
         asn_to_check, _ = get_asn_and_timezone_from_ip(proxied_ip or ip_to_use, proxy_cfg if proxied_ip else None)
 
         # If ASN lookup failed, skip config update and logging
@@ -316,7 +320,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         }
     # --- Proxied public IP/ASN detection (only once) ---
     from backend.mam_api import get_proxied_public_ip_and_asn
-    proxy_cfg = cfg.get("proxy", {})
+    proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     proxied_public_ip, proxied_public_ip_asn = None, None
     if proxy_cfg and proxy_cfg.get("host"):
         # Only fetch proxied IP/ASN for backend logic if proxied session is active
@@ -404,34 +408,34 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     if force or not status:
         # Always perform a fresh status check and update both cache and YAML
         logging.debug(f"[SessionCheck][TRIGGER] label={label} source={'forced_api_status' if force else 'auto_api_status'}")
-        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        mam_status['configured_ip'] = ip_to_use
-        mam_status['configured_asn'] = asn
-        mam_status['mam_seen_asn'] = mam_seen_asn
-        mam_status['mam_seen_as'] = mam_seen_as
-        # --- Auto-update logic ---
-        auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
-        if auto_update_triggered and auto_update_result:
-            mam_status['auto_update_seedbox'] = auto_update_result
-            # Always persist the correct status_message after an update
-            if auto_update_result.get('error'):
-                mam_status['status_message'] = auto_update_result.get('error')
-            elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
-                mam_status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
-            else:
-                mam_status['status_message'] = build_status_message(mam_status)
+    mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+    mam_status['configured_ip'] = ip_to_use
+    mam_status['configured_asn'] = asn
+    mam_status['mam_seen_asn'] = mam_seen_asn
+    mam_status['mam_seen_as'] = mam_seen_as
+    # --- Auto-update logic ---
+    auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+    if auto_update_triggered and auto_update_result:
+        mam_status['auto_update_seedbox'] = auto_update_result
+        # Always persist the correct status_message after an update
+        if auto_update_result.get('error'):
+            mam_status['status_message'] = auto_update_result.get('error')
+        elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
+            mam_status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
         else:
             mam_status['status_message'] = build_status_message(mam_status)
-        # Update in-memory cache and YAML file with the latest status
-        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-        status = mam_status
-        last_check_time = now.isoformat()
-        # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
-        cfg = load_session(label)
-        # Save last status to session file
-        cfg['last_status'] = status
-        cfg['last_check_time'] = last_check_time
-        save_session(cfg, old_label=label)
+    else:
+        mam_status['status_message'] = build_status_message(mam_status)
+    # Update in-memory cache and YAML file with the latest status
+    session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+    status = mam_status
+    last_check_time = now.isoformat()
+    # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
+    cfg = load_session(label)
+    # Save last status to session file
+    cfg['last_status'] = status
+    cfg['last_check_time'] = last_check_time
+    save_session(cfg, old_label=label)
 
     # Only log an event if a real check was performed (force=1 or no cached status),
     # and suppress the very first status check event after session creation
@@ -509,7 +513,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         }
         append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
-    status['proxy'] = cfg.get('proxy', {})
+    status['proxy'] = resolve_proxy_from_session_cfg(cfg) or {}
     status['detected_public_ip'] = detected_public_ip
     status['detected_public_ip_asn'] = detected_public_ip_asn
     status['detected_public_ip_as'] = detected_public_ip_as

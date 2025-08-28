@@ -169,12 +169,13 @@ export default function NotificationsCard() {
           </FormGroup>
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" sx={{ mt: 2 }}>Webhook</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
             <TextField
               label="Webhook URL"
               value={config.webhook_url || ""}
               onChange={e => handleChange("webhook_url", e.target.value)}
-              fullWidth
+              size="small"
+              sx={{ flex: 1, minWidth: 350, maxWidth: 600 }}
             />
             <FormControlLabel
               control={<Checkbox
@@ -184,9 +185,11 @@ export default function NotificationsCard() {
               label="Discord"
               sx={{ ml: 1, mr: 1 }}
             />
-            <Button variant="outlined" onClick={handleTestWebhook} disabled={testLoading || !config.webhook_url} sx={{ minWidth: 80 }}>
-              TEST
-            </Button>
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" onClick={handleTestWebhook} disabled={testLoading || !config.webhook_url} sx={{ minWidth: 80 }}>
+                TEST
+              </Button>
+            </Box>
           </Box>
           <Divider sx={{ my: 3 }} />
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -214,14 +217,16 @@ export default function NotificationsCard() {
               label="SMTP Host"
               value={config.smtp?.host || ""}
               onChange={e => handleSmtpChange("host", e.target.value)}
-              fullWidth
+              size="small"
+              sx={{ width: 350, maxWidth: 600 }}
             />
             <TextField
               label="SMTP Port"
               type="number"
               value={config.smtp?.port || ""}
               onChange={e => handleSmtpChange("port", e.target.value)}
-              sx={{ maxWidth: 140 }}
+              size="small"
+              sx={{ width: 120 }}
             />
           </Box>
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
@@ -229,31 +234,36 @@ export default function NotificationsCard() {
               label="Username"
               value={config.smtp?.username || ""}
               onChange={e => handleSmtpChange("username", e.target.value)}
-              fullWidth
+              size="small"
+              sx={{ width: 350, maxWidth: 600 }}
             />
             <TextField
               label="Password"
               type="password"
               value={config.smtp?.password || ""}
               onChange={e => handleSmtpChange("password", e.target.value)}
-              fullWidth
+              size="small"
+              sx={{ width: 220 }}
             />
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
             <TextField
               label="To Email"
               value={config.smtp?.to_email || ""}
               onChange={e => handleSmtpChange("to_email", e.target.value)}
-              fullWidth
+              size="small"
+              sx={{ width: 350, maxWidth: 600 }}
             />
             <FormControlLabel
               control={<Switch checked={!!config.smtp?.use_tls} onChange={e => handleSmtpChange("use_tls", e.target.checked)} />}
               label="Use TLS"
               sx={{ ml: 1, mr: 1 }}
             />
-            <Button variant="outlined" onClick={handleTestSmtp} disabled={testLoading} sx={{ minWidth: 80 }}>
-              TEST
-            </Button>
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" onClick={handleTestSmtp} disabled={testLoading} sx={{ minWidth: 80 }}>
+                TEST
+              </Button>
+            </Box>
           </Box>
           <Divider sx={{ my: 3 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>

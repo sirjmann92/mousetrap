@@ -180,14 +180,22 @@ services:
     ...
 ```
 
-### 2. HTTP Proxy (Recommended for multi-session/multi-IP)
-- Use your VPN container's built-in HTTP proxy (e.g. qmcgaw/gluetun).
-- Enter the proxy details (host, port, username, password) in each session's config in the MouseTrap UI.
-- MouseTrap will route MAM API calls for that session through the proxy, using the VPN's IP.
 
-#### Gluetun HTTP Proxy
+### 2. Proxy Configuration (Recommended for multi-session/multi-IP)
+
+MouseTrap supports global proxy management and instant proxy testing:
+
+- **Add, edit, or delete proxies** in the Proxy Configuration card. Proxies are stored globally and can be reused across sessions.
+- **Test proxies instantly**: When you select a proxy in the Session Configuration card, MouseTrap will immediately test the connection and display the detected public IP (the IP that MAM will see).
+- **Use the detected proxied IP**: Click the "USE PROXY IP" button to instantly fill the session's IP field with the tested public IP for the selected proxy.
+- **Supports authentication**: Enter host, port, username, and password as needed.
+- **Proxy details are stored in `/config/proxies.yaml`** and are not tied to any single session.
+- **Session configs reference proxies by label** for easy switching and management.
+
+#### Example: Gluetun HTTP Proxy
 - Enable HTTP proxy in Gluetun: [Gluetun HTTP Proxy Docs](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
-- Use the proxy address (e.g., `gluetun:8888`) in your session config.
+- Add a proxy in MouseTrap with host, port, and (if set) your proxy username/password.
+- Select the proxy in your session config and use the "USE PROXY IP" button to set the correct public IP.
 
 #### More Info
 - [qmcgaw/gluetun HTTP Proxy](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
@@ -196,9 +204,9 @@ services:
 
 ## Session Management & Event Logging
 
-- Each session in MouseTrap is independent: you can set a different MAM id, IP, proxy, and automation settings per session.
-- Session configs are stored in `/config/session-*.yaml`.
-- You can switch between sessions in the UI, and each will use its own proxy and IP for MAM API calls.
+- Each session in MouseTrap is independent: you can set a different MAM id, IP, and automation settings per session, and select any configured proxy from the global proxy list.
+- Session configs are stored in `/config/session-*.yaml` and reference proxies by label.
+- You can switch between sessions in the UI, and each will use its selected proxy and IP for MAM API calls.
 - Event Log Filtering: The event log modal supports filtering by Global events, All Events, or by session label. The dropdown is dynamic and always reflects available sessions and global actions.
 - All port monitoring actions (add/delete check, container restart) are also logged globally and filterable in the event log.
 
@@ -253,6 +261,7 @@ services:
 
 - Access the UI at `http://localhost:39842` (traffic is routed through the VPN container).
 - Do NOT set a `PORT` environment variable—MouseTrap always runs on 39842.
+
 
 
 ### 2. HTTP Proxy Mode (recommended for multi-session)
@@ -365,8 +374,8 @@ services:
     # ...
 ```
 
-You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 
+You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 Logs will include timestamps, log level, and message for easy troubleshooting.
 
 ---
