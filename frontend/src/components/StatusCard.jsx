@@ -21,6 +21,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus } = useSession();
   const [wedges, setWedges] = useState(null);
   // Removed local status/setStatus, use context only
+  // Timer is now derived from backend only; no local countdown
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
   const [seedboxStatus, setSeedboxStatus] = useState(null);
@@ -82,77 +83,51 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     }
   };
 
-  // Timer logic: always use backend next_check_time
+  // Poll backend every 5 seconds for status, and update timer display from backend's next_check_time
   useEffect(() => {
-    let timerInterval = null;
     let pollInterval = null;
-    let polling = false;
     let lastNextCheckTime = status && status.next_check_time;
-
-    const startTimer = () => {
-      timerInterval = setInterval(() => {
-        if (status && status.next_check_time) {
-          const nextCheck = Date.parse(status.next_check_time);
-          const now = Date.now();
-          let secondsLeft = Math.floor((nextCheck - now) / 1000);
-          secondsLeft = Math.max(0, secondsLeft);
-          setTimer(secondsLeft);
-          if (secondsLeft === 0) {
-            clearInterval(timerInterval);
-            timerInterval = null;
-            // When timer hits zero, just fetch the latest status (do NOT force a backend check)
-            fetchStatus(false);
-            startPolling();
-          }
-        } else {
-          setTimer(0);
-          lastForcedCheckRef.current = null;
-        }
-      }, 1000);
-    };
+    let polling = false;
 
     const startPolling = () => {
+      if (polling) return;
       polling = true;
-      let lastCheckTime = status && status.last_check_time;
-      let lastStatusMsg = status && status.status_message;
-      let lastPoints = status && status.points;
       pollInterval = setInterval(async () => {
-        await fetchStatus(false);
-        // After fetch, check if a backend update is detected
-        if (
-          (status && status.last_check_time && status.last_check_time !== lastCheckTime) ||
-          (status && status.status_message && status.status_message !== lastStatusMsg) ||
-          (status && status.points && status.points !== lastPoints)
-        ) {
-          lastCheckTime = status.last_check_time;
-          lastPoints = status.points;
-          if (onSessionDataChanged) onSessionDataChanged();
-        }
-        // After fetch, check if next_check_time has updated (for timer restart)
-        if (status && status.next_check_time && status.next_check_time !== lastNextCheckTime) {
+        const res = await fetchStatus(false);
+        const newNextCheck = (res && res.next_check_time) || (status && status.next_check_time);
+        if (newNextCheck && newNextCheck !== lastNextCheckTime) {
+          lastNextCheckTime = newNextCheck;
           clearInterval(pollInterval);
           pollInterval = null;
           polling = false;
-          lastNextCheckTime = status.next_check_time;
-          startTimer();
         }
       }, 5000);
     };
 
-    // Start the timer on mount or when next_check_time/sessionLabel changes
-    if (status && status.next_check_time) {
-      setTimer(Math.max(0, Math.floor((Date.parse(status.next_check_time) - Date.now()) / 1000)));
-      startTimer();
-    } else {
-      setTimer(0);
-      lastForcedCheckRef.current = null;
+    // Watch timer and start polling when it hits 0
+    if (timer === 0) {
+      startPolling();
     }
 
     return () => {
-      if (timerInterval) clearInterval(timerInterval);
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [status && status.next_check_time, sessionLabel]);
+  }, [timer, sessionLabel, status && status.next_check_time]);
+
+  // Timer is always derived from backend's next_check_time and current time
+  useEffect(() => {
+    let interval = setInterval(() => {
+      if (status && status.next_check_time) {
+        const nextCheck = Date.parse(status.next_check_time);
+        const now = Date.now();
+        let secondsLeft = Math.floor((nextCheck - now) / 1000);
+        setTimer(Math.max(0, secondsLeft));
+      } else {
+        setTimer(0);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [status && status.next_check_time]);
 
   // Always perform a force=1 status check on first load/session select
   // On initial load/session select, fetch latest status (do NOT force a backend check)
@@ -281,6 +256,12 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       );
                     })()}
                   </Typography>
+                  {/* Proxy/VPN error warning below timer/status */}
+                  {status.proxy_error && (
+                    <Box sx={{ mt: 2, mb: 1 }}>
+                      <Alert severity="warning">{status.proxy_error}</Alert>
+                    </Box>
+                  )}
                   <AutomationStatusRow autoWedge={autoWedge} autoVIP={autoVIP} autoUpload={autoUpload} />
                   <MamDetailsAccordion status={status} />
                   {/* 1px invisible box for padding/squared corners below MAM Details accordion */}

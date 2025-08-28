@@ -322,19 +322,31 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     from backend.mam_api import get_proxied_public_ip_and_asn
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     proxied_public_ip, proxied_public_ip_asn = None, None
+    proxy_error = None
     if proxy_cfg and proxy_cfg.get("host"):
         # Only fetch proxied IP/ASN for backend logic if proxied session is active
-        proxied_ipinfo_data = get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
-        proxied_public_ip = get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
-        asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip, proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
-        asn_str = str(asn_full_proxied) if asn_full_proxied is not None else ""
-        match_proxied = re.search(r'(AS)?(\d+)', asn_str) if asn_str else None
-        proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_str
-        # Save to config if changed
-        if proxied_public_ip and cfg.get("proxied_public_ip") != proxied_public_ip:
-            cfg["proxied_public_ip"] = proxied_public_ip
-            cfg["proxied_public_ip_asn"] = proxied_public_ip_asn
-            save_session(cfg, old_label=label)
+        try:
+            proxied_ipinfo_data = get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
+            proxied_public_ip = get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
+            asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip, proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
+            asn_str = str(asn_full_proxied) if asn_full_proxied is not None else ""
+            match_proxied = re.search(r'(AS)?(\d+)', asn_str) if asn_str else None
+            proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_str
+            # Save to config if changed
+            if proxied_public_ip and cfg.get("proxied_public_ip") != proxied_public_ip:
+                cfg["proxied_public_ip"] = proxied_public_ip
+                cfg["proxied_public_ip_asn"] = proxied_public_ip_asn
+                save_session(cfg, old_label=label)
+        except Exception as e:
+            proxy_error = f"Proxy/VPN connection failed: {str(e)}"
+            from backend.notifications_backend import notify_event
+            notify_event(
+                event_type="proxy_failure",
+                label=label,
+                status="FAILED",
+                message=proxy_error,
+                details={"proxy": proxy_cfg.get("label", "unknown"), "error": str(e)}
+            )
     else:
         # Clear if no proxy
         if cfg.get("proxied_public_ip") or cfg.get("proxied_public_ip_asn"):
@@ -352,9 +364,12 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             "detected_public_ip": detected_public_ip,
             "detected_public_ip_asn": detected_public_ip_asn,
         }
+    # Always reload session config before every check to ensure latest proxy settings
     cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     mam_ip_override = cfg.get('mam_ip', "").strip()
+    # Always resolve proxy config immediately before every get_status call
+    proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     # If session is not configured (no mam_id), return not configured status
     if not mam_id:
         return {
@@ -406,36 +421,42 @@ def api_status(label: str = Query(None), force: int = Query(0)):
                 "details": {},
             }
     if force or not status:
+        # Always reload session config and resolve proxy before every real check
+        cfg = load_session(label)
+        proxy_cfg = resolve_proxy_from_session_cfg(cfg)
         # Always perform a fresh status check and update both cache and YAML
         logging.debug(f"[SessionCheck][TRIGGER] label={label} source={'forced_api_status' if force else 'auto_api_status'}")
-    mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-    mam_status['configured_ip'] = ip_to_use
-    mam_status['configured_asn'] = asn
-    mam_status['mam_seen_asn'] = mam_seen_asn
-    mam_status['mam_seen_as'] = mam_seen_as
-    # --- Auto-update logic ---
-    auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
-    if auto_update_triggered and auto_update_result:
-        mam_status['auto_update_seedbox'] = auto_update_result
-        # Always persist the correct status_message after an update
-        if auto_update_result.get('error'):
-            mam_status['status_message'] = auto_update_result.get('error')
-        elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
-            mam_status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
+        mam_status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        if 'proxy_error' not in mam_status and 'proxy_error' in locals() and proxy_error:
+            mam_status['proxy_error'] = proxy_error
+        mam_status['configured_ip'] = ip_to_use
+        mam_status['configured_asn'] = asn
+        mam_status['mam_seen_asn'] = mam_seen_asn
+        mam_status['mam_seen_as'] = mam_seen_as
+        # --- Auto-update logic ---
+        auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+        if auto_update_triggered and auto_update_result:
+            mam_status['auto_update_seedbox'] = auto_update_result
+            # Always persist the correct status_message after an update
+            if auto_update_result.get('error'):
+                mam_status['status_message'] = auto_update_result.get('error')
+            elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
+                mam_status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
+            else:
+                mam_status['status_message'] = build_status_message(mam_status)
         else:
             mam_status['status_message'] = build_status_message(mam_status)
-    else:
-        mam_status['status_message'] = build_status_message(mam_status)
-    # Update in-memory cache and YAML file with the latest status
-    session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
-    status = mam_status
-    last_check_time = now.isoformat()
-    # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
-    cfg = load_session(label)
-    # Save last status to session file
-    cfg['last_status'] = status
-    cfg['last_check_time'] = last_check_time
-    save_session(cfg, old_label=label)
+        # Update in-memory cache and YAML file with the latest status
+        session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
+        status = mam_status
+        last_check_time = now.isoformat()
+        # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
+        cfg = load_session(label)
+        # Save last status to session file
+        cfg['last_status'] = status
+        cfg['last_check_time'] = last_check_time
+        save_session(cfg, old_label=label)
+    # If not force and status exists, do NOT update last_check_time or next_check_time; use cached values
 
     # Only log an event if a real check was performed (force=1 or no cached status),
     # and suppress the very first status check event after session creation
@@ -545,7 +566,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         status['status_message'] = build_status_message(status)
     # Calculate next_check_time (UTC ISO format)
     check_freq_minutes = cfg.get("check_freq", 5)
-    # Parse last_check_time as datetime
+    # Use cached last_check_time unless a real check was just performed
     try:
         last_check_dt = datetime.fromisoformat(last_check_time) if last_check_time else None
     except Exception:
@@ -554,8 +575,17 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         # Fallback: use now as last_check_time if missing/invalid
         last_check_dt = now
         last_check_time = now.isoformat()
-    next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
-    next_check_time = next_check_dt.isoformat()
+    # Only update next_check_time if a real check was performed
+    if force or not status:
+        next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
+        next_check_time = next_check_dt.isoformat()
+    else:
+        # Use cached next_check_time if available
+        next_check_time = cfg.get('next_check_time')
+        if not next_check_time:
+            # If not present, calculate from last_check_time
+            next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
+            next_check_time = next_check_dt.isoformat()
     response = {
         "mam_cookie_exists": status.get("mam_cookie_exists"),
         "points": status.get("points"),
@@ -618,7 +648,7 @@ async def api_save_session(request: Request):
     try:
         cfg = await request.json()
         old_label = cfg.get("old_label")
-        proxy_cfg = cfg.get("proxy", {})
+        proxy_cfg = cfg.get("proxy", {}) or {}
         if "proxy" in cfg:
             from backend.config import load_session
             prev_cfg = None
@@ -633,7 +663,7 @@ async def api_save_session(request: Request):
                 except Exception:
                     prev_cfg = None
             # If password is missing but previous session had one, keep it
-            if (not proxy_cfg.get("password")) and prev_cfg and prev_cfg.get("proxy", {}).get("password"):
+            if isinstance(proxy_cfg, dict) and (not proxy_cfg.get("password")) and prev_cfg and prev_cfg.get("proxy", {}) and prev_cfg.get("proxy", {}).get("password"):
                 proxy_cfg["password"] = prev_cfg["proxy"]["password"]
             cfg["proxy"] = proxy_cfg
         import os
@@ -751,13 +781,17 @@ async def api_update_seedbox(request: Request):
                 return {"success": False, "error": f"Rate limit: wait {minutes_left} more minutes before updating seedbox IP/ASN."}
         if not update_needed:
             return {"success": True, "msg": "No change: IP/ASN already set."}
-        # Proxy config
-        proxy_cfg = cfg.get("proxy", {})
-        # No more password decryption logic needed
-        cookies = {"mam_id": mam_id}
-        proxies = None
+        # Proxy config: always resolve from proxies.yaml using session config
+        from backend.proxy_config import resolve_proxy_from_session_cfg
         from backend.mam_api import build_proxy_dict
+        proxy_cfg = resolve_proxy_from_session_cfg(cfg)
+        cookies = {"mam_id": mam_id}
         proxies = build_proxy_dict(proxy_cfg)
+        # Log proxy label and redacted URL for debugging
+        if proxies:
+            proxy_label = proxy_cfg.get('label') if proxy_cfg else None
+            proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
+            logging.debug(f"[SeedboxUpdate] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
         resp = requests.get("https://t.myanonamouse.net/json/dynamicSeedbox.php", cookies=cookies, timeout=10, proxies=proxies)
         logging.info(f"[SeedboxUpdate] MaM API response: status={resp.status_code}, text={resp.text}")
         try:
@@ -842,7 +876,7 @@ def session_check_job(label):
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         check_freq = cfg.get("check_freq", 5)
         mam_ip_override = cfg.get('mam_ip', "").strip()
-        proxy_cfg = cfg.get("proxy", {})
+        proxy_cfg = resolve_proxy_from_session_cfg(cfg)
         detected_public_ip = get_public_ip()
         # If proxy is configured, actively detect proxied public IP and update config
         if proxy_cfg and proxy_cfg.get('host'):
@@ -862,7 +896,7 @@ def session_check_job(label):
             asn = None
         now = datetime.now(timezone.utc)
         if mam_id:
-            proxy_cfg = cfg.get("proxy", {})
+            proxy_cfg = resolve_proxy_from_session_cfg(cfg)
             # Capture old IP/ASN before update
             prev_ip = cfg.get('last_seedbox_ip')
             prev_asn = cfg.get('last_seedbox_asn')
@@ -993,7 +1027,7 @@ def upload_credit_automation_job():
     now = datetime.now(timezone.utc)
     for label in session_labels:
         try:
-            cfg = load_session(label)
+            cfg = load_session(label)  # Always reload config
             mam_id = cfg.get('mam', {}).get('mam_id', "")
             if not mam_id:
                 continue
@@ -1005,7 +1039,7 @@ def upload_credit_automation_job():
             points_to_keep = automation.get('points_to_keep', 0)
             gb = automation.get('gb', 1)
             trigger_type = automation.get('trigger_type', 'points')
-            proxy_cfg = cfg.get('proxy', {})
+            proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
             # Get current status/points
             status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get('points', 0) if isinstance(status, dict) else 0

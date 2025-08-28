@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 from backend.config import load_session, save_session
+from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.event_log import append_ui_event_log
 from datetime import datetime, timezone
 import logging
@@ -20,7 +21,8 @@ async def manual_upload_credit(request: Request):
 		logging.warning(f"[ManualUpload] Session '{label}' not found or not configured.")
 		return {"success": False, "error": f"Session '{label}' not found."}
 	mam_id = cfg.get('mam', {}).get('mam_id', "")
-	proxy_cfg = cfg.get('proxy', {})
+	from backend.proxy_config import resolve_proxy_from_session_cfg
+	proxy_cfg = resolve_proxy_from_session_cfg(cfg)
 	now = datetime.now(timezone.utc)
 	result = buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
 	success = result.get('success', False)
@@ -76,7 +78,8 @@ async def manual_wedge(request: Request):
 		logging.warning(f"[ManualWedge] Session '{label}' not found or not configured.")
 		return {"success": False, "error": f"Session '{label}' not found."}
 	mam_id = cfg.get('mam', {}).get('mam_id', "")
-	proxy_cfg = cfg.get('proxy', {})
+	from backend.proxy_config import resolve_proxy_from_session_cfg
+	proxy_cfg = resolve_proxy_from_session_cfg(cfg)
 	now = datetime.now(timezone.utc)
 	result = buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
 	success = result.get('success', False)
@@ -132,7 +135,7 @@ async def manual_vip(request: Request):
 		logging.warning(f"[ManualVIP] Session '{label}' not found or not configured.")
 		return {"success": False, "error": f"Session '{label}' not found."}
 	mam_id = cfg.get('mam', {}).get('mam_id', "")
-	proxy_cfg = cfg.get('proxy', {})
+	proxy_cfg = resolve_proxy_from_session_cfg(cfg)
 	now = datetime.now(timezone.utc)
 	is_max = str(weeks).lower() in ["max", "90"]
 	if is_max:
@@ -219,4 +222,4 @@ async def manual_vip(request: Request):
 			logging.info(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
 		else:
 			logging.warning(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {result.get('error')}")
-	return {"success": success, **result}
+		return {"success": success, **result}

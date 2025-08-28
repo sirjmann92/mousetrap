@@ -27,8 +27,10 @@ def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
         if proxy_cfg is not None:
             from backend.utils import build_proxy_dict
             proxies = build_proxy_dict(proxy_cfg)
-            logging.debug(f"[buy_upload_credit] Using proxy config: {proxy_cfg}")
-            logging.debug(f"[buy_upload_credit] Built proxies dict: {proxies}")
+            if proxies:
+                proxy_label = proxy_cfg.get('label') if proxy_cfg else None
+                proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
+                logging.debug(f"[buy_upload_credit] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
         logging.debug(f"[buy_upload_credit] Requesting: {url}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
         logging.debug(f"[buy_upload_credit] Response: status={resp.status_code}\n  headers: {dict(resp.headers)}\n  text: {resp.text[:500]}")
@@ -71,8 +73,10 @@ def buy_vip(mam_id, duration='max', proxy_cfg=None):
     if proxy_cfg is not None:
         from backend.mam_api import build_proxy_dict
         proxies = build_proxy_dict(proxy_cfg)
-        logging.debug(f"[buy_vip] Using proxy config: {proxy_cfg}")
-        logging.debug(f"[buy_vip] Built proxies dict: {proxies}")
+        if proxies:
+            proxy_label = proxy_cfg.get('label') if proxy_cfg else None
+            proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
+            logging.debug(f"[buy_vip] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
     try:
         logging.debug(f"[buy_vip] Requesting: {url} params={params}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
         resp = requests.get(url, params=params, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
@@ -117,8 +121,10 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None):
     if proxy_cfg is not None:
         from backend.mam_api import build_proxy_dict
         proxies = build_proxy_dict(proxy_cfg)
-        logging.debug(f"[buy_wedge] Using proxy config: {proxy_cfg}")
-        logging.debug(f"[buy_wedge] Built proxies dict: {proxies}")
+        if proxies:
+            proxy_label = proxy_cfg.get('label') if proxy_cfg else None
+            proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
+            logging.debug(f"[buy_wedge] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
     try:
         logging.debug(f"[buy_wedge] Requesting: {url}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
