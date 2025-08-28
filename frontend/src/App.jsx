@@ -144,8 +144,6 @@ function InnerApp() {
     }
   };
 
-  // ...existing App logic (effects, handlers, etc.)...
-
   // Persist last used session label to backend
   React.useEffect(() => {
     if (selectedLabel) {
@@ -290,14 +288,13 @@ function InnerApp() {
         )}
         <MouseTrapConfigCard
           proxies={proxies}
-          onProxiesChanged={refreshProxies}
           onSessionSaved={handleSessionSaved}
           hasSessions={sessions.length > 0}
           onCreateNewSession={handleCreateSession}
           forceExpand={forceExpandConfig}
           onForceExpandHandled={() => setForceExpandConfig(false)}
         />
-        <ProxyConfigCard proxies={proxies} onProxiesChanged={refreshProxies} />
+        <ProxyConfigCard proxies={proxies} setProxies={setProxies} />
         {sessions.length > 0 && (
           <PerkAutomationCard
             buffer={buffer}
@@ -424,6 +421,7 @@ function InnerApp() {
             forceExpand={forceExpandConfig}
             onForceExpandHandled={() => setForceExpandConfig(false)}
           />
+          <ProxyConfigCard proxies={proxies} setProxies={setProxies} />
           {sessions.length > 0 && (
             <PerkAutomationCard
               buffer={buffer}
