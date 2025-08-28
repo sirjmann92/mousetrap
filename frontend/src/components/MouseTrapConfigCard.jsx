@@ -29,6 +29,8 @@ import PropTypes from 'prop-types';
 import { useSession } from '../context/SessionContext';
 
 export default function MouseTrapConfigCard({
+  proxies = {},
+  onProxiesChanged,
   onSessionSaved,
   hasSessions = true,
   onCreateNewSession,
@@ -61,23 +63,47 @@ export default function MouseTrapConfigCard({
     }
   }, [forceExpand, onForceExpandHandled]);
   // Proxy config state
-  const [proxyHost, setProxyHost] = useState(proxy.host || "");
-  const [proxyPort, setProxyPort] = useState(proxy.port || "");
-  const [proxyUsername, setProxyUsername] = useState(proxy.username || "");
-  // Track if a password is set (from backend)
-  const [proxyPassword, setProxyPassword] = useState(""); // blank unless user enters new
-  const [hasPassword, setHasPassword] = useState(!!proxy.password);
+  // Proxy selection state
+  const [proxyLabel, setProxyLabel] = useState("");
+  // proxies now comes from props
+  // proxyStatus.ip will now be the actual proxied public IP (not the proxy server's host)
+  const [proxyStatus, setProxyStatus] = useState({ ip: "", asn: "", valid: false });
+  // Local state for immediate proxy test result
+  const [localProxiedIp, setLocalProxiedIp] = useState("");
 
   // Validation state
   const [labelError, setLabelError] = useState("");
 
   useEffect(() => {
-    setProxyHost(proxy?.host || "");
-    setProxyPort(proxy?.port || "");
-    setProxyUsername(proxy?.username || "");
-    setProxyPassword("");
-    setHasPassword(!!proxy?.password);
+    setProxyLabel(proxy?.label || "");
   }, [proxy]);
+
+  // When proxyLabel changes, trigger backend detection for proxy IP/ASN
+  useEffect(() => {
+    if (!proxyLabel) {
+      setProxyStatus({ ip: "", asn: "", valid: false });
+      setLocalProxiedIp("");
+      return;
+    }
+    // When a proxy is selected, immediately check its public IP (without requiring save)
+    fetch(`/api/proxy_test/${encodeURIComponent(proxyLabel)}`)
+      .then(res => res.json())
+      .then(status => {
+        if (status && status.proxied_ip) {
+          setProxyStatus({ ip: status.proxied_ip, asn: status.proxied_asn || "", valid: true });
+          setLocalProxiedIp(status.proxied_ip);
+        } else {
+          setProxyStatus({ ip: "", asn: "", valid: false });
+          setLocalProxiedIp("");
+        }
+      })
+      .catch(() => {
+        setProxyStatus({ ip: "", asn: "", valid: false });
+        setLocalProxiedIp("");
+      });
+  }, [proxyLabel]);
+
+
 
 
   // Validation logic
@@ -106,14 +132,8 @@ export default function MouseTrapConfigCard({
       },
       mam_ip: mamIp,
       check_freq: checkFrequency,
-    browser_cookie: browserCookie,
-      proxy: {
-        host: proxyHost,
-        port: proxyPort ? Number(proxyPort) : 0,
-        username: proxyUsername,
-        // Only send password if user entered a new one
-        ...(proxyPassword ? { password: proxyPassword } : {})
-      }
+      browser_cookie: browserCookie,
+      proxy: { label: proxyLabel }
     };
     try {
       const res = await fetch("/api/session/save", {
@@ -291,119 +311,63 @@ export default function MouseTrapConfigCard({
                   helperText="IP to associate with MAM ID"
                   sx={{ width: 205 }}
                 />
-                <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-end', minWidth: 120, gap: 2, height: 64 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                    <Button
-                      variant="outlined"
-                      size="small"
-                      onClick={() => setMamIp(detectedIp)}
-                      sx={{ height: 40, mb: 0.375 }}
-                      disabled={!detectedIp}
-                    >
-                      Use Detected IP
-                    </Button>
-                    <Typography variant="caption" color="text.secondary">
-                      {detectedIp || 'No IP detected'}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}>
-                    {/* Tooltip only when button is disabled due to missing proxy config */}
-                    <Tooltip
-                      title={(!proxyHost || !proxyPort) ? "VPN proxy not configured" : ""}
-                      arrow
-                      disableHoverListener={!!proxyHost && !!proxyPort}
-                      disableFocusListener={!!proxyHost && !!proxyPort}
-                    >
-                      <span>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          color="primary"
-                          onClick={() => setMamIp(proxiedIp)}
-                          sx={{ height: 40, mb: 0.375 }}
-                          disabled={!proxiedIp}
-                        >
-                          Use Detected VPN IP
-                        </Button>
-                      </span>
-                    </Tooltip>
-                    <Typography variant="caption" color="text.secondary">
-                      {proxiedIp || 'No IP detected'}
-                    </Typography>
-                  </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => setMamIp(detectedIp)}
+                    sx={{ height: 40, mb: 0.2, minWidth: 120 }}
+                    disabled={!detectedIp}
+                  >
+                    USE DETECTED IP
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2 }}>
+                    {detectedIp || 'No IP detected'}
+                  </Typography>
                 </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    color="primary"
+                    onClick={() => setMamIp(localProxiedIp)}
+                    sx={{ height: 40, mb: 0.2, minWidth: 120 }}
+                    disabled={!localProxiedIp}
+                  >
+                    USE PROXY IP
+                  </Button>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2 }}>
+                    {localProxiedIp || 'No proxy IP detected'}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                <FormControl size="small" sx={{ minWidth: 260, maxWidth: 320 }}>
+                  <InputLabel>Proxy</InputLabel>
+                  <Select
+                    value={proxyLabel}
+                    label="Proxy"
+                    onChange={e => setProxyLabel(e.target.value)}
+                    sx={{ minWidth: 260, maxWidth: 320 }}
+                    MenuProps={{
+                      PaperProps: {
+                        style: { minWidth: 260, maxWidth: 320 },
+                      },
+                      disableScrollLock: true
+                    }}
+                  >
+                    <MenuItem value=""><em>None</em></MenuItem>
+                    {Object.keys(proxies).map(label => (
+                      <MenuItem key={label} value={label} style={{ whiteSpace: 'normal' }}>{label} ({proxies[label].host}:{proxies[label].port})</MenuItem>
+                    ))}
+                  </Select>
+                  <Typography variant="caption" color="text.secondary" sx={{ pl: 1, pt: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    Select a proxy to use for this session (optional)
+                  </Typography>
+                </FormControl>
               </Box>
             </Grid>
           </Grid>
-          {/* Session Type row removed; now in top row */}
-          {/* Divider and VPN Proxy Configuration label */}
-          <Accordion defaultExpanded={false} sx={{ borderRadius: 2, overflow: 'hidden' }}>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>VPN Proxy Configuration</Typography>
-            </AccordionSummary>
-            <AccordionDetails sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
-              <Box sx={{ p: 0 }}>
-                {/* Proxy Host/Port row */}
-                <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-                  <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <TextField
-                        label="Proxy Host"
-                        value={proxyHost}
-                        onChange={e => setProxyHost(e.target.value)}
-                        size="small"
-                        placeholder="proxy.example.com"
-                        sx={{ width: 180 }}
-                      />
-                      <TextField
-                        label="Port"
-                        value={proxyPort}
-                        onChange={e => setProxyPort(e.target.value.replace(/[^0-9]/g, ''))}
-                        size="small"
-                        placeholder="8080"
-                        sx={{ width: 90 }}
-                        inputProps={{ maxLength: 5 }}
-                      />
-                    </Box>
-                  </Grid>
-                </Grid>
-                {/* Username/Password row */}
-                <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-                  <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <TextField
-                        label="Username"
-                        value={proxyUsername}
-                        onChange={e => setProxyUsername(e.target.value)}
-                        size="small"
-                        placeholder="user"
-                        sx={{ width: 140 }}
-                      />
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <TextField
-                          label="Password"
-                          value={proxyPassword}
-                          onChange={e => setProxyPassword(e.target.value)}
-                          size="small"
-                          placeholder={hasPassword ? "(password set)" : ""}
-                          type="password"
-                          sx={{ width: 140 }}
-                          autoComplete="new-password"
-                        />
-                        {hasPassword && !proxyPassword && (
-                          <Tooltip title="Leave blank to keep existing password">
-                            <IconButton size="small" sx={{ ml: 0.5 }}>
-                              <InfoOutlinedIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Box>
-            </AccordionDetails>
-          </Accordion>
           <Box sx={{ textAlign: "right", mt: 2 }}>
             <Button variant="contained" color="primary" onClick={handleSave} disabled={!allValid || !sessionType}>
               SAVE

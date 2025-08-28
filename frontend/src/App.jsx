@@ -15,6 +15,7 @@ import { SessionProvider, useSession } from "./context/SessionContext";
 import StatusCard from "./components/StatusCard";
 import EventLogModalButton from "./components/EventLogModalButton";
 import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
+import ProxyConfigCard from "./components/ProxyConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
 import PortMonitorCard from "./components/PortMonitorCard";
@@ -56,6 +57,13 @@ export default function App() {
   const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
   const [sessions, setSessions] = React.useState([]);
   const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
+  const [proxies, setProxies] = React.useState({});
+
+  // Fetch proxies on mount and when needed
+  const refreshProxies = React.useCallback(() => {
+    fetch("/api/proxies").then(res => res.json()).then(setProxies);
+  }, []);
+  React.useEffect(() => { refreshProxies(); }, [refreshProxies]);
   const statusCardRef = React.useRef();
 
   return (
@@ -279,7 +287,10 @@ function InnerApp() {
           onStatusUpdate={handleStatusUpdate}
         />
         {/* EventLogPanel now shown in modal, not inline */}
+        <ProxyConfigCard proxies={proxies} onProxiesChanged={refreshProxies} />
         <MouseTrapConfigCard
+          proxies={proxies}
+          onProxiesChanged={refreshProxies}
           onSessionSaved={handleSessionSaved}
           hasSessions={sessions.length > 0}
           onCreateNewSession={handleCreateSession}
