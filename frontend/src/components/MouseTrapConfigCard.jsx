@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
   Card,
   CardContent,
@@ -54,6 +56,7 @@ export default function MouseTrapConfigCard({
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const [showMamId, setShowMamId] = useState(false);
 
   // Expand the card if forceExpand becomes true
   useEffect(() => {
@@ -258,8 +261,14 @@ export default function MouseTrapConfigCard({
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <TextField
-                label="MAM ID*"
-                value={mamId}
+                label="MAM ID"
+                value={
+                  showMamId
+                    ? mamId
+                    : mamId
+                      ? `********${mamId.slice(-6)}`
+                      : ""
+                }
                 onChange={e => setMamId(e.target.value)}
                 size="small"
                 required
@@ -270,6 +279,18 @@ export default function MouseTrapConfigCard({
                 maxRows={6}
                 helperText="Paste your full MAM ID here (required)"
                 sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
+                type={showMamId ? "text" : "password"}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton
+                      aria-label={showMamId ? "Hide MAM ID" : "Show MAM ID"}
+                      onClick={() => setShowMamId(v => !v)}
+                      edge="end"
+                    >
+                      {showMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  )
+                }}
               />
             </Grid>
           </Grid>

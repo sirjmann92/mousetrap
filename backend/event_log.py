@@ -18,8 +18,10 @@ def _init_ui_event_log():
 
 _init_ui_event_log()
 
+from backend.utils_redact import redact_sensitive
+
 def append_ui_event_log(event: dict):
-    """Append an event (dict) to the persistent UI event log file as a JSON array."""
+    """Append an event (dict) to the persistent UI event log file as a JSON array, with sensitive fields redacted."""
     _ui_event_log_lock.acquire()
     try:
         # Read existing log
@@ -28,7 +30,8 @@ def append_ui_event_log(event: dict):
                 log = json.load(f)
         except Exception:
             log = []
-        log.append(event)
+        redacted_event = redact_sensitive(event)
+        log.append(redacted_event)
         # Keep log at most 1000 entries
         if len(log) > 1000:
             log = log[-1000:]
