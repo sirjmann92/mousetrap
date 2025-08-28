@@ -1,10 +1,13 @@
 
 import React, { useEffect, useState } from "react";
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { Box, Card, CardContent, Typography, TextField, Button, Switch, FormControlLabel, Divider, Alert, CircularProgress, Checkbox, FormGroup, Tooltip, IconButton, Collapse } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function NotificationsCard() {
+  const [showWebhook, setShowWebhook] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const defaultEvents = [
     { key: "port_monitor_failure", label: "Port Monitor Failure" },
@@ -172,10 +175,26 @@ export default function NotificationsCard() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
             <TextField
               label="Webhook URL"
-              value={config.webhook_url || ""}
+              value={
+                showWebhook
+                  ? (config.webhook_url || "")
+                  : (config.webhook_url ? `********${config.webhook_url.slice(-6)}` : "")
+              }
               onChange={e => handleChange("webhook_url", e.target.value)}
               size="small"
               sx={{ flex: 1, minWidth: 350, maxWidth: 600 }}
+              type={showWebhook ? "text" : "password"}
+              InputProps={{
+                endAdornment: (
+                  <IconButton
+                    aria-label={showWebhook ? "Hide webhook URL" : "Show webhook URL"}
+                    onClick={() => setShowWebhook(v => !v)}
+                    edge="end"
+                  >
+                    {showWebhook ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                  </IconButton>
+                )
+              }}
             />
             <FormControlLabel
               control={<Checkbox

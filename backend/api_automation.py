@@ -1,3 +1,4 @@
+from backend.utils_redact import redact_sensitive
 from fastapi import APIRouter, Request, HTTPException
 from backend.automation import wedge_automation_job, vip_automation_job
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
@@ -63,7 +64,9 @@ async def manual_upload_credit(request: Request):
 	if success:
 		logging.info(f"[ManualUpload] Purchase: {amount}GB upload credit for session '{label}' succeeded.")
 	else:
-		logging.warning(f"[ManualUpload] Purchase: {amount}GB upload credit for session '{label}' FAILED. Error: {result.get('error')}")
+		redacted_result = redact_sensitive(result)
+		error_val = redacted_result.get('error') if isinstance(redacted_result, dict) else redacted_result
+		logging.warning(f"[ManualUpload] Purchase: {amount}GB upload credit for session '{label}' FAILED. Error: {error_val}")
 	return {"success": success, **result}
 
 @router.post("/automation/wedge")
@@ -120,7 +123,9 @@ async def manual_wedge(request: Request):
 	if success:
 		logging.info(f"[ManualWedge] Purchase: Wedge ({method}) for session '{label}' succeeded.")
 	else:
-		logging.warning(f"[ManualWedge] Purchase: Wedge ({method}) for session '{label}' FAILED. Error: {result.get('error')}")
+		redacted_result = redact_sensitive(result)
+		error_val = redacted_result.get('error') if isinstance(redacted_result, dict) else redacted_result
+		logging.warning(f"[ManualWedge] Purchase: Wedge ({method}) for session '{label}' FAILED. Error: {error_val}")
 	return {"success": success, **result}
 
 @router.post("/automation/vip")
@@ -178,7 +183,9 @@ async def manual_vip(request: Request):
 		if success:
 			logging.info(f"[ManualVIP] Purchase: VIP (max) for session '{label}' succeeded.")
 		else:
-			logging.warning(f"[ManualVIP] Purchase: VIP (max) for session '{label}' FAILED. Error: {result.get('error')}")
+			redacted_result = redact_sensitive(result)
+			error_val = redacted_result.get('error') if isinstance(redacted_result, dict) else redacted_result
+			logging.warning(f"[ManualVIP] Purchase: VIP (max) for session '{label}' FAILED. Error: {error_val}")
 		return {"success": success, **result}
 	else:
 		# For 4 or 8 weeks, just send the value as string
@@ -221,5 +228,7 @@ async def manual_vip(request: Request):
 		if success:
 			logging.info(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' succeeded.")
 		else:
-			logging.warning(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {result.get('error')}")
+			redacted_result = redact_sensitive(result)
+			error_val = redacted_result.get('error') if isinstance(redacted_result, dict) else redacted_result
+			logging.warning(f"[ManualVIP] Purchase: VIP ({weeks} weeks) for session '{label}' FAILED. Error: {error_val}")
 		return {"success": success, **result}
