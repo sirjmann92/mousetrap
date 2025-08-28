@@ -53,19 +53,22 @@ def get_status(mam_id=None, proxy_cfg=None):
     url = "https://www.myanonamouse.net/jsonLoad.php?snatch_summary"
     cookies = {"mam_id": mam_id}
     proxies = build_proxy_dict(proxy_cfg)
-    # Redact password for logging
-    proxy_cfg_log = dict(proxy_cfg) if proxy_cfg else {}
-    if "password" in proxy_cfg_log:
-        proxy_cfg_log["password"] = "***REDACTED***"
+    # Log only proxy label and redact password in proxy URL for debugging
+    proxy_label = None
+    proxy_url_log = None
+    if proxies:
+        proxy_label = proxy_cfg.get('label') if proxy_cfg else None
+        proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
+        logging.debug(f"[get_status] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
     try:
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies)
         try:
             resp.raise_for_status()
         except requests.HTTPError as http_err:
             if resp.status_code == 403:
-                logging.warning(f"[get_status] 403 Forbidden for url: {url} | proxies: {proxy_cfg_log} | cookies: {cookies}")
+                logging.warning(f"[get_status] 403 Forbidden for url: {url} | proxy_label: {proxy_label} | proxies: {proxy_url_log} | cookies: {cookies}")
             else:
-                logging.warning(f"[get_status] HTTP error {resp.status_code} for url: {url} | proxies: {proxy_cfg_log} | cookies: {cookies}")
+                logging.warning(f"[get_status] HTTP error {resp.status_code} for url: {url} | proxy_label: {proxy_label} | proxies: {proxy_url_log} | cookies: {cookies}")
             raise
         try:
             data = resp.json()

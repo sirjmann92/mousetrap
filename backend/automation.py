@@ -109,7 +109,7 @@ def wedge_automation_job():
     now = datetime.now(timezone.utc)
     for label in session_labels:
         try:
-            cfg = load_session(label)
+            cfg = load_session(label)  # Always reload config
             mam_id = cfg.get('mam', {}).get('mam_id', "")
             if not mam_id:
                 continue
@@ -120,7 +120,8 @@ def wedge_automation_job():
             trigger_type = automation.get('trigger_type', 'points')
             trigger_days = automation.get('trigger_days', 7)
             trigger_point_threshold = automation.get('trigger_point_threshold', 50000)
-            proxy_cfg = cfg.get('proxy', {})
+            from backend.proxy_config import resolve_proxy_from_session_cfg
+            proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
             status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get('points', 0) if isinstance(status, dict) else 0
             if points is None:
@@ -234,7 +235,7 @@ def vip_automation_job():
     now = datetime.now(timezone.utc)
     for label in session_labels:
         try:
-            cfg = load_session(label)
+            cfg = load_session(label)  # Always reload config
             mam_id = cfg.get('mam', {}).get('mam_id', "")
             if not mam_id:
                 continue
@@ -245,7 +246,8 @@ def vip_automation_job():
             trigger_type = automation.get('trigger_type', 'points')
             trigger_days = automation.get('trigger_days', 7)
             trigger_point_threshold = automation.get('trigger_point_threshold', 50000)
-            proxy_cfg = cfg.get('proxy', {})
+            from backend.proxy_config import resolve_proxy_from_session_cfg
+            proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
             # Read weeks from automation config (default 4)
             weeks = automation.get('weeks', 4)
             status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)

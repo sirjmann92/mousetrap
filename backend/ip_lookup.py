@@ -41,6 +41,10 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
     providers.append((url_ipdata, 'ipdata'))
 
     proxies = build_proxy_dict(proxy_cfg) if proxy_cfg else None
+    if proxies:
+        proxy_label = proxy_cfg.get('label') if proxy_cfg else None
+        proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
+        logging.debug(f"[ip_lookup] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
 
     for url, provider in providers:
         try:

@@ -4,14 +4,20 @@ def resolve_proxy_from_session_cfg(cfg):
     or the inline proxy config if present (for backward compatibility).
     Returns None if no proxy is set.
     """
+    import logging
     proxy = cfg.get("proxy", {})
+    logging.debug(f"[resolve_proxy_from_session_cfg] Input cfg proxy: {proxy}")
     if isinstance(proxy, dict) and "label" in proxy:
         proxies = load_proxies()
         label = proxy["label"]
-        return proxies.get(label)
+        resolved = proxies.get(label)
+        logging.debug(f"[resolve_proxy_from_session_cfg] Looking up label '{label}' in proxies.yaml. Resolved: {resolved}")
+        return resolved
     # fallback: legacy inline proxy config
     if proxy.get("host"):
+        logging.debug(f"[resolve_proxy_from_session_cfg] Using inline proxy config: {proxy}")
         return proxy
+    logging.debug(f"[resolve_proxy_from_session_cfg] No proxy config found.")
     return None
 import os
 import yaml
