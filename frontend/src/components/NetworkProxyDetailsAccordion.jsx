@@ -5,6 +5,8 @@ import { renderASN } from '../utils/statusUtils';
 
 export default function NetworkProxyDetailsAccordion({ status }) {
   if (!status) return null;
+  // Ensure details is always an object
+  const details = status.details || {};
   return (
     <Accordion sx={{ mt: 2, mb: 2, borderRadius: 2, overflow: 'hidden', bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }} defaultExpanded={false}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5' }}>
@@ -25,13 +27,13 @@ export default function NetworkProxyDetailsAccordion({ status }) {
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session ASN:</Typography>
           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip ? renderASN(status.current_ip_asn, status.mam_session_as) : 'N/A'}</Typography>
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connection Proxied:</Typography>
-          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details && status.details.proxy && status.details.proxy.host && String(status.details.proxy.host).trim() !== '' && status.details.proxy.port && String(status.details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{details.proxy && details.proxy.host && String(details.proxy.host).trim() !== '' && details.proxy.port && String(details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Auto Update:</Typography>
-          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.details && status.details.auto_update == null
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{details.auto_update == null
             ? 'N/A'
-            : typeof status.details.auto_update === 'object'
-              ? (status.details.auto_update.msg || status.details.auto_update.error || JSON.stringify(status.details.auto_update))
-              : String(status.details.auto_update)}</Typography>
+            : typeof details.auto_update === 'object'
+              ? (details.auto_update.msg || details.auto_update.error || JSON.stringify(details.auto_update))
+              : String(details.auto_update)}</Typography>
         </Box>
       </AccordionDetails>
     </Accordion>

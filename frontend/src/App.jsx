@@ -11,7 +11,7 @@ import {
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
-import { SessionProvider, useSession } from "./context/SessionContext";
+import { useSession } from "./context/SessionContext";
 import StatusCard from "./components/StatusCard";
 import EventLogModalButton from "./components/EventLogModalButton";
 import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
@@ -21,107 +21,78 @@ import NotificationsCard from "./components/NotificationsCard";
 import PortMonitorCard from "./components/PortMonitorCard";
 import SessionSelector from "./components/SessionSelector";
 import MouseTrapIcon from "./assets/mousetrap-icon.svg";
+
 export default function App() {
-  // Theme state and persistence
-  const [mode, setMode] = React.useState(() => {
-    const saved = window.localStorage.getItem('themeMode');
-    return saved ? saved : "light";
-  });
-
-  React.useEffect(() => {
-    window.localStorage.setItem('themeMode', mode);
-  }, [mode]);
-
-  const theme = React.useMemo(() =>
-    createTheme({
-      palette: {
-        mode: mode,
-        primary: {
-          main: "#1976d2", // MUI default blue
-        },
-      },
-    }), [mode]);
-
-  // Local state for non-config
-  const [selectedLabel, setSelectedLabel] = React.useState("");
-  const [buffer, setBuffer] = React.useState(52000);
-  const [wedgeHours, setWedgeHours] = React.useState(168);
-  const [autoWedge, setAutoWedge] = React.useState(true);
+  // Fetch all proxies and update state
+  const refreshProxies = async () => {
+    try {
+      const res = await fetch("/api/proxies");
+      const data = await res.json();
+      setProxies(data || {});
+    } catch (e) {
+      setProxies({});
+    }
+  };
+  // Get context setters from SessionContext
+  const {
+    setSessionLabel,
+    setMamId,
+    setSessionType,
+    setMamIp,
+    setCheckFrequency,
+    setOldLabel,
+    setProxy,
+    setProxiedIp,
+    setProxiedAsn,
+    setBrowserCookie
+  } = useSession();
+  // State for automation and perks
+  const [autoWedge, setAutoWedge] = React.useState(false);
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
-  const [currentASN, setCurrentASN] = React.useState("");
-  const [points, setPoints] = React.useState(null);
-  const [cheese, setCheese] = React.useState(null);
-  const [uploadAmount, setUploadAmount] = React.useState(1); // 1, 2.5, 5, 20, 100, 'Max Affordable'
-  const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
-  const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
-  const [sessions, setSessions] = React.useState([]);
+  const [buffer, setBuffer] = React.useState(0);
+  const [wedgeHours, setWedgeHours] = React.useState(0);
+  const [uploadAmount, setUploadAmount] = React.useState(0);
+  const [vipWeeks, setVipWeeks] = React.useState(0);
+  const [wedgeMethod, setWedgeMethod] = React.useState("");
   const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
   const [proxies, setProxies] = React.useState({});
-
-  // Fetch proxies on mount and when needed
-  const refreshProxies = React.useCallback(() => {
-    fetch("/api/proxies").then(res => res.json()).then(setProxies);
-  }, []);
-  React.useEffect(() => { refreshProxies(); }, [refreshProxies]);
-  const statusCardRef = React.useRef();
-
-  return (
-    <SessionProvider>
-      <InnerApp />
-    </SessionProvider>
-  );
-
-function InnerApp() {
-  // Theme state and persistence
-  const [mode, setMode] = React.useState(() => {
-    const saved = window.localStorage.getItem('themeMode');
-    return saved ? saved : "light";
-  });
-
-  React.useEffect(() => {
-    window.localStorage.setItem('themeMode', mode);
-  }, [mode]);
-
-  const theme = React.useMemo(() =>
-    createTheme({
-      palette: {
-        mode: mode,
-        primary: {
-          main: "#1976d2", // MUI default blue
-        },
-      },
-    }), [mode]);
-
-  // Context state for session/config
-  const {
-    mamId, setMamId,
-    sessionType, setSessionType,
-    mamIp, setMamIp,
-    checkFrequency, setCheckFrequency,
-    oldLabel, setOldLabel,
-    proxy, setProxy,
-    proxiedIp, setProxiedIp,
-    proxiedAsn, setProxiedAsn,
-    browserCookie, setBrowserCookie,
-    sessionLabel, setSessionLabel
-  } = useSession();
-  // Local state for non-config
-  const [selectedLabel, setSelectedLabel] = React.useState("");
-  const [buffer, setBuffer] = React.useState(52000);
-  const [wedgeHours, setWedgeHours] = React.useState(168);
-  const [autoWedge, setAutoWedge] = React.useState(true);
-  const [autoVIP, setAutoVIP] = React.useState(false);
-  const [autoUpload, setAutoUpload] = React.useState(false);
-  const [currentASN, setCurrentASN] = React.useState("");
-  const [points, setPoints] = React.useState(null);
-  const [cheese, setCheese] = React.useState(null);
-  const [uploadAmount, setUploadAmount] = React.useState(1); // 1, 2.5, 5, 20, 100, 'Max Affordable'
-  const [vipWeeks, setVipWeeks] = React.useState(4); // 4, 8, 'max'
-  const [wedgeMethod, setWedgeMethod] = React.useState('points'); // 'points' or 'cheese'
   const [sessions, setSessions] = React.useState([]);
-  const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
+  const [selectedLabel, setSelectedLabel] = React.useState("");
   const statusCardRef = React.useRef();
+
+  // Fetch all sessions and update state
+  const refreshSessions = async () => {
+    try {
+      const res = await fetch("/api/sessions");
+      const data = await res.json();
+      setSessions(data.sessions || []);
+      // If no session is selected, select the first one
+      if ((!selectedLabel || !data.sessions.includes(selectedLabel)) && data.sessions.length > 0) {
+        setSelectedLabel(data.sessions[0]);
+        loadSession(data.sessions[0]);
+      }
+    } catch (e) {
+      setSessions([]);
+    }
+  };
+
+  // On mount, fetch proxies
+  React.useEffect(() => {
+    refreshProxies();
+  }, []);
+
+  // Handler to refresh session and proxies after session save
+  const handleSessionSaved = (label, oldLabel) => {
+    // Always reload session after save to get latest proxy/password info
+    loadSession(label);
+    // Optionally refresh sessions or proxies if needed
+    refreshSessions();
+    // Always force status refresh to update timer immediately
+    if (statusCardRef && statusCardRef.current && statusCardRef.current.forceStatusRefresh) {
+      statusCardRef.current.forceStatusRefresh();
+    }
+  };
 
   // Load session config by label (now updates context)
   const loadSession = async (labelToLoad) => {
@@ -143,61 +114,33 @@ function InnerApp() {
       // handle error
     }
   };
+  // Theme state and persistence
+  const [mode, setMode] = React.useState(() => {
+    const saved = window.localStorage.getItem('themeMode');
+    return saved ? saved : "light";
+  });
 
-  // Persist last used session label to backend
-  React.useEffect(() => {
-    if (selectedLabel) {
-      fetch('/api/last_session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: selectedLabel })
-      });
-    }
-  }, [selectedLabel]);
 
-  // On mount, fetch sessions and select the previously selected one from backend if available
   React.useEffect(() => {
-    Promise.all([
-      fetch('/api/sessions').then(res => res.json()),
-      fetch('/api/last_session').then(res => res.json())
-    ]).then(([sessionsData, lastSessionData]) => {
-      if (sessionsData.sessions) setSessions(sessionsData.sessions);
-      if (sessionsData.sessions && sessionsData.sessions.length > 0) {
-        const lastSession = lastSessionData.label;
-        const toSelect = lastSession && sessionsData.sessions.includes(lastSession)
-          ? lastSession
-          : sessionsData.sessions[0];
-        setSelectedLabel(toSelect);
-        loadSession(toSelect);
-      }
-    });
+    window.localStorage.setItem('themeMode', mode);
+  }, [mode]);
+
+  // On mount, fetch sessions and set state
+  React.useEffect(() => {
+    refreshSessions();
     // eslint-disable-next-line
   }, []);
 
-  // Keep sessions state up to date after create/delete/save
-  const refreshSessions = React.useCallback(() => {
-    fetch('/api/sessions').then(res => res.json()).then(data => {
-      if (data.sessions) setSessions(data.sessions);
-    });
-  }, []);
-
-  // Persist selectedLabel to localStorage
-  React.useEffect(() => {
-    if (selectedLabel) {
-      localStorage.setItem('lastSessionLabel', selectedLabel);
-    }
-  }, [selectedLabel]);
-
-  // Refresh session list after save
-  const handleSessionSaved = (label, oldLabel) => {
-    // Always reload session after save to get latest proxy/password info
-    loadSession(label);
-    refreshSessions();
-    // Always force status refresh to update timer immediately
-    if (statusCardRef.current && statusCardRef.current.forceStatusRefresh) {
-      statusCardRef.current.forceStatusRefresh();
-    }
-  };
+  const theme = React.useMemo(() =>
+    createTheme({
+      palette: {
+        mode: mode,
+        primary: {
+          main: "#1976d2", // MUI default blue
+        },
+      },
+    }), [mode]
+  );
 
   // Create new session handler
   const handleCreateSession = async () => {
@@ -294,7 +237,7 @@ function InnerApp() {
           forceExpand={forceExpandConfig}
           onForceExpandHandled={() => setForceExpandConfig(false)}
         />
-        <ProxyConfigCard proxies={proxies} setProxies={setProxies} />
+  <ProxyConfigCard proxies={proxies} setProxies={setProxies} refreshProxies={refreshProxies} />
         {sessions.length > 0 && (
           <PerkAutomationCard
             buffer={buffer}
@@ -324,133 +267,5 @@ function InnerApp() {
         <NotificationsCard />
       </Container>
     </ThemeProvider>
-  );
-}
-
-  // Create new session handler
-  const handleCreateSession = async () => {
-    // Generate a unique label
-    let base = "Session";
-    let idx = 1;
-    let newLabel = base + idx;
-    // Try to avoid collisions
-    while (true) {
-      const res = await fetch("/api/sessions");
-      const data = await res.json();
-      if (!data.sessions.includes(newLabel)) break;
-      idx++;
-      newLabel = base + idx;
-    }
-    // Save a new session with default config
-    await fetch(`/api/session/save`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: newLabel })
-    });
-  loadSession(newLabel);
-  refreshSessions();
-  setForceExpandConfig(true); // Expand config card after creating a new session
-  };
-
-  // Delete session handler
-  const handleDeleteSession = async (label) => {
-    await fetch(`/api/session/delete/${label}`, { method: "DELETE" });
-    // After delete, load the first available session
-    refreshSessions();
-    const res = await fetch("/api/sessions");
-    const data = await res.json();
-  const nextLabel = data.sessions[0] || null;
-  loadSession(nextLabel);
-  };
-
-  // Handler to update proxiedIp/proxiedAsn from StatusCard
-  const handleStatusUpdate = (status) => {
-    if (status && status.proxied_public_ip) setProxiedIp(status.proxied_public_ip);
-    else setProxiedIp("");
-    if (status && status.proxied_public_ip_asn) setProxiedAsn(status.proxied_public_ip_asn);
-    else setProxiedAsn("");
-  };
-
-  return (
-    <SessionProvider>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AppBar position="fixed" sx={{ mb: 3, width: '100%', left: 0, right: 0, boxSizing: 'border-box' }}>
-          <Toolbar>
-            <img src={MouseTrapIcon} alt="MouseTrap" style={{ width: 48, height: 48, marginRight: 20 }} />
-            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              MouseTrap
-            </Typography>
-            <SessionSelector
-              onLoadSession={loadSession}
-              onCreateSession={handleCreateSession}
-              onDeleteSession={handleDeleteSession}
-              sx={{ background: mode === "dark" ? "#222" : "#fff", borderRadius: 1, ml: 2 }}
-            />
-            <EventLogModalButton sessionLabel={selectedLabel} />
-            <IconButton color="inherit" onClick={() => setMode(mode === "light" ? "dark" : "light")}
-              sx={{ ml: 2 }}>
-              {mode === "dark" ? <Brightness7Icon /> : <Brightness4Icon />}
-            </IconButton>
-            <Switch
-              checked={mode === "dark"}
-              onChange={() => setMode(mode === "light" ? "dark" : "light")}
-              color="default"
-              inputProps={{ "aria-label": "toggle dark mode" }}
-              sx={{ ml: 1 }}
-            />
-          </Toolbar>
-        </AppBar>
-
-        {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
-        <Toolbar />
-        <Container maxWidth="md">
-          <StatusCard
-            ref={statusCardRef}
-            autoWedge={autoWedge}
-            autoVIP={autoVIP}
-            autoUpload={autoUpload}
-            onSessionDataChanged={() => loadSession(selectedLabel)}
-            onStatusUpdate={handleStatusUpdate}
-          />
-          {/* EventLogPanel now shown in modal, not inline */}
-          <MouseTrapConfigCard
-            onSessionSaved={handleSessionSaved}
-            hasSessions={sessions.length > 0}
-            onCreateNewSession={handleCreateSession}
-            forceExpand={forceExpandConfig}
-            onForceExpandHandled={() => setForceExpandConfig(false)}
-          />
-          <ProxyConfigCard proxies={proxies} setProxies={setProxies} />
-          {sessions.length > 0 && (
-            <PerkAutomationCard
-              buffer={buffer}
-              setBuffer={setBuffer}
-              wedgeHours={wedgeHours}
-              setWedgeHours={setWedgeHours}
-              autoWedge={autoWedge}
-              setAutoWedge={setAutoWedge}
-              autoVIP={autoVIP}
-              setAutoVIP={setAutoVIP}
-              autoUpload={autoUpload}
-              setAutoUpload={setAutoUpload}
-              uploadAmount={uploadAmount}
-              setUploadAmount={setUploadAmount}
-              vipWeeks={vipWeeks}
-              setVipWeeks={setVipWeeks}
-              wedgeMethod={wedgeMethod}
-              setWedgeMethod={setWedgeMethod}
-              onActionComplete={() => {
-                if (statusCardRef.current && statusCardRef.current.fetchStatus) {
-                  statusCardRef.current.fetchStatus();
-                }
-              }}
-            />
-          )}
-          <PortMonitorCard />
-          <NotificationsCard />
-        </Container>
-      </ThemeProvider>
-    </SessionProvider>
   );
 }

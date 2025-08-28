@@ -21,7 +21,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import { useSession } from '../context/SessionContext';
 
-export default function ProxyConfigCard({ proxies, setProxies }) {
+export default function ProxyConfigCard({ proxies, setProxies, refreshProxies }) {
   const [sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
   const [sessionsUsingProxy, setSessionsUsingProxy] = useState([]);
@@ -70,16 +70,10 @@ export default function ProxyConfigCard({ proxies, setProxies }) {
         setShowConfirm(false);
         setDeleteLabel(null);
         setSessionsUsingProxy([]);
-        // If the current session is using the deleted proxy, clear it immediately
         if (proxy?.label === deleteLabel && setProxy) {
           setProxy({});
         }
-        // Remove the deleted proxy from local state
-        setProxies(prev => {
-          const updated = { ...prev };
-          delete updated[deleteLabel];
-          return updated;
-        });
+        if (refreshProxies) refreshProxies();
       });
   };
 
@@ -97,16 +91,7 @@ export default function ProxyConfigCard({ proxies, setProxies }) {
         setIsEditing(false);
         setEditLabel("");
         setEditProxy(null);
-        // Update proxies state in-place
-        setProxies(prev => {
-          const updated = { ...prev };
-          if (method === "PUT") {
-            updated[editLabel] = { ...form };
-          } else {
-            updated[form.label] = { ...form };
-          }
-          return updated;
-        });
+        if (refreshProxies) refreshProxies();
       });
   };
 
