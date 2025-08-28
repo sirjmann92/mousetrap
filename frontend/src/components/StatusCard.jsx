@@ -83,11 +83,13 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     }
   };
 
-  // Poll backend every 5 seconds for status, and update timer display from backend's next_check_time
+  // Poll backend every 5 seconds for status, but only if session is fully configured
   useEffect(() => {
     let pollInterval = null;
     let lastNextCheckTime = status && status.next_check_time;
     let polling = false;
+
+    const isConfigured = status && status.configured !== false && status.next_check_time;
 
     const startPolling = () => {
       if (polling) return;
@@ -104,15 +106,15 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       }, 5000);
     };
 
-    // Watch timer and start polling when it hits 0
-    if (timer === 0) {
+    // Only poll if session is configured and timer hits 0
+    if (isConfigured && timer === 0) {
       startPolling();
     }
 
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [timer, sessionLabel, status && status.next_check_time]);
+  }, [timer, sessionLabel, status && status.next_check_time, status && status.configured]);
 
   // Timer is always derived from backend's next_check_time and current time
   useEffect(() => {

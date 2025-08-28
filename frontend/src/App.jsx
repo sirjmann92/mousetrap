@@ -278,16 +278,16 @@ function InnerApp() {
       {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
       <Toolbar />
       <Container maxWidth="md">
-        <StatusCard
-          ref={statusCardRef}
-          autoWedge={autoWedge}
-          autoVIP={autoVIP}
-          autoUpload={autoUpload}
-          onSessionDataChanged={() => loadSession(selectedLabel)}
-          onStatusUpdate={handleStatusUpdate}
-        />
-        {/* EventLogPanel now shown in modal, not inline */}
-        <ProxyConfigCard proxies={proxies} onProxiesChanged={refreshProxies} />
+        {sessions.length > 0 && (
+          <StatusCard
+            ref={statusCardRef}
+            autoWedge={autoWedge}
+            autoVIP={autoVIP}
+            autoUpload={autoUpload}
+            onSessionDataChanged={() => loadSession(selectedLabel)}
+            onStatusUpdate={handleStatusUpdate}
+          />
+        )}
         <MouseTrapConfigCard
           proxies={proxies}
           onProxiesChanged={refreshProxies}
@@ -297,6 +297,7 @@ function InnerApp() {
           forceExpand={forceExpandConfig}
           onForceExpandHandled={() => setForceExpandConfig(false)}
         />
+        <ProxyConfigCard proxies={proxies} onProxiesChanged={refreshProxies} />
         {sessions.length > 0 && (
           <PerkAutomationCard
             buffer={buffer}

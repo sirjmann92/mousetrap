@@ -31,3 +31,6 @@ config.yaml
 last_session.yaml
 port_monitoring.yaml
 session-*.yaml
+proxies.yaml
+notify.yaml
+port_monitoring.yaml

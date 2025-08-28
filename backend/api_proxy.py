@@ -55,4 +55,13 @@ def delete_proxy(label: str):
         raise HTTPException(status_code=404, detail="Proxy not found.")
     del proxies[label]
     save_proxies(proxies)
+    # Remove proxy reference from all sessions that use this proxy
+    from backend.config import list_sessions, load_session, save_session
+    sessions = list_sessions()
+    for sess_label in sessions:
+        cfg = load_session(sess_label)
+        proxy_cfg = cfg.get('proxy', {})
+        if isinstance(proxy_cfg, dict) and proxy_cfg.get('label') == label:
+            cfg['proxy'] = {}  # Remove proxy reference
+            save_session(cfg)
     return {"success": True}
