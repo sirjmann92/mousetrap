@@ -103,7 +103,8 @@ def list_running_containers():
     client = port_monitor.get_docker_client()
     if not client:
         logging.warning("[API] Docker Engine is not accessible (no client) in /containers endpoint.")
-        return []  # Always return a list, never error unless truly broken
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Docker Engine is not accessible. Please ensure the Docker socket is mounted and permissions are correct.")
     containers = port_monitor.list_running_containers()
     logging.debug(f"[API] /containers returning: {containers}")
     return containers
@@ -144,7 +145,8 @@ def list_port_checks():
     client = port_monitor.get_docker_client()
     if not client:
         logging.warning("[API] Docker Engine is not accessible (no client) in /checks endpoint.")
-        return []  # Always return a list, never error unless truly broken
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail="Docker Engine is not accessible. Please ensure the Docker socket is mounted and permissions are correct.")
     checks = [PortCheckModel(
         container_name=c.container_name,
         port=c.port,

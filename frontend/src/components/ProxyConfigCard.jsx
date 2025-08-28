@@ -21,7 +21,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
 import { useSession } from '../context/SessionContext';
 
-export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
+export default function ProxyConfigCard({ proxies, setProxies }) {
   const [sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
   const [sessionsUsingProxy, setSessionsUsingProxy] = useState([]);
@@ -74,12 +74,12 @@ export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
         if (proxy?.label === deleteLabel && setProxy) {
           setProxy({});
         }
-        // Debounce the proxies changed callback to allow backend/session update
-        if (onProxiesChanged) {
-          setTimeout(() => {
-            onProxiesChanged();
-          }, 400); // 400ms delay
-        }
+        // Remove the deleted proxy from local state
+        setProxies(prev => {
+          const updated = { ...prev };
+          delete updated[deleteLabel];
+          return updated;
+        });
       });
   };
 
@@ -97,7 +97,16 @@ export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
         setIsEditing(false);
         setEditLabel("");
         setEditProxy(null);
-        onProxiesChanged && onProxiesChanged();
+        // Update proxies state in-place
+        setProxies(prev => {
+          const updated = { ...prev };
+          if (method === "PUT") {
+            updated[editLabel] = { ...form };
+          } else {
+            updated[form.label] = { ...form };
+          }
+          return updated;
+        });
       });
   };
 
@@ -123,7 +132,7 @@ export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
           <Box>
-            <Box component="form" sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
+            <Box component="form" onSubmit={e => e.preventDefault()} sx={{ display: 'flex', flexDirection: 'column', gap: 2, width: '100%' }}>
         <TextField label="Label" name="label" value={form.label} onChange={handleInputChange} disabled={isEditing} required size="small" sx={{ width: 220 }} variant="outlined" InputProps={{ style: { background: 'inherit' } }} />
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField label="Host" name="host" value={form.host} onChange={handleInputChange} required size="small" sx={{ width: 220 }} variant="outlined" />
