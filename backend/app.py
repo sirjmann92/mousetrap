@@ -1,3 +1,8 @@
+
+# --- FastAPI app creation ---
+
+
+
 def get_auto_update_val(status):
     val = status.get('auto_update_seedbox') if isinstance(status, dict) else None
     if val is None or val == '' or val is False:
@@ -42,17 +47,31 @@ from backend.config import load_config, list_sessions, load_session, save_sessio
 from backend.mam_api import get_status, get_mam_seen_ip_info
 from backend.perk_automation import buy_upload_credit
 
+
+
+
+# --- FastAPI app creation ---
 from backend.api_event_log import router as event_log_router
 from backend.api_config import router as config_router
 from backend.api_automation import router as automation_router
-
-
-
 from backend.api_proxy import router as proxy_router
 from backend.api_port_monitor import router as port_monitor_router
-
 from backend.api_notifications import router as notifications_router
 from backend.last_session_api import router as last_session_router
+
+app = FastAPI(title="MouseTrap API")
+
+# Mount API routers
+app.include_router(automation_router, prefix="/api")
+app.include_router(last_session_router, prefix="/api")
+app.include_router(proxy_router, prefix="/api")
+app.include_router(port_monitor_router, prefix="/api/port-monitor")
+app.include_router(event_log_router, prefix="/api")
+app.include_router(notifications_router, prefix="/api")
+# Serve logs directory as static files for UI event log access (must be before any catch-all routes)
+logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
+if os.path.isdir(logs_dir):
+    app.mount("/logs", StaticFiles(directory=logs_dir), name="logs")
 
 
 # --- FastAPI app creation ---

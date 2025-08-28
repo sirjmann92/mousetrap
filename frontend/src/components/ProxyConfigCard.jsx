@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -14,12 +14,26 @@ import {
   Divider,
   Collapse
 } from "@mui/material";
+import ConfirmDialog from "./ConfirmDialog";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+import { useSession } from '../context/SessionContext';
 
 export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
+  const [sessions, setSessions] = useState([]);
+  const [deleteLabel, setDeleteLabel] = useState(null);
+  const [sessionsUsingProxy, setSessionsUsingProxy] = useState([]);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const { proxy, setProxy } = useSession();
+
+  // Fetch sessions on mount and when proxies change
+  useEffect(() => {
+    fetch('/api/sessions')
+      .then(res => res.json())
+      .then(data => setSessions(data.sessions || []));
+  }, [proxies]);
   const [expanded, setExpanded] = useState(false);
   const [editLabel, setEditLabel] = useState("");
   const [editProxy, setEditProxy] = useState(null);
@@ -45,8 +59,28 @@ export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
   };
 
   const handleDelete = label => {
-    fetch(`/api/proxies/${label}`, { method: "DELETE" })
-      .then(() => onProxiesChanged && onProxiesChanged());
+    setDeleteLabel(label);
+    setSessionsUsingProxy([]);
+    setShowConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    fetch(`/api/proxies/${deleteLabel}`, { method: "DELETE" })
+      .then(() => {
+        setShowConfirm(false);
+        setDeleteLabel(null);
+        setSessionsUsingProxy([]);
+        // If the current session is using the deleted proxy, clear it immediately
+        if (proxy?.label === deleteLabel && setProxy) {
+          setProxy({});
+        }
+        // Debounce the proxies changed callback to allow backend/session update
+        if (onProxiesChanged) {
+          setTimeout(() => {
+            onProxiesChanged();
+          }, 400); // 400ms delay
+        }
+      });
   };
 
   const handleSave = () => {
@@ -76,6 +110,7 @@ export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
   };
 
   return (
+    <>
     <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={handleExpand}>
         <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 500, display: 'flex', alignItems: 'center' }}>
@@ -120,5 +155,21 @@ export default function ProxyConfigCard({ proxies, onProxiesChanged }) {
         </CardContent>
       </Collapse>
     </Card>
+    <ConfirmDialog
+      open={showConfirm}
+      onClose={() => setShowConfirm(false)}
+      onConfirm={confirmDelete}
+      title="Delete Proxy?"
+      message={
+        <span>
+          <b>Warning:</b> Deleting this proxy will immediately remove it from any sessions that are using it.<br/>
+          This action cannot be undone.<br/><br/>
+          Are you sure you want to delete this proxy?
+        </span>
+      }
+      confirmLabel="Delete"
+      confirmColor="error"
+    />
+  </>
   );
 }
