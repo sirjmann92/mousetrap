@@ -1,10 +1,24 @@
 #!/bin/sh
 set -e
 
-# User/group setup and Docker group membership are now handled in the Dockerfile
+# Set PUID/PGID, defaulting to 1000 if not provided
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
 USERNAME=appuser
+GROUPNAME=appgroup
+
+# Change appgroup GID if needed
+if [ "$(getent group "$GROUPNAME" | cut -d: -f3)" != "$PGID" ]; then
+	groupmod -o -g "$PGID" "$GROUPNAME"
+fi
+
+# Change appuser UID/GID if needed
+if [ "$(id -u "$USERNAME")" != "$PUID" ]; then
+	usermod -o -u "$PUID" "$USERNAME"
+fi
+if [ "$(id -g "$USERNAME")" != "$PGID" ]; then
+	usermod -g "$PGID" "$USERNAME"
+fi
 
 
 
