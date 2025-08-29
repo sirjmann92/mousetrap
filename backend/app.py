@@ -276,8 +276,14 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 rate_limit_minutes = 60
                 if last_seedbox_update:
                     last_update_dt = datetime.fromisoformat(last_seedbox_update)
-                    minutes_left = max(0, 60 - int((now - last_update_dt).total_seconds() // 60))
-                    rate_limit_minutes = minutes_left
+                    elapsed = (now - last_update_dt).total_seconds() / 60
+                    if elapsed < 0:
+                        # If last update is in the future, treat as no cooldown
+                        rate_limit_minutes = 0
+                    elif elapsed < 60:
+                        rate_limit_minutes = int(60 - elapsed)
+                    else:
+                        rate_limit_minutes = 0
                 notify_event(
                     event_type="seedbox_update_rate_limited",
                     label=label,
@@ -668,9 +674,9 @@ async def api_save_session(request: Request):
         cfg = await request.json()
         old_label = cfg.get("old_label")
         proxy_cfg = cfg.get("proxy", {}) or {}
+        prev_cfg = None
+        from backend.config import load_session
         if "proxy" in cfg:
-            from backend.config import load_session
-            prev_cfg = None
             if old_label:
                 try:
                     prev_cfg = load_session(old_label)
@@ -685,6 +691,28 @@ async def api_save_session(request: Request):
             if isinstance(proxy_cfg, dict) and (not proxy_cfg.get("password")) and prev_cfg and prev_cfg.get("proxy", {}) and prev_cfg.get("proxy", {}).get("password"):
                 proxy_cfg["password"] = prev_cfg["proxy"]["password"]
             cfg["proxy"] = proxy_cfg
+
+        # --- Merge backend-managed fields from previous config unless explicitly overwritten ---
+        backend_fields = [
+            "last_seedbox_ip", "last_seedbox_asn", "last_seedbox_update", "last_status", "last_check_time",
+            "proxied_public_ip", "proxied_public_ip_asn", "points", "cheese", "wedge_active", "vip_active"
+        ]
+        # If prev_cfg not set above, try to load it now
+        if prev_cfg is None:
+            if old_label:
+                try:
+                    prev_cfg = load_session(old_label)
+                except Exception:
+                    prev_cfg = None
+            elif cfg.get("label"):
+                try:
+                    prev_cfg = load_session(cfg["label"])
+                except Exception:
+                    prev_cfg = None
+        if prev_cfg:
+            for field in backend_fields:
+                if field in prev_cfg and field not in cfg:
+                    cfg[field] = prev_cfg[field]
         import os
         from backend.config import get_session_path
         from backend.event_log import append_ui_event_log
@@ -721,6 +749,12 @@ async def api_save_session(request: Request):
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "user_action": True
             })
+
+        # Re-register the session job with the new interval (or create if new)
+        try:
+            register_all_session_jobs()
+        except Exception as e:
+            logging.error(f"[APScheduler] Failed to re-register session jobs after save: {e}")
         return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}")
@@ -950,7 +984,30 @@ def session_check_job(label):
             # Ensure auto_update is always a string, never None/null in JSON
             auto_update_val = get_auto_update_val(status)
             # ...removed debug logging...
-            if prev_ip is None or prev_asn is None or new_ip is None or new_asn is None:
+            # If we are rate-limited, log a specific message instead of a generic warning
+            rate_limit_result = status.get('auto_update_seedbox')
+            is_rate_limited = False
+            msg = None
+            if isinstance(rate_limit_result, dict):
+                err = rate_limit_result.get('error', '').lower()
+                if 'rate limit' in err or 'try again in' in err:
+                    is_rate_limited = True
+                    msg = rate_limit_result.get('error') or "Rate limited, waiting to update IP/ASN in config."
+            if is_rate_limited:
+                event = {
+                    "timestamp": now.isoformat(),
+                    "label": label,
+                    "event_type": "scheduled",
+                    "details": {
+                        "ip_compare": f"{prev_ip} -> {new_ip}",
+                        "asn_compare": f"{prev_asn} -> {new_asn}",
+                        "auto_update": auto_update_val,
+                    },
+                    "status_message": msg or "Rate limited, waiting to update IP/ASN in config."
+                }
+                append_ui_event_log(event)
+                logging.info(f"[SessionCheck][INFO] label={label} {msg}")
+            elif prev_ip is None or prev_asn is None or new_ip is None or new_asn is None:
                 warn_msg = "Unable to determine current or new IP/ASN—check connectivity or configuration. No update performed."
                 event = {
                     "timestamp": now.isoformat(),
@@ -959,7 +1016,7 @@ def session_check_job(label):
                     "details": {
                         "ip_compare": f"{prev_ip} -> {new_ip}",
                         "asn_compare": f"{prev_asn} -> {new_asn}",
-                        "auto_update": auto_update_val,  # Always a string
+                        "auto_update": auto_update_val,
                     },
                     "status_message": warn_msg
                 }
