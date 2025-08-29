@@ -41,8 +41,8 @@ export default function MouseTrapConfigCard({
 }) {
   const {
     detectedIp,
-    sessionLabel: label,
-    setSessionLabel: setLabel,
+    sessionLabel,
+    setSessionLabel,
     mamId, setMamId,
     sessionType, setSessionType,
     mamIp, setMamIp,
@@ -52,6 +52,14 @@ export default function MouseTrapConfigCard({
     proxiedIp, proxiedAsn,
     browserCookie, setBrowserCookie
   } = useSession();
+
+  // Local state for editing label
+  const [label, setLabel] = useState(sessionLabel || "");
+
+  // Keep local label in sync when session changes
+  useEffect(() => {
+    setLabel(sessionLabel || "");
+  }, [sessionLabel]);
   // New: Local state for save status
   const [saveStatus, setSaveStatus] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -126,6 +134,8 @@ export default function MouseTrapConfigCard({
     setSaveStatus("");
     setSaveError("");
     if (!allValid) return;
+    // Only update global sessionLabel on save
+    setSessionLabel(label);
     const payload = {
       label,
       old_label: oldLabel,

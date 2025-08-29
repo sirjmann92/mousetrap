@@ -76,11 +76,14 @@ def notify_event(event_type: str, label: Optional[str] = None, status: Optional[
     # Prevent spam: only send if at least one channel is enabled for this event
     if not rule.get("email") and not rule.get("webhook"):
         return
+    # Always prepend session name to the message if label is present
+    session_prefix = f"Session: {label}, " if label else ""
+    full_message = f"{session_prefix}{message}" if message else session_prefix.rstrip(', ')
     payload = {
         "event_type": event_type,
         "label": label,
         "status": status,
-        "message": message,
+        "message": full_message,
         "details": details or {}
     }
     # Webhook
@@ -95,7 +98,7 @@ def notify_event(event_type: str, label: Optional[str] = None, status: Optional[
         required = ['host', 'port', 'username', 'password', 'to_email']
         if all(k in smtp for k in required):
             subject = f"[MouseTrap] {event_type} - {status or ''}"
-            body = f"Event: {event_type}\nLabel: {label}\nStatus: {status}\nMessage: {message}\nDetails: {details}"
+            body = f"Event: {event_type}\nLabel: {label}\nStatus: {status}\nMessage: {full_message}\nDetails: {details}"
             send_smtp_notification(
                 smtp['host'], smtp['port'], smtp['username'], smtp['password'],
                 smtp['to_email'], subject, body, smtp.get('use_tls', True)
