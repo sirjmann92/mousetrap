@@ -203,6 +203,7 @@ class PortMonitorStackManager:
     def monitor_loop(self):
         import logging
         from backend.event_log import append_ui_event_log
+        from backend.notifications_backend import notify_event
         self.running = True
         while self.running:
             now = time.time()
@@ -242,6 +243,19 @@ class PortMonitorStackManager:
                         'level': 'primary' if result else 'warning',
                     })
                     if not result:
+                        # Send notification on port check failure
+                        notify_event(
+                            event_type='port_monitor_failure',
+                            label=stack.name,
+                            status='FAILED',
+                            message=f"Docker Port Monitor: {stack.primary_container}:{stack.primary_port} unreachable (stack '{stack.name}')",
+                            details={
+                                'primary_container': stack.primary_container,
+                                'primary_port': stack.primary_port,
+                                'stack': stack.name,
+                                'secondaries': stack.secondary_containers,
+                            }
+                        )
                         self.restart_stack(stack)
             time.sleep(5)
 
