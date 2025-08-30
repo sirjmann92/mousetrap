@@ -1,33 +1,3 @@
-## 🐭 Unraid Full Docker Compose Example
-
-For Unraid users, here is a full example `docker-compose.yml` configuration:
-
-```yaml
-services:
-  mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
-    # build: ../src # Uncomment if you want to build from source instead of using the pre-built image
-    container_name: Mousetrap
-    # network_mode: container:qbittorrent-vpn # Shares network with qbittorrent-vpn for VPN routing
-    environment:
-      - TZ=America/Chicago
-      - PUID=99
-      - PGID=100
-      - DOCKER_GID=281
-      - HOST_OS=Unraid
-      - HOST_HOSTNAME=MyHostname
-      - HOST_CONTAINERNAME=MouseTrap
-      - LOGLEVEL=INFO # For troubleshooting
-      # Optional: - IPINFO_TOKEN=your_token_here # Add if you have one
-    volumes:
-      - ../config:/config # Persists configs (adjust to absolute if needed, e.g., /mnt/user/appdata/mousetrap/config)
-      - ../logs:/app/logs # Persists event logs
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: unless-stopped
-```
-
-Adjust paths and environment variables as needed for your Unraid setup.
-
 # MouseTrap
 
 _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and account management._
@@ -153,7 +123,7 @@ If you do not set a token, MouseTrap will still work, but may fall back to other
 
 - All settings and state are stored in `/config` (if mapped as a volume)
 - Each session: `config/session-*.yaml` (created via the UI)
-- Port Monitoring: `/config/port_monitoring.yaml` (auto-created/updated)
+- Port Monitoring: `/config/port_monitoring_stacks.yaml` (auto-created/updated)
 - Logs: `/logs` (persisted outside the container)
 - Global options: `config/config.yaml` (auto-created/updated)
 
@@ -289,10 +259,11 @@ MouseTrap supports global proxy management and instant proxy testing:
 ## Port Monitoring
 
 - The Port Monitoring card is global (not per-session) and allows you to monitor the reachability of Docker container ports.
-- All port checks and settings are persisted in `/config/port_monitoring.yaml`.
+- All port checks and settings are persisted in `/config/port_monitoring_stacks.yaml`.
 - Each check can be configured with its own interval (minimum 1 minute). Status is color-coded (green/yellow/red) based on reachability and last check time.
-- If Docker permissions are missing, the UI disables controls and shows a warning, but the rest of the app remains fully functional.
+- If Docker permissions are missing, the UI shows a warning, but the rest of the app remains fully functional.
 - All port check actions and container restarts are logged in the UI event log and filterable by label.
+- To support "compose stacks" (multiple services in a single Docker Compose script), you can monitor a primary container (e.g. VPN) and define secondary containers. MouseTrap will restart the primvary container and monitor for stability, then it will restart all secondary containers. This allows us to use the Docker Socket to restart an entire group of containers that might be dependent on the primary to restore network connection and stability to the system.
 
 ---
 
@@ -379,9 +350,38 @@ services:
     depends_on:
       - gluetun
 ```
+### 🐭 Unraid Full Docker Compose Example
 
-**Note:**
-- The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, MouseTrap will run with port monitoring disabled and all other features will work normally.
+For Unraid users, here is a full example `docker-compose.yml` configuration:
+
+```yaml
+services:
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    # build: ../src # Uncomment if you want to build from source instead of using the pre-built image
+    container_name: Mousetrap
+    # network_mode: container:qbittorrent-vpn # Shares network with qbittorrent-vpn for VPN routing
+    environment:
+      - TZ=America/Chicago
+      - PUID=99
+      - PGID=100
+      - DOCKER_GID=281
+      - HOST_OS=Unraid
+      - HOST_HOSTNAME=MyHostname
+      - HOST_CONTAINERNAME=MouseTrap
+#      - LOGLEVEL=INFO # Optional - Set level for troubleshooting
+#      - IPINFO_TOKEN=your_token_here # Optional
+    volumes:
+      - ../config:/config # Persist configs (use absolute if needed, e.g., /mnt/user/appdata/mousetrap/config)
+      - ../logs:/app/logs # Persist logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+```
+
+Adjust paths and environment variables as needed for your Unraid setup.
+
+**Notes:**
+- The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, all other features will work normally.
 - The `./logs:/app/logs` volume is recommended to persist logs outside the container. This allows you to view logs even if the container is removed or recreated.
 - In HTTP proxy mode, enter your proxy credentials in each session's proxy config in the MouseTrap UI that you want to route through the proxy's connection.
 - For other VPN containers see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
@@ -417,14 +417,6 @@ MouseTrap supports two ways to notify you of port check failures:
   - In the Notifications card, enable "Port Monitor Failure" for global notifications.
   - Any port check failure will trigger a notification via the selected channels (email/webhook/Discord).
   - Use this for a simple, all-or-nothing approach.
-
-- **Per-Port "Notify on Fail":**
-  - In the Port Monitoring card, enable "Notify on Fail" for each port check you want to monitor individually.
-  - Only failures for ports with this setting enabled will trigger a notification.
-  - Use this for granular control when monitoring multiple ports.
-
-**If both are enabled, you may receive duplicate notifications for the same failure.**
-For most users, the per-port setting is more flexible. For simple setups, the global rule is easier to manage.
 
 ---
 
