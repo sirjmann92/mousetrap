@@ -40,8 +40,23 @@ def load_session(label):
     else:
         with LOCK, open(path, "r") as f:
             cfg = yaml.safe_load(f) or get_default_config(label)
-    # --- Ensure wedge_automation config is always present and complete ---
+    # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault('perk_automation', {})
+    # Upload Credit Automation defaults
+    upload_defaults = {
+        'enabled': False,
+        'gb': 1,
+        'min_points': 0,
+        'points_to_keep': 0,
+        'trigger_type': 'time',
+        'trigger_days': 7,
+        'trigger_point_threshold': 50000,
+    }
+    upload_auto = perk_auto.setdefault('upload_credit', {})
+    for k, v in upload_defaults.items():
+        upload_auto.setdefault(k, v)
+
+    # Wedge Automation defaults
     wedge_defaults = {
         'enabled': False,
         'trigger_days': 7,
@@ -51,6 +66,19 @@ def load_session(label):
     wedge_auto = perk_auto.setdefault('wedge_automation', {})
     for k, v in wedge_defaults.items():
         wedge_auto.setdefault(k, v)
+
+    # VIP Automation defaults
+    vip_defaults = {
+        'enabled': False,
+        'trigger_type': 'time',
+        'trigger_days': 7,
+        'trigger_point_threshold': 50000,
+        'weeks': 4,
+    }
+    vip_auto = perk_auto.setdefault('vip_automation', {})
+    for k, v in vip_defaults.items():
+        vip_auto.setdefault(k, v)
+
     if "mam_ip" not in cfg:
         cfg["mam_ip"] = ""
     if "last_check_time" not in cfg:

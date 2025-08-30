@@ -15,7 +15,7 @@ import os
 PORT_MONITOR_STACK_CONFIG_PATH = os.environ.get('PORT_MONITOR_STACK_CONFIG_PATH', '/config/port_monitoring_stacks.yaml')
 
 class PortMonitorStack:
-    def __init__(self, name: str, primary_container: str, primary_port: int, secondary_containers: List[str], interval: int = 60):
+    def __init__(self, name: str, primary_container: str, primary_port: int, secondary_containers: List[str], interval: int = 60, public_ip: Optional[str] = None, public_ip_detected: Optional[bool] = None):
         self.name = name
         self.primary_container = primary_container
         self.primary_port = primary_port
@@ -24,6 +24,8 @@ class PortMonitorStack:
         self.status = 'Unknown'
         self.last_checked: Optional[float] = None
         self.last_result: Optional[bool] = None
+        self.public_ip: Optional[str] = public_ip
+        self.public_ip_detected: Optional[bool] = public_ip_detected
 
 class PortMonitorStackManager:
     def __init__(self):
@@ -56,7 +58,9 @@ class PortMonitorStackManager:
                     d['primary_container'],
                     d['primary_port'],
                     d.get('secondary_containers', []),
-                    d.get('interval', 60)
+                    d.get('interval', 60),
+                    d.get('public_ip'),
+                    d.get('public_ip_detected', None)
                 ))
             self.stacks = unique_stacks
             logging.info(f"[PortMonitorStack] Loaded stacks: {[s.name for s in self.stacks]}")
@@ -74,7 +78,9 @@ class PortMonitorStackManager:
                         'primary_container': s.primary_container,
                         'primary_port': s.primary_port,
                         'secondary_containers': s.secondary_containers,
-                        'interval': getattr(s, 'interval', 60)
+                        'interval': getattr(s, 'interval', 60),
+                        'public_ip': getattr(s, 'public_ip', None),
+                        'public_ip_detected': getattr(s, 'public_ip_detected', None),
                     }
                     for s in self.stacks
                 ], f)
@@ -96,21 +102,59 @@ class PortMonitorStackManager:
 
     def check_port(self, container_name: str, port: int) -> bool:
         """
-        Check if the container's public IP and port are reachable from the host (outside the container).
+        Check if the container's public IP and port are reachable from the host (outside the container),
+        matching the behavior of 'nc -zv <public_ip> <port>' from the host.
+        Tries manual override, then curl, then wget.
         """
-        client = self.get_docker_client()
-        if not client:
-            return False
+        import logging
+        # Find the stack object to check for manual public_ip override
+        stack = next((s for s in self.stacks if s.primary_container == container_name), None)
         ip = None
-        try:
-            # Get the container's public IP from inside the container
-            ip = client.containers.get(container_name).exec_run('wget -qO- https://ipinfo.io/ip').output.decode().strip()
-            if not ip:
+        public_ip_detected = False
+        if stack and getattr(stack, 'public_ip', None):
+            ip = stack.public_ip
+            logging.info(f"[PortMonitorStack] Using manual public_ip override for {container_name}: {ip}")
+            public_ip_detected = True
+        else:
+            client = self.get_docker_client()
+            if not client:
+                logging.warning(f"[PortMonitorStack] Docker client not available for container {container_name}")
+                if stack:
+                    stack.public_ip_detected = False
                 return False
-            # Try to connect from the host to the container's public IP and port
+            try:
+                container = client.containers.get(container_name)
+                # Try curl first
+                exec_result = container.exec_run('curl -s https://ipinfo.io/ip')
+                ip = exec_result.output.decode().strip()
+                if not ip or 'not found' in ip or 'OCI runtime exec' in ip or 'command not found' in ip:
+                    # Try wget as fallback
+                    exec_result = container.exec_run('wget -qO- https://ipinfo.io/ip')
+                    ip = exec_result.output.decode().strip()
+                logging.info(f"[PortMonitorStack] Fetched public IP for {container_name}: {ip}")
+                if not ip or 'not found' in ip or 'OCI runtime exec' in ip or 'command not found' in ip:
+                    logging.warning(f"[PortMonitorStack] No valid public IP found for {container_name}")
+                    if stack:
+                        stack.public_ip_detected = False
+                    return False
+                else:
+                    public_ip_detected = True
+            except Exception as e:
+                logging.error(f"[PortMonitorStack] Error fetching public IP for {container_name}: {e}")
+                if stack:
+                    stack.public_ip_detected = False
+                return False
+        # Try to connect from the host to the container's public IP and port
+        try:
             with socket.create_connection((ip, port), timeout=3):
+                logging.info(f"[PortMonitorStack] Port {port} on {ip} (container {container_name}) is reachable from host.")
+                if stack:
+                    stack.public_ip_detected = public_ip_detected
                 return True
-        except Exception:
+        except Exception as e:
+            logging.warning(f"[PortMonitorStack] Port {port} on {ip} (container {container_name}) is NOT reachable from host: {e}")
+            if stack:
+                stack.public_ip_detected = public_ip_detected
             return False
 
     def restart_container(self, container_name: str):
@@ -161,13 +205,13 @@ class PortMonitorStackManager:
         # Immediately recheck status after restart (this will update status and log result)
         self.recheck_stack(stack.name)
 
-    def add_stack(self, name: str, primary_container: str, primary_port: int, secondary_containers: List[str], interval: int = 60):
+    def add_stack(self, name: str, primary_container: str, primary_port: int, secondary_containers: List[str], interval: int = 60, public_ip: Optional[str] = None):
         # Prevent duplicate stack names
         if any(s.name == name for s in self.stacks):
             import logging
             logging.warning(f"[PortMonitorStack] Attempted to add duplicate stack '{name}', ignoring.")
             return
-        stack = PortMonitorStack(name, primary_container, primary_port, secondary_containers, interval)
+        stack = PortMonitorStack(name, primary_container, primary_port, secondary_containers, interval, public_ip)
         # Immediately check status on creation
         result = self.check_port(primary_container, primary_port)
         stack.last_checked = time.time()
