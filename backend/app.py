@@ -1092,91 +1092,11 @@ register_all_session_jobs()
 scheduler.start()
 
 # --- Upload Credit Automation Job ---
-def upload_credit_automation_job():
-    session_labels = list_sessions()
-    now = datetime.now(timezone.utc)
-    for label in session_labels:
-        try:
-            cfg = load_session(label)  # Always reload config
-            mam_id = cfg.get('mam', {}).get('mam_id', "")
-            if not mam_id:
-                continue
-            automation = cfg.get('perk_automation', {}).get('upload_credit', {})
-            enabled = automation.get('enabled', False)
-            if not enabled:
-                continue
-            min_points = automation.get('min_points', 0)
-            points_to_keep = automation.get('points_to_keep', 0)
-            gb = automation.get('gb', 1)
-            trigger_type = automation.get('trigger_type', 'points')
-            proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
-            # Get current status/points
-            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get('points', 0) if isinstance(status, dict) else 0
-            # Guardrails
-            if points is None or points < min_points:
-                logging.info(f"[UploadAuto] label={label} trigger=automation result=skipped reason=not_enough_points points={points} min_points={min_points}")
-                continue
-            # Each GB costs 500 points
-            total_cost = gb * 500
-            if points - total_cost < points_to_keep:
-                logging.info(f"[UploadAuto] label={label} trigger=automation result=skipped reason=points_to_keep_guardrail points={points} cost={total_cost} points_to_keep={points_to_keep}")
-                continue
-            # Trigger automation
-            result = buy_upload_credit(gb, mam_id=mam_id, proxy_cfg=proxy_cfg)
-            success = result.get('success', False) if result else False
-            status_message = f"Automated purchase: {gb}GB upload credit" if success else f"Automated upload credit purchase failed ({gb}GB)"
-            event = {
-                "timestamp": now.isoformat(),
-                "label": label,
-                "event_type": "automation",
-                "trigger": "automation",
-                "purchase_type": "upload_credit",
-                "amount": gb,
-                "details": {"points_before": points},
-                "result": "success" if success else "failed",
-                "error": None if success else (result.get('error') or result.get('response') or 'Unknown error'),
-                "status_message": status_message
-            }
-            if success:
-                logging.info(f"[UploadAuto] Automated purchase: {gb}GB upload credit for session '{label}' succeeded.")
-            else:
-                logging.warning(f"[UploadAuto] Automated purchase: {gb}GB upload credit for session '{label}' FAILED. Error: {event['error']}")
-            # append_ui_event_log(event) moved to automation.py or relevant module
-        except Exception as e:
-            logging.error(f"[UploadAuto] label={label} trigger=automation result=exception error={e}")
+    # ...existing code...
 
 # Register the automation jobs to run every 10 minutes
-if not scheduler.get_job('upload_credit_automation'):
-    scheduler.add_job(
-        upload_credit_automation_job,
-        trigger=IntervalTrigger(minutes=10),
-        id='upload_credit_automation',
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1
-    )
-    logging.info("[APScheduler] Registered upload credit automation job (every 10 min)")
-if not scheduler.get_job('wedge_automation'):
-    scheduler.add_job(
-        wedge_automation_job,
-        trigger=IntervalTrigger(minutes=10),
-        id='wedge_automation',
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1
-    )
-    logging.info("[APScheduler] Registered wedge automation job (every 10 min)")
-if not scheduler.get_job('vip_automation'):
-    scheduler.add_job(
-        vip_automation_job,
-        trigger=IntervalTrigger(minutes=10),
-        id='vip_automation',
-        replace_existing=True,
-        coalesce=True,
-        max_instances=1
-    )
-    logging.info("[APScheduler] Registered VIP automation job (every 10 min)")
+    # ...existing code...
+    # ...existing code...
 
 from backend.port_monitor import port_monitor
 

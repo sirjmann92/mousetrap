@@ -1,3 +1,32 @@
+## 🐭 Unraid Full Docker Compose Example
+
+For Unraid users, here is a full example `docker-compose.yml` configuration:
+
+```yaml
+services:
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    # build: ../src # Uncomment if you want to build from source instead of using the pre-built image
+    container_name: Mousetrap
+    # network_mode: container:qbittorrent-vpn # Shares network with qbittorrent-vpn for VPN routing
+    environment:
+      - TZ=America/Chicago
+      - PUID=99
+      - PGID=100
+      - DOCKER_GID=281
+      - HOST_OS=Unraid
+      - HOST_HOSTNAME=MyHostname
+      - HOST_CONTAINERNAME=MouseTrap
+      - LOGLEVEL=INFO # For troubleshooting
+      # Optional: - IPINFO_TOKEN=your_token_here # Add if you have one
+    volumes:
+      - ../config:/config # Persists configs (adjust to absolute if needed, e.g., /mnt/user/appdata/mousetrap/config)
+      - ../logs:/app/logs # Persists event logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+```
+
+Adjust paths and environment variables as needed for your Unraid setup.
 
 # MouseTrap
 
@@ -25,8 +54,9 @@ services:
     container_name: mousetrap
     environment:
       - TZ=Europe/London # Your timezone: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-      - PUID=1000 # Your host user ID
-      - PGID=1000 # Your host user group
+  - PUID=1000 # Your host user ID
+  - PGID=1000 # Your host user group
+  - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config # Map your config directory for persistent settings
       - ./logs:/app/logs # Map your log directory for troubleshooting
@@ -129,6 +159,49 @@ If you do not set a token, MouseTrap will still work, but may fall back to other
 
 ---
 
+
+## 🐳 Docker Socket Permissions & Group GID
+
+If you want to use the Port Monitoring feature, MouseTrap needs access to the Docker socket (`/var/run/docker.sock`).
+
+### Docker Group GID (DOCKER_GID)
+
+On some systems (e.g., Unraid, custom Linux installs), the Docker group GID may not be the default (992). If the GID inside the container does not match the host, you may see errors like:
+
+- Permission denied when accessing Docker
+- Blank container lists in the UI
+- Port monitoring not working
+
+**How to check your Docker group GID on the host:**
+
+```bash
+getent group docker
+# Example output: docker:x:281:
+```
+
+**How to override the Docker group GID in MouseTrap:**
+
+- Add the following environment variable to your `docker-compose.yml` (replace 281 with your host's Docker group GID):
+
+```yaml
+environment:
+  - DOCKER_GID=281
+```
+or
+```yaml
+environment:
+  DOCKER_GID: "281"
+```
+
+**Symptoms of a GID mismatch:**
+- Port monitoring features do not work
+- UI shows blank or missing Docker containers
+- Backend logs show permission errors for `/var/run/docker.sock`
+
+**How it works:**
+If you set `DOCKER_GID`, MouseTrap will update or create the `docker` group inside the container to match your host, and add the app user to that group. If not set, the system default is used.
+
+---
 ## 🆘 Troubleshooting
 
 - **Error: `no configuration file provided: not found`**
@@ -143,6 +216,7 @@ If you do not set a token, MouseTrap will still work, but may fall back to other
   - Set `PUID`/`PGID` to match your user for config/logs volume access.
 - **Port Monitoring not working?**
   - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled.
+  - If your Docker group GID is not 992, set the `DOCKER_GID` environment variable as described above.
 - **Session not updating?**
   - Check backend logs and UI event log for errors. Confirm entered IP is correct.
 
@@ -249,9 +323,10 @@ services:
     container_name: mousetrap
     network_mode: "service:gluetun"
     environment:
-      - TZ=Europe/London
-      - PUID=1000
-      - PGID=1000
+  - TZ=Europe/London
+  - PUID=1000
+  - PGID=1000
+  - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config
       - ./logs:/app/logs
@@ -291,9 +366,10 @@ services:
     image: ghcr.io/sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
-      - TZ=Europe/London
-      - PUID=1000
-      - PGID=1000
+  - TZ=Europe/London
+  - PUID=1000
+  - PGID=1000
+  - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config
       - ./logs:/app/logs 

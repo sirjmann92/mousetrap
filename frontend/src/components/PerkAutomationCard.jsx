@@ -28,7 +28,6 @@ import { useSession } from '../context/SessionContext';
 
 export default function PerkAutomationCard({
   buffer, setBuffer,
-  wedgeHours, setWedgeHours,
   _autoWedge, setAutoWedge,
   _autoVIP, setAutoVIP,
   _autoUpload, setAutoUpload,
@@ -95,7 +94,6 @@ export default function PerkAutomationCard({
       .then(cfg => {
         const pa = cfg.perk_automation || {};
         setBuffer(pa.buffer ?? 0);
-        setWedgeHours(pa.wedgeHours ?? 0);
         // --- Upload Credit Automation fields ---
         const upload = (pa.upload_credit || {});
   setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
@@ -263,7 +261,6 @@ export default function PerkAutomationCard({
       autoVIP,
       autoUpload,
       buffer,
-      wedgeHours,
       // Upload Credit Automation fields
       upload_credit: {
         enabled: autoUpload,
@@ -278,7 +275,7 @@ export default function PerkAutomationCard({
         enabled: autoWedge,
         trigger_type: wedgeTriggerType,
         trigger_days: Number(wedgeTriggerDays),
-        trigger_point_threshold: Number(wedgeTriggerPointThreshold),
+  trigger_point_threshold: Number(wedgeTriggerPointThreshold),
       },
       vip_automation: {
         enabled: autoVIP,
@@ -358,17 +355,7 @@ export default function PerkAutomationCard({
               { value: "cheese", label: "Cheese (5)" }
             ]}
             onSelectChange={e => setWedgeMethod(e.target.value)}
-            extraControls={
-              <TextField
-                label="Frequency (hours)"
-                type="number"
-                value={wedgeHours}
-                onChange={e => setWedgeHours(Number(e.target.value))}
-                size="small"
-                inputProps={{ min: 0 }}
-                sx={{ width: 160, mr: 3, flexShrink: 0 }}
-              />
-            }
+            // ...existing code...
             confirmButton={
               <Tooltip title="This will instantly purchase a wedge using the selected method.">
                 <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>

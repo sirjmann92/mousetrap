@@ -75,6 +75,7 @@ class PortMonitorStackModel(BaseModel):
     status: str = Field(..., description="Current status")
     last_checked: Optional[float] = Field(None, description="Last checked timestamp (epoch)")
     last_result: Optional[bool] = Field(None, description="Last check result (True=OK, False=Failed)")
+    public_ip_detected: Optional[bool] = Field(None, description="Was a public IP detected for this stack's primary container?")
 
 class AddPortMonitorStackRequest(BaseModel):
     name: str
@@ -96,7 +97,8 @@ def list_stacks():
             interval=getattr(s, 'interval', 60),
             status=s.status,
             last_checked=s.last_checked,
-            last_result=s.last_result
+            last_result=s.last_result,
+            public_ip_detected=getattr(s, 'public_ip_detected', None)
         ) for s in port_monitor_stack_manager.list_stacks()
     ]
 
@@ -105,6 +107,23 @@ def add_stack(req: AddPortMonitorStackRequest):
     port_monitor_stack_manager.add_stack(
         req.name, req.primary_container, req.primary_port, req.secondary_containers, req.interval
     )
+    import datetime
+    append_ui_event_log({
+        'event': 'port_monitor_stack_created',
+        'event_type': 'port_monitor_stack_create',
+        'label': req.name,
+        'stack': req.name,
+        'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
+        'status_message': f"Stack '{req.name}' created: primary={req.primary_container}:{req.primary_port}, secondaries={req.secondary_containers}, interval={req.interval} minutes.",
+        'details': {
+            'primary_container': req.primary_container,
+            'primary_port': req.primary_port,
+            'secondary_containers': req.secondary_containers,
+            'interval': req.interval
+        },
+        'message': f"Stack '{req.name}' created.",
+        'level': 'info'
+    })
     return {"success": True}
 @router.post("/stacks/recheck", response_model=dict)
 def recheck_stack(name: str = Query(..., description="Stack name")):
@@ -116,6 +135,18 @@ def recheck_stack(name: str = Query(..., description="Stack name")):
 @router.delete("/stacks", response_model=dict)
 def delete_stack(name: str = Query(..., description="Stack name")):
     port_monitor_stack_manager.remove_stack(name)
+    import datetime
+    append_ui_event_log({
+        'event': 'port_monitor_stack_deleted',
+        'event_type': 'port_monitor_stack_delete',
+        'label': name,
+        'stack': name,
+        'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
+        'status_message': f"Stack '{name}' deleted.",
+        'details': {},
+        'message': f"Stack '{name}' deleted.",
+        'level': 'info'
+    })
     return {"success": True}
 
 import threading

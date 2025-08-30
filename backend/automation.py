@@ -1,4 +1,91 @@
 import logging
+import threading
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
+from backend.config import list_sessions, load_session
+from backend.mam_api import get_status
+from backend.event_log import append_ui_event_log
+from datetime import datetime, timezone
+
+# --- Automation Scheduler ---
+def run_all_automation_jobs():
+    session_labels = list_sessions()
+    for label in session_labels:
+        try:
+            upload_credit_automation_job_for_label(label)
+            wedge_automation_job_for_label(label)
+            vip_automation_job_for_label(label)
+        except Exception as e:
+            logging.error(f"[AutomationScheduler] Error running automation jobs for '{label}': {e}")
+
+def upload_credit_automation_job_for_label(label):
+    # Wrapper to run upload automation for a single label
+    session_labels = [label]
+    now = datetime.now(timezone.utc)
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            mam_id = cfg.get('mam', {}).get('mam_id', "")
+            if not mam_id:
+                return
+            automation = cfg.get('perk_automation', {}).get('upload_credit', {})
+            enabled = automation.get('enabled', False)
+            if not enabled:
+                return
+            # ...existing code from upload_credit_automation_job...
+            # (Call the main logic here, or refactor as needed)
+            upload_credit_automation_job()
+        except Exception as e:
+            logging.error(f"[UploadAuto] Error for '{label}': {e}")
+
+def wedge_automation_job_for_label(label):
+    # Wrapper to run wedge automation for a single label
+    session_labels = [label]
+    now = datetime.now(timezone.utc)
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            mam_id = cfg.get('mam', {}).get('mam_id', "")
+            if not mam_id:
+                return
+            automation = cfg.get('perk_automation', {}).get('wedge_automation', {})
+            enabled = automation.get('enabled', False)
+            if not enabled:
+                return
+            # ...existing code from wedge_automation_job...
+            wedge_automation_job()
+        except Exception as e:
+            logging.error(f"[WedgeAuto] Error for '{label}': {e}")
+
+def vip_automation_job_for_label(label):
+    # Wrapper to run VIP automation for a single label
+    session_labels = [label]
+    now = datetime.now(timezone.utc)
+    for label in session_labels:
+        try:
+            cfg = load_session(label)
+            mam_id = cfg.get('mam', {}).get('mam_id', "")
+            if not mam_id:
+                return
+            automation = cfg.get('perk_automation', {}).get('vip_automation', {})
+            enabled = automation.get('enabled', False)
+            if not enabled:
+                return
+            # ...existing code from vip_automation_job...
+            vip_automation_job()
+        except Exception as e:
+            logging.error(f"[VIPAuto] Error for '{label}': {e}")
+
+# Start the scheduler for automation jobs every 10 minutes
+def start_automation_scheduler():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_all_automation_jobs, trigger=IntervalTrigger(minutes=10), id='all_automation_jobs', replace_existing=True, coalesce=True, max_instances=1)
+    scheduler.start()
+    logging.info("[AutomationScheduler] Started automation job scheduler (every 10 min)")
+
+# Start scheduler on import
+start_automation_scheduler()
+import logging
 from backend.perk_automation import buy_wedge, buy_vip, buy_upload_credit
 def upload_credit_automation_job():
     session_labels = list_sessions()

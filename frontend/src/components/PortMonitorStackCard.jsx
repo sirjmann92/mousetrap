@@ -40,8 +40,19 @@ export default function PortMonitorStackCard() {
   const [primaryPort, setPrimaryPort] = useState('');
   const [secondaryContainers, setSecondaryContainers] = useState([]);
   const [interval, setInterval] = useState(1);
+  const [publicIp, setPublicIp] = useState('');
   const [editingStack, setEditingStack] = useState(null); // stack.name if editing, else null
   // 1, 5, 10, 15, ... 60 (minutes)
+  // Helper to reset form state
+  const resetForm = () => {
+    setEditingStack(null);
+    setName('');
+    setPrimaryContainer('');
+    setPrimaryPort('');
+    setSecondaryContainers([]);
+    setInterval(1);
+    setPublicIp('');
+  };
   const INTERVAL_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
   // ...existing code...
@@ -87,21 +98,20 @@ export default function PortMonitorStackCard() {
           primary_container: primaryContainer,
           primary_port: Number(primaryPort),
           secondary_containers: secondaryContainers,
-          interval
+          interval,
+          public_ip: publicIp || undefined
         })
       });
       if (!res.ok) throw new Error('Failed to add stack');
-      setSuccess('Stack added.');
-      setName('');
-      setPrimaryContainer('');
-      setPrimaryPort('');
-      setSecondaryContainers([]);
-      setInterval(1);
-  await fetchStacks();
-    } catch (e) {
-      setError('Failed to add stack.');
-    }
-  };
+    setSuccess('Stack added.');
+  } catch (e) {
+    setError('Failed to add stack.');
+  } finally {
+    resetForm();
+    await fetchStacks();
+    setLoading(false);
+  }
+};
 
   const handleEditStack = (stack) => {
     setEditingStack(stack.name);
@@ -110,6 +120,7 @@ export default function PortMonitorStackCard() {
     setPrimaryPort(stack.primary_port);
     setSecondaryContainers(stack.secondary_containers);
     setInterval(stack.interval);
+    setPublicIp(stack.public_ip || '');
   };
 
   const handleSaveEdit = async () => {
@@ -124,31 +135,24 @@ export default function PortMonitorStackCard() {
           primary_container: primaryContainer,
           primary_port: Number(primaryPort),
           secondary_containers: secondaryContainers,
-          interval
+          interval,
+          public_ip: publicIp || undefined
         })
       });
       if (!res.ok) throw new Error('Failed to update stack');
-      setSuccess('Stack updated.');
-      setEditingStack(null);
-      setName('');
-      setPrimaryContainer('');
-      setPrimaryPort('');
-      setSecondaryContainers([]);
-      setInterval(1);
-  await fetchStacks();
-    } catch (e) {
-      setError('Failed to update stack.');
-    }
-  };
+    setSuccess('Stack updated.');
+  } catch (e) {
+    setError('Failed to update stack.');
+  } finally {
+    resetForm();
+    await fetchStacks();
+    setLoading(false);
+  }
+};
 
-  const handleCancelEdit = () => {
-    setEditingStack(null);
-    setName('');
-    setPrimaryContainer('');
-    setPrimaryPort('');
-    setSecondaryContainers([]);
-    setInterval(1);
-  };
+const handleCancelEdit = () => {
+  resetForm();
+};
 
   const handleDeleteStack = async (name) => {
     setLoading(true);
@@ -158,9 +162,12 @@ export default function PortMonitorStackCard() {
       const res = await fetch(`${API_BASE}/stacks?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete stack');
       setSuccess('Stack deleted.');
-  await fetchStacks();
+      await fetchStacks();
+      resetForm();
     } catch (e) {
       setError('Failed to delete stack.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -199,7 +206,8 @@ export default function PortMonitorStackCard() {
           {error && stacks.length > 0 && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {success && <Alert severity="success" sx={{ mb: 1 }}>{success}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
-            <TextField label="Stack Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 220, maxWidth: 320 }} variant="outlined" disabled={!!editingStack} />
+            {/* Always enable Stack Name field if not editing */}
+            <TextField label="Stack Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 220, maxWidth: 320 }} variant="outlined" disabled={Boolean(editingStack)} />
             <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320 }}>
               <InputLabel id="primary-container-label">Primary Container</InputLabel>
               <Select
@@ -231,6 +239,7 @@ export default function PortMonitorStackCard() {
                   ))}
                 </Select>
               </FormControl>
+              <TextField label="Public IP (optional)" value={publicIp} onChange={e => setPublicIp(e.target.value)} size="small" sx={{ minWidth: 180, maxWidth: 240 }} helperText="Override detected public IP" />
             </Box>
             <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320 }} variant="outlined">
               <InputLabel id="secondary-containers-label">Secondary Containers</InputLabel>
@@ -288,81 +297,90 @@ export default function PortMonitorStackCard() {
           <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>Configured Stacks</Typography>
           <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
             {stacks.length === 0 && <Typography color="text.secondary">No stacks configured.</Typography>}
-            {stacks.map((stack) => (
-              <Box
-                key={stack.name}
-                sx={theme => ({
-                  mb: 2,
-                  p: 2,
-                  borderRadius: 2,
-                  background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
-                  boxShadow: 0,
-                  position: 'relative',
-                })}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, minWidth: 320 }}>Stack: {stack.name}</Typography>
-                  <Box>
-                    <Tooltip title="Edit Stack">
-                      <IconButton size="small" onClick={() => handleEditStack(stack)} disabled={!!editingStack}>
-                        <EditIcon color="primary" fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Recheck Stack Status">
-                      <IconButton size="small" onClick={async () => {
-                        setLoading(true);
-                        setError(null);
-                        try {
-                          await fetch(`${API_BASE}/stacks/recheck?name=${encodeURIComponent(stack.name)}`, { method: 'POST' });
-                          await fetchStacks();
-                          // Find the updated stack and show a notification
-                          const updated = stacks.find(s => s.name === stack.name);
-                          const statusMsg = updated ? (updated.status || 'Unknown') : 'Unknown';
-                          setSuccess(`Stack rechecked: ${stack.name} — ${statusMsg}`);
-                        } catch (e) {
-                          setError('Failed to recheck stack.');
-                        }
-                        setLoading(false);
-                      }}>
-                        <RefreshIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Restart Stack">
-                      <IconButton size="small" onClick={() => handleRestartStack(stack.name)}>
-                        <RefreshIcon color="warning" fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete Stack">
-                      <IconButton size="small" onClick={() => handleDeleteStack(stack.name)}>
-                        <DeleteIcon color="error" fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Box>
-                <Typography variant="body2" sx={{ minWidth: 320 }}>Primary: {stack.primary_container}:{stack.primary_port}</Typography>
-                <Typography variant="body2" sx={{ minWidth: 320 }}>Secondaries: {stack.secondary_containers.join(', ') || 'None'}</Typography>
-                <Typography variant="body2" sx={{ minWidth: 320 }}>
-                  Check Interval: {stack.interval} {stack.interval === 1 ? 'minute' : 'minutes'}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    minWidth: 320,
-                    fontWeight: 600,
-                    color:
-                      stack.status === 'OK'
-                        ? theme => theme.palette.success.main
-                        : stack.status === 'Unknown'
-                        ? theme => theme.palette.warning.main
-                        : stack.status === 'Restarting...'
-                        ? theme => theme.palette.warning.main
-                        : theme => theme.palette.error.main,
-                  }}
+            {stacks.map((stack) => {
+              // Show a warning if the backend could not detect a valid public IP and no override is set
+              const needsPublicIp = stack.status === 'Failed' && (!stack.public_ip || stack.public_ip === '') && stack.public_ip_detected === false;
+              return (
+                <Box
+                  key={stack.name}
+                  sx={theme => ({
+                    mb: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
+                    boxShadow: 0,
+                    position: 'relative',
+                  })}
                 >
-                  Status: {stack.status || 'Unknown'}
-                </Typography>
-              </Box>
-            ))}
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, minWidth: 320 }}>Stack: {stack.name}</Typography>
+                    <Box>
+                      <Tooltip title="Edit Stack">
+                        <IconButton size="small" onClick={() => handleEditStack(stack)} disabled={!!editingStack}>
+                          <EditIcon color="primary" fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Recheck Stack Status">
+                        <IconButton size="small" onClick={async () => {
+                          setLoading(true);
+                          setError(null);
+                          try {
+                            await fetch(`${API_BASE}/stacks/recheck?name=${encodeURIComponent(stack.name)}`, { method: 'POST' });
+                            await fetchStacks();
+                            // Find the updated stack and show a notification
+                            const updated = stacks.find(s => s.name === stack.name);
+                            const statusMsg = updated ? (updated.status || 'Unknown') : 'Unknown';
+                            setSuccess(`Stack rechecked: ${stack.name} — ${statusMsg}`);
+                          } catch (e) {
+                            setError('Failed to recheck stack.');
+                          }
+                          setLoading(false);
+                        }}>
+                          <RefreshIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Restart Stack">
+                        <IconButton size="small" onClick={() => handleRestartStack(stack.name)}>
+                          <RefreshIcon color="warning" fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete Stack">
+                        <IconButton size="small" onClick={() => handleDeleteStack(stack.name)}>
+                          <DeleteIcon color="error" fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </Box>
+                  <Typography variant="body2" sx={{ minWidth: 320 }}>Primary: {stack.primary_container}:{stack.primary_port}</Typography>
+                  <Typography variant="body2" sx={{ minWidth: 320 }}>Secondaries: {stack.secondary_containers.join(', ') || 'None'}</Typography>
+                  <Typography variant="body2" sx={{ minWidth: 320 }}>
+                    Check Interval: {stack.interval} {stack.interval === 1 ? 'minute' : 'minutes'}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      minWidth: 320,
+                      fontWeight: 600,
+                      color:
+                        stack.status === 'OK'
+                          ? theme => theme.palette.success.main
+                          : stack.status === 'Unknown'
+                          ? theme => theme.palette.warning.main
+                          : stack.status === 'Restarting...'
+                          ? theme => theme.palette.warning.main
+                          : theme => theme.palette.error.main,
+                    }}
+                  >
+                    Status: {stack.status || 'Unknown'}
+                  </Typography>
+                  {needsPublicIp && (
+                    <Alert severity="warning" sx={{ mt: 1 }}>
+                      Unable to detect the public IP for this container. Please ensure <code>curl</code> or <code>wget</code> is installed in the container, or use the <b>Public IP (optional)</b> field above to override.
+                    </Alert>
+                  )}
+                </Box>
+              );
+            })}
           </Box>
         </CardContent>
       </Collapse>
