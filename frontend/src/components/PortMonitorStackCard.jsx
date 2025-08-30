@@ -182,7 +182,7 @@ export default function PortMonitorStackCard() {
     <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          Port Monitor Stacks (Beta)
+          Docker Port Monitor
         </Typography>
         <IconButton size="small">
           <ExpandMoreIcon sx={{ transform: expanded ? 'rotate(180deg)' : 'none' }} />

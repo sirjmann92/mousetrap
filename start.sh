@@ -22,6 +22,17 @@ fi
 
 
 
+
+# If DOCKER_GID is set, update/create docker group and add appuser
+if [ -n "$DOCKER_GID" ]; then
+	if getent group docker >/dev/null; then
+		groupmod -g "$DOCKER_GID" docker
+	else
+		groupadd -g "$DOCKER_GID" docker
+	fi
+	usermod -aG docker "$USERNAME"
+fi
+
 # Ensure ownership of /app/logs and /config if they exist
 chown -R "$PUID":"$PGID" /app/logs 2>/dev/null || true
 chown -R "$PUID":"$PGID" /config 2>/dev/null || true

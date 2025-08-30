@@ -10,7 +10,7 @@ export default function NotificationsCard() {
   const [showWebhook, setShowWebhook] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const defaultEvents = [
-    { key: "port_monitor_failure", label: "Port Monitor Failure" },
+    { key: "port_monitor_failure", label: "Docker Port Monitor Failure" },
     { key: "automation_success", label: "Purchase Automation Success" },
     { key: "automation_failure", label: "Purchase Automation Failure" },
     { key: "manual_purchase_success", label: "Manual Purchase Success" },
