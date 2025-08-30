@@ -114,13 +114,13 @@ export default function PortMonitorStackCard() {
 };
 
   const handleEditStack = (stack) => {
-    setEditingStack(stack.name);
-    setName(stack.name);
-    setPrimaryContainer(stack.primary_container);
-    setPrimaryPort(stack.primary_port);
-    setSecondaryContainers(stack.secondary_containers);
-    setInterval(stack.interval);
-    setPublicIp(stack.public_ip || '');
+  setEditingStack(stack.name);
+  setName(stack.name);
+  setPrimaryContainer(stack.primary_container);
+  setPrimaryPort(stack.primary_port);
+  setSecondaryContainers(stack.secondary_containers);
+  setInterval(stack.interval);
+  setPublicIp(typeof stack.public_ip === 'string' ? stack.public_ip : '');
   };
 
   const handleSaveEdit = async () => {
@@ -241,7 +241,9 @@ const handleCancelEdit = () => {
                   ))}
                 </Select>
               </FormControl>
-              <TextField label="Public IP (optional)" value={publicIp} onChange={e => setPublicIp(e.target.value)} size="small" sx={{ minWidth: 180, maxWidth: 240 }} helperText="Override detected public IP" />
+              <Tooltip title="If the app cannot detect the public IP of the container automatically, enter it here to override. This is only needed if detection fails (e.g., curl/wget missing in container)." placement="top" arrow>
+                <TextField label="Public IP (optional)" value={publicIp} onChange={e => setPublicIp(e.target.value)} size="small" sx={{ minWidth: 180, maxWidth: 240 }} helperText="Override detected public IP" />
+              </Tooltip>
             </Box>
             <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320 }} variant="outlined">
               <InputLabel id="secondary-containers-label">Secondary Containers</InputLabel>
@@ -316,6 +318,13 @@ const handleCancelEdit = () => {
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, minWidth: 320 }}>Stack: {stack.name}</Typography>
+                    {stack.public_ip && stack.public_ip !== '' && (
+                      <Box sx={{ ml: 2 }}>
+                        <Typography variant="caption" color="info.main" sx={{ fontWeight: 700, background: '#e3f2fd', px: 1, py: 0.5, borderRadius: 1 }}>
+                          Public IP Override: {stack.public_ip}
+                        </Typography>
+                      </Box>
+                    )}
                     <Box>
                       <Tooltip title="Edit Stack">
                         <IconButton size="small" onClick={() => handleEditStack(stack)} disabled={!!editingStack}>
