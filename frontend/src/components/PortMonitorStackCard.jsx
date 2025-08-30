@@ -197,9 +197,11 @@ const handleCancelEdit = () => {
       </Box>
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
-          <Alert severity="info" sx={{ mb: 2 }}>
-            <strong>Docker socket permissions required:</strong> This feature requires access to the Docker socket. If you do not have permission, the list will be empty and actions will not work.
-          </Alert>
+          {containers.length === 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <strong>Docker socket permissions required:</strong> This feature requires access to the Docker socket. If you do not have permission, the list will be empty and actions will not work.
+            </Alert>
+          )}
           <Typography variant="body2" color="text.secondary" gutterBottom>
             Define a stack of containers to monitor and restart together. Select a primary container and port, and any secondary containers.
           </Typography>
