@@ -1,4 +1,5 @@
 
+
 # --- FastAPI app creation ---
 
 
@@ -59,20 +60,6 @@ from backend.api_port_monitor import router as port_monitor_router
 from backend.api_notifications import router as notifications_router
 from backend.last_session_api import router as last_session_router
 
-app = FastAPI(title="MouseTrap API")
-
-# Mount API routers
-app.include_router(automation_router, prefix="/api")
-app.include_router(last_session_router, prefix="/api")
-app.include_router(proxy_router, prefix="/api")
-app.include_router(port_monitor_router, prefix="/api/port-monitor")
-app.include_router(event_log_router, prefix="/api")
-app.include_router(notifications_router, prefix="/api")
-# Serve logs directory as static files for UI event log access (must be before any catch-all routes)
-logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
-if os.path.isdir(logs_dir):
-    app.mount("/logs", StaticFiles(directory=logs_dir), name="logs")
-
 
 # --- FastAPI app creation ---
 app = FastAPI(title="MouseTrap API")
@@ -84,6 +71,13 @@ app.include_router(proxy_router, prefix="/api")
 app.include_router(port_monitor_router, prefix="/api/port-monitor")
 app.include_router(event_log_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
+from backend.api_port_monitor_stack import router as port_monitor_stack_router
+app.include_router(port_monitor_stack_router, prefix="/api/port-monitor-stack")
+from backend.port_monitor_stack import port_monitor_stack_manager
+# Start PortMonitorStackManager monitor loop on FastAPI startup
+@app.on_event("startup")
+def start_port_monitor_stack_manager():
+    port_monitor_stack_manager.start()
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):

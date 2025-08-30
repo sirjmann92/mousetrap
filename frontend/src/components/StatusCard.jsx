@@ -247,7 +247,15 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                   <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
                     {/* Unified, styled status message */}
                     {(() => {
-                      const msg = status.status_message || status.last_result || "unknown";
+                      // Prefer rate limit message if present
+                      let msg = status.status_message || status.last_result || "unknown";
+                      if (typeof msg === 'string' && /rate limit: last change too recent/i.test(msg)) {
+                        msg = msg;
+                      } else if (
+                        status.details && typeof status.details === 'object' && status.details.error && /rate limit: last change too recent/i.test(status.details.error)
+                      ) {
+                        msg = status.details.error;
+                      }
                       const color = getStatusMessageColor(msg);
                       return (
                         <Box sx={{ mt: 1, textAlign: 'center' }}>

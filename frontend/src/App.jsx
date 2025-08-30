@@ -19,6 +19,7 @@ import ProxyConfigCard from "./components/ProxyConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
 import PortMonitorCard from "./components/PortMonitorCard";
+import PortMonitorStackCard from "./components/PortMonitorStackCard";
 import SessionSelector from "./components/SessionSelector";
 import MouseTrapIcon from "./assets/mousetrap-icon.svg";
 
@@ -61,14 +62,27 @@ export default function App() {
   const [selectedLabel, setSelectedLabel] = React.useState("");
   const statusCardRef = React.useRef();
 
-  // Fetch all sessions and update state
+  // Fetch all sessions and update state, restoring last session if available
   const refreshSessions = async () => {
     try {
       const res = await fetch("/api/sessions");
       const data = await res.json();
       setSessions(data.sessions || []);
-      // If no session is selected, select the first one
+      // Try to restore last session from backend
       if ((!selectedLabel || !data.sessions.includes(selectedLabel)) && data.sessions.length > 0) {
+        // Fetch last session from backend
+        try {
+          const lastSessionRes = await fetch("/api/last_session");
+          const lastSessionData = await lastSessionRes.json();
+          const lastLabel = lastSessionData.label;
+          if (lastLabel && data.sessions.includes(lastLabel)) {
+            setSelectedLabel(lastLabel);
+            loadSession(lastLabel);
+            return;
+          }
+        } catch (e) {
+          // Ignore and fall back to first session
+        }
         setSelectedLabel(data.sessions[0]);
         loadSession(data.sessions[0]);
       }
@@ -263,7 +277,8 @@ export default function App() {
             }}
           />
         )}
-        <PortMonitorCard />
+  <PortMonitorStackCard />
+  {/* <PortMonitorCard />  // Port Monitoring temporarily disabled for migration */}
         <NotificationsCard />
       </Container>
     </ThemeProvider>
