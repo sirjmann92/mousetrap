@@ -60,7 +60,7 @@ Visit [http://localhost:39842](http://localhost:39842) in your browser.
 - Multi-session: manage multiple MAM IDs in one instance
 - Detects and updates on public IP/ASN changes (VPN/proxy aware)
 - Rate limit handling and clear error/warning messages
-- Port Monitoring: Monitor container ports and auto-restart
+- Port Monitoring: Monitor container ports and auto-restart/notify, including entire groups of containers
 
 ---
 
