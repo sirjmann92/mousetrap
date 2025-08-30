@@ -106,6 +106,7 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
   const eventTypeColors = {
     port_monitor_add: '#1976d2',
     port_monitor_check: '#0288d1',
+    port_monitor_stack_check: '#0288d1',
     port_monitor_delete: '#d32f2f',
     automation: '#7b1fa2',
     manual: '#388e3c',
@@ -233,16 +234,25 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                       color: (theme) => theme.palette.mode === 'dark' ? '#b0b0b0' : 'text.secondary',
                     }}
                   >
-                    {new Date(event.timestamp).toLocaleString()} — <b>{event.label === 'global' ? 'Global' : event.label}</b>
+                    {/* Show a readable date, or placeholder if timestamp is missing/invalid */}
+                    {(() => {
+                      let ts = event.timestamp;
+                      if (!ts || ts === 0 || ts === '0' || ts === 'null' || ts === 'undefined') return <span style={{color:'#c00'}}>No Timestamp</span>;
+                      let d = new Date(ts);
+                      if (isNaN(d.getTime())) return <span style={{color:'#c00'}}>Invalid Timestamp</span>;
+                      return d.toLocaleString();
+                    })()} — <b>{event.label === 'global' ? 'Global' : event.label}</b>
                   </Typography>
                   <Typography
                     variant="body2"
                     sx={{
                       mt: 0.5,
                       fontWeight: 500,
-                      color:
-                        eventTypeColors[event.event_type] ||
-                        getStatusMessageColor(event.status_message),
+                      color: (() => {
+                        const statusColor = getStatusMessageColor(event.status_message);
+                        if (statusColor === 'error.main') return statusColor;
+                        return eventTypeColors[event.event_type] || statusColor;
+                      })(),
                     }}
                   >
                     {event.status_message}
