@@ -13,6 +13,7 @@ class UpdatePortMonitorStackRequest(BaseModel):
     primary_port: int
     secondary_containers: List[str] = []
     interval: int = 60
+    public_ip: Optional[str] = None
 
 @router.put("/stacks", response_model=dict)
 def update_stack(
@@ -40,6 +41,7 @@ def update_stack(
     stack.primary_port = req.primary_port
     stack.secondary_containers = req.secondary_containers
     stack.interval = req.interval
+    stack.public_ip = req.public_ip
     port_monitor_stack_manager.save_stacks()
     # Immediately recheck status after edit
     port_monitor_stack_manager.recheck_stack(name)
@@ -75,6 +77,7 @@ class PortMonitorStackModel(BaseModel):
     status: str = Field(..., description="Current status")
     last_checked: Optional[float] = Field(None, description="Last checked timestamp (epoch)")
     last_result: Optional[bool] = Field(None, description="Last check result (True=OK, False=Failed)")
+    public_ip: Optional[str] = Field(None, description="Manual public IP override for this stack, if set.")
     public_ip_detected: Optional[bool] = Field(None, description="Was a public IP detected for this stack's primary container?")
 
 class AddPortMonitorStackRequest(BaseModel):
@@ -83,6 +86,7 @@ class AddPortMonitorStackRequest(BaseModel):
     primary_port: int
     secondary_containers: List[str] = []
     interval: int = 60
+    public_ip: Optional[str] = None
 
 # Add update model and endpoint after router definition
 
@@ -98,6 +102,7 @@ def list_stacks():
             status=s.status,
             last_checked=s.last_checked,
             last_result=s.last_result,
+            public_ip=getattr(s, 'public_ip', None),
             public_ip_detected=getattr(s, 'public_ip_detected', None)
         ) for s in port_monitor_stack_manager.list_stacks()
     ]
@@ -105,7 +110,7 @@ def list_stacks():
 @router.post("/stacks", response_model=dict)
 def add_stack(req: AddPortMonitorStackRequest):
     port_monitor_stack_manager.add_stack(
-        req.name, req.primary_container, req.primary_port, req.secondary_containers, req.interval
+        req.name, req.primary_container, req.primary_port, req.secondary_containers, req.interval, req.public_ip
     )
     import datetime
     append_ui_event_log({
