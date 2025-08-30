@@ -26,7 +26,7 @@ services:
       - TZ=Europe/London # Your timezone: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
   - PUID=1000 # Your host user ID
   - PGID=1000 # Your host user group
-  - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
+#  - DOCKER_GID=992 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config # Map your config directory for persistent settings
       - ./logs:/app/logs # Map your log directory for troubleshooting
