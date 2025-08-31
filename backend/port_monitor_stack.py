@@ -12,7 +12,7 @@ except ImportError:
     docker = None
 
 import os
-PORT_MONITOR_STACK_CONFIG_PATH = os.environ.get('PORT_MONITOR_STACK_CONFIG_PATH', '/config/port_monitoring_stacks.yaml')
+PORT_MONITOR_CONFIG_PATH = os.environ.get('PORT_MONITOR_CONFIG_PATH', '/config/port_monitoring_stacks.yaml')
 
 class PortMonitorStack:
     def __init__(self, name: str, primary_container: str, primary_port: int, secondary_containers: List[str], interval: int = 60, public_ip: Optional[str] = None, public_ip_detected: Optional[bool] = None):
@@ -38,12 +38,12 @@ class PortMonitorStackManager:
     def load_stacks(self):
         import yaml
         import logging
-        if not os.path.exists(PORT_MONITOR_STACK_CONFIG_PATH):
+        if not os.path.exists(PORT_MONITOR_CONFIG_PATH):
             self.stacks = []
-            logging.info(f"[PortMonitorStack] No stack config found at {PORT_MONITOR_STACK_CONFIG_PATH}")
+            logging.info(f"[PortMonitor] No config found at {PORT_MONITOR_CONFIG_PATH}")
             return
         try:
-            with open(PORT_MONITOR_STACK_CONFIG_PATH, 'r') as f:
+            with open(PORT_MONITOR_CONFIG_PATH, 'r') as f:
                 data = yaml.safe_load(f) or []
             seen = set()
             unique_stacks = []
@@ -71,7 +71,7 @@ class PortMonitorStackManager:
     def save_stacks(self):
         import yaml
         try:
-            with open(PORT_MONITOR_STACK_CONFIG_PATH, 'w') as f:
+            with open(PORT_MONITOR_CONFIG_PATH, 'w') as f:
                 yaml.safe_dump([
                     {
                         'name': s.name,
@@ -315,4 +315,4 @@ class PortMonitorStackManager:
             self.thread.join()
 
 # Singleton instance
-port_monitor_stack_manager = PortMonitorStackManager()
+port_monitor_manager = PortMonitorStackManager()

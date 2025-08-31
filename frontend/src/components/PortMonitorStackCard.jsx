@@ -9,14 +9,11 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import CircularProgress from '@mui/material/CircularProgress';
 
-const API_BASE = '/api/port-monitor-stack';
-
-
-export default function PortMonitorStackCard() {
-  // Fetch stacks from backend
+export default function PortMonitorCard() {
+  const API_BASE = '/api/port-monitor';
   const fetchStacks = async () => {
     try {
-      const res = await fetch('/api/port-monitor-stack/stacks');
+      const res = await fetch('/api/port-monitor/stacks');
       if (!res.ok) throw new Error('Failed to fetch stacks');
       const data = await res.json();
       setStacks(data);
@@ -103,15 +100,15 @@ export default function PortMonitorStackCard() {
         })
       });
       if (!res.ok) throw new Error('Failed to add stack');
-    setSuccess('Stack added.');
-  } catch (e) {
-    setError('Failed to add stack.');
-  } finally {
-    resetForm();
-    await fetchStacks();
-    setLoading(false);
-  }
-};
+      setSuccess('Stack added.');
+    } catch (e) {
+      setError('Failed to add stack.');
+    } finally {
+      resetForm();
+      await fetchStacks();
+      setLoading(false);
+    }
+  };
 
   const handleEditStack = (stack) => {
   setEditingStack(stack.name);
@@ -140,15 +137,15 @@ export default function PortMonitorStackCard() {
         })
       });
       if (!res.ok) throw new Error('Failed to update stack');
-    setSuccess('Stack updated.');
-  } catch (e) {
-    setError('Failed to update stack.');
-  } finally {
-    resetForm();
-    await fetchStacks();
-    setLoading(false);
-  }
-};
+      setSuccess('Stack updated.');
+    } catch (e) {
+      setError('Failed to update stack.');
+    } finally {
+      resetForm();
+      await fetchStacks();
+      setLoading(false);
+    }
+  };
 
 const handleCancelEdit = () => {
   resetForm();
@@ -202,7 +199,7 @@ const handleCancelEdit = () => {
               <strong>Docker socket permissions required:</strong> This feature requires access to the Docker socket. If you do not have permission, the list will be empty and actions will not work.
             </Alert>
           )}
-          <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 1 }}>
             Define a stack of containers to monitor and restart together. Select a primary container and port, and any secondary containers.
           </Typography>
           {error && stacks.length > 0 && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -327,7 +324,7 @@ const handleCancelEdit = () => {
                     )}
                     <Box>
                       <Tooltip title="Edit Stack">
-                        <IconButton size="small" onClick={() => handleEditStack(stack)} disabled={!!editingStack}>
+                        <IconButton size="small" onClick={() => handleEditStack(stack)}>
                           <EditIcon color="primary" fontSize="small" />
                         </IconButton>
                       </Tooltip>

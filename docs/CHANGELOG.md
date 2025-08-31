@@ -1,3 +1,21 @@
+# August 30, 2025
+
+## Major Changes
+
+- **Unified Docker Port Monitoring:**
+  - All port monitoring logic is now unified under a single backend/API. Legacy/duplicate code removed.
+  - `/api/port-monitor/containers` endpoint provides a live Docker container list for the UI.
+  - Manual public IPs: If a user enters a manual IP, the system will pause auto-restarts and notify the user after 3 consecutive unreachable checks. A warning is shown in the UI/event log until the user updates/disables the manual IP.
+  - After restarting a primary container, the system waits up to 60s for the port to be reachable. If not, but the container is running, it proceeds to restart secondaries and notifies the user. If not running, secondaries are not restarted and the user is notified.
+  - All port monitoring actions (checks, restarts, failures, manual IP pauses) are logged to the UI event log and backend logs.
+  - If Docker socket permissions are missing, port monitoring is disabled and a warning is shown in the UI.
+  - The `DOCKER_GID` environment variable can be set to match your host's Docker group GID for proper Docker socket access. See README for details.
+
+## Other Improvements
+- Improved event log clarity and error reporting for all automation types.
+- Documentation scrubbed of real IDs, usernames, IPs, ASNs, and other personal data.
+- All documentation and changelogs updated for new port monitoring workflow and environment variable usage.
+
 ## Late August 2025
 
 ### New Features & Fixes

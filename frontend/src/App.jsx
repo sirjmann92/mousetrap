@@ -19,7 +19,6 @@ import ProxyConfigCard from "./components/ProxyConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
 import PortMonitorCard from "./components/PortMonitorCard";
-import PortMonitorStackCard from "./components/PortMonitorStackCard";
 import SessionSelector from "./components/SessionSelector";
 import MouseTrapIcon from "./assets/mousetrap-icon.svg";
 
@@ -277,7 +276,7 @@ export default function App() {
             }}
           />
         )}
-  <PortMonitorStackCard />
+  <PortMonitorCard />
   {/* <PortMonitorCard />  // Port Monitoring temporarily disabled for migration */}
         <NotificationsCard />
       </Container>
