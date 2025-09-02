@@ -40,6 +40,8 @@ export default function MamDetailsAccordion({ status }) {
           {/* Hit & Run rows */}
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Inactive H&amp;R (Not Seeding):</Typography>
           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.inactHnr && typeof raw.inactHnr.count === 'number' ? raw.inactHnr.count : 'N/A'}</Typography>
+          <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Inactive Unsatisfied (Pre-H&amp;R):</Typography>
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.inactUnsat && typeof raw.inactUnsat.count === 'number' ? raw.inactUnsat.count : 'N/A'}</Typography>
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Active H&amp;R (Seeding):</Typography>
           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{raw.seedHnr && typeof raw.seedHnr.count === 'number' ? raw.seedHnr.count : 'N/A'}</Typography>
         </Box>
