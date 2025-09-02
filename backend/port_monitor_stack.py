@@ -174,7 +174,10 @@ class PortMonitorStackManager:
         # Set status to 'Restarting...'
         stack.status = 'Restarting...'
         self.save_stacks()
-        # Log restart event
+        # Log restart event (event log and backend log)
+        msg = f"Restarting stack '{stack.name}' (primary: {stack.primary_container}:{stack.primary_port})..."
+        import logging
+        logging.info(f"[PortMonitorStack] {msg}")
         append_ui_event_log({
             'event': 'port_monitor_stack_restart',
             'event_type': 'port_monitor_stack_restart',
@@ -184,7 +187,7 @@ class PortMonitorStackManager:
             'primary_port': stack.primary_port,
             'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
             'status': 'Restarting...',
-            'status_message': f"Restarting stack '{stack.name}' (primary: {stack.primary_container}:{stack.primary_port})...",
+            'status_message': msg,
             'details': {
                 'primary_container': stack.primary_container,
                 'primary_port': stack.primary_port,
@@ -195,10 +198,10 @@ class PortMonitorStackManager:
         # Restart primary
         self.restart_container(stack.primary_container)
         # Wait for primary to be reachable
-        for _ in range(30):  # Wait up to 30*2=60s
+        for _ in range(6):  # Wait up to 6*10=60s
             if self.check_port(stack.primary_container, stack.primary_port):
                 break
-            time.sleep(2)
+            time.sleep(10)
         # Restart all secondaries
         for sec in stack.secondary_containers:
             self.restart_container(sec)

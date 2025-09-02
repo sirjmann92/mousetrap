@@ -27,7 +27,7 @@ async def manual_upload_credit(request: Request):
 	now = datetime.now(timezone.utc)
 	result = buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
 	success = result.get('success', False)
-	status_message = f"Purchased {amount}GB upload credit" if success else f"Upload credit purchase failed ({amount}GB)"
+	status_message = f"Purchased {amount}GB Upload Credit" if success else f"Upload Credit purchase failed ({amount}GB)"
 	event = {
 		"timestamp": now.isoformat(),
 		"label": label,
@@ -48,7 +48,7 @@ async def manual_upload_credit(request: Request):
 				event_type="manual_purchase_success",
 				label=label,
 				status="SUCCESS",
-				message=f"Manual upload credit purchase succeeded: {amount}GB",
+				message=f"Manual Upload Credit purchase succeeded: {amount}GB",
 				details={"amount": amount}
 			)
 		else:
@@ -56,7 +56,7 @@ async def manual_upload_credit(request: Request):
 				event_type="manual_purchase_failure",
 				label=label,
 				status="FAILED",
-				message=f"Manual upload credit purchase failed: {amount}GB",
+				message=f"Manual Upload Credit purchase failed: {amount}GB",
 				details={"amount": amount, "error": result.get('error')}
 			)
 	except Exception:
@@ -107,7 +107,7 @@ async def manual_wedge(request: Request):
 				event_type="manual_purchase_success",
 				label=label,
 				status="SUCCESS",
-				message=f"Manual wedge purchase succeeded: {method}",
+				message=f"Manual Wedge purchase succeeded: {method}",
 				details={"method": method}
 			)
 		else:
@@ -115,7 +115,7 @@ async def manual_wedge(request: Request):
 				event_type="manual_purchase_failure",
 				label=label,
 				status="FAILED",
-				message=f"Manual wedge purchase failed: {method}",
+				message=f"Manual Wedge purchase failed: {method}",
 				details={"method": method, "error": result.get('error')}
 			)
 	except Exception:
