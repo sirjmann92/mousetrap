@@ -27,17 +27,18 @@ import { stringifyMessage } from '../utils/utils';
 import { useSession } from '../context/SessionContext';
 
 export default function PerkAutomationCard({
-  buffer, setBuffer,
+  // buffer, setBuffer, (removed)
   _autoWedge, setAutoWedge,
   _autoVIP, setAutoVIP,
   _autoUpload, setAutoUpload,
-  onActionComplete = () => {}, // <-- new prop
+  onActionComplete = () => {},
 }) {
   const { sessionLabel, points, setPoints } = useSession();
   // Local state for automation toggles, initialized from props if provided
   const [autoWedge, setAutoWedgeLocal] = useState(_autoWedge ?? false);
   const [autoVIP, setAutoVIPLocal] = useState(_autoVIP ?? false);
   const [autoUpload, setAutoUploadLocal] = useState(_autoUpload ?? false);
+  const [minPoints, setMinPoints] = useState(0);
 
   // Ensure prop setters update both local and parent state
   const setAutoWedgeCombined = (val) => {
@@ -64,7 +65,6 @@ export default function PerkAutomationCard({
   const [uploadGuardMsg, setUploadGuardMsg] = useState("");
   const [wedgeGuardMsg, setWedgeGuardMsg] = useState("");
   const [vipGuardMsg, setVIPGuardMsg] = useState("");
-  const [pointsToKeep, setPointsToKeep] = useState(0);
   // Upload automation options state
   const [triggerType, setTriggerType] = useState('time');
   const [triggerDays, setTriggerDays] = useState(7);
@@ -88,33 +88,32 @@ export default function PerkAutomationCard({
 
   // Load automation settings from session on mount/session change
   useEffect(() => {
-  if (!sessionLabel) return;
-  fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
+    if (!sessionLabel) return;
+    fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
       .then(res => res.json())
       .then(cfg => {
         const pa = cfg.perk_automation || {};
-        setBuffer(pa.buffer ?? 0);
+        setMinPoints(pa.min_points ?? 0);
         // --- Upload Credit Automation fields ---
         const upload = (pa.upload_credit || {});
-  setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
+        setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
         setUploadAmount(upload.gb ?? 1);
-  setPointsToKeep(upload.points_to_keep ?? 0);
-  setPoints && setPoints(cfg.points ?? null);
+        setPoints && setPoints(cfg.points ?? null);
         setTriggerType(upload.trigger_type ?? 'time');
         setTriggerDays(upload.trigger_days ?? 7);
         setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
         // --- Wedge Automation fields ---
         const wedge = (pa.wedge_automation || {});
-  setAutoWedgeCombined(wedge.enabled ?? pa.autoWedge ?? false);
+        setAutoWedgeCombined(wedge.enabled ?? pa.autoWedge ?? false);
         setWedgeTriggerType(wedge.trigger_type ?? 'time');
         setWedgeTriggerDays(wedge.trigger_days ?? 7);
         setWedgeTriggerPointThreshold(wedge.trigger_point_threshold ?? 50000);
         // --- VIP Automation fields ---
         const vip = (pa.vip_automation || {});
-  setAutoVIPCombined(vip.enabled ?? pa.autoVIP ?? false);
-  setVipTriggerType(vip.trigger_type ?? 'time');
-  setVipTriggerDays(vip.trigger_days ?? 7);
-  setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
+        setAutoVIPCombined(vip.enabled ?? pa.autoVIP ?? false);
+        setVipTriggerType(vip.trigger_type ?? 'time');
+        setVipTriggerDays(vip.trigger_days ?? 7);
+        setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
         // Save username for guardrails
         let username = null;
         if (cfg.last_status && cfg.last_status.raw && cfg.last_status.raw.username) {
@@ -256,26 +255,53 @@ export default function PerkAutomationCard({
       setSnackbar({ open: true, message: "Session label missing!", severity: "error" });
       return;
     }
+    // Load previous automation config if available (to preserve timestamps)
+    let prevWedgeTime = null, prevVIPTime = null, prevUploadTime = null;
+    try {
+      const res = await fetch(`/api/session/${encodeURIComponent(sessionLabel)}`);
+      if (res.ok) {
+        const cfg = await res.json();
+        prevWedgeTime = cfg?.perk_automation?.wedge_automation?.last_wedge_time ?? null;
+        prevVIPTime = cfg?.perk_automation?.vip_automation?.last_vip_time ?? null;
+        prevUploadTime = cfg?.perk_automation?.upload_credit?.last_upload_time ?? null;
+      }
+    } catch {}
+
+    // Helper for timestamp logic
+    function getNewTimestamp(enabled, triggerType, prevTime) {
+      if (enabled && triggerType === 'time') {
+        if (!prevTime) return Date.now();
+        return prevTime;
+      } else if (!enabled) {
+        return null;
+      } else {
+        return prevTime;
+      }
+    }
+
+    const newWedgeTime = getNewTimestamp(autoWedge, wedgeTriggerType, prevWedgeTime);
+    const newVIPTime = getNewTimestamp(autoVIP, vipTriggerType, prevVIPTime);
+    const newUploadTime = getNewTimestamp(autoUpload, triggerType, prevUploadTime);
+
     const perk_automation = {
-      autoWedge,
-      autoVIP,
-      autoUpload,
-      buffer,
-      // Upload Credit Automation fields
+  autoWedge,
+  autoVIP,
+  autoUpload,
+  min_points: Number(minPoints),
       upload_credit: {
         enabled: autoUpload,
         gb: Number(uploadAmount),
-        min_points: Number(buffer),
-        points_to_keep: Number(pointsToKeep),
         trigger_type: triggerType,
         trigger_days: Number(triggerDays),
         trigger_point_threshold: Number(triggerPointThreshold),
+        last_upload_time: newUploadTime,
       },
       wedge_automation: {
         enabled: autoWedge,
         trigger_type: wedgeTriggerType,
         trigger_days: Number(wedgeTriggerDays),
-  trigger_point_threshold: Number(wedgeTriggerPointThreshold),
+        trigger_point_threshold: Number(wedgeTriggerPointThreshold),
+        last_wedge_time: newWedgeTime,
       },
       vip_automation: {
         enabled: autoVIP,
@@ -283,6 +309,7 @@ export default function PerkAutomationCard({
         trigger_days: Number(vipTriggerDays),
         trigger_point_threshold: Number(vipTriggerPointThreshold),
         weeks: vipWeeks,
+        last_vip_time: newVIPTime,
       },
     };
     const res = await fetch("/api/session/perkautomation/save", {
@@ -312,35 +339,18 @@ export default function PerkAutomationCard({
       </Box>
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
-          {/* Buffer Section */}
-          <Box sx={{ mb: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Minimum Points"
-                  type="number"
-                  value={buffer}
-                  onChange={e => setBuffer(Number(e.target.value))}
-                  size="small"
-                  fullWidth
-                  helperText="Must have at least this many points to automate."
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Points to Keep"
-                  type="number"
-                  value={pointsToKeep}
-                  onChange={e => setPointsToKeep(Number(e.target.value))}
-                  size="small"
-                  fullWidth
-                  helperText="Never spend below this many points."
-                />
-              </Grid>
-            </Grid>
+          <Box sx={{ mb: 2, maxWidth: 400 }}>
+            <TextField
+              label="Minimum Points (Session Guardrail)"
+              type="number"
+              value={minPoints}
+              onChange={e => setMinPoints(e.target.value)}
+              inputProps={{ min: 0, step: 1000 }}
+              size="small"
+              helperText="Automation will never run if points are below this value."
+              sx={{ maxWidth: 400 }}
+            />
           </Box>
-          <Divider sx={{ mb: 3 }} />
-
           {/* Wedge Section (modularized) */}
           <AutomationSection
             title="Wedge Purchase"

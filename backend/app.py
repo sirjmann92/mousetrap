@@ -786,7 +786,42 @@ async def api_save_perkautomation(request: Request):
             logging.warning(f"Session '{label}' not found or not configured.")
             return {"success": False, "error": f"Session '{label}' not found."}
         # Save automation settings to session config
-        cfg["perk_automation"] = data.get("perk_automation", {})
+        new_pa = data.get("perk_automation", {})
+        old_pa = cfg.get("perk_automation", {})
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Helper: set/clear last_purchase timestamps for time-based automations
+        def handle_time_trigger(automation_key):
+            auto = new_pa.get(automation_key, {})
+            enabled = auto.get("enabled", False)
+            trigger_type = auto.get("trigger_type", "time")
+            # Map automation_key to new timestamp field
+            ts_field = None
+            if automation_key == "upload_credit":
+                ts_field = "last_upload_time"
+            elif automation_key == "vip_automation":
+                ts_field = "last_vip_time"
+            elif automation_key == "wedge_automation":
+                ts_field = "last_wedge_time"
+            if not ts_field:
+                return
+            # If disabling, always clear timestamp
+            if not enabled:
+                if ts_field in auto:
+                    auto.pop(ts_field, None)
+                if ts_field in cfg.get("perk_automation", {}).get(automation_key, {}):
+                    cfg["perk_automation"][automation_key].pop(ts_field, None)
+                return
+            # If enabling and time-based, set timestamp if missing
+            if enabled and trigger_type in ("time", "both"):
+                if not old_pa.get(automation_key, {}).get(ts_field):
+                    auto[ts_field] = now_iso
+
+        handle_time_trigger("upload_credit")
+        handle_time_trigger("vip_automation")
+        handle_time_trigger("wedge_automation")
+
+        cfg["perk_automation"] = new_pa
         save_session(cfg, old_label=label)
         return {"success": True}
     except Exception as e:
@@ -1088,6 +1123,21 @@ run_initial_session_checks()
 
 register_all_session_jobs()
 scheduler.start()
+
+# Register the automation jobs to run every 10 minutes
+from backend.automation import run_all_automation_jobs
+try:
+    scheduler.add_job(
+        run_all_automation_jobs,
+        trigger=IntervalTrigger(minutes=10),
+        id="automation_jobs",
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1
+    )
+    logging.info("[APScheduler] Registered automation jobs to run every 10 min")
+except Exception as e:
+    logging.error(f"[APScheduler] Failed to register automation jobs: {e}")
 
 # --- Upload Credit Automation Job ---
     # ...existing code...
