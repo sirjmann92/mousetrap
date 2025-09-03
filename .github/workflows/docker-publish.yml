@@ -3,6 +3,8 @@ name: Publish Docker image
 on:
   push:
     branches: [ "main" ]   # or "master", or whatever branch you want
+    paths-ignore:
+      - 'README.md'
 
 jobs:
   build:
