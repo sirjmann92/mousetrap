@@ -66,11 +66,15 @@ Visit [http://localhost:39842](http://localhost:39842) in your browser.
 
 ## Environment Variables
 
-- `TZ`: Set the timezone for logs and scheduling (e.g. `Europe/London`).
-- `PUID`/`PGID`: Set user/group IDs for Docker volume permissions (optional).
-- `IPINFO_TOKEN`: (Recommended) ipinfo.io API token for reliable IP/ASN lookups and higher rate limits. See above for details.
-- `LOGLEVEL`: Set backend log level (`DEBUG`, `INFO`, `WARNING`, etc). Default: `INFO`.
-- `PORT`: (Advanced) Override backend port (default: 39842; not recommended).
+| Variable      | Description                                                      | Default      | Required | Options                      | Example/Notes                |
+|---------------|------------------------------------------------------------------|--------------|----------|------------------------------|------------------------------|
+| `TZ`          | Set the timezone for logs and scheduling                         | (none)       | No       |                              | `Europe/London`              |
+| `PUID`        | Set user ID for Docker volume permissions                        | `1000`       | No       |                              | `PUID=1000`                  |
+| `PGID`        | Set group ID for Docker volume permissions                       | `1000`       | No       |                              | `PGID=1000`                  |
+| `DOCKER_GID`  | Allow container user to monitor/restart Docker containers        | `992`        | No       |                              | `DOCKER_GID=992`             |
+| `IPINFO_TOKEN`| ipinfo.io API token for reliable IP/ASN lookups                  | (none)       | No       |                              | `IPINFO_TOKEN=your_token_here`|
+| `LOGLEVEL`    | Set backend log level                                            | `INFO`       | No       | DEBUG, INFO, WARNING, ERROR  | `LOGLEVEL=DEBUG`             |
+| `PORT`        | Override backend port (advanced; not recommended)                | `39842`      | No       |                              | `PORT=39842`                 |
 
 ## Automation & Status
 
