@@ -136,6 +136,27 @@ environment:
   - IPINFO_TOKEN=your_token_here
 ```
 
+#### IP Lookup Fallback Chain
+MouseTrap uses multiple IP lookup providers for maximum reliability:
+
+| **Provider** | **Protocol** | **Data** | **Rate Limits** | **Notes** |
+|--------------|--------------|----------|-----------------|-----------|
+| **ipinfo.io** | HTTPS | IP, ASN, Geo | High w/token | Primary choice - get free token |
+| **ipdata.co** | HTTPS | IP, ASN, Geo | 1,500/day (free) | Get free API key - better than test key |
+| **ip-api.com** | HTTP | IP, ASN, Geo | None | May timeout through proxies |
+| **ipify.org** | HTTPS | IP only | None | Final fallback - prevents total failure |
+
+> **Recommendations:** 
+> - Get a free [ipinfo.io token](https://ipinfo.io/signup) for best reliability and higher rate limits
+> - Get a free [ipdata.co API key](https://ipdata.co/pricing.html) for 1,500 daily requests (eliminates HTTP 401 errors)
+
+**Optional Environment Variables:**
+```yaml
+environment:
+  - IPINFO_TOKEN=your_ipinfo_token_here
+  - IPDATA_API_KEY=your_ipdata_api_key_here
+```
+
 ---
 
 ## 🌐 VPN Integration

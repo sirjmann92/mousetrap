@@ -186,31 +186,32 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 
         # If ASN lookup failed, skip config update and logging
         if asn_to_check is None or asn_to_check == "Unknown ASN":
-            logging.warning(f"[AutoUpdate] label={label} Could not detect valid ASN. Skipping config update and ASN/IP change logging.")
-            return False, {"success": False, "msg": "ASN lookup failed. No update performed."}
-
-        norm_last = extract_asn_number(last_seedbox_asn)
-        norm_check = extract_asn_number(asn_to_check) if 'asn_to_check' in locals() else None
-        # Always store the normalized ASN number
-        if norm_check is not None:
-            cfg["last_seedbox_asn"] = norm_check
-            save_session(cfg, old_label=label)
-        # Log ASN compare and result at INFO level, but only once per check
-        if norm_last != norm_check:
-            reason = f"ASN changed: {norm_last} -> {norm_check}"
-            logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
-            logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
-            from backend.notifications_backend import notify_event
-            notify_event(
-                event_type="asn_changed",
-                label=label,
-                status="CHANGED",
-                message=reason,
-                details={"old_asn": norm_last, "new_asn": norm_check}
-            )
-            return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+            logging.info(f"[AutoUpdate] label={label} ASN lookup failed or unavailable (likely fallback provider). Skipping ASN comparison to avoid false notifications.")
+            # Don't return an error - just skip ASN comparison for this check
+            # Continue with normal processing without ASN change detection
         else:
-            logging.info(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check} | ASN result: No change needed.")
+            norm_last = extract_asn_number(last_seedbox_asn)
+            norm_check = extract_asn_number(asn_to_check) if 'asn_to_check' in locals() else None
+            # Always store the normalized ASN number if available
+            if norm_check is not None:
+                cfg["last_seedbox_asn"] = norm_check
+                save_session(cfg, old_label=label)
+            # Log ASN compare and result at INFO level, but only once per check
+            if norm_last != norm_check:
+                reason = f"ASN changed: {norm_last} -> {norm_check}"
+                logging.info(f"[AutoUpdate] label={label} ASN changed, no seedbox API call. reason={reason}")
+                logging.debug(f"[AutoUpdate][RETURN] label={label} Returning after ASN change, no seedbox update performed. reason={reason}")
+                from backend.notifications_backend import notify_event
+                notify_event(
+                    event_type="asn_changed",
+                    label=label,
+                    status="CHANGED",
+                    message=reason,
+                    details={"old_asn": norm_last, "new_asn": norm_check}
+                )
+                return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
+            else:
+                logging.debug(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check} | ASN result: No change needed.")
     # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
     proxied_ip = cfg.get('proxied_public_ip')
     if proxied_ip:
@@ -228,7 +229,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
         logging.info(f"[AutoUpdate] label={label} IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}")
     else:
-        logging.info(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check} | IP result: No change needed.")
+        logging.debug(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check} | IP result: No change needed.")
     if update_needed:
         logging.info(f"[AutoUpdate] label={label} update_needed=True asn={asn} reason={reason}")
         logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
@@ -350,12 +351,12 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 @app.get("/api/status")
 def api_status(label: str = Query(None), force: int = Query(0)):
     global session_status_cache
-    # Only fetch non-proxied IP/ASN for UI display (not for backend automation if proxied session is active)
+    # Single API call for non-proxied IP/ASN detection (efficiency optimization)
     detected_ipinfo_data = get_ipinfo_with_fallback()
-    detected_public_ip = get_public_ip(ipinfo_data=detected_ipinfo_data)
+    detected_public_ip = detected_ipinfo_data.get('ip')
     detected_public_ip_asn = None
     if detected_public_ip:
-        asn_full_pub, _ = get_asn_and_timezone_from_ip(detected_public_ip, ipinfo_data=detected_ipinfo_data)
+        asn_full_pub = detected_ipinfo_data.get('asn')
         match_pub = re.search(r'(AS)?(\d+)', asn_full_pub or "") if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
 
@@ -371,17 +372,17 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             "detected_public_ip": detected_public_ip,
             "detected_public_ip_asn": detected_public_ip_asn,
         }
-    # --- Proxied public IP/ASN detection (only once) ---
+    # --- Proxied public IP/ASN detection (single API call optimization) ---
     from backend.mam_api import get_proxied_public_ip_and_asn
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     proxied_public_ip, proxied_public_ip_asn = None, None
     proxy_error = None
     if proxy_cfg and proxy_cfg.get("host"):
-        # Only fetch proxied IP/ASN for backend logic if proxied session is active
+        # Single API call for proxied IP/ASN data
         try:
             proxied_ipinfo_data = get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
-            proxied_public_ip = get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
-            asn_full_proxied, _ = get_asn_and_timezone_from_ip(proxied_public_ip, proxy_cfg=proxy_cfg, ipinfo_data=proxied_ipinfo_data)
+            proxied_public_ip = proxied_ipinfo_data.get('ip')
+            asn_full_proxied = proxied_ipinfo_data.get('asn')
             asn_str = str(asn_full_proxied) if asn_full_proxied is not None else ""
             match_proxied = re.search(r'(AS)?(\d+)', asn_str) if asn_str else None
             proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_str
@@ -536,6 +537,11 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         asn_full, _ = get_asn_and_timezone_from_ip(curr_ip) if curr_ip else (None, None)
         match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
         curr_asn = match.group(2) if match else asn_full
+        
+        # Handle None ASN gracefully - if we can't determine ASN, preserve previous value for comparison
+        if curr_asn is None or curr_asn == "Unknown ASN":
+            curr_asn = prev_asn  # Use previous ASN to avoid false change notifications
+            
         event_status_message = None
         error_val = auto_update_result.get('error') if (auto_update_result and isinstance(auto_update_result, dict)) else None
         # If rate limit, show attempted new IP/ASN in event log
@@ -995,7 +1001,9 @@ def session_check_job(label):
         check_freq = cfg.get("check_freq", 5)
         mam_ip_override = cfg.get('mam_ip', "").strip()
         proxy_cfg = resolve_proxy_from_session_cfg(cfg)
-        detected_public_ip = get_public_ip()
+        # Single API call for IP detection (optimization)
+        detected_ipinfo_data = get_ipinfo_with_fallback()
+        detected_public_ip = detected_ipinfo_data.get('ip')
         # If proxy is configured, actively detect proxied public IP and update config
         if proxy_cfg and proxy_cfg.get('host'):
             from backend.mam_api import get_proxied_public_ip
@@ -1018,11 +1026,10 @@ def session_check_job(label):
             # Capture old IP/ASN before update
             prev_ip = cfg.get('last_seedbox_ip')
             prev_asn = cfg.get('last_seedbox_asn')
-            # Determine new IP/ASN (what we want to set)
-            detected_ip = get_public_ip()
+            # Determine new IP/ASN (reuse detected data - optimization)
             proxied_ip = cfg.get('proxied_public_ip')
             mam_ip_override = cfg.get('mam_ip', "").strip()
-            new_ip = proxied_ip or detected_ip
+            new_ip = proxied_ip or detected_public_ip  # Reuse data from earlier
             asn_full, _ = get_asn_and_timezone_from_ip(new_ip) if new_ip else (None, None)
             match = re.search(r'(AS)?(\d+)', asn_full or "") if asn_full else None
             new_asn = match.group(2) if match else asn_full

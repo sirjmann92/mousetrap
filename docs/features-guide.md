@@ -106,7 +106,8 @@ MouseTrap provides automated management for MyAnonamouse (MaM) seedbox sessions 
 
 ### IP Detection & Updates
 - **Automatic IP detection**: Uses multiple IP lookup services with fallbacks
-- **Fallback chain**: ipinfo.io → ipwho.is → ip-api.com → ipdata.co
+- **Fallback chain**: ipinfo.io → ipdata.co → ip-api.com → ipify.org
+- **Smart ASN handling**: When fallback providers don't support ASN data, preserves previous ASN to avoid false change notifications
 - **ASN detection**: Tracks Autonomous System Number changes
 - **Rate limiting**: Respects MaM's rate limits (1 update per hour)
 
