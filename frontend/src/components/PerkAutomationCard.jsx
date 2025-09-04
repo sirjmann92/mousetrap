@@ -27,7 +27,6 @@ import { stringifyMessage } from '../utils/utils';
 import { useSession } from '../context/SessionContext';
 
 export default function PerkAutomationCard({
-  // buffer, setBuffer, (removed)
   _autoWedge, setAutoWedge,
   _autoVIP, setAutoVIP,
   _autoUpload, setAutoUpload,
@@ -365,7 +364,6 @@ export default function PerkAutomationCard({
               { value: "cheese", label: "Cheese (5)" }
             ]}
             onSelectChange={e => setWedgeMethod(e.target.value)}
-            // ...existing code...
             confirmButton={
               <Tooltip title="This will instantly purchase a wedge using the selected method.">
                 <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>

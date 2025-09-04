@@ -18,7 +18,6 @@ logs/
 *.sqlite
 *.db
 *.pid
-notes/
 docker-compose.yml
 docker-compose.yaml
 compose.yml

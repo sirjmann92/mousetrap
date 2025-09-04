@@ -270,8 +270,7 @@ export default function App() {
             }}
           />
         )}
-  <PortMonitorCard />
-  {/* <PortMonitorCard />  // Port Monitoring temporarily disabled for migration */}
+        <PortMonitorCard />
         <NotificationsCard />
       </Container>
     </ThemeProvider>

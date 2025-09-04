@@ -10,90 +10,61 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
 
 ---
 
-## 🚀 Quick Start (Recommended for Beginners)
+## 🚀 Quick Start
 
-**1. Create a `docker-compose.yml` file in your project directory.**
-
-Copy and paste this example:
+**1. Create a `docker-compose.yml` file:**
 
 ```yaml
-#version: '3.8' # Only required for older versions of Docker Compose
 services:
   mousetrap:
     image: ghcr.io/sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
-      - TZ=Europe/London # Your timezone: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-      - PUID=1000 # Your host user ID
-      - PGID=1000 # Your host user group
-#      - DOCKER_GID=992 # (Optional) Set to your host's Docker group GID if not 992
+      - TZ=Europe/London # Your timezone
+      - PUID=1000        # Your host user ID  
+      - PGID=1000        # Your host group ID
     volumes:
-      - ./config:/config # Map your config directory for persistent settings
-      - ./logs:/app/logs # Map your log directory for troubleshooting
+      - ./config:/config # Persistent settings
+      - ./logs:/app/logs # Logs for troubleshooting
     ports:
       - 39842:39842
 ```
 
 **2. Start MouseTrap:**
-
 ```bash
 docker-compose up -d
 ```
 
-**3. Open the UI:**
-
-Visit [http://localhost:39842](http://localhost:39842) in your browser.
-
-**4. Configure your sessions and automation in the web UI.**
+**3. Configure:** Visit [http://localhost:39842](http://localhost:39842)
 
 ---
 
-## 🛠️ What You Get
+## 🛠️ Features
 
-- Modern web UI for all automation and session parameters
-- Persistent event log (viewable in the UI)
-- Auto-purchase: wedges, VIP, upload credit (per session)
-- Perk automation (auto-spend points for perks)
-- Notifications: email, webhook, and in-app event log
-- Status dashboard with real-time updates
-- Per-session proxy support (with authentication)
-- Multi-session: manage multiple MAM IDs in one instance
-- Detects and updates on public IP/ASN changes (VPN/proxy aware)
-- Rate limit handling and clear error/warning messages
-- Port Monitoring: Monitor container ports and auto-restart/notify, including entire groups of containers
+- **Web UI**: Modern interface for all automation and configuration
+- **Multi-session**: Manage multiple MAM accounts in one instance
+- **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
+- **Notifications**: Email, webhook, Discord integration with event filtering
+- **Proxy support**: Global proxy management with testing and IP detection
+- **Port monitoring**: Monitor container ports, auto-restart with stack support
+- **IP/ASN detection**: Automatic updates with robust fallback chains
+- **Event logging**: Comprehensive logging with UI filtering and search
+- **VPN integration**: Native networking or HTTP proxy modes
 
 ---
 
-## Environment Variables
+## 📋 Environment Variables
 
-| Variable      | Description                                                      | Default      | Required | Options                      | Example/Notes                |
-|---------------|------------------------------------------------------------------|--------------|----------|------------------------------|------------------------------|
-| `TZ`          | Set the timezone for logs and scheduling                         | (none)       | No       |                              | `Europe/London`              |
-| `PUID`        | Set user ID for Docker volume permissions                        | `1000`       | No       |                              | `PUID=1000`                  |
-| `PGID`        | Set group ID for Docker volume permissions                       | `1000`       | No       |                              | `PGID=1000`                  |
-| `DOCKER_GID`  | Allow container user to monitor/restart Docker containers        | `992`        | No       |                              | `DOCKER_GID=992`             |
-| `IPINFO_TOKEN`| ipinfo.io API token for reliable IP/ASN lookups                  | (none)       | No       |                              | `IPINFO_TOKEN=your_token_here`|
-| `LOGLEVEL`    | Set backend log level                                            | `INFO`       | No       | DEBUG, INFO, WARNING, ERROR  | `LOGLEVEL=DEBUG`             |
-| `PORT`        | Override backend port (advanced; not recommended)                | `39842`      | No       |                              | `PORT=39842`                 |
+| Variable      | Description                              | Default | Example/Notes             |
+|---------------|------------------------------------------|---------|---------------------------|
+| `TZ`          | Timezone for logs and scheduling         | UTC     | `Europe/London`           |
+| `PUID`        | User ID for volume permissions           | 1000    | Match your host user      |
+| `PGID`        | Group ID for volume permissions          | 1000    | Match your host group     |
+| `DOCKER_GID`  | Docker group GID for port monitoring     | 992     | See troubleshooting guide |
+| `IPINFO_TOKEN`| ipinfo.io API token (recommended)        | None    | Improves IP detection     |
+| `LOGLEVEL`    | Backend log level                        | INFO    | DEBUG, INFO, WARNING      |
 
-## Automation & Status
-
-- The backend checks each session at the configured interval.
-- If the IP changes, MouseTrap auto-updates your MAM seedbox session (rate-limited to once per hour).
-- All status checks and updates are logged to a persistent event log (viewable in the UI).
-- Use the "Check Now" and "Update Seedbox" buttons in the UI to force checks/updates.
-- Event log includes both successful updates and warnings/errors (e.g., unable to determine IP/ASN).
-
-## IP/ASN Lookup & Fallbacks
-
-MouseTrap uses a robust, privacy-friendly fallback chain to determine your public IP address and ASN for each session:
-
-- **Primary:** [ipinfo.io](https://ipinfo.io/) (recommended, supports free API token)
-- **Fallbacks:** [ipwho.is](https://ipwho.is/), [ip-api.com](http://ip-api.com/), [ipdata.co](https://ipdata.co/)
-
-If the primary provider is unavailable or rate-limited, MouseTrap will automatically try the next provider in the chain. This ensures reliable detection of your public IP and ASN, even if one or more services are down or blocked.
-
-**No extra setup is required for fallback support.**
+> **Note:** For port monitoring, add `-/var/run/docker.sock:/var/run/docker.sock:ro` to volumes
 
 ---
 
@@ -134,46 +105,102 @@ If you do not set a token, MouseTrap will still work, but may fall back to other
 ---
 
 
-## 🐳 Docker Socket Permissions & Group GID
+## � Optional Features
 
-If you want to use the Port Monitoring feature, MouseTrap needs access to the Docker socket (`/var/run/docker.sock`).
+### Port Monitoring
+Add Docker socket access to enable container port monitoring:
 
-### Docker Group GID (DOCKER_GID)
+```yaml
+volumes:
+  - ./config:/config
+  - ./logs:/app/logs
+  - /var/run/docker.sock:/var/run/docker.sock:ro  # Add this line
+```
 
-On some systems (e.g., Unraid, custom Linux installs), the Docker group GID may not be the default (992). If the GID inside the container does not match the host, you may see errors like:
-
-- Permission denied when accessing Docker
-- Blank container lists in the UI
-- Port monitoring not working
-
-**How to check your Docker group GID on the host:**
-
+If your Docker group GID isn't 992:
 ```bash
+# Find your Docker group GID
 getent group docker
-# Example output: docker:x:281:
+# Output: docker:x:281:
+
+# Set in docker-compose.yml
+environment:
+  - DOCKER_GID=281  # Use your actual GID
 ```
 
-**How to override the Docker group GID in MouseTrap:**
-
-- Add the following environment variable to your `docker-compose.yml` (replace 281 with your host's Docker group GID):
+### Enhanced IP Detection
+Get a free API token from [ipinfo.io](https://ipinfo.io/) for more reliable IP detection:
 
 ```yaml
 environment:
-  - DOCKER_GID=281
+  - IPINFO_TOKEN=your_token_here
 ```
-or
+
+---
+
+## 🌐 VPN Integration
+
+### Option 1: Shared Network (Simple)
 ```yaml
-environment:
-  DOCKER_GID: "281"
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    ports:
+      - 39842:39842  # Expose MouseTrap through VPN
+    # ... VPN configuration
+
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    network_mode: "service:gluetun"  # Share VPN network
+    # ... other config (no ports section needed)
 ```
 
-**Symptoms of a GID mismatch:**
-- Port monitoring features do not work
-- UI shows blank or missing Docker containers
-- Backend logs show permission errors for `/var/run/docker.sock`
+### Option 2: HTTP Proxy (Recommended)
+```yaml
+services:
+  gluetun:
+    image: qmcgaw/gluetun
+    environment:
+      - HTTPPROXY=on  # Enable HTTP proxy
+    ports:
+      - 8888:8888     # HTTP proxy port
+    # ... VPN configuration
 
-**How it works:**
-If you set `DOCKER_GID`, MouseTrap will update or create the `docker` group inside the container to match your host, and add the app user to that group. If not set, the system default is used.
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    ports:
+      - 39842:39842   # Direct access
+    # Configure proxy in MouseTrap UI: gluetun:8888
+```
+
+---
+
+## 📚 Documentation
+
+- **[Features Guide](docs/features-guide.md)**: Comprehensive feature overview and usage
+- **[API Reference](docs/api-reference.md)**: Complete REST API documentation  
+- **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
+- **[Architecture & Rules](docs/architecture-and-rules.md)**: Technical implementation details
+- **[Purchase Rules](docs/purchase_rules.md)**: Automation logic and guardrails
+
+---
+
+## 🆘 Quick Troubleshooting
+
+**Can't access UI?** Check port mapping and firewall settings  
+**Docker permissions error?** Mount Docker socket and set correct DOCKER_GID  
+**Automation not working?** Verify only one session per MAM user has automation enabled  
+**Proxy issues?** Use the proxy test feature before assigning to sessions
+
+For detailed troubleshooting: **[docs/troubleshooting.md](docs/troubleshooting.md)**
+
+---
+
+## 💬 Support
+
+- **Issues**: [GitHub Issues](https://github.com/sirjmann92/mousetrap/issues)
+- **Documentation**: Check the `docs/` directory for detailed guides  
+- **Logs**: Enable `LOGLEVEL=DEBUG` and check container logs for troubleshooting
 
 ---
 ## 🆘 Troubleshooting

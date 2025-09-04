@@ -35,7 +35,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
     try {
       let url = sessionLabel ? `/api/status?label=${encodeURIComponent(sessionLabel)}` : "/api/status";
       if (force) url += (url.includes('?') ? '&' : '?') + 'force=1';
-      console.log(`[StatusCard] Fetching status: url=${url} force=${force}`); // Diagnostic log
       const res = await fetch(url);
       const data = await res.json();
       if (data.success === false || data.error) {

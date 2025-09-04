@@ -52,8 +52,6 @@ export default function PortMonitorCard() {
   };
   const INTERVAL_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
-  // ...existing code...
-
   const fetchContainers = async () => {
     try {
       const res = await fetch('/api/port-monitor/containers');

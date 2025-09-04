@@ -1,8 +1,5 @@
 
-
 # --- FastAPI app creation ---
-
-
 
 def get_auto_update_val(status):
     val = status.get('auto_update_seedbox') if isinstance(status, dict) else None
@@ -68,7 +65,6 @@ def check_and_notify_count_increments(cfg, new_status, label):
 
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
-from backend.automation import wedge_automation_job, vip_automation_job
 from backend.utils import build_status_message, build_proxy_dict, setup_logging
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils import extract_asn_number
@@ -88,14 +84,12 @@ import requests
 
 from backend.config import load_config, list_sessions, load_session, save_session, delete_session
 from backend.mam_api import get_status, get_mam_seen_ip_info
-from backend.perk_automation import buy_upload_credit
 
 
 
 
 # --- FastAPI app creation ---
 from backend.api_event_log import router as event_log_router
-from backend.api_config import router as config_router
 from backend.api_automation import router as automation_router
 from backend.api_proxy import router as proxy_router
 from backend.api_notifications import router as notifications_router
