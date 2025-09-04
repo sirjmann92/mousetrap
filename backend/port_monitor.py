@@ -4,7 +4,7 @@
 import threading
 import time
 import socket
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 try:
     import docker  # type: ignore
@@ -133,7 +133,7 @@ class PortMonitorStackManager:
                     # Try wget as fallback
                     exec_result = container.exec_run('wget -qO- https://ipinfo.io/ip')
                     ip = exec_result.output.decode().strip()
-                logging.info(f"[PortMonitorStack] Fetched public IP for {container_name}: {ip}")
+                logging.debug(f"[PortMonitorStack] Fetched public IP for {container_name}: {ip}")  # Changed to DEBUG
                 if not ip or 'not found' in ip or 'OCI runtime exec' in ip or 'command not found' in ip:
                     logging.warning(f"[PortMonitorStack] No valid public IP found for {container_name}")
                     if stack:
@@ -149,7 +149,7 @@ class PortMonitorStackManager:
         # Try to connect from the host to the container's public IP and port
         try:
             with socket.create_connection((ip, port), timeout=3):
-                logging.info(f"[PortMonitorStack] Port {port} on {ip} (container {container_name}) is reachable from host.")
+                logging.debug(f"[PortMonitorStack] Port {port} on {ip} (container {container_name}) is reachable from host.")  # Changed to DEBUG
                 if stack:
                     stack.public_ip_detected = public_ip_detected
                 return True
