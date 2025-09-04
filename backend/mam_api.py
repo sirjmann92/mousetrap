@@ -36,7 +36,6 @@ def get_proxied_public_ip_and_asn(proxy_cfg):
         return None, None
 import os
 import requests
-from bs4 import BeautifulSoup
 import logging
 from backend.utils import build_proxy_dict
 
