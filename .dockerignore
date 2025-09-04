@@ -5,6 +5,8 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+backend/venv/
+backend/__pycache__/
 
 # Logs
 logs/

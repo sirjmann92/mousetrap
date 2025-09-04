@@ -113,8 +113,6 @@ def get_default_config(label=None):
         "mam": {
             "mam_id": "",
             "session_type": "ip",
-            "buffer": 52000,
-            "wedge_hours": 168,
             "auto_purchase": {
                 "wedge": False,
                 "vip": False,

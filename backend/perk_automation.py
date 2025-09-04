@@ -1,13 +1,8 @@
 import requests
 import time
-import yaml
 import logging
 from bs4 import Tag, BeautifulSoup
 import datetime
-
-def load_config(path="backend/perks_config.yaml"):
-    with open(path, "r") as f:
-        return yaml.safe_load(f)
 
 
 def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
@@ -146,30 +141,3 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None):
     except Exception as e:
         logging.error(f"[buy_wedge] Exception: {e}")
         return {"success": False, "error": str(e)}
-
-def can_afford_upload(points, config, gb):
-    required = gb * 500 + config['buffer']
-    return points >= required and points >= config['min_points']
-
-def can_afford_vip(points, weeks, config):
-    enough_points = points >= config['min_points'] * weeks
-    not_exceed_max = weeks <= config['max_weeks']
-    return enough_points and not_exceed_max
-
-def can_afford_wedge(points, cheese, config):
-    if config['method'] == "cheese" or (config['prefer_cheese'] and cheese >= config['min_cheese']):
-        return cheese >= config['min_cheese']
-    else:
-        return points >= config['min_points']
-
-def automate_perks(config):
-    """TODO: Implement automate_perks logic when point, VIP, and wedge info APIs are available."""
-
-def main():
-    config = load_config()
-    while True:
-        automate_perks(config)
-        time.sleep(config['general']['check_interval_minutes'] * 60)
-
-if __name__ == "__main__":
-    main()

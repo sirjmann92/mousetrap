@@ -50,8 +50,6 @@ export default function App() {
   const [autoWedge, setAutoWedge] = React.useState(false);
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
-  const [buffer, setBuffer] = React.useState(0);
-  const [wedgeHours, setWedgeHours] = React.useState(0);
   const [uploadAmount, setUploadAmount] = React.useState(0);
   const [vipWeeks, setVipWeeks] = React.useState(0);
   const [wedgeMethod, setWedgeMethod] = React.useState("");
@@ -253,10 +251,6 @@ export default function App() {
   <ProxyConfigCard proxies={proxies} setProxies={setProxies} refreshProxies={refreshProxies} />
         {sessions.length > 0 && (
           <PerkAutomationCard
-            buffer={buffer}
-            setBuffer={setBuffer}
-            wedgeHours={wedgeHours}
-            setWedgeHours={setWedgeHours}
             autoWedge={autoWedge}
             setAutoWedge={setAutoWedge}
             autoVIP={autoVIP}
