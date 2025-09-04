@@ -1,11 +1,7 @@
 import logging
-import threading
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
 from backend.config import list_sessions, load_session
 from backend.mam_api import get_status
 from backend.event_log import append_ui_event_log
-from datetime import datetime, timezone
 from backend.perk_automation import buy_vip
 from backend.config import save_session
 from backend.perk_automation import buy_wedge
@@ -374,7 +370,6 @@ def vip_automation_job():
 from backend.event_log import append_ui_event_log
 from backend.config import list_sessions, load_session, save_session
 from backend.mam_api import get_status
-from datetime import datetime, timezone
 
 def wedge_automation_job():
     from datetime import datetime, timezone, timedelta

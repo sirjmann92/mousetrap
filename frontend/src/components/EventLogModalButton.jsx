@@ -106,7 +106,6 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
   const eventTypeColors = {
     port_monitor_add: '#1976d2',
     port_monitor_check: '#0288d1',
-    port_monitor_stack_check: '#0288d1',
     port_monitor_delete: '#d32f2f',
     automation: '#7b1fa2',
     manual: '#388e3c',
