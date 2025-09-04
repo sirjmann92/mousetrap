@@ -9,15 +9,14 @@ GROUPNAME=appgroup
 
 # Change appgroup GID if needed
 if [ "$(getent group "$GROUPNAME" | cut -d: -f3)" != "$PGID" ]; then
-	groupmod -o -g "$PGID" "$GROUPNAME"
+	delgroup "$GROUPNAME"
+	addgroup -g "$PGID" "$GROUPNAME"
 fi
 
 # Change appuser UID/GID if needed
-if [ "$(id -u "$USERNAME")" != "$PUID" ]; then
-	usermod -o -u "$PUID" "$USERNAME"
-fi
-if [ "$(id -g "$USERNAME")" != "$PGID" ]; then
-	usermod -g "$PGID" "$USERNAME"
+if [ "$(id -u "$USERNAME")" != "$PUID" ] || [ "$(id -g "$USERNAME")" != "$PGID" ]; then
+	deluser "$USERNAME"
+	adduser -u "$PUID" -G "$GROUPNAME" -D -s /bin/sh "$USERNAME"
 fi
 
 
@@ -26,11 +25,10 @@ fi
 # If DOCKER_GID is set, update/create docker group and add appuser
 if [ -n "$DOCKER_GID" ]; then
 	if getent group docker >/dev/null; then
-		groupmod -g "$DOCKER_GID" docker
-	else
-		groupadd -g "$DOCKER_GID" docker
+		delgroup docker
 	fi
-	usermod -aG docker "$USERNAME"
+	addgroup -g "$DOCKER_GID" docker
+	adduser "$USERNAME" docker
 fi
 
 # Ensure ownership of /app/logs and /config if they exist
@@ -61,7 +59,7 @@ fi
 
 # Start Uvicorn with dynamic log config if present
 if [ -f /app/logconfig.yaml ]; then
-	exec gosu "$USERNAME" uvicorn app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-config /app/logconfig.yaml
+	exec su-exec "$USERNAME" uvicorn app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-config /app/logconfig.yaml
 else
-	exec gosu "$USERNAME" uvicorn app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-level "$uvicorn_loglevel"
+	exec su-exec "$USERNAME" uvicorn app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-level "$uvicorn_loglevel"
 fi

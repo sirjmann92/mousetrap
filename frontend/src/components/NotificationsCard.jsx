@@ -20,6 +20,7 @@ export default function NotificationsCard() {
     { key: "seedbox_update_rate_limited", label: "Seedbox Update Rate Limited" },
     { key: "asn_changed", label: "ASN Changed" },
     { key: "inactive_hit_and_run", label: "Hit & Run - Inactive (Not Seeding)" },
+    { key: "inactive_unsatisfied", label: "Inactive Unsatisfied (Pre-H&R)" },
     // Add more as needed
   ];
   const [config, setConfig] = useState({ webhook_url: "", smtp: {}, event_rules: {} });

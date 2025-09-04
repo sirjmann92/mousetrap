@@ -24,6 +24,48 @@ def get_auto_update_val(status):
         return 'N/A'
     return str(val)
 
+def check_and_notify_count_increments(cfg, new_status, label):
+    """
+    Check for increments in hit & run and unsatisfied counts and send notifications.
+    """
+    # Get the previous status
+    old_status = cfg.get('last_status', {})
+    if not isinstance(old_status, dict) or not isinstance(new_status, dict):
+        return
+    
+    old_raw = old_status.get('raw', {})
+    new_raw = new_status.get('raw', {})
+    
+    # Check inactive hit & run increment
+    old_inact_hnr = old_raw.get('inactHnr', {}).get('count', 0) if isinstance(old_raw.get('inactHnr'), dict) else 0
+    new_inact_hnr = new_raw.get('inactHnr', {}).get('count', 0) if isinstance(new_raw.get('inactHnr'), dict) else 0
+    
+    if new_inact_hnr > old_inact_hnr:
+        increment = new_inact_hnr - old_inact_hnr
+        from backend.notifications_backend import notify_event
+        notify_event(
+            event_type="inactive_hit_and_run",
+            label=label,
+            status="INCREMENT",
+            message=f"Inactive Hit & Run count increased by {increment} (from {old_inact_hnr} to {new_inact_hnr})",
+            details={"old_count": old_inact_hnr, "new_count": new_inact_hnr, "increment": increment}
+        )
+    
+    # Check inactive unsatisfied increment  
+    old_inact_unsat = old_raw.get('inactUnsat', {}).get('count', 0) if isinstance(old_raw.get('inactUnsat'), dict) else 0
+    new_inact_unsat = new_raw.get('inactUnsat', {}).get('count', 0) if isinstance(new_raw.get('inactUnsat'), dict) else 0
+    
+    if new_inact_unsat > old_inact_unsat:
+        increment = new_inact_unsat - old_inact_unsat
+        from backend.notifications_backend import notify_event
+        notify_event(
+            event_type="inactive_unsatisfied",
+            label=label,
+            status="INCREMENT", 
+            message=f"Inactive Unsatisfied (Pre-H&R) count increased by {increment} (from {old_inact_unsat} to {new_inact_unsat})",
+            details={"old_count": old_inact_unsat, "new_count": new_inact_unsat, "increment": increment}
+        )
+
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
 from backend.automation import wedge_automation_job, vip_automation_job
@@ -469,6 +511,8 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         last_check_time = now.isoformat()
         # Reload config from disk to ensure latest values (e.g., last_seedbox_ip) are used
         cfg = load_session(label)
+        # Check for increments in hit & run and unsatisfied counts before saving new status
+        check_and_notify_count_increments(cfg, status, label)
         # Save last status to session file
         cfg['last_status'] = status
         cfg['last_check_time'] = last_check_time
