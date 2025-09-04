@@ -1,8 +1,6 @@
 import requests
 import time
 import logging
-from bs4 import Tag, BeautifulSoup
-import datetime
 
 
 def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
