@@ -44,7 +44,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         setCheese && setCheese(null);
         return;
       }
-      const detectedIp = data.detected_public_ip || data.current_ip || "";
+      const detectedIp = data.detected_public_ip || "";
       const newStatus = {
         last_update_mamid: data.mam_id || "",
         ratelimit: data.ratelimit || 0, // seconds, from backend
