@@ -73,6 +73,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 import os
+import time
 from datetime import datetime, timezone, timedelta
 import logging
 
@@ -1157,8 +1158,11 @@ def register_all_session_jobs():
 # --- Immediate session check for all sessions at startup ---
 def run_initial_session_checks():
     session_labels = list_sessions()
-    for label in session_labels:
+    for i, label in enumerate(session_labels):
         try:
+            # Add a small delay between session checks to prevent rate limiting
+            if i > 0:
+                time.sleep(2)
             logging.info(f"[Startup] Running initial session check for '{label}'")
             session_check_job(label)
         except Exception as e:

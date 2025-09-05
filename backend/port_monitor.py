@@ -4,6 +4,7 @@
 import threading
 import time
 import socket
+import logging
 from typing import List, Optional
 
 try:
@@ -35,7 +36,19 @@ class PortMonitorStackManager:
         self.running = False
         self.thread = None
         self._docker_client = None
+        self._last_warning_times = {}  # Rate limiting for warnings
         self.load_stacks()
+
+    def _should_log_warning(self, key: str, min_interval: int = 30) -> bool:
+        """Rate limit warnings to prevent log spam"""
+        current_time = time.time()
+        if key not in self._last_warning_times:
+            self._last_warning_times[key] = current_time
+            return True
+        if current_time - self._last_warning_times[key] >= min_interval:
+            self._last_warning_times[key] = current_time
+            return True
+        return False
 
     def load_stacks(self):
         import yaml
@@ -120,7 +133,9 @@ class PortMonitorStackManager:
         else:
             client = self.get_docker_client()
             if not client:
-                logging.warning(f"[PortMonitorStack] Docker client not available for container {container_name}")
+                warning_key = f"docker_client_{container_name}"
+                if self._should_log_warning(warning_key, min_interval=60):
+                    logging.warning(f"[PortMonitorStack] Docker client not available for container {container_name}")
                 if stack:
                     stack.public_ip_detected = False
                 return False
@@ -133,9 +148,12 @@ class PortMonitorStackManager:
                     # Try wget as fallback
                     exec_result = container.exec_run('wget -qO- https://ipinfo.io/ip')
                     ip = exec_result.output.decode().strip()
+                
                 logging.debug(f"[PortMonitorStack] Fetched public IP for {container_name}: {ip}")  # Changed to DEBUG
                 if not ip or 'not found' in ip or 'OCI runtime exec' in ip or 'command not found' in ip:
-                    logging.warning(f"[PortMonitorStack] No valid public IP found for {container_name}")
+                    warning_key = f"no_ip_{container_name}"
+                    if self._should_log_warning(warning_key, min_interval=60):
+                        logging.warning(f"[PortMonitorStack] No valid public IP found for {container_name}")
                     if stack:
                         stack.public_ip_detected = False
                     return False
@@ -154,7 +172,9 @@ class PortMonitorStackManager:
                     stack.public_ip_detected = public_ip_detected
                 return True
         except Exception as e:
-            logging.warning(f"[PortMonitorStack] Port {port} on {ip} (container {container_name}) is NOT reachable from host: {e}")
+            warning_key = f"port_check_{container_name}_{port}_{ip}"
+            if self._should_log_warning(warning_key, min_interval=30):
+                logging.warning(f"[PortMonitorStack] Port {port} on {ip} (container {container_name}) is NOT reachable from host: {e}")
             if stack:
                 stack.public_ip_detected = public_ip_detected
             return False
@@ -199,11 +219,11 @@ class PortMonitorStackManager:
         self.restart_container(stack.primary_container)
         # Wait for primary to be reachable (up to 60s), fallback to running status
         port_ok = False
-        for _ in range(30):  # Wait up to 30*2=60s
+        for _ in range(12):  # Wait up to 12*5=60s
             if self.check_port(stack.primary_container, stack.primary_port):
                 port_ok = True
                 break
-            time.sleep(2)
+            time.sleep(5)
         if not port_ok:
             # Check if container is running
             client = self.get_docker_client()
@@ -289,11 +309,11 @@ class PortMonitorStackManager:
         self.restart_container(stack.primary_container)
         # Wait for primary to be reachable (up to 60s), fallback to running status
         port_ok = False
-        for _ in range(30):  # Wait up to 30*2=60s
+        for _ in range(12):  # Wait up to 12*5=60s
             if self.check_port(stack.primary_container, stack.primary_port):
                 port_ok = True
                 break
-            time.sleep(2)
+            time.sleep(5)
         if not port_ok:
             # Check if container is running
             client = self.get_docker_client()
@@ -399,6 +419,12 @@ class PortMonitorStackManager:
         from backend.event_log import append_ui_event_log
         from backend.notifications_backend import notify_event
         self.running = True
+        
+        # Startup delay to allow VPN containers to fully establish
+        logging.info("[PortMonitorStack] Starting port monitoring with 30-second startup delay...")
+        time.sleep(30)  # Wait 30 seconds before first checks
+        logging.info("[PortMonitorStack] Startup delay complete, beginning port monitoring...")
+        
         while self.running:
             now = time.time()
             for stack in self.stacks:
