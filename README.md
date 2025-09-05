@@ -427,8 +427,3 @@ services:
       - PGID=1000
     # ...
 ```
-
-
-You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
-Logs will include timestamps, log level, and message for easy troubleshooting.
-
