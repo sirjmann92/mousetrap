@@ -69,29 +69,54 @@ docker-compose up -d
 
 ---
 
-## Using an ipinfo.io API Token (Recommended)
+## 🔧 Enhanced IP Detection & API Tokens
 
-ipinfo.io offers a free API token with generous limits for non-commercial use. Using a token increases reliability and reduces the chance of hitting rate limits.
+MouseTrap uses an **intelligent token-aware fallback chain** for maximum reliability. While the system works without any tokens, adding API tokens significantly improves performance and reliability.
 
-1. Sign up for a free account at [ipinfo.io/signup](https://ipinfo.io/signup).
-2. Copy your API token from the dashboard.
-3. Set the token as an environment variable in your Docker Compose file or host:
+### API Token Setup
 
-   ```yaml
-   environment:
-     - IPINFO_TOKEN=your_token_here
-   ```
+#### IPinfo.io Token (Highly Recommended) 🚀
+IPinfo.io offers a free API token with generous limits that provides the best reliability:
 
-If you do not set a token, MouseTrap will still work, but may fall back to other providers more often.
+1. **Sign up** for a free account at [ipinfo.io/signup](https://ipinfo.io/signup)
+2. **Copy your API token** from the dashboard  
+3. **Add to your environment** (see Docker Compose example below)
 
----
+**Benefits:** 50,000 requests/month, highest priority in fallback chain, best data quality
 
-## Testing IP/ASN Changes
+#### ipdata.co API Key (Optional but Recommended) 🛡️  
+ipdata.co provides an excellent fallback option:
 
-1. Change the session's `IP Address` in the UI or `mam_ip` in session-LABEL.yaml.
-2. Save and use "Update Seedbox" or wait for the next scheduled check.
-3. The backend will update MAM if the IP/ASN is different and log the result.
-4. For ASN changes, use an IP from a different provider (VPN/proxy).
+1. **Sign up** for a free account at [ipdata.co/pricing.html](https://ipdata.co/pricing.html)
+2. **Get your free API key** from the dashboard
+3. **Add to your environment** (see Docker Compose example below)
+
+**Benefits:** 1,500 requests/day free tier, improved fallback reliability, HTTPS protocol
+
+### Docker Compose Configuration
+```yaml
+environment:
+  - IPINFO_TOKEN=your_ipinfo_token_here      # Recommended: 50,000 requests/month
+  - IPDATA_API_KEY=your_ipdata_api_key_here  # Optional: Improves fallback reliability
+```
+
+### IP Lookup Fallback Chain
+
+| **Provider** | **Protocol** | **Data** | **Rate Limits** | **Authentication** |
+|--------------|--------------|----------|-----------------|-------------------|
+| **IPinfo Lite** | HTTPS | IP, ASN | 50,000/month | Bearer token required |
+| **IPinfo Standard** | HTTPS | IP, ASN, Geo | 1,000/month | None (free tier) |
+| **ipdata.co** | HTTPS | IP, ASN, Geo | 1,500/day free | API key improves limits |
+| **ip-api.com** | HTTP | IP, ASN, Geo | Unlimited | None |
+| **ipify.org** | HTTPS | IP only | Unlimited | None |
+
+**Smart Provider Selection:** The system automatically adapts based on available tokens:
+- **Both tokens**: IPinfo Lite → ipdata.co → ip-api → IPinfo Standard → ipify
+- **IPinfo only**: IPinfo Lite → ipdata (free) → ip-api → IPinfo Standard → ipify  
+- **ipdata only**: ipdata.co → ip-api → IPinfo Standard → ipify
+- **No tokens**: ipdata (free) → ip-api → IPinfo Standard → ipify
+
+> **💡 Recommendation:** Get both tokens for maximum resilience, but IPinfo token alone provides excellent reliability.
 
 ---
 
@@ -105,8 +130,7 @@ If you do not set a token, MouseTrap will still work, but may fall back to other
 
 ---
 
-
-## � Optional Features
+## ⚙️ Optional Features
 
 ### Port Monitoring
 Add Docker socket access to enable container port monitoring:
@@ -129,72 +153,6 @@ environment:
   - DOCKER_GID=281  # Use your actual GID
 ```
 
-### Enhanced IP Detection
-Get a free API token from [ipinfo.io](https://ipinfo.io/) for more reliable IP detection:
-
-```yaml
-environment:
-  - IPINFO_TOKEN=your_token_here
-```
-
-#### IP Lookup Fallback Chain
-MouseTrap uses multiple IP lookup providers for maximum reliability:
-
-| **Provider** | **Protocol** | **Data** | **Rate Limits** | **Notes** |
-|--------------|--------------|----------|-----------------|-----------|
-| **ipinfo.io** | HTTPS | IP, ASN, Geo | High w/token | Primary choice - get free token |
-| **ipdata.co** | HTTPS | IP, ASN, Geo | 1,500/day (free) | Get free API key - better than test key |
-| **ip-api.com** | HTTP | IP, ASN, Geo | None | May timeout through proxies |
-| **ipify.org** | HTTPS | IP only | None | Final fallback - prevents total failure |
-
-> **Recommendations:** 
-> - Get a free [ipinfo.io token](https://ipinfo.io/signup) for best reliability and higher rate limits
-> - Get a free [ipdata.co API key](https://ipdata.co/pricing.html) for 1,500 daily requests (eliminates HTTP 401 errors)
-
-**Optional Environment Variables:**
-```yaml
-environment:
-  - IPINFO_TOKEN=your_ipinfo_token_here
-  - IPDATA_API_KEY=your_ipdata_api_key_here
-```
-
----
-
-## 🌐 VPN Integration
-
-### Option 1: Shared Network (Simple)
-```yaml
-services:
-  gluetun:
-    image: qmcgaw/gluetun
-    ports:
-      - 39842:39842  # Expose MouseTrap through VPN
-    # ... VPN configuration
-
-  mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
-    network_mode: "service:gluetun"  # Share VPN network
-    # ... other config (no ports section needed)
-```
-
-### Option 2: HTTP Proxy (Recommended)
-```yaml
-services:
-  gluetun:
-    image: qmcgaw/gluetun
-    environment:
-      - HTTPPROXY=on  # Enable HTTP proxy
-    ports:
-      - 8888:8888     # HTTP proxy port
-    # ... VPN configuration
-
-  mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
-    ports:
-      - 39842:39842   # Direct access
-    # Configure proxy in MouseTrap UI: gluetun:8888
-```
-
 ---
 
 ## 📚 Documentation
@@ -204,6 +162,9 @@ services:
 - **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
 - **[Architecture & Rules](docs/architecture-and-rules.md)**: Technical implementation details
 - **[Purchase Rules](docs/purchase_rules.md)**: Automation logic and guardrails
+- **[CHANGELOG](docs/CHANGELOG.md)**: Recent features & bugfixes
+- **[Purchase Logging & Event Log](docs/purchase_logging_and_event_log.md)**: Event log details
+- **[Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)**: External VPN proxy guide
 
 ---
 
@@ -225,25 +186,6 @@ For detailed troubleshooting: **[docs/troubleshooting.md](docs/troubleshooting.m
 - **Logs**: Enable `LOGLEVEL=DEBUG` and check container logs for troubleshooting
 
 ---
-## 🆘 Troubleshooting
-
-- **Error: `no configuration file provided: not found`**
-  - Make sure you have a valid `docker-compose.yml` before running Docker commands.
-- **Can't access UI?**
-  - Confirm port 39842 is exposed and not blocked by firewall.
-- **Proxy/VPN issues?**
-  - Ensure containers are on the same Docker network.
-  - Use VPN's Docker container IP or name for proxy host.
-  - You can inspect Docker networks with `docker network ls` and `docker network inspect <network>`.
-- **Permissions:**
-  - Set `PUID`/`PGID` to match your user for config/logs volume access.
-- **Port Monitoring not working?**
-  - Mount `/var/run/docker.sock:/var/run/docker.sock:ro` to enable. Otherwise, feature is disabled.
-  - If your Docker group GID is not 992, set the `DOCKER_GID` environment variable as described above.
-- **Session not updating?**
-  - Check backend logs and UI event log for errors. Confirm entered IP is correct.
-
----
 
 ## 🧑‍💻 Advanced Options
 
@@ -260,7 +202,7 @@ docker-compose up --build -d
 
 ---
 
-## VPN Integration
+## 🌐 VPN Integration
 
 MouseTrap can connect to MyAnonaMouse via your VPN container in two ways:
 
@@ -299,7 +241,7 @@ MouseTrap supports global proxy management and instant proxy testing:
 
 ---
 
-## Session Management & Event Logging
+## 📊 Session Management & Event Logging
 
 - Each session in MouseTrap is independent: you can set a different MAM id, IP, and automation settings per session, and select any configured proxy from the global proxy list.
 - Session configs are stored in `/config/session-*.yaml` and reference proxies by label.
@@ -309,7 +251,7 @@ MouseTrap supports global proxy management and instant proxy testing:
 
 ---
 
-## Port Monitoring
+## 🔍 Port Monitoring
 
 - The Port Monitoring card is global (not per-session) and allows you to monitor the reachability of Docker container ports.
 - All port checks and settings are persisted in `/config/port_monitoring_stacks.yaml`.
@@ -443,7 +385,7 @@ Adjust paths and environment variables as needed for your Unraid setup.
 
 ---
 
-## Notifications
+## 🔔 Notifications
 
 MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord). Configure these in the Notifications card in the UI.
 
@@ -473,7 +415,7 @@ MouseTrap supports two ways to notify you of port check failures:
 
 ---
 
-## Logging & Debugging
+## 📝 Logging & Debugging
 
 MouseTrap uses Python's standard logging with timestamps and log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL).
 
@@ -499,17 +441,3 @@ services:
 You can use any standard log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
 Logs will include timestamps, log level, and message for easy troubleshooting.
 
----
-
-## 📚 More Info
-
-- [docs/CHANGELOG.md](docs/CHANGELOG.md): Recent features & bugfixes
-- [docs/architecture-and-rules.md](docs/architecture-and-rules.md): Automation logic & rules
-- [docs/purchase_logging_and_event_log.md](docs/purchase_logging_and_event_log.md): Event log details
-- [Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
-
----
-
-## 💬 Support
-
-If you get stuck, check the event log in the UI, review logs in `/logs`, or open an issue.
