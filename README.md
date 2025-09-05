@@ -404,15 +404,6 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 - Enter your webhook URL in the UI. For Discord, check the "Discord" box to send Discord-compatible messages.
 - You can test both Email and Webhook notifications directly from the UI.
 
-### Port Monitor Notifications: Global vs Per-Port
-
-MouseTrap supports two ways to notify you of port check failures:
-
-- **Global Notification Rule:**
-  - In the Notifications card, enable "Port Monitor Failure" for global notifications.
-  - Any port check failure will trigger a notification via the selected channels (email/webhook/Discord).
-  - Use this for a simple, all-or-nothing approach.
-
 ---
 
 ## 📝 Logging & Debugging
