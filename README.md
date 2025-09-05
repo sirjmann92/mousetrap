@@ -60,7 +60,7 @@ docker-compose up -d
 | `TZ`            | Timezone for logs and scheduling         | UTC     | `Europe/London`           |
 | `PUID`          | User ID for volume permissions           | 1000    | Match your host user      |
 | `PGID`          | Group ID for volume permissions          | 1000    | Match your host group     |
-| `DOCKER_GID`    | Docker group GID for port monitoring     | 992     | See troubleshooting guide |
+| `DOCKER_GID`    | Docker group ID for port monitoring     | 992     | See troubleshooting guide |
 | `IPINFO_TOKEN`  | ipinfo.io API token (recommended)        | None    | Improves IP detection     |
 | `IPDATA_API_KEY`| ipdata.co API key (optional)             | test    | 1,500 requests/day free   |
 | `LOGLEVEL`      | Backend log level                        | INFO    | DEBUG, INFO, WARNING      |
