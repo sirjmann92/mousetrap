@@ -47,9 +47,33 @@ docker-compose up -d
 - **Notifications**: Email, webhook, Discord integration with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
-- **IP/ASN detection**: Automatic updates with robust fallback chains
-- **Event logging**: Comprehensive logging with UI filtering and search
-- **VPN integration**: Native networking or HTTP proxy modes
+- **IP monitoring modes**: Flexible IP monitoring for different network setups
+
+---
+
+## 🎯 IP Monitoring Modes
+
+MouseTrap offers three IP monitoring modes to suit different use cases and network environments:
+
+### 🔄 Auto (Full) - Default Mode
+- **Automatic IP detection**: Uses multiple IP lookup services with fallbacks
+- **Change monitoring**: Detects IP/ASN changes and auto-updates seedbox configuration
+- **Smart fallbacks**: Includes DNS-free endpoints for restrictive networks
+- **Best for**: Dynamic IPs, standard internet connections, properly configured VPNs
+
+### ✋ Manual Mode  
+- **IP detection for convenience**: Shows current IP for easy configuration
+- **User-controlled updates**: Manual IP entry and updates only
+- **Full automation**: All purchase automation continues normally
+- **Best for**: Semi-static IPs, controlled environments, troubleshooting
+
+### 🔒 Static (No Monitoring) Mode
+- **IP detection for convenience**: Shows current IP but no change monitoring  
+- **Zero monitoring overhead**: No IP change comparisons or auto-updates
+- **Full automation**: All purchase automation continues independently
+- **Best for**: Static IPs, restricted networks, VPN environments with DNS issues
+
+**Configure per session:** Each session can use a different monitoring mode based on its network requirements.
 
 ---
 
@@ -71,7 +95,7 @@ docker-compose up -d
 
 ## 🔧 Enhanced IP Detection & API Tokens
 
-MouseTrap uses an **intelligent token-aware fallback chain** for maximum reliability. While the system works without any tokens, adding API tokens significantly improves performance and reliability.
+MouseTrap uses an **intelligent token-aware fallback chain** for maximum reliability across all IP monitoring modes. While the system works without any tokens, adding API tokens significantly improves performance and reliability for IP detection.
 
 ### API Token Setup
 
@@ -109,14 +133,17 @@ environment:
 | **ipdata.co** | HTTPS | IP, ASN, Geo | 1,500/day free | API key improves limits |
 | **ip-api.com** | HTTP | IP, ASN, Geo | Unlimited | None |
 | **ipify.org** | HTTPS | IP only | Unlimited | None |
+| **Hardcoded endpoints** | HTTPS | IP only | Unlimited | DNS-free for restricted networks |
 
 **Smart Provider Selection:** The system automatically adapts based on available tokens:
-- **Both tokens**: IPinfo Lite → ipdata.co → ip-api → IPinfo Standard → ipify
-- **IPinfo only**: IPinfo Lite → ipdata (free) → ip-api → IPinfo Standard → ipify  
-- **ipdata only**: ipdata.co → ip-api → IPinfo Standard → ipify
-- **No tokens**: ipdata (free) → ip-api → IPinfo Standard → ipify
+- **Both tokens**: IPinfo Lite → ipdata.co → ip-api → IPinfo Standard → ipify → hardcoded
+- **IPinfo only**: IPinfo Lite → ipdata (free) → ip-api → IPinfo Standard → ipify → hardcoded
+- **ipdata only**: ipdata.co → ip-api → IPinfo Standard → ipify → hardcoded  
+- **No tokens**: ipdata (free) → ip-api → IPinfo Standard → ipify → hardcoded
 
 > **💡 Recommendation:** Get both tokens for maximum resilience, but IPinfo token alone provides excellent reliability.
+> 
+> **🔒 VPN/DNS Issues:** Hardcoded endpoints bypass DNS resolution for restrictive network environments.
 
 ---
 
