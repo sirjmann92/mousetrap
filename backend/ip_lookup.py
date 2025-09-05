@@ -80,6 +80,16 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
     if not ip:  # Only for own IP lookup, not specific IP lookup
         url_ipify = "https://api.ipify.org?format=json"
         providers.append((url_ipify, 'ipify', headers))
+    
+    # 6. DNS-free IP fallbacks using hardcoded IPs (for VPN/DNS issues)
+    if not ip:  # Only for own IP lookup
+        # ipinfo.io hardcoded IP as final DNS-free fallback
+        url_ipinfo_ip = "https://34.102.136.180/json"
+        providers.append((url_ipinfo_ip, 'ipinfo_hardcoded', headers))
+        
+        # httpbin.org hardcoded IP as ultimate fallback
+        url_httpbin = "https://54.230.100.253/ip"
+        providers.append((url_httpbin, 'httpbin_hardcoded', headers))
 
     proxies = build_proxy_dict(proxy_cfg) if proxy_cfg else None
     if proxies:
@@ -98,7 +108,11 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
                 continue
             
             try:
-                data = resp.json()
+                if provider == 'httpbin_hardcoded':
+                    # httpbin returns plain text, not JSON
+                    data = {'ip': resp.text.strip()}
+                else:
+                    data = resp.json()
             except Exception as json_e:
                 logging.warning(f"{provider} lookup failed for IP {ip or 'self'}: Invalid JSON response - {json_e}")
                 continue
@@ -131,6 +145,24 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
                     'org': '',
                     'timezone': None
                 }
+            elif provider == 'ipinfo_hardcoded':
+                # ipinfo.io via hardcoded IP (same format as ipinfo_standard)
+                asn_val = str(data.get('org', ''))
+                org_val = data.get('org', '')
+                result = {
+                    'ip': data.get('ip'),
+                    'asn': asn_val,
+                    'org': org_val,
+                    'timezone': data.get('timezone', None)
+                }
+            elif provider == 'httpbin_hardcoded':
+                # httpbin.org/ip returns just the IP as plain text, handled above
+                result = {
+                    'ip': data.get('ip'),
+                    'asn': None,
+                    'org': '',
+                    'timezone': None
+                }
             elif provider == 'ipapi':
                 asn_val = str(data.get('as', ''))
                 result = {
@@ -141,12 +173,16 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
                 }
             elif provider == 'ipdata':
                 asn = data.get('asn', {})
-                asn_str = f"AS{asn.get('asn', '')} {asn.get('name', '')}" if asn else ''
-                asn_str = str(asn_str)
+                if isinstance(asn, dict):
+                    asn_str = f"AS{asn.get('asn', '')} {asn.get('name', '')}" if asn else ''
+                    org_name = asn.get('name', '')
+                else:
+                    asn_str = str(asn) if asn else ''
+                    org_name = ''
                 result = {
                     'ip': data.get('ip'),
                     'asn': asn_str,
-                    'org': asn.get('name', ''),
+                    'org': org_name,
                     'timezone': data.get('time_zone', None)
                 }
             
@@ -159,7 +195,7 @@ def get_ipinfo_with_fallback(ip: Optional[str] = None, proxy_cfg=None) -> dict:
             logging.warning(f"{provider} lookup failed for IP {ip or 'self'}: {e}")
             continue
     
-    logging.error(f"All IP lookup providers failed for IP {ip or 'self'}. Fallback chain: ipinfo.io → ipdata.co → ip-api.com → ipify.org")
+    logging.error(f"All IP lookup providers failed for IP {ip or 'self'}. Fallback chain: ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded IPs")
     return {'ip': None, 'asn': None, 'org': '', 'timezone': None}
 
 def get_asn_and_timezone_from_ip(ip, proxy_cfg=None, ipinfo_data=None):
