@@ -43,4 +43,9 @@ EXPOSE 39842
 
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
+
+# Ensure container starts as root for user/group management
+# Required for unRAID and other systems that may force non-root startup
+USER root
+
 ENTRYPOINT ["/app/start.sh"]
