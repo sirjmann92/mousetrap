@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+# This script must run as root to manage users/groups, then drops to appuser
+# Container explicitly starts as root (USER root in Dockerfile) to ensure
+# compatibility with unRAID and other platforms that may force non-root startup
+
 # Set PUID/PGID, defaulting to 1000 if not provided
 PUID=${PUID:-1000}
 PGID=${PGID:-1000}
