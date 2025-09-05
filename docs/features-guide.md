@@ -104,12 +104,73 @@ MouseTrap provides automated management for MyAnonamouse (MaM) seedbox sessions 
 - **SOCKS proxies**: Via HTTP proxy bridges
 - **Authenticated proxies**: Username/password authentication
 
-### IP Detection & Updates
+### IP Monitoring Modes
+
+MouseTrap offers three IP monitoring modes to suit different use cases and network environments:
+
+**🔄 Auto (Full) - Default Mode:**
 - **Automatic IP detection**: Uses multiple IP lookup services with fallbacks
-- **Fallback chain**: ipinfo.io → ipdata.co → ip-api.com → ipify.org
-- **Smart ASN handling**: When fallback providers don't support ASN data, preserves previous ASN to avoid false change notifications
-- **ASN detection**: Tracks Autonomous System Number changes
+- **Fallback chain**: ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded endpoints
+- **DNS-free fallbacks**: Hardcoded IP endpoints (34.102.136.180, 54.230.100.253) bypass DNS issues
+- **Smart ASN handling**: Preserves previous ASN when fallback providers don't support ASN data
 - **Rate limiting**: Respects MaM's rate limits (1 update per hour)
+- **Best for**: Regular internet connections, properly configured VPNs
+
+**✋ Manual Mode:**
+- **User-controlled updates**: Manual IP address entry and updates only
+- **No automatic detection**: Completely disables automatic IP lookup services
+- **Manual refresh option**: User can trigger IP updates when needed
+- **Preserved automation**: All purchase automation continues to work normally
+- **Best for**: Custom IP configurations, troubleshooting, controlled environments
+
+**🔒 Static (No Monitoring) Mode:**
+- **Zero IP monitoring**: Completely disables IP change detection and auto-updates
+- **IP detection available**: Current IP still detected for convenience (USE DETECTED IP button)
+- **No monitoring calls**: Eliminates seedbox update API calls when IP changes
+- **Full automation**: All purchase automation continues independently
+- **Reduced monitoring overhead**: No IP change comparisons or automated responses
+- **Best for**: Static IP users, restricted networks, VPN environments with DNS issues
+
+### Choosing the Right Mode
+
+**Use Auto (Full) when:**
+- You have a dynamic IP address
+- Your VPN allows DNS resolution to IP lookup services
+- You want real-time IP change notifications
+- You're using standard home/office internet
+
+**Use Manual when:**
+- You have a semi-static IP that occasionally changes
+- You want control over when IP updates occur
+- You're troubleshooting IP detection issues
+- You prefer manual verification of IP changes
+
+**Use Static when:**
+- You have a truly static IP address (home/business with static IP)
+- Your VPN blocks DNS resolution to IP services
+- You don't need IP change monitoring
+- You want to minimize external network dependencies
+- You're in a restricted network environment
+
+**Use Manual when:**
+- You have a semi-static IP that occasionally changes
+- You want control over when IP updates occur
+- You're troubleshooting IP detection issues
+- You prefer manual verification of IP changes
+- You have a static IP but want the option to manually update when needed
+
+### Configuration
+
+Configure IP monitoring mode per session in the MouseTrap Config card:
+1. Select your session from the dropdown
+2. Choose your preferred IP Monitoring mode
+3. For Static/Manual modes: Set your IP address in the "IP Address" field
+4. Click Save Configuration
+5. Changes take effect immediately (no restart required)
+
+**Static IP without VPN/Proxy**: If you have a static IP and don't use a VPN or proxy, either Static or Manual mode works well. Static mode completely disables IP monitoring, while Manual mode lets you update the IP if it ever changes.
+
+**Note**: Each session can use a different monitoring mode based on its specific network environment and requirements.
 
 ### VPN Integration Options
 

@@ -28,6 +28,7 @@ export function SessionProvider({ children }) {
   // Session/config state
   const [mamId, setMamId] = useState("");
   const [sessionType, setSessionType] = useState("");
+  const [ipMonitoringMode, setIpMonitoringMode] = useState("auto");
   const [mamIp, setMamIp] = useState("");
   const [checkFrequency, setCheckFrequency] = useState("");
   const [oldLabel, setOldLabel] = useState("");
@@ -51,6 +52,7 @@ export function SessionProvider({ children }) {
     detectedIp, setDetectedIp,
     mamId, setMamId,
     sessionType, setSessionType,
+    ipMonitoringMode, setIpMonitoringMode,
     mamIp, setMamIp,
     checkFrequency, setCheckFrequency,
     oldLabel, setOldLabel,

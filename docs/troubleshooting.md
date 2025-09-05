@@ -198,6 +198,34 @@ gluetun:
 - **Check container status**: `docker ps` to verify VPN container is running
 - **Network inspection**: `docker network inspect bridge` to see container IPs
 
+**DNS Resolution Issues in VPN Environments:**
+
+Some VPN configurations (especially unRAID Wireguard) block DNS resolution to IP lookup services while allowing regular HTTP traffic to MaM.
+
+**Symptoms:**
+- IP address shows as "Detecting..." indefinitely
+- Logs show "getaddrinfo ENOTFOUND" errors for IP services
+- MaM automation still works normally
+- Only affects IP detection, not purchase automation
+
+**Solutions:**
+1. **Switch to Static Mode**: If you have a static IP and don't need monitoring
+   - Go to MouseTrap Config → IP Monitoring → "Static (No Monitoring)"
+   - Completely disables IP detection, automation continues normally
+
+2. **Use Manual Mode**: For occasional IP updates
+   - Go to MouseTrap Config → IP Monitoring → "Manual"
+   - Update IP manually when needed, automation continues normally
+
+3. **Check VPN DNS Settings**: If you need automatic IP detection
+   - Verify DNS servers in VPN configuration
+   - Test DNS resolution: `nslookup ipinfo.io` from container
+   - Consider using VPN provider's DNS servers
+
+4. **Use Hardcoded Fallbacks**: Auto mode includes DNS-free endpoints
+   - ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded IPs
+   - Hardcoded endpoints (34.102.136.180, 54.230.100.253) bypass DNS issues
+
 ---
 
 ### 6. Notification Issues

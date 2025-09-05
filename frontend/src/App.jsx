@@ -38,6 +38,7 @@ export default function App() {
     setSessionLabel,
     setMamId,
     setSessionType,
+    setIpMonitoringMode,
     setMamIp,
     setCheckFrequency,
     setOldLabel,
@@ -115,6 +116,7 @@ export default function App() {
       setOldLabel(cfg?.label ?? labelToLoad);
       setMamId(cfg?.mam?.mam_id ?? "");
       setSessionType(cfg?.mam?.session_type ?? "");
+      setIpMonitoringMode(cfg?.mam?.ip_monitoring_mode ?? "auto");
       setMamIp(cfg?.mam_ip ?? "");
       setCheckFrequency(cfg?.check_freq ?? "");
       setProxy(cfg?.proxy ?? {});
