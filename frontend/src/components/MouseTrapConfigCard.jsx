@@ -45,6 +45,7 @@ export default function MouseTrapConfigCard({
     setSessionLabel,
     mamId, setMamId,
     sessionType, setSessionType,
+    ipMonitoringMode, setIpMonitoringMode,
     mamIp, setMamIp,
     checkFrequency, setCheckFrequency,
     oldLabel, setOldLabel,
@@ -141,7 +142,8 @@ export default function MouseTrapConfigCard({
       old_label: oldLabel,
       mam: {
         mam_id: mamId,
-        session_type: sessionType
+        session_type: sessionType,
+        ip_monitoring_mode: ipMonitoringMode
       },
       mam_ip: mamIp,
       check_freq: checkFrequency,
@@ -242,6 +244,40 @@ export default function MouseTrapConfigCard({
                 </Select>
               </FormControl>
             </Grid>
+            
+            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FormControl size="small" sx={{ minWidth: 130, maxWidth: 175 }}>
+                  <InputLabel>IP Monitoring</InputLabel>
+                  <Select
+                    value={ipMonitoringMode || "auto"}
+                    label="IP Monitoring"
+                    onChange={e => setIpMonitoringMode(e.target.value)}
+                    sx={{ minWidth: 130, maxWidth: 175 }}
+                    MenuProps={{ disableScrollLock: true }}
+                  >
+                    <MenuItem value="auto">Auto (Full)</MenuItem>
+                    <MenuItem value="manual">Manual</MenuItem>
+                    <MenuItem value="static">Static (No Monitoring)</MenuItem>
+                  </Select>
+                </FormControl>
+                <Tooltip 
+                  title={
+                    <div>
+                      <strong>Auto (Full):</strong> Automatic IP detection with multiple fallbacks<br/>
+                      <strong>Manual:</strong> User-controlled IP updates only<br/>
+                      <strong>Static:</strong> No IP monitoring (for static IPs or restricted networks)
+                    </div>
+                  } 
+                  arrow
+                >
+                  <IconButton size="small" sx={{ ml: 0.5 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Grid>
+            
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165 }} error={!!freqError}>

@@ -423,6 +423,11 @@ def api_status(label: str = Query(None), force: int = Query(0)):
     cfg = load_session(label)
     mam_id = cfg.get('mam', {}).get('mam_id', "")
     mam_ip_override = cfg.get('mam_ip', "").strip()
+    ip_monitoring_mode = cfg.get('mam', {}).get('ip_monitoring_mode', 'auto')
+    
+    # Note: IP detection always happens for user convenience, regardless of monitoring mode
+    # Only the monitoring/auto-update logic differs between modes
+    
     # Always resolve proxy config immediately before every get_status call
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     # If session is not configured (no mam_id), return not configured status
@@ -489,7 +494,13 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         mam_status['mam_seen_asn'] = mam_seen_asn
         mam_status['mam_seen_as'] = mam_seen_as
         # --- Auto-update logic ---
-        auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+        # Skip auto-update for static/manual modes since they don't need IP monitoring
+        if ip_monitoring_mode == 'auto':
+            auto_update_triggered, auto_update_result = auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now)
+        else:
+            auto_update_triggered, auto_update_result = False, None
+            logging.debug(f"[Status] Skipping auto-update for session '{label}' in {ip_monitoring_mode} mode")
+            
         if auto_update_triggered and auto_update_result:
             mam_status['auto_update_seedbox'] = auto_update_result
             # Always persist the correct status_message after an update
@@ -498,9 +509,9 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             elif auto_update_result.get('success') is True and (auto_update_result.get('msg') or auto_update_result.get('reason')):
                 mam_status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
             else:
-                mam_status['status_message'] = build_status_message(mam_status)
+                mam_status['status_message'] = build_status_message(mam_status, ip_monitoring_mode)
         else:
-            mam_status['status_message'] = build_status_message(mam_status)
+            mam_status['status_message'] = build_status_message(mam_status, ip_monitoring_mode)
         # Update in-memory cache and YAML file with the latest status
         session_status_cache[label] = {"status": mam_status, "last_check_time": now.isoformat()}
         status = mam_status
@@ -565,7 +576,7 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             event_ip_compare = f"{prev_ip} -> {attempted_ip}"
             event_asn_compare = f"{prev_asn} -> {attempted_asn}"
         else:
-            event_status_message = build_status_message(safe_status)
+            event_status_message = build_status_message(safe_status, ip_monitoring_mode)
             event_ip_compare = f"{prev_ip} -> {curr_ip}"
             event_asn_compare = f"{prev_asn} -> {curr_asn}"
         # Determine event type
@@ -597,9 +608,12 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         append_ui_event_log(event)
     # Always include the current session's saved proxy config in status
     status['proxy'] = resolve_proxy_from_session_cfg(cfg) or {}
+    
+    # Always provide detected IP for user convenience, regardless of monitoring mode
     status['detected_public_ip'] = detected_public_ip
     status['detected_public_ip_asn'] = detected_public_ip_asn
     status['detected_public_ip_as'] = detected_public_ip_as
+    
     status['proxied_public_ip'] = proxied_public_ip
     status['proxied_public_ip_asn'] = proxied_public_ip_asn
     status['proxied_public_ip_as'] = None
@@ -619,13 +633,13 @@ def api_status(label: str = Query(None), force: int = Query(0)):
             status['status_message'] = auto_update_result.get('msg') or auto_update_result.get('reason')
         # Fallback: use build_status_message
         else:
-            status['status_message'] = build_status_message(status)
+            status['status_message'] = build_status_message(status, ip_monitoring_mode)
     elif status.get('error'):
         status['status_message'] = f"Error: {status['error']}"
     elif status.get('message'):
         status['status_message'] = status['message']
     else:
-        status['status_message'] = build_status_message(status)
+        status['status_message'] = build_status_message(status, ip_monitoring_mode)
     # Calculate next_check_time (UTC ISO format)
     check_freq_minutes = cfg.get("check_freq", 5)
     # Use cached last_check_time unless a real check was just performed
@@ -655,19 +669,19 @@ def api_status(label: str = Query(None), force: int = Query(0)):
         "wedge_active": status.get("wedge_active"),
         "vip_active": status.get("vip_active"),
         "current_ip": ip_to_use,
-    "current_ip_asn": asn,
-    "mam_session_as": mam_session_as,
+        "current_ip_asn": asn,
+        "mam_session_as": mam_session_as,
         "configured_ip": ip_to_use,
         "configured_asn": asn,
-    "configured_asn": asn,
         "mam_seen_asn": mam_seen_asn,
         "mam_seen_as": mam_seen_as,
-        "detected_public_ip": detected_public_ip,
-    "detected_public_ip_asn": detected_public_ip_asn,
-    "detected_public_ip_as": detected_public_ip_as,
+        "detected_public_ip": status.get("detected_public_ip"),
+        "detected_public_ip_asn": status.get("detected_public_ip_asn"),
+        "detected_public_ip_as": status.get("detected_public_ip_as"),
         "proxied_public_ip": proxied_public_ip,
-    "proxied_public_ip_asn": proxied_public_ip_asn,
-    "proxied_public_ip_as": status.get("proxied_public_ip_as"),
+        "proxied_public_ip_asn": proxied_public_ip_asn,
+        "proxied_public_ip_as": status.get("proxied_public_ip_as"),
+        "ip_monitoring_mode": ip_monitoring_mode,
         "ip_source": "configured",
         "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,

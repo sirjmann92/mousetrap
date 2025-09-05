@@ -81,6 +81,9 @@ def load_session(label):
 
     if "mam_ip" not in cfg:
         cfg["mam_ip"] = ""
+    # Backward compatibility for ip_monitoring_mode
+    if "ip_monitoring_mode" not in cfg.get("mam", {}):
+        cfg.setdefault("mam", {})["ip_monitoring_mode"] = "auto"
     if "last_check_time" not in cfg:
         cfg["last_check_time"] = None
     if "label" not in cfg:
@@ -113,6 +116,7 @@ def get_default_config(label=None):
         "mam": {
             "mam_id": "",
             "session_type": "ip",
+            "ip_monitoring_mode": "auto",  # "auto", "manual", "static"
             "auto_purchase": {
                 "wedge": False,
                 "vip": False,

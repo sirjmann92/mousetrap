@@ -32,7 +32,7 @@ def extract_asn_number(asn_str):
         return asn_str.strip()
     return None
 
-def build_status_message(status: dict) -> str:
+def build_status_message(status: dict, ip_monitoring_mode: str = "auto") -> str:
     """
     Generate a user-friendly status message for the session based on the status dict.
     This is a placeholder; you can expand logic as needed for your app.
@@ -43,6 +43,14 @@ def build_status_message(status: dict) -> str:
     # If a static message is present (from mam_api or other), use it
     if status.get("message"):
         return status["message"]
+    
+    # Mode-specific status messages
+    if ip_monitoring_mode == "static":
+        return "Static IP mode - No monitoring active. Automation running normally."
+    elif ip_monitoring_mode == "manual":
+        return "Manual IP mode - IP updates controlled by user. Automation running normally."
+    
+    # Auto mode - original logic
     # Fallbacks for legacy or unexpected cases
     if status.get("auto_update_seedbox"):
         result = status["auto_update_seedbox"]
