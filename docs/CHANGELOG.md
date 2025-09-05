@@ -1,3 +1,38 @@
+# September 5, 2025
+
+## IP Lookup System Overhaul 🚀
+
+### **Token-Aware Provider Chain**
+- **Intelligent fallback strategy:** System now adapts provider chain based on available API tokens
+- **Four token scenarios supported:** Both tokens, IPinfo only, ipdata only, or no tokens
+- **Optimal provider selection:** Automatically uses best available provider first
+
+### **Enhanced Authentication & Rate Limits**
+- **IPinfo Lite API:** Added Bearer token authentication (50,000 requests/month)
+- **IPinfo Standard fallback:** Free tier HTTPS fallback (1,000 requests/month) 
+- **ipdata.co improvements:** Uses free tier (1,500/day) when no API key provided
+- **Graceful degradation:** Works reliably even without any API tokens
+
+### **Performance & Reliability Improvements**
+- **Request caching:** 30-second cache prevents duplicate API calls
+- **Rate-limited logging:** Prevents log spam while maintaining error visibility  
+- **Connection error handling:** Robust fallback when providers are unreachable
+- **Provider validation:** Comprehensive testing of all fallback scenarios
+
+### **Enhanced Logging & Visibility**
+- **Session check visibility:** Core IP/ASN comparison results now visible at INFO level
+- **Operational confidence:** Clear logging when "No change needed" during normal operation
+- **Provider status:** Easy monitoring of which providers are active/failing
+- **Debugging tools:** Enhanced troubleshooting commands and documentation
+
+### **Documentation Updates**
+- **Complete provider strategy guide:** Comprehensive documentation of token-based selection
+- **Setup instructions:** Clear configuration steps for both IPinfo and ipdata tokens
+- **Troubleshooting section:** Commands and techniques for diagnosing provider issues
+- **Performance recommendations:** Best practices for optimal API usage
+
+---
+
 # August 30, 2025
 
 ## Major Changes
