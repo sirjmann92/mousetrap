@@ -212,7 +212,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 )
                 return False, {"success": True, "msg": "ASN changed, no seedbox update performed.", "reason": reason}
             else:
-                logging.debug(f"[AutoUpdate] label={label} ASN compare: {norm_last} -> {norm_check} | ASN result: No change needed.")
+                logging.info(f"[AutoUpdate] label={label} ASN check: {norm_last} -> {norm_check} | No change needed")
     # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
     proxied_ip = cfg.get('proxied_public_ip')
     if proxied_ip:
@@ -230,7 +230,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
         logging.info(f"[AutoUpdate] label={label} IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}")
     else:
-        logging.debug(f"[AutoUpdate] label={label} IP compare: {last_seedbox_ip} -> {ip_to_check} | IP result: No change needed.")
+        logging.info(f"[AutoUpdate] label={label} IP check: {last_seedbox_ip} -> {ip_to_check} | No change needed")
     if update_needed:
         logging.info(f"[AutoUpdate] label={label} update_needed=True asn={asn} reason={reason}")
         logging.debug(f"[AutoUpdate][DEBUG] label={label} session_type={session_type} update_needed={update_needed}")
@@ -996,7 +996,7 @@ def session_check_job(label):
             args, _, _, values = inspect.getargvalues(frame)
             if 'trigger_source' in values:
                 trigger_source = values['trigger_source']
-        logging.debug(f"[SessionCheck][TRIGGER] label={label} source={trigger_source}")
+        logging.info(f"[SessionCheck] label={label} source={trigger_source}")
         cfg = load_session(label)
         mam_id = cfg.get('mam', {}).get('mam_id', "")
         check_freq = cfg.get("check_freq", 5)
