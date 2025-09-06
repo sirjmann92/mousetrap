@@ -18,6 +18,7 @@ import MouseTrapConfigCard from "./components/MouseTrapConfigCard";
 import ProxyConfigCard from "./components/ProxyConfigCard";
 import PerkAutomationCard from "./components/PerkAutomationCard";
 import NotificationsCard from "./components/NotificationsCard";
+import VaultConfigCard from "./components/VaultConfigCard";
 import PortMonitorCard from "./components/PortMonitorCard";
 import SessionSelector from "./components/SessionSelector";
 import MouseTrapIcon from "./assets/mousetrap-icon.svg";
@@ -44,8 +45,7 @@ export default function App() {
     setOldLabel,
     setProxy,
     setProxiedIp,
-    setProxiedAsn,
-    setBrowserCookie
+    setProxiedAsn
   } = useSession();
   // State for automation and perks
   const [autoWedge, setAutoWedge] = React.useState(false);
@@ -122,7 +122,6 @@ export default function App() {
       setProxy(cfg?.proxy ?? {});
       setProxiedIp(cfg?.proxied_public_ip ?? "");
       setProxiedAsn(cfg?.proxied_public_ip_asn ?? "");
-      setBrowserCookie(cfg?.browser_cookie ?? "");
     } catch (e) {
       // handle error
     }
@@ -250,7 +249,11 @@ export default function App() {
           forceExpand={forceExpandConfig}
           onForceExpandHandled={() => setForceExpandConfig(false)}
         />
-  <ProxyConfigCard proxies={proxies} setProxies={setProxies} refreshProxies={refreshProxies} />
+        <ProxyConfigCard proxies={proxies} setProxies={setProxies} refreshProxies={refreshProxies} />
+        <VaultConfigCard 
+          proxies={proxies}
+          sessions={sessions}
+        />
         {sessions.length > 0 && (
           <PerkAutomationCard
             autoWedge={autoWedge}

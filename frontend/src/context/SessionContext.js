@@ -35,7 +35,6 @@ export function SessionProvider({ children }) {
   const [proxy, setProxy] = useState({});
   const [proxiedIp, setProxiedIp] = useState("");
   const [proxiedAsn, setProxiedAsn] = useState("");
-  const [browserCookie, setBrowserCookie] = useState("");
 
   const [sessionInfo, setSessionInfo] = useState({});
   const [status, setStatus] = useState(null);
@@ -59,7 +58,6 @@ export function SessionProvider({ children }) {
     proxy, setProxy,
     proxiedIp, setProxiedIp,
     proxiedAsn, setProxiedAsn,
-    browserCookie, setBrowserCookie,
   };
 
   return (
