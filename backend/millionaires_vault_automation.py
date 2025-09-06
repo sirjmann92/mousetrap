@@ -14,7 +14,9 @@ from backend.vault_config import (
     save_vault_config, 
     get_effective_uid, 
     get_effective_proxy_config,
-    extract_mam_id_from_browser_cookies
+    extract_mam_id_from_browser_cookies,
+    check_should_donate_to_pot,
+    update_pot_tracking
 )
 from backend.millionaires_vault_cookies import validate_browser_mam_id_with_config, perform_vault_donation
 from backend.event_log import append_ui_event_log
@@ -122,21 +124,37 @@ class VaultAutomationManager:
                 )
                 return
             
-            # Check current points (this would need to be implemented in vault_result)
-            # For now, we'll simulate point checking
-            current_points = vault_result.get("current_points")  # TODO: Implement in validation
-            min_threshold = automation.get("min_points_threshold", 2000)
+            # Check current points by fetching them separately
+            from backend.millionaires_vault_cookies import get_vault_total_points
+            points_result = get_vault_total_points(extracted_mam_id, effective_uid, effective_proxy)
             
-            if current_points is None:
-                logging.warning(f"[VaultAutomation] Cannot get current points for config '{config_id}' - skipping this run")
+            if not points_result.get("success"):
+                error_msg = points_result.get("error", "Unknown error fetching points")
+                logging.warning(f"[VaultAutomation] Cannot get current points for config '{config_id}': {error_msg} - skipping this run")
                 await self._update_last_run(config_id, config)
                 return
+                
+            current_points = points_result.get("current_points", 0)
+            min_threshold = automation.get("min_points_threshold", 2000)
+            
+            logging.info(f"[VaultAutomation] Config '{config_id}' has {current_points} points (threshold: {min_threshold})")
             
             if current_points < min_threshold:
                 logging.info(f"[VaultAutomation] Config '{config_id}' has {current_points} points, below threshold {min_threshold} - no donation")
                 await self._update_last_run(config_id, config)
                 return
-            
+
+            # Check if we should donate to this pot cycle (if enabled)
+            pot_check = check_should_donate_to_pot(config)
+            if not pot_check.get('should_donate', True):
+                reason = pot_check.get('reason', 'Unknown reason')
+                logging.info(f"[VaultAutomation] Config '{config_id}' skipping donation: {reason}")
+                await self._update_last_run(config_id, config)
+                return
+            else:
+                pot_reason = pot_check.get('reason', 'Pot check passed')
+                logging.info(f"[VaultAutomation] Config '{config_id}' pot check: {pot_reason}")
+
             # Calculate donation amount
             donation_amount = automation.get("donation_amount", 100)
             
@@ -147,14 +165,26 @@ class VaultAutomationManager:
             )
             
             if success:
+                # Update pot tracking if once_per_pot is enabled
+                current_pot_id = pot_check.get('current_pot_id')
+                if current_pot_id and config.get('automation', {}).get('once_per_pot', False):
+                    pot_update_success = update_pot_tracking(config_id, current_pot_id)
+                    if pot_update_success:
+                        logging.info(f"[VaultAutomation] Updated pot tracking for config '{config_id}': pot {current_pot_id}")
+                    else:
+                        logging.warning(f"[VaultAutomation] Failed to update pot tracking for config '{config_id}'")
+                
+                from datetime import datetime, timezone
                 append_ui_event_log({
-                    'timestamp': time.time(),
+                    'timestamp': datetime.now(timezone.utc).isoformat(),
                     'event_type': 'vault_automation_success',
+                    'label': 'Global',
                     'config_id': config_id,
                     'amount': donation_amount,
                     'uid': effective_uid,
                     'current_points': current_points,
                     'threshold': min_threshold,
+                    'status_message': f"Automated vault donation: {donation_amount} points donated for '{config_id}'",
                     'message': f"Automated vault donation successful: {donation_amount} points"
                 })
                 
@@ -234,13 +264,16 @@ class VaultAutomationManager:
         logging.error(f"[VaultAutomation] Config '{config_id}': {full_error}")
         
         # Log to event log
+        from datetime import datetime, timezone
         append_ui_event_log({
-            'timestamp': time.time(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'event_type': 'vault_automation_error',
+            'label': 'Global',
             'config_id': config_id,
             'error': error_message,
             'details': detailed_error,
-            'status': 'failed'
+            'status': 'failed',
+            'status_message': f"Vault automation error for '{config_id}': {error_message}"
         })
         
         # Send error notification

@@ -21,6 +21,7 @@ import {
   DialogActions,
   FormControlLabel,
   Switch,
+  Checkbox,
   Chip,
   DialogContentText,
   InputAdornment,
@@ -823,45 +824,69 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     </Box>
                     
                     {currentConfig.automation?.enabled && (
-                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                        <Tooltip title="How often to check points (1-168 hours)" arrow>
-                          <TextField
-                            label="Frequency (hours)"
-                            type="number"
-                            value={currentConfig.automation?.frequency_hours || 24}
-                            onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), frequency_hours: parseInt(e.target.value) || 24}})}
-                            size="small"
-                            sx={{ width: 150 }}
-                            inputProps={{ min: 1, max: 168 }}
-                          />
-                        </Tooltip>
-                        
-                        <Tooltip title="Minimum points before donating" arrow>
-                          <TextField
-                            label="Points Threshold"
-                            type="number"
-                            value={currentConfig.automation?.min_points_threshold || 2000}
-                            onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), min_points_threshold: parseInt(e.target.value) || 2000}})}
-                            size="small"
-                            sx={{ width: 150 }}
-                            inputProps={{ min: 0 }}
-                          />
-                        </Tooltip>
+                      <>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                          <Tooltip title="How often to check points (1-168 hours)" arrow>
+                            <TextField
+                              label="Frequency (hours)"
+                              type="number"
+                              value={currentConfig.automation?.frequency_hours || 24}
+                              onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), frequency_hours: parseInt(e.target.value) || 24}})}
+                              size="small"
+                              sx={{ width: 150 }}
+                              inputProps={{ min: 1, max: 168 }}
+                            />
+                          </Tooltip>
+                          
+                          <Tooltip title="Minimum points before donating" arrow>
+                            <TextField
+                              label="Points Threshold"
+                              type="number"
+                              value={currentConfig.automation?.min_points_threshold || 2000}
+                              onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), min_points_threshold: parseInt(e.target.value) || 2000}})}
+                              size="small"
+                              sx={{ width: 150 }}
+                              inputProps={{ min: 0 }}
+                            />
+                          </Tooltip>
 
-                        <FormControl size="small" sx={{ width: 150 }}>
-                          <InputLabel>Donation Amount</InputLabel>
-                          <Select
-                            value={currentConfig.automation?.donation_amount || 100}
-                            label="Donation Amount"
-                            onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), donation_amount: parseInt(e.target.value)}})}
-                            MenuProps={{ disableScrollLock: true }}
-                          >
-                            {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000].map(amount => (
-                              <MenuItem key={amount} value={amount}>{amount} points</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Box>
+                          <FormControl size="small" sx={{ width: 150 }}>
+                            <InputLabel>Donation Amount</InputLabel>
+                            <Select
+                              value={currentConfig.automation?.donation_amount || 100}
+                              label="Donation Amount"
+                              onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), donation_amount: parseInt(e.target.value)}})}
+                              MenuProps={{ disableScrollLock: true }}
+                            >
+                              {[100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900, 2000].map(amount => (
+                                <MenuItem key={amount} value={amount}>{amount} points</MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Box>
+                        
+                        {/* Once per pot option */}
+                        <Box sx={{ mt: 2 }}>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={currentConfig.automation?.once_per_pot || false}
+                                onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), once_per_pot: e.target.checked}})}
+                              />
+                            }
+                            label={
+                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                Only donate once per pot cycle
+                                <Tooltip title="When enabled, this prevents multiple donations to the same 20M pot cycle. The system tracks pot cycles and will only donate once per ~20 million point pot, regardless of how often automation runs." arrow>
+                                  <IconButton size="small" sx={{ ml: 1 }}>
+                                    <InfoOutlinedIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
+                            }
+                          />
+                        </Box>
+                      </>
                     )}
                   </Box>
                 </Box>

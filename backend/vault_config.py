@@ -6,6 +6,7 @@ Handles independent vault configuration separate from session config
 import yaml
 import os
 import logging
+import time
 from typing import Dict, Any, Optional, List
 from backend.config import LOCK
 
@@ -90,7 +91,12 @@ def get_default_vault_configuration() -> Dict[str, Any]:
             "enabled": False,
             "frequency_hours": 24,
             "min_points_threshold": 2000,
+            "once_per_pot": False,
             "last_run": None
+        },
+        "pot_tracking": {
+            "last_donation_pot": None,
+            "last_donation_time": None
         },
         "validation": {
             "last_validated": None,
@@ -225,6 +231,11 @@ def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> Optional[str]:
 
 def get_effective_proxy_config(vault_config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Get the effective proxy configuration for vault operations"""
+    # If connection method is direct, don't use any proxy regardless of vault_proxy_label
+    connection_method = vault_config.get("connection_method", "direct")
+    if connection_method == "direct":
+        return None
+        
     proxy_label = vault_config.get("vault_proxy_label", "").strip()
     
     if not proxy_label:
@@ -240,3 +251,142 @@ def get_effective_proxy_config(vault_config: Dict[str, Any]) -> Optional[Dict[st
         logging.error(f"[VaultConfig] Error getting proxy config '{proxy_label}': {e}")
     
     return None
+
+
+def fetch_pot_donation_history(mam_id: str, uid: str, proxy_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    Fetch pot donation history from pot.php page using existing vault authentication patterns
+    """
+    try:
+        import requests
+        from backend.utils import build_proxy_dict
+        
+        # Build headers similar to existing vault calls
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Referer': 'https://www.myanonamouse.net/millionaires.php'
+        }
+        
+        cookies = {'mam_id': mam_id, 'uid': uid}
+        proxies = build_proxy_dict(proxy_config) if proxy_config else {}
+        
+        # Fetch pot.php page
+        url = "https://www.myanonamouse.net/pot.php"
+        response = requests.get(url, headers=headers, cookies=cookies, proxies=proxies, timeout=30)
+        
+        if response.status_code != 200:
+            return {'success': False, 'error': f'HTTP {response.status_code}'}
+            
+        content = response.text
+        
+        # Parse current pot total and donation history from the page
+        import re
+        
+        # Look for current pot total
+        pot_match = re.search(r'Current\s+Pot.*?(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)', content, re.IGNORECASE | re.DOTALL)
+        current_pot = int(pot_match.group(1).replace(',', '')) if pot_match else 0
+        
+        # Look for user's recent donations in the page
+        # This is a simplified approach - we'll track donations by monitoring changes
+        user_donations = []
+        
+        return {
+            'success': True,
+            'current_pot_total': current_pot,
+            'user_donations': user_donations,
+            'pot_id': f"pot_{current_pot // 20000000}"  # Rough pot cycle identifier
+        }
+        
+    except Exception as e:
+        logging.error(f"[VaultConfig] Error fetching pot donation history: {e}")
+        return {'success': False, 'error': str(e)}
+
+
+def check_should_donate_to_pot(vault_config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Check if we should donate to the current pot based on tracking data
+    """
+    try:
+        # Get pot tracking data
+        pot_tracking = vault_config.get('pot_tracking', {})
+        
+        # If pot tracking is disabled, allow donation
+        if not vault_config.get('automation', {}).get('once_per_pot', False):
+            return {'should_donate': True, 'reason': 'Once per pot not enabled'}
+        
+        # Get effective authentication details
+        extracted_mam_id = extract_mam_id_from_browser_cookies(vault_config.get('browser_mam_id', ''))
+        effective_uid = get_effective_uid(vault_config)
+        effective_proxy = get_effective_proxy_config(vault_config)
+        
+        if not extracted_mam_id or not effective_uid:
+            return {'should_donate': False, 'reason': 'Missing authentication details'}
+        
+        # Fetch current pot information
+        pot_info = fetch_pot_donation_history(extracted_mam_id, effective_uid, effective_proxy)
+        
+        if not pot_info.get('success'):
+            # If we can't fetch pot info, err on the side of caution and allow donation
+            logging.warning(f"[VaultConfig] Could not fetch pot info, allowing donation: {pot_info.get('error')}")
+            return {'should_donate': True, 'reason': 'Could not verify pot status'}
+        
+        current_pot_id = pot_info.get('pot_id')
+        last_donation_pot = pot_tracking.get('last_donation_pot')
+        
+        # If we haven't donated to this pot cycle yet, allow donation
+        if current_pot_id != last_donation_pot:
+            return {
+                'should_donate': True, 
+                'reason': f'New pot cycle (current: {current_pot_id}, last: {last_donation_pot})',
+                'current_pot_id': current_pot_id
+            }
+        else:
+            return {
+                'should_donate': False, 
+                'reason': f'Already donated to pot {current_pot_id}',
+                'current_pot_id': current_pot_id
+            }
+            
+    except Exception as e:
+        logging.error(f"[VaultConfig] Error checking pot donation status: {e}")
+        # On error, allow donation to avoid blocking legitimate donations
+        return {'should_donate': True, 'reason': f'Error checking status: {e}'}
+
+
+def update_pot_tracking(vault_config_id: str, pot_id: str) -> bool:
+    """
+    Update pot tracking after a successful donation
+    """
+    try:
+        # Load current vault config
+        full_config = load_vault_config()
+        
+        if vault_config_id not in full_config.get('vault_configurations', {}):
+            return False
+            
+        vault_config = full_config['vault_configurations'][vault_config_id]
+        
+        # Update pot tracking
+        if 'pot_tracking' not in vault_config:
+            vault_config['pot_tracking'] = {}
+            
+        vault_config['pot_tracking']['last_donation_pot'] = pot_id
+        vault_config['pot_tracking']['last_donation_time'] = int(time.time())
+        
+        # Save configuration
+        success = save_vault_config(full_config)
+        
+        if success:
+            logging.info(f"[VaultConfig] Updated pot tracking for config '{vault_config_id}': donated to pot {pot_id}")
+        
+        return success
+        
+    except Exception as e:
+        logging.error(f"[VaultConfig] Error updating pot tracking: {e}")
+        return False
