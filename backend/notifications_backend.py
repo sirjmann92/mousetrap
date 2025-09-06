@@ -1,9 +1,10 @@
 import os
 import smtplib
 import requests
+import yaml
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional
+from typing import Optional, Dict
 import logging
 
 # Notification config (could be loaded from YAML or env)
@@ -51,15 +52,11 @@ def send_smtp_notification(
         return False
 
 
-import yaml
-
 def load_notify_config():
     if not os.path.exists(NOTIFY_CONFIG_PATH):
         return {}
     with open(NOTIFY_CONFIG_PATH, 'r') as f:
         return yaml.safe_load(f) or {}
-
-from typing import Optional, Dict
 
 def notify_event(event_type: str, label: Optional[str] = None, status: Optional[str] = None, message: Optional[str] = None, details: Optional[Dict] = None):
     """
