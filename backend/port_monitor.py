@@ -194,9 +194,11 @@ class PortMonitorStackManager:
         import datetime
         from backend.event_log import append_ui_event_log
         from backend.notifications_backend import notify_event
+        
         # Set status to 'Restarting...'
         stack.status = 'Restarting...'
         self.save_stacks()
+        
         # Log restart event
         append_ui_event_log({
             'event': 'port_monitor_restart',
@@ -215,8 +217,10 @@ class PortMonitorStackManager:
             },
             'level': 'warning',
         })
+        
         # Restart primary
         self.restart_container(stack.primary_container)
+        
         # Wait for primary to be reachable (up to 60s), fallback to running status
         port_ok = False
         for _ in range(12):  # Wait up to 12*5=60s
@@ -224,6 +228,7 @@ class PortMonitorStackManager:
                 port_ok = True
                 break
             time.sleep(5)
+            
         if not port_ok:
             # Check if container is running
             client = self.get_docker_client()
@@ -234,6 +239,7 @@ class PortMonitorStackManager:
                     running = container.status == 'running'
                 except Exception:
                     running = False
+                    
             if running:
                 # Notify user: port unreachable, but container running, proceeding
                 append_ui_event_log({
@@ -279,99 +285,11 @@ class PortMonitorStackManager:
                     details={}
                 )
                 return  # Do not restart secondaries
+                
         # Restart all secondaries
         for sec in stack.secondary_containers:
             self.restart_container(sec)
-        # Immediately recheck status after restart (this will update status and log result)
-        self.recheck_stack(stack.name)
-        # Set status to 'Restarting...'
-        stack.status = 'Restarting...'
-        self.save_stacks()
-        # Log restart event
-        append_ui_event_log({
-            'event': 'port_monitor_restart',
-            'event_type': 'port_monitor_restart',
-            'label': stack.name,
-            'stack': stack.name,
-            'primary_container': stack.primary_container,
-            'primary_port': stack.primary_port,
-            'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
-            'status': 'Restarting...',
-            'status_message': f"Restarting stack '{stack.name}' (primary: {stack.primary_container}:{stack.primary_port})...",
-            'details': {
-                'primary_container': stack.primary_container,
-                'primary_port': stack.primary_port,
-                'secondaries': stack.secondary_containers,
-            },
-            'level': 'warning',
-        })
-        # Restart primary
-        self.restart_container(stack.primary_container)
-        # Wait for primary to be reachable (up to 60s), fallback to running status
-        port_ok = False
-        for _ in range(12):  # Wait up to 12*5=60s
-            if self.check_port(stack.primary_container, stack.primary_port):
-                port_ok = True
-                break
-            time.sleep(5)
-        if not port_ok:
-            # Check if container is running
-            client = self.get_docker_client()
-            running = False
-            if client:
-                try:
-                    container = client.containers.get(stack.primary_container)
-                    running = container.status == 'running'
-                except Exception:
-                    running = False
-            if running:
-                # Notify user: port unreachable, but container running, proceeding
-                append_ui_event_log({
-                    'event': 'port_monitor_port_timeout',
-                    'event_type': 'port_monitor_port_timeout',
-                    'label': stack.name,
-                    'stack': stack.name,
-                    'primary_container': stack.primary_container,
-                    'primary_port': stack.primary_port,
-                    'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
-                    'status': 'Port unreachable, container running',
-                    'status_message': f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
-                    'details': {},
-                    'level': 'warning',
-                })
-                notify_event(
-                    event_type='port_monitor_port_timeout',
-                    label=stack.name,
-                    status='WARNING',
-                    message=f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
-                    details={}
-                )
-            else:
-                # Notify user: container not running
-                append_ui_event_log({
-                    'event': 'port_monitor_container_not_running',
-                    'event_type': 'port_monitor_container_not_running',
-                    'label': stack.name,
-                    'stack': stack.name,
-                    'primary_container': stack.primary_container,
-                    'primary_port': stack.primary_port,
-                    'timestamp': datetime.datetime.utcnow().isoformat() + 'Z',
-                    'status': 'Container not running',
-                    'status_message': f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
-                    'details': {},
-                    'level': 'error',
-                })
-                notify_event(
-                    event_type='port_monitor_container_not_running',
-                    label=stack.name,
-                    status='ERROR',
-                    message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
-                    details={}
-                )
-                return  # Do not restart secondaries
-        # Restart all secondaries
-        for sec in stack.secondary_containers:
-            self.restart_container(sec)
+            
         # Immediately recheck status after restart (this will update status and log result)
         self.recheck_stack(stack.name)
 
@@ -389,6 +307,8 @@ class PortMonitorStackManager:
         stack.status = 'OK' if result else 'Failed'
         self.stacks.append(stack)
         self.save_stacks()
+        import logging
+        logging.info(f"[PortMonitorStack] Added stack '{name}' with initial status: {'OK' if result else 'Failed'}")
 
     def recheck_stack(self, name: str):
         stack = self.get_stack(name)
@@ -420,10 +340,16 @@ class PortMonitorStackManager:
         from backend.notifications_backend import notify_event
         self.running = True
         
-        # Startup delay to allow VPN containers to fully establish
-        logging.info("[PortMonitorStack] Starting port monitoring with 30-second startup delay...")
-        time.sleep(30)  # Wait 30 seconds before first checks
-        logging.info("[PortMonitorStack] Startup delay complete, beginning port monitoring...")
+        # Perform initial status checks immediately at startup
+        logging.info("[PortMonitorStack] Starting port monitoring with immediate initial checks...")
+        for stack in self.stacks:
+            result = self.check_port(stack.primary_container, stack.primary_port)
+            stack.last_checked = time.time()
+            stack.last_result = result
+            stack.status = 'OK' if result else 'Failed'
+            logging.info(f"[PortMonitorStack] Initial check for {stack.primary_container}:{stack.primary_port} (stack '{stack.name}'): {'OK' if result else 'FAILED'}")
+        self.save_stacks()
+        logging.info("[PortMonitorStack] Initial status checks complete, beginning periodic monitoring...")
         
         while self.running:
             now = time.time()
@@ -513,6 +439,13 @@ class PortMonitorStackManager:
 
     def start(self):
         self.load_stacks()
+        # Perform initial status checks for all stacks
+        for stack in self.stacks:
+            result = self.check_port(stack.primary_container, stack.primary_port)
+            stack.last_checked = time.time()
+            stack.last_result = result
+            stack.status = 'OK' if result else 'Failed'
+        self.save_stacks()
         if not self.running:
             self.thread = threading.Thread(target=self.monitor_loop, daemon=True)
             self.thread.start()

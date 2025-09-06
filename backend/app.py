@@ -65,9 +65,8 @@ def check_and_notify_count_increments(cfg, new_status, label):
 
 from backend.ip_lookup import get_ipinfo_with_fallback, get_asn_and_timezone_from_ip, get_public_ip
 import re
-from backend.utils import build_status_message, build_proxy_dict, setup_logging
+from backend.utils import build_status_message, build_proxy_dict, setup_logging, extract_asn_number
 from backend.proxy_config import resolve_proxy_from_session_cfg
-from backend.utils import extract_asn_number
 from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -1337,8 +1336,6 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
         effective_proxy = get_effective_proxy_config(vault_config)
         connection_method = vault_config.get("connection_method", "auto")
         
-        # For now, just validate that vault access works
-        # TODO: Implement actual donation when vault donation backend is ready
         # Extract just the mam_id value from the browser cookie string
         from backend.vault_config import extract_mam_id_from_browser_cookies
         extracted_mam_id = extract_mam_id_from_browser_cookies(browser_mam_id)
@@ -1832,9 +1829,6 @@ try:
     logging.info("[APScheduler] Registered automation jobs to run every 10 min")
 except Exception as e:
     logging.error(f"[APScheduler] Failed to register automation jobs: {e}")
-
-# Register the automation jobs to run every 10 minutes
-from backend.automation import run_all_automation_jobs
 
 
 

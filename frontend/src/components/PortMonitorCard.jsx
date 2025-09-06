@@ -332,9 +332,13 @@ const handleCancelEdit = () => {
                           setError(null);
                           try {
                             await fetch(`${API_BASE}/stacks/recheck?name=${encodeURIComponent(stack.name)}`, { method: 'POST' });
+                            // Wait a moment for the backend to update
+                            await new Promise(resolve => setTimeout(resolve, 100));
+                            // Fetch fresh data
                             await fetchStacks();
-                            // Find the updated stack and show a notification
-                            const updated = stacks.find(s => s.name === stack.name);
+                            // Get the updated status from fresh data
+                            const freshData = await fetch('/api/port-monitor/stacks').then(r => r.json());
+                            const updated = freshData.find(s => s.name === stack.name);
                             const statusMsg = updated ? (updated.status || 'Unknown') : 'Unknown';
                             setSuccess(`Stack rechecked: ${stack.name} — ${statusMsg}`);
                           } catch (e) {

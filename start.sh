@@ -6,6 +6,11 @@ log_info() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S %z') INFO] [PUID/PGID] $1"
 }
 
+# Function for debug logging (only if DEBUG is set)
+log_debug() {
+    [ "${DEBUG:-}" = "1" ] && echo "[$(date '+%Y-%m-%d %H:%M:%S %z') DEBUG] [PUID/PGID] $1"
+}
+
 # This script must run as root to manage users/groups, then drops to appuser
 # Container explicitly starts as root (USER root in Dockerfile) to ensure
 # compatibility with unRAID and other platforms that may force non-root startup
