@@ -11,15 +11,24 @@ PGID=${PGID:-1000}
 USERNAME=appuser
 GROUPNAME=appgroup
 
-# Change appgroup GID if needed
-if [ "$(getent group "$GROUPNAME" | cut -d: -f3)" != "$PGID" ]; then
-	delgroup "$GROUPNAME"
+# Change appuser UID/GID if needed - delete user first to avoid group conflicts
+if [ "$(id -u "$USERNAME" 2>/dev/null)" != "$PUID" ] || [ "$(id -g "$USERNAME" 2>/dev/null)" != "$PGID" ]; then
+	# Delete user first to avoid "still has group as primary group" error
+	if id "$USERNAME" >/dev/null 2>&1; then
+		deluser "$USERNAME"
+	fi
+fi
+
+# Change appgroup GID if needed - can now safely delete group after user is removed
+if [ "$(getent group "$GROUPNAME" | cut -d: -f3 2>/dev/null)" != "$PGID" ]; then
+	if getent group "$GROUPNAME" >/dev/null 2>&1; then
+		delgroup "$GROUPNAME"
+	fi
 	addgroup -g "$PGID" "$GROUPNAME"
 fi
 
-# Change appuser UID/GID if needed
-if [ "$(id -u "$USERNAME")" != "$PUID" ] || [ "$(id -g "$USERNAME")" != "$PGID" ]; then
-	deluser "$USERNAME"
+# Re-create user if it was deleted or doesn't exist
+if ! id "$USERNAME" >/dev/null 2>&1; then
 	adduser -u "$PUID" -G "$GROUPNAME" -D -s /bin/sh "$USERNAME"
 fi
 
