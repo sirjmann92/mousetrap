@@ -1544,7 +1544,7 @@ async def api_vault_get_points(request: Request):
         vault_config = load_vault_config()
         config = vault_config.get("vault_configurations", {}).get(config_id)
         
-        logging.info(f"[VaultPoints] Loaded config for '{config_id}': {config}")
+        logging.info(f"[VaultPoints] Processing request for config '{config_id}'")
         
         if not config:
             logging.warning(f"[VaultPoints] Vault configuration '{config_id}' not found")

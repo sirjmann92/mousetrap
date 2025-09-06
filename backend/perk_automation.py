@@ -24,9 +24,9 @@ def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
                 proxy_label = proxy_cfg.get('label') if proxy_cfg else None
                 proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
                 logging.debug(f"[buy_upload_credit] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
-        logging.debug(f"[buy_upload_credit] Requesting: {url}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
+        logging.debug(f"[buy_upload_credit] Making request to: {url}")
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
-        logging.debug(f"[buy_upload_credit] Response: status={resp.status_code}\n  headers: {dict(resp.headers)}\n  text: {resp.text[:500]}")
+        logging.debug(f"[buy_upload_credit] Response: status={resp.status_code}")
         resp.raise_for_status()
         try:
             data = resp.json()
@@ -71,9 +71,9 @@ def buy_vip(mam_id, duration='max', proxy_cfg=None):
             proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
             logging.debug(f"[buy_vip] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
     try:
-        logging.debug(f"[buy_vip] Requesting: {url} params={params}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
+        logging.debug(f"[buy_vip] Making request to: {url} with params: {params}")
         resp = requests.get(url, params=params, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
-        logging.debug(f"[buy_vip] Response: status={resp.status_code}\n  headers: {dict(resp.headers)}\n  text: {resp.text[:500]}")
+        logging.debug(f"[buy_vip] Response: status={resp.status_code}")
         resp.raise_for_status()
         try:
             data = resp.json()
@@ -119,9 +119,9 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None):
             proxy_url_log = {k: v.replace(proxy_cfg.get('password',''), '***') if proxy_cfg and proxy_cfg.get('password') else v for k,v in proxies.items()}
             logging.debug(f"[buy_wedge] Using proxy label: {proxy_label}, proxies: {proxy_url_log}")
     try:
-        logging.debug(f"[buy_wedge] Requesting: {url}\n  cookies: {cookies}\n  proxies: {proxies}\n  headers: {headers}")
+        logging.debug(f"[buy_wedge] Making request to: {url}")
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
-        logging.debug(f"[buy_wedge] Response: status={resp.status_code}\n  headers: {dict(resp.headers)}\n  text: {resp.text[:500]}")
+        logging.debug(f"[buy_wedge] Response: status={resp.status_code}")
         resp.raise_for_status()
         try:
             data = resp.json()
