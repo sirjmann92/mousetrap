@@ -571,9 +571,9 @@ def perform_vault_donation(browser_mam_id: str, uid: str, amount: int, proxy_cfg
                         break
                         
                 if session_config:
-                    logging.info(f"[perform_vault_donation] Using session-based verification with mam_id: {verification_mam_id}")
+                    logging.info(f"[perform_vault_donation] Using session-based verification with mam_id: [REDACTED]")
                 else:
-                    logging.warning(f"[perform_vault_donation] Could not find session with mam_id {verification_mam_id}")
+                    logging.warning(f"[perform_vault_donation] Could not find session with mam_id [REDACTED]")
             except Exception as e:
                 logging.warning(f"[perform_vault_donation] Error loading session for verification: {e}")
         

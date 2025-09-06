@@ -216,7 +216,7 @@ def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> Optional[str]:
             # URL decode the mam_id value in case it's encoded
             try:
                 decoded_mam_id = urllib.parse.unquote(mam_id_value)
-                logging.debug(f"[VaultConfig] Extracted and decoded mam_id: {mam_id_value} -> {decoded_mam_id}")
+                logging.debug(f"[VaultConfig] Extracted and decoded mam_id: [REDACTED]")
                 return decoded_mam_id
             except Exception as decode_error:
                 logging.warning(f"[VaultConfig] Failed to URL decode mam_id, using original: {decode_error}")
