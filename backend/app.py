@@ -109,10 +109,22 @@ app.include_router(notifications_router, prefix="/api")
 from backend.api_port_monitor import router as port_monitor_router
 app.include_router(port_monitor_router, prefix="/api/port-monitor")
 from backend.port_monitor import port_monitor_manager
+from backend.millionaires_vault_automation import VaultAutomationManager
+
+# Initialize vault automation manager
+vault_automation_manager = VaultAutomationManager()
+
 # Start PortMonitorStackManager monitor loop on FastAPI startup
 @app.on_event("startup")
 def start_port_monitor_manager():
     port_monitor_manager.start()
+
+# Start VaultAutomationManager on FastAPI startup
+@app.on_event("startup")
+async def start_vault_automation_manager():
+    import asyncio
+    # Start the vault automation manager in the background
+    asyncio.create_task(vault_automation_manager.start())
 # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
 logs_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'logs')
 if os.path.isdir(logs_dir):
@@ -1166,9 +1178,11 @@ async def api_save_vault_configuration(config_id: str, request: Request):
             from datetime import datetime, timezone
             append_ui_event_log({
                 "event": "vault_configuration_saved",
+                "label": "Global",
                 "config_id": config_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "user_action": True,
+                "status_message": f"Vault configuration '{config_id}' saved successfully",
                 "message": f"Vault configuration '{config_id}' saved successfully"
             })
             return {"success": True, "warnings": validation["warnings"]}
@@ -1254,12 +1268,15 @@ async def api_validate_vault_configuration(config_id: str, request: Request):
             
             # Log the validation attempt
             from backend.event_log import append_ui_event_log
+            from datetime import datetime, timezone
             append_ui_event_log({
-                'timestamp': time.time(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'event_type': 'vault_validation_test',
+                'label': 'Global',
                 'config_id': config_id,
                 'uid': effective_uid,
                 'status': 'success' if vault_result["valid"] else 'failed',
+                'status_message': f"Vault access test for '{config_id}': {'successful' if vault_result['valid'] else 'failed'}",
                 'message': f"Vault access test: {'successful' if vault_result['valid'] else 'failed'}"
             })
             
@@ -1361,15 +1378,18 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
         if donation_result.get('success'):
             # Log the successful manual donation
             from backend.event_log import append_ui_event_log
+            from datetime import datetime, timezone
             
             append_ui_event_log({
-                'timestamp': time.time(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'event_type': 'vault_donation_manual',
+                'label': 'Global',
                 'config_id': config_id,
                 'amount': donation_result.get('amount_donated', amount),
                 'uid': effective_uid,
                 'points_before': donation_result.get('points_before'),
                 'points_after': donation_result.get('points_after'),
+                'status_message': f"Manual vault donation: {donation_result.get('amount_donated', amount)} points donated for '{config_id}'",
                 'access_method': donation_result.get('access_method'),
                 'status': 'success',
                 'message': f"Manual vault donation successful: {donation_result.get('amount_donated', amount)} points"
@@ -1410,13 +1430,16 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
         else:
             # Log the failed donation
             from backend.event_log import append_ui_event_log
+            from datetime import datetime, timezone
             append_ui_event_log({
-                'timestamp': time.time(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'event_type': 'vault_donation_manual',
+                'label': 'Global',
                 'config_id': config_id,
                 'amount': amount,
                 'uid': effective_uid,
                 'status': 'failed',
+                'status_message': f"Manual vault donation failed for '{config_id}': {donation_result.get('error', 'Unknown error')}",
                 'error': donation_result.get('error', 'Unknown error')
             })
             
