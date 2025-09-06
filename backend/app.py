@@ -963,6 +963,614 @@ async def api_update_seedbox(request: Request):
         logging.error(f"[SeedboxUpdate] Failed: {e}")
         return {"success": False, "error": str(e)}
 
+
+# --- MILLIONAIRE'S VAULT COOKIE ENDPOINTS ---
+
+@app.get("/api/vault/bookmarklet")
+def api_vault_bookmarklet():
+    """Get JavaScript bookmarklet for cookie extraction"""
+    from backend.millionaires_vault_cookies import generate_cookie_extraction_bookmarklet
+    
+    bookmarklet = generate_cookie_extraction_bookmarklet()
+    
+    return {
+        "bookmarklet": bookmarklet,
+        "instructions": "Drag this bookmarklet to your bookmarks bar, then click it while on MyAnonamouse.net to extract cookies"
+    }
+
+@app.get("/api/vault/total")
+def api_vault_total():
+    """Get the current total points in the Millionaire's Vault (community total)"""
+    try:
+        from backend.vault_config import load_vault_config
+        from backend.millionaires_vault_cookies import get_vault_total_points
+        
+        vault_config = load_vault_config()
+        configurations = vault_config.get("vault_configurations", {})
+        
+        if not configurations:
+            return {
+                "success": False,
+                "error": "No vault configurations found"
+            }
+        
+        # Try to find any configuration with browser cookies to fetch vault total
+        for config_id, config in configurations.items():
+            browser_mam_id = config.get("browser_mam_id", "").strip()
+            if browser_mam_id:
+                from backend.vault_config import get_effective_uid, get_effective_proxy_config, extract_mam_id_from_browser_cookies
+                
+                # Extract the actual mam_id from browser cookies (same as other endpoints)
+                extracted_mam_id = extract_mam_id_from_browser_cookies(browser_mam_id)
+                if not extracted_mam_id:
+                    continue
+                    
+                effective_uid = get_effective_uid(config)
+                effective_proxy = get_effective_proxy_config(config)
+                
+                if effective_uid:
+                    result = get_vault_total_points(extracted_mam_id, effective_uid, effective_proxy)
+                    if result.get('success'):
+                        return {
+                            "success": True,
+                            "vault_total_points": result['vault_total_points'],
+                            "vault_total_formatted": f"{result['vault_total_points']:,}",
+                            "config_used": config_id
+                        }
+        
+        return {
+            "success": False,
+            "error": "No vault configuration found with valid browser cookies"
+        }
+        
+    except Exception as e:
+        logging.error(f"[VaultTotal] Error: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+@app.get("/api/vault/uid/{uid}/summary")
+def api_vault_uid_summary(uid: str):
+    """Get vault setup summary for all sessions sharing a UID"""
+    from backend.vault_uid_manager import get_uid_vault_summary
+    
+    try:
+        summary = get_uid_vault_summary(uid)
+        return {
+            "status": "success",
+            "summary": summary
+        }
+    except Exception as e:
+        logging.error(f"[VaultUIDSummary] Error: {e}")
+        return {
+            "status": "error", 
+            "message": f"Error getting UID summary: {str(e)}"
+        }
+
+
+@app.post("/api/vault/uid/{uid}/sync_browser_mam_id")
+def api_vault_uid_sync_browser_mam_id(uid: str, request: dict):
+    """Sync browser MAM ID across all sessions with the same UID"""
+    from backend.vault_uid_manager import sync_browser_mam_id_across_uid_sessions
+    
+    try:
+        browser_mam_id = request.get('browser_mam_id', '')
+        
+        if not browser_mam_id:
+            return {
+                "status": "error",
+                "message": "browser_mam_id is required"
+            }
+            
+        result = sync_browser_mam_id_across_uid_sessions(uid, browser_mam_id)
+        
+        return {
+            "status": "success" if result['success'] else "error",
+            "result": result
+        }
+        
+    except Exception as e:
+        logging.error(f"[VaultUIDSync] Error: {e}")
+        return {
+            "status": "error",
+            "message": f"Error syncing browser MAM ID: {str(e)}"
+        }
+
+
+@app.get("/api/vault/uid/{uid}/conflicts") 
+def api_vault_uid_conflicts(uid: str):
+    """Check for vault automation conflicts across sessions with same UID"""
+    from backend.vault_uid_manager import check_vault_automation_conflicts
+    
+    try:
+        conflicts = check_vault_automation_conflicts(uid)
+        return {
+            "status": "success",
+            "conflicts": conflicts
+        }
+    except Exception as e:
+        logging.error(f"[VaultUIDConflicts] Error: {e}")
+        return {
+            "status": "error",
+            "message": f"Error checking conflicts: {str(e)}"
+        }
+
+
+# --- Vault Configuration Endpoints ---
+
+@app.get("/api/vault/configurations")
+def api_list_vault_configurations():
+    """List all vault configurations"""
+    from backend.vault_config import list_vault_configurations, load_vault_config
+    
+    try:
+        config_ids = list_vault_configurations()
+        full_config = load_vault_config()
+        
+        # Return basic info about each configuration
+        configurations = {}
+        for config_id in config_ids:
+            vault_config = full_config["vault_configurations"][config_id]
+            configurations[config_id] = {
+                "id": config_id,
+                "browser_mam_id": vault_config.get("browser_mam_id", "")[:10] + "..." if len(vault_config.get("browser_mam_id", "")) > 10 else vault_config.get("browser_mam_id", ""),
+                "uid_source": vault_config.get("uid_source", "session"),
+                "associated_session_label": vault_config.get("associated_session_label", ""),
+                "connection_method": vault_config.get("connection_method", "auto"),
+                "automation_enabled": vault_config.get("automation", {}).get("enabled", False)
+            }
+        
+        return {"configurations": configurations}
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error listing configurations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/vault/configuration/{config_id}")
+def api_get_vault_configuration(config_id: str):
+    """Get a specific vault configuration"""
+    from backend.vault_config import get_vault_configuration
+    
+    try:
+        vault_config = get_vault_configuration(config_id)
+        if vault_config is None:
+            raise HTTPException(status_code=404, detail=f"Vault configuration '{config_id}' not found")
+        
+        return vault_config
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error getting configuration '{config_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/vault/configuration/{config_id}")
+async def api_save_vault_configuration(config_id: str, request: Request):
+    """Save a vault configuration"""
+    from backend.vault_config import save_vault_configuration, validate_vault_configuration
+    from backend.event_log import append_ui_event_log
+    
+    try:
+        vault_config = await request.json()
+        
+        # Validate configuration
+        validation = validate_vault_configuration(vault_config)
+        if not validation["valid"]:
+            return {"success": False, "errors": validation["errors"], "warnings": validation["warnings"]}
+        
+        # Save configuration
+        success = save_vault_configuration(config_id, vault_config)
+        
+        if success:
+            # Log the vault configuration creation
+            from datetime import datetime, timezone
+            append_ui_event_log({
+                "event": "vault_configuration_saved",
+                "config_id": config_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user_action": True,
+                "message": f"Vault configuration '{config_id}' saved successfully"
+            })
+            return {"success": True, "warnings": validation["warnings"]}
+        else:
+            return {"success": False, "errors": ["Failed to save vault configuration"]}
+            
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error saving configuration '{config_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/vault/configuration/{config_id}")
+def api_delete_vault_configuration(config_id: str):
+    """Delete a vault configuration"""
+    from backend.vault_config import delete_vault_configuration
+    
+    try:
+        success = delete_vault_configuration(config_id)
+        if success:
+            return {"success": True}
+        else:
+            raise HTTPException(status_code=404, detail=f"Vault configuration '{config_id}' not found")
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error deleting configuration '{config_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/vault/configuration/{config_id}/default")
+def api_get_default_vault_configuration(config_id: str):
+    """Get default vault configuration structure"""
+    from backend.vault_config import get_default_vault_configuration
+    
+    try:
+        default_config = get_default_vault_configuration()
+        return default_config
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error getting default configuration: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/vault/configuration/{config_id}/validate")
+async def api_validate_vault_configuration(config_id: str, request: Request):
+    """Validate vault configuration and test vault access"""
+    from backend.vault_config import validate_vault_configuration, get_effective_uid, get_effective_proxy_config
+    from backend.millionaires_vault_cookies import validate_browser_mam_id_with_config
+    
+    try:
+        vault_config = await request.json()
+        
+        # Basic configuration validation
+        validation = validate_vault_configuration(vault_config)
+        if not validation["valid"]:
+            return {
+                "config_valid": False,
+                "vault_accessible": False,
+                "errors": validation["errors"],
+                "warnings": validation["warnings"]
+            }
+        
+        # Test vault access if we have valid configuration
+        browser_mam_id = vault_config.get("browser_mam_id", "").strip()
+        effective_uid = get_effective_uid(vault_config)
+        effective_proxy = get_effective_proxy_config(vault_config)
+        connection_method = vault_config.get("connection_method", "auto")
+        
+        if browser_mam_id and effective_uid:
+            # Extract just the mam_id value from the browser cookie string
+            from backend.vault_config import extract_mam_id_from_browser_cookies
+            extracted_mam_id = extract_mam_id_from_browser_cookies(browser_mam_id)
+            
+            if not extracted_mam_id:
+                return {
+                    "config_valid": True,
+                    "vault_accessible": False,
+                    "errors": ["Could not extract mam_id from browser cookie string"],
+                    "warnings": validation["warnings"]
+                }
+            
+            # Test vault access
+            vault_result = validate_browser_mam_id_with_config(
+                browser_mam_id=extracted_mam_id,
+                uid=effective_uid,
+                proxy_cfg=effective_proxy,
+                connection_method=connection_method
+            )
+            
+            # Log the validation attempt
+            from backend.event_log import append_ui_event_log
+            append_ui_event_log({
+                'timestamp': time.time(),
+                'event_type': 'vault_validation_test',
+                'config_id': config_id,
+                'uid': effective_uid,
+                'status': 'success' if vault_result["valid"] else 'failed',
+                'message': f"Vault access test: {'successful' if vault_result['valid'] else 'failed'}"
+            })
+            
+            logging.info(f"[VaultValidation] Test vault access for config '{config_id}' (UID: {effective_uid}): {'SUCCESS' if vault_result['valid'] else 'FAILED'}")
+            
+            return {
+                "config_valid": True,
+                "vault_accessible": vault_result["valid"],
+                "vault_result": vault_result,
+                "effective_uid": effective_uid,
+                "effective_proxy": effective_proxy.get("label") if effective_proxy else None,
+                "warnings": validation["warnings"]
+            }
+        else:
+            return {
+                "config_valid": True,
+                "vault_accessible": False,
+                "errors": ["Cannot test vault access - missing browser MAM ID or effective UID"],
+                "warnings": validation["warnings"]
+            }
+            
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error validating configuration '{config_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/vault/configuration/{config_id}/donate")
+async def api_vault_configuration_donate(config_id: str, request: Request):
+    """Manual vault donation using configuration"""
+    from backend.vault_config import get_vault_configuration, get_effective_uid, get_effective_proxy_config
+    from backend.millionaires_vault_cookies import validate_browser_mam_id_with_config
+    
+    try:
+        request_data = await request.json()
+        amount = request_data.get("amount", 100)
+        inline_config = request_data.get("config")  # For unsaved configurations
+        
+        if not isinstance(amount, int) or amount < 100 or amount > 2000 or amount % 100 != 0:
+            raise HTTPException(status_code=400, detail="Invalid donation amount. Must be 100-2000 points in increments of 100.")
+        
+        # Use inline config if provided (for unsaved configs), otherwise load from disk
+        if inline_config:
+            vault_config = inline_config
+            logging.info(f"[VaultDonation] Using inline config for unsaved configuration '{config_id}'")
+        else:
+            vault_config = get_vault_configuration(config_id)
+            if not vault_config:
+                raise HTTPException(status_code=404, detail=f"Vault configuration '{config_id}' not found")
+        
+        browser_mam_id = vault_config.get("browser_mam_id", "").strip()
+        if not browser_mam_id:
+            raise HTTPException(status_code=400, detail="Browser MAM ID not configured")
+        
+        effective_uid = get_effective_uid(vault_config)
+        if not effective_uid:
+            raise HTTPException(status_code=400, detail="No effective UID available")
+        
+        effective_proxy = get_effective_proxy_config(vault_config)
+        connection_method = vault_config.get("connection_method", "auto")
+        
+        # For now, just validate that vault access works
+        # TODO: Implement actual donation when vault donation backend is ready
+        # Extract just the mam_id value from the browser cookie string
+        from backend.vault_config import extract_mam_id_from_browser_cookies
+        extracted_mam_id = extract_mam_id_from_browser_cookies(browser_mam_id)
+        
+        if not extracted_mam_id:
+            raise HTTPException(status_code=400, detail="Could not extract mam_id from browser cookie string")
+        
+        vault_result = validate_browser_mam_id_with_config(
+            browser_mam_id=extracted_mam_id,
+            uid=effective_uid,
+            proxy_cfg=effective_proxy,
+            connection_method=connection_method
+        )
+        
+        # Perform actual vault donation
+        from backend.millionaires_vault_cookies import perform_vault_donation
+        
+        # Get associated session info for verification
+        session_mam_id = None
+        if vault_config.get("associated_session_label"):
+            try:
+                from backend.config import load_session
+                session_config = load_session(vault_config["associated_session_label"])
+                session_mam_id = session_config.get("mam", {}).get("mam_id")
+            except Exception as e:
+                logging.warning(f"[VaultDonation] Could not load associated session for verification: {e}")
+        
+        donation_result = perform_vault_donation(
+            browser_mam_id=extracted_mam_id,
+            uid=effective_uid,
+            amount=amount,
+            proxy_cfg=effective_proxy,
+            connection_method=connection_method,
+            verification_mam_id=session_mam_id  # Pass session mam_id for verification
+        )
+        
+        if donation_result.get('success'):
+            # Log the successful manual donation
+            from backend.event_log import append_ui_event_log
+            
+            append_ui_event_log({
+                'timestamp': time.time(),
+                'event_type': 'vault_donation_manual',
+                'config_id': config_id,
+                'amount': donation_result.get('amount_donated', amount),
+                'uid': effective_uid,
+                'points_before': donation_result.get('points_before'),
+                'points_after': donation_result.get('points_after'),
+                'access_method': donation_result.get('access_method'),
+                'status': 'success',
+                'message': f"Manual vault donation successful: {donation_result.get('amount_donated', amount)} points"
+            })
+            
+            # Send success notification
+            try:
+                from backend.notifications_backend import notify_event
+                notify_event(
+                    event_type="vault_donation_success",
+                    label=config_id,
+                    status="SUCCESS",
+                    message=f"Successfully donated {donation_result.get('amount_donated', amount)} points to the vault",
+                    details={
+                        'config_id': config_id,
+                        'amount_donated': donation_result.get('amount_donated', amount),
+                        'points_before': donation_result.get('points_before'),
+                        'points_after': donation_result.get('points_after'),
+                        'access_method': donation_result.get('access_method')
+                    }
+                )
+            except Exception as e:
+                logging.warning(f"[VaultDonation] Failed to send success notification: {e}")
+            
+            logging.info(f"[VaultDonation] Manual donation successful for config '{config_id}': {donation_result.get('amount_donated', amount)} points (UID: {effective_uid})")
+            
+            # Return unified result with points data
+            return {
+                "success": True,
+                "message": f"Successfully donated {donation_result.get('amount_donated', amount)} points",
+                "amount_donated": donation_result.get('amount_donated', amount),
+                "points_before": donation_result.get('points_before'),
+                "points_after": donation_result.get('points_after'),
+                "vault_total_points": donation_result.get('vault_total_points'),
+                "access_method": donation_result.get('access_method'),
+                "verification_method": donation_result.get('verification_method')
+            }
+        else:
+            # Log the failed donation
+            from backend.event_log import append_ui_event_log
+            append_ui_event_log({
+                'timestamp': time.time(),
+                'event_type': 'vault_donation_manual',
+                'config_id': config_id,
+                'amount': amount,
+                'uid': effective_uid,
+                'status': 'failed',
+                'error': donation_result.get('error', 'Unknown error')
+            })
+            
+            # Send failure notification
+            try:
+                from backend.notifications_backend import notify_event
+                notify_event(
+                    event_type="vault_donation_failure",
+                    label=config_id,
+                    status="FAILED",
+                    message=f"Vault donation failed: {donation_result.get('error', 'Unknown error')}",
+                    details={
+                        'config_id': config_id,
+                        'amount': amount,
+                        'error': donation_result.get('error', 'Unknown error')
+                    }
+                )
+            except Exception as e:
+                logging.warning(f"[VaultDonation] Failed to send failure notification: {e}")
+            
+            logging.error(f"[VaultDonation] Manual donation failed for config '{config_id}': {donation_result.get('error')}")
+            
+            return {
+                "success": False,
+                "errors": [donation_result.get('error', 'Donation failed')]
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error during manual donation for '{config_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/vault/configuration/{config_id}/rename")
+async def api_vault_configuration_rename(config_id: str, request: Request):
+    """Rename a vault configuration"""
+    from backend.vault_config import get_vault_configuration, save_vault_configuration, delete_vault_configuration
+    
+    try:
+        request_data = await request.json()
+        new_name = request_data.get("new_name", "").strip()
+        
+        if not new_name:
+            raise HTTPException(status_code=400, detail="New configuration name is required")
+            
+        if new_name == config_id:
+            return {"success": True, "message": "No change needed"}
+            
+        # Check if new name already exists
+        existing_config = get_vault_configuration(new_name)
+        if existing_config:
+            raise HTTPException(status_code=400, detail=f"Configuration '{new_name}' already exists")
+        
+        # Get the current configuration
+        vault_config = get_vault_configuration(config_id)
+        if not vault_config:
+            raise HTTPException(status_code=404, detail=f"Vault configuration '{config_id}' not found")
+        
+        # Save with new name and delete old one
+        success = save_vault_configuration(new_name, vault_config)
+        if success:
+            delete_vault_configuration(config_id)
+            
+            # Log the rename event
+            from datetime import datetime, timezone
+            from backend.event_log import append_ui_event_log
+            append_ui_event_log({
+                "event": "vault_configuration_renamed",
+                "old_config_id": config_id,
+                "new_config_id": new_name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "user_action": True,
+                "message": f"Vault configuration renamed from '{config_id}' to '{new_name}'"
+            })
+            
+            return {"success": True, "message": f"Configuration renamed to '{new_name}'"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to rename configuration")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[VaultConfigAPI] Error renaming configuration '{config_id}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/vault/points")
+async def api_vault_get_points(request: Request):
+    """Get current points for vault configuration using session-based approach"""
+    try:
+        data = await request.json()
+        config_id = data.get('config_id', '').strip()
+        
+        logging.info(f"[VaultPoints] Request for config_id: '{config_id}'")
+        
+        if not config_id:
+            logging.warning(f"[VaultPoints] Config ID is required but not provided")
+            raise HTTPException(status_code=400, detail="Config ID is required")
+        
+        # Load vault configuration
+        from backend.vault_config import load_vault_config
+        vault_config = load_vault_config()
+        config = vault_config.get("vault_configurations", {}).get(config_id)
+        
+        logging.info(f"[VaultPoints] Loaded config for '{config_id}': {config}")
+        
+        if not config:
+            logging.warning(f"[VaultPoints] Vault configuration '{config_id}' not found")
+            raise HTTPException(status_code=404, detail=f"Vault configuration '{config_id}' not found")
+        
+        # Get associated session label
+        session_label = config.get("associated_session_label", "").strip()
+        if not session_label:
+            logging.warning(f"[VaultPoints] No associated session configured for vault config '{config_id}'")
+            raise HTTPException(status_code=400, detail="No associated session configured for this vault configuration")
+        
+        # Load session configuration to get current mam_id
+        from backend.config import load_session
+        try:
+            session_config = load_session(session_label)
+        except Exception as e:
+            logging.error(f"[VaultPoints] Failed to load session '{session_label}': {e}")
+            raise HTTPException(status_code=404, detail=f"Session '{session_label}' not found or could not be loaded")
+        
+        # Get mam_id from session
+        mam_id = session_config.get("mam", {}).get("mam_id", "").strip()
+        if not mam_id:
+            logging.warning(f"[VaultPoints] Session '{session_label}' has no mam_id configured")
+            raise HTTPException(status_code=400, detail=f"Session '{session_label}' has no mam_id configured")
+        
+        # Get proxy configuration from vault config
+        from backend.vault_config import get_effective_proxy_config
+        proxy_cfg = get_effective_proxy_config(config)
+        
+        # Use the existing get_status function to fetch points
+        from backend.mam_api import get_status
+        status_result = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        
+        points = status_result.get('points')
+        if points is not None:
+            logging.info(f"[VaultPoints] Successfully fetched points for config '{config_id}' via session '{session_label}': {points}")
+            return {"success": True, "points": points}
+        else:
+            error_msg = status_result.get('message', 'Unable to fetch points')
+            logging.warning(f"[VaultPoints] Failed to fetch points for config '{config_id}' via session '{session_label}': {error_msg}")
+            return {"success": False, "error": error_msg}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"[VaultPoints] Error fetching points: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- FAVICON ROUTES: must be registered before static/catch-all routes ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_BUILD_DIR = os.path.abspath(os.path.join(BASE_DIR, '../frontend/build'))
@@ -1202,12 +1810,8 @@ try:
 except Exception as e:
     logging.error(f"[APScheduler] Failed to register automation jobs: {e}")
 
-# --- Upload Credit Automation Job ---
-    # ...existing code...
-
 # Register the automation jobs to run every 10 minutes
-    # ...existing code...
-    # ...existing code...
+from backend.automation import run_all_automation_jobs
 
 
 

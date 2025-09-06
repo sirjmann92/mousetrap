@@ -20,7 +20,11 @@ import {
   Divider,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions
 } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -50,8 +54,7 @@ export default function MouseTrapConfigCard({
     checkFrequency, setCheckFrequency,
     oldLabel, setOldLabel,
     proxy, setProxy,
-    proxiedIp, proxiedAsn,
-    browserCookie, setBrowserCookie
+    proxiedIp, proxiedAsn
   } = useSession();
 
   // Local state for editing label
@@ -147,7 +150,6 @@ export default function MouseTrapConfigCard({
       },
       mam_ip: mamIp,
       check_freq: checkFrequency,
-      browser_cookie: browserCookie,
       proxy: { label: proxyLabel }
     };
     try {
@@ -338,29 +340,6 @@ export default function MouseTrapConfigCard({
                   )
                 }}
               />
-            </Grid>
-          </Grid>
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                  {/* <TextField
-                    label="Browser Cookie (optional)"
-                    value={browserCookie}
-                    onChange={e => setBrowserCookie(e.target.value)}
-                    size="small"
-                    multiline
-                    minRows={2}
-                    maxRows={6}
-                    sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
-                    placeholder="Paste full browser cookie string here"
-                    helperText="Paste the full browser cookie string for this session."
-                  />
-                  <Tooltip title={<span style={{ whiteSpace: 'pre-line' }}>Open your browser's DevTools (F12), go to the Application/Storage tab, find the 'cookie' for myanonamouse.net, and copy the full value. Paste it here.</span>} arrow>
-                    <IconButton size="small" sx={{ mt: 1 }}>
-                      <InfoOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip> */}
-              </Box>
             </Grid>
           </Grid>
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>

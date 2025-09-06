@@ -44,6 +44,7 @@ docker-compose up -d
 - **Web UI**: Modern interface for all automation and configuration
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
+- **Millionaire's Vault**: Advanced browser-cookie-based vault donation automation
 - **Notifications**: Email, webhook, Discord integration with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
@@ -185,6 +186,7 @@ environment:
 ## 📚 Documentation
 
 - **[Features Guide](docs/features-guide.md)**: Comprehensive feature overview and usage
+- **[Millionaire's Vault Automation](docs/millionaires-vault-automation.md)**: Advanced vault donation setup
 - **[API Reference](docs/api-reference.md)**: Complete REST API documentation  
 - **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
 - **[Architecture & Rules](docs/architecture-and-rules.md)**: Technical implementation details
