@@ -32,7 +32,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import InfoIcon from '@mui/icons-material/Info';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import FeedbackSnackbar from './FeedbackSnackbar';
 
 export default function VaultConfigCard({ proxies, sessions }) {
@@ -634,8 +634,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       </Select>
                     </FormControl>
                     <Tooltip title="Associated session is required for points display and notifications. Without it, you can still perform manual donations but won't see current points or receive notifications." placement="right">
-                      <IconButton size="small" sx={{ color: 'info.main' }}>
-                        <InfoIcon />
+                      <IconButton size="small" sx={{ ml: 0.5 }}>
+                        <InfoOutlinedIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                   </Box>
@@ -720,7 +720,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                   </Box>
                 )}
 
-                {/* Action buttons - reorganized layout */}
+                {/* Action buttons - reorganized layout without save button */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2, gap: 1 }}>
                   {/* Left side buttons */}
                   <Box sx={{ display: 'flex', gap: 1 }}>
@@ -742,7 +742,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     </Button>
                   </Box>
                   
-                  {/* Right side buttons */}
+                  {/* Right side - only cancel button for new configs */}
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     {isCreatingNew && (
                       <Button
@@ -759,14 +759,6 @@ export default function VaultConfigCard({ proxies, sessions }) {
                         Cancel
                       </Button>
                     )}
-                    <Button
-                      variant="contained"
-                      onClick={handleSaveConfiguration}
-                      disabled={isLoading}
-                      sx={{ minWidth: 140 }}
-                    >
-                      {isCreatingNew ? 'Save Configuration' : 'Save Changes'}
-                    </Button>
                   </Box>
                 </Box>
 
@@ -809,15 +801,26 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     Vault Automation
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={currentConfig.automation?.enabled || false}
-                          onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), enabled: e.target.checked}})}
-                        />
-                      }
-                      label="Enable Vault Automation"
-                    />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={currentConfig.automation?.enabled || false}
+                            onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), enabled: e.target.checked}})}
+                          />
+                        }
+                        label="Enable Vault Automation"
+                      />
+                      <Tooltip 
+                        title="When enabled for the first time, automation will run immediately after saving to establish the schedule" 
+                        arrow
+                        placement="right"
+                      >
+                        <IconButton size="small" sx={{ ml: 0.5 }}>
+                          <InfoOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                     
                     {currentConfig.automation?.enabled && (
                       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -861,6 +864,19 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       </Box>
                     )}
                   </Box>
+                </Box>
+
+                {/* Save Button at the bottom */}
+                <Divider sx={{ my: 3 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveConfiguration}
+                    disabled={isLoading}
+                    sx={{ minWidth: 180 }}
+                  >
+                    {isCreatingNew ? 'Save Configuration' : 'Save Changes'}
+                  </Button>
                 </Box>
               </>
             )}

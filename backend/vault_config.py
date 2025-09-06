@@ -145,10 +145,9 @@ def validate_vault_configuration(vault_config: Dict[str, Any]) -> Dict[str, Any]
             errors.append("Vault proxy is required when connection method is 'proxy'")
         else:
             # Check if proxy exists
-            from backend.config import load_config
+            from backend.proxy_config import load_proxies
             try:
-                config = load_config()
-                available_proxies = config.get("proxies", {})
+                available_proxies = load_proxies()
                 if proxy_label not in available_proxies:
                     errors.append(f"Proxy '{proxy_label}' not found")
             except Exception:
@@ -232,9 +231,8 @@ def get_effective_proxy_config(vault_config: Dict[str, Any]) -> Optional[Dict[st
         return None
     
     try:
-        from backend.config import load_config
-        config = load_config()
-        available_proxies = config.get("proxies", {})
+        from backend.proxy_config import load_proxies
+        available_proxies = load_proxies()
         
         if proxy_label in available_proxies:
             return available_proxies[proxy_label]

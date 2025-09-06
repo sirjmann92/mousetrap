@@ -487,7 +487,6 @@ def get_vault_total_points(mam_id: str, uid: str, proxy_cfg: Optional[Dict] = No
         
         # Get the vault page
         if proxy_cfg:
-            from backend.utils import build_proxy_dict
             proxies = build_proxy_dict(proxy_cfg)
             resp = requests.get(vault_url, cookies=cookies, headers=headers, proxies=proxies, timeout=15)
         else:
@@ -919,7 +918,6 @@ def _perform_vault_donation_proxy(vault_url: str, cookies: Dict, headers: Dict, 
                 
                 # Use the existing get_status function for more reliable points checking
                 from backend.mam_api import get_status
-                from backend.utils import build_proxy_dict
                 
                 # Build proper proxy config for get_status
                 proxy_cfg_for_status = None
