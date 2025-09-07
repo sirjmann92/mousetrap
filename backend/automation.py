@@ -367,9 +367,6 @@ def vip_automation_job():
             append_ui_event_log(event)
         except Exception as e:
             logging.error(f"[VIPAuto] label={label} trigger=automation result=exception error={e}")
-from backend.event_log import append_ui_event_log
-from backend.config import list_sessions, load_session, save_session
-from backend.mam_api import get_status
 
 def wedge_automation_job():
     from datetime import datetime, timezone, timedelta

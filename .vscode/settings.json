@@ -1,3 +1,25 @@
 {
-    "python.analysis.typeCheckingMode": "standard"
+    "python.analysis.typeCheckingMode": "standard",
+    "files.watcherExclude": {
+        "**/node_modules/**": true,
+        "**/.git/**": true,
+        "**/backend/__pycache__/**": true,
+        "**/backend/venv/**": true
+    },
+    "typescript.suggest.autoImports": false,
+    "typescript.preferences.includePackageJsonAutoImports": "off",
+    "files.associations": {
+        "*.jsx": "javascriptreact",
+        "*.tsx": "typescriptreact"
+    },
+    "emmet.includeLanguages": {
+        "javascriptreact": "javascriptreact"
+    },
+    "github.copilot.enable": {
+        "*": true,
+        "frontend/src/components/PortMonitorStackCard.jsx": false
+    },
+    "files.exclude": {
+        "**/frontend/src/components/PortMonitorStackCard.jsx": true
+    }
 }
