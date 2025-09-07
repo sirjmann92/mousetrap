@@ -491,7 +491,6 @@ def wedge_automation_job():
             if success:
                 # Update last purchase timestamp in new field
                 cfg['perk_automation']['wedge_automation']['last_wedge_time'] = now_dt.isoformat()
-                from backend.config import save_session
                 save_session(cfg, old_label=label)  # type: ignore
                 logging.info(f"[WedgeAuto] Automated purchase: Wedge (points) for session '{label}' succeeded.")
                 notify_event(
