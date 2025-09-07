@@ -32,4 +32,9 @@ port_monitoring.yaml
 session-*.yaml
 proxies.yaml
 notify.yaml
-port_monitoring.yamlfrontend/src/components/PortMonitorStackCard.jsx
+port_monitoring.yaml
+frontend/src/components/PortMonitorStackCard.jsx
+backend/api_port_monitor_stack.py
+backend/port_monitor_stack.py
+backend/restart_utils.py
+backend/proxy_resolver.py
