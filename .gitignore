@@ -32,4 +32,4 @@ port_monitoring.yaml
 session-*.yaml
 proxies.yaml
 notify.yaml
-port_monitoring.yaml
+port_monitoring.yamlfrontend/src/components/PortMonitorStackCard.jsx
