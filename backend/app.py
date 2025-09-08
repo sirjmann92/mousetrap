@@ -1259,7 +1259,7 @@ async def api_validate_vault_configuration(config_id: str, request: Request):
             
             # Test vault access
             vault_result = validate_browser_mam_id_with_config(
-                browser_mam_id=extracted_mam_id,
+                browser_mam_id=browser_mam_id,  # Pass the full browser cookie string with browser type
                 uid=effective_uid,
                 proxy_cfg=effective_proxy,
                 connection_method=connection_method
@@ -1336,15 +1336,9 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
         effective_proxy = get_effective_proxy_config(vault_config)
         connection_method = vault_config.get("connection_method", "auto")
         
-        # Extract just the mam_id value from the browser cookie string
-        from backend.vault_config import extract_mam_id_from_browser_cookies
-        extracted_mam_id = extract_mam_id_from_browser_cookies(browser_mam_id)
-        
-        if not extracted_mam_id:
-            raise HTTPException(status_code=400, detail="Could not extract mam_id from browser cookie string")
-        
+        # Validate browser access before donation (using full browser_mam_id with browser type)
         vault_result = validate_browser_mam_id_with_config(
-            browser_mam_id=extracted_mam_id,
+            browser_mam_id=browser_mam_id,  # Pass the full browser cookie string with browser type
             uid=effective_uid,
             proxy_cfg=effective_proxy,
             connection_method=connection_method
@@ -1364,7 +1358,7 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
                 logging.warning(f"[VaultDonation] Could not load associated session for verification: {e}")
         
         donation_result = perform_vault_donation(
-            browser_mam_id=extracted_mam_id,
+            browser_mam_id=browser_mam_id,  # Pass the full browser cookie string with browser type
             uid=effective_uid,
             amount=amount,
             proxy_cfg=effective_proxy,
