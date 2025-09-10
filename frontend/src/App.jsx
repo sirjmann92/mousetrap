@@ -231,6 +231,7 @@ export default function App() {
       {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
       <Toolbar />
       <Container maxWidth="md">
+        {/* 1. Session Status */}
         {sessions.length > 0 && (
           <StatusCard
             ref={statusCardRef}
@@ -241,6 +242,7 @@ export default function App() {
             onStatusUpdate={handleStatusUpdate}
           />
         )}
+        {/* 2. Session Configuration */}
         <MouseTrapConfigCard
           proxies={proxies}
           onSessionSaved={handleSessionSaved}
@@ -249,11 +251,7 @@ export default function App() {
           forceExpand={forceExpandConfig}
           onForceExpandHandled={() => setForceExpandConfig(false)}
         />
-        <ProxyConfigCard proxies={proxies} setProxies={setProxies} refreshProxies={refreshProxies} />
-        <VaultConfigCard 
-          proxies={proxies}
-          sessions={sessions}
-        />
+        {/* 3. Perk Purchase & Automation */}
         {sessions.length > 0 && (
           <PerkAutomationCard
             autoWedge={autoWedge}
@@ -275,8 +273,17 @@ export default function App() {
             }}
           />
         )}
-        <PortMonitorCard />
+        {/* 4. Millionaire's Vault Configuration */}
+        <VaultConfigCard 
+          proxies={proxies}
+          sessions={sessions}
+        />
+        {/* 5. Notifications */}
         <NotificationsCard />
+        {/* 6. Docker Port Monitor */}
+        <PortMonitorCard />
+        {/* 7. Proxy Configuration */}
+        <ProxyConfigCard proxies={proxies} setProxies={setProxies} refreshProxies={refreshProxies} />
       </Container>
     </ThemeProvider>
   );
