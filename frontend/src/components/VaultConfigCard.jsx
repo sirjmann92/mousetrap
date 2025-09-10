@@ -484,24 +484,16 @@ export default function VaultConfigCard({ proxies, sessions }) {
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
             Millionaire's Vault Configuration
           </Typography>
-          <Typography variant="body2" sx={{ mr: 2, color: 'text.secondary' }}>
-            {Object.keys(vaultConfigurations).length === 1 
-              ? '1 config' 
-              : `${Object.keys(vaultConfigurations).length} configs`}
-          </Typography>
+          {/* Vault Total styled like Points in PerkAutomationCard header */}
+          {vaultTotalPoints !== null && (
+            <Typography variant="body1" sx={{ mr: 2, color: 'primary.main' }}>
+              🏆 Vault Total: <b>{vaultTotalPoints.toLocaleString()}</b> points
+            </Typography>
+          )}
           <IconButton size="small">
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         </Box>
-        
-        {/* Vault Total Display */}
-        {vaultTotalPoints !== null && (
-          <Box sx={{ px: 2, pb: 2 }}>
-            <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 600 }}>
-              🏆 Community Vault Total: {vaultTotalPoints.toLocaleString()} points
-            </Typography>
-          </Box>
-        )}
         
         <Collapse in={expanded} timeout="auto" unmountOnExit>
           <CardContent sx={{ pt: 0 }}>
@@ -551,26 +543,6 @@ export default function VaultConfigCard({ proxies, sessions }) {
                   </IconButton>
                 </span>
               </Tooltip>
-
-              {/* Points Display - positioned to the right */}
-              {currentConfig && currentConfig.associated_session_label && (
-                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {pointsLoading ? (
-                    <>
-                      <CircularProgress size={14} />
-                      <Typography variant="subtitle1" color="text.secondary">Loading...</Typography>
-                    </>
-                  ) : (vaultPoints !== null && vaultPoints !== undefined && typeof vaultPoints === 'number') ? (
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'success.main' }}>
-                      Points: {vaultPoints.toLocaleString()}
-                    </Typography>
-                  ) : (
-                    <Typography variant="subtitle1" color="error.main" sx={{ fontWeight: 500 }}>
-                      Points: Error
-                    </Typography>
-                  )}
-                </Box>
-              )}
             </Box>
 
             {/* Status Messages */}
@@ -614,35 +586,47 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 </Box>
 
                 {/* Associated Session - for UID and points source */}
-                <Box sx={{ mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                    <FormControl size="small" sx={{ width: 300 }}>
-                      <InputLabel>Associated Session</InputLabel>
-                      <Select
-                        value={currentConfig.associated_session_label || ""}
-                        label="Associated Session"
-                        onChange={(e) => setCurrentConfig({...currentConfig, associated_session_label: e.target.value})}
-                        MenuProps={{ disableScrollLock: true }}
-                      >
-                        <MenuItem value="">
-                          <em>No session association</em>
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <FormControl size="small" sx={{ width: 300 }}>
+                    <InputLabel>Associated Session</InputLabel>
+                    <Select
+                      value={currentConfig.associated_session_label || ""}
+                      label="Associated Session"
+                      onChange={(e) => setCurrentConfig({...currentConfig, associated_session_label: e.target.value})}
+                      MenuProps={{ disableScrollLock: true }}
+                    >
+                      <MenuItem value="">
+                        <em>No session association</em>
+                      </MenuItem>
+                      {(sessions || []).map(sessionLabel => (
+                        <MenuItem key={sessionLabel} value={sessionLabel}>
+                          {sessionLabel}
                         </MenuItem>
-                        {(sessions || []).map(sessionLabel => (
-                          <MenuItem key={sessionLabel} value={sessionLabel}>
-                            {sessionLabel}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Tooltip title="Associated session is required for points display and notifications. Without it, you can still perform manual donations but won't see current points or receive notifications." placement="right">
-                      <IconButton size="small" sx={{ ml: 0.5 }}>
-                        <InfoOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
-                    Used for points display and vault operations
-                  </Typography>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Tooltip title="Associated session is required for points display and notifications. Without it, you can still perform manual donations but won't see current points or receive notifications." placement="right">
+                    <IconButton size="small" sx={{ ml: 0.5 }}>
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  {/* Points Display - now just to the right of selector and tooltip */}
+                  {currentConfig && currentConfig.associated_session_label && (
+                    pointsLoading ? (
+                      <>
+                        <CircularProgress size={14} />
+                        <Typography variant="subtitle1" color="text.secondary">Loading...</Typography>
+                      </>
+                    ) : (vaultPoints !== null && vaultPoints !== undefined && typeof vaultPoints === 'number') ? (
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'success.main' }}>
+                        Points: {vaultPoints.toLocaleString()}
+                      </Typography>
+                    ) : (
+                      <Typography variant="subtitle1" color="error.main" sx={{ fontWeight: 500 }}>
+                        Points: Error
+                      </Typography>
+                    )
+                  )}
                 </Box>
 
                 {/* Browser MAM ID - simplified for cookie extraction */}
