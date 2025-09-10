@@ -37,7 +37,9 @@ class VaultAutomationManager:
         
         while self.running:
             try:
+                logging.debug("[VaultAutomation] Running automation check cycle...")
                 await self.process_all_configurations()
+                logging.debug(f"[VaultAutomation] Automation check completed, sleeping for {self.check_interval} seconds")
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
                 logging.error(f"[VaultAutomation] Error in automation loop: {e}")
@@ -51,12 +53,26 @@ class VaultAutomationManager:
     async def process_all_configurations(self):
         """Process all vault configurations and run automation where needed"""
         try:
+            logging.debug("[VaultAutomation] Checking all vault configurations...")
             vault_config = load_vault_config()
             configurations = vault_config.get("vault_configurations", {})
             
+            logging.debug(f"[VaultAutomation] Found {len(configurations)} vault configurations")
+            
             for config_id, config in configurations.items():
+                logging.debug(f"[VaultAutomation] Checking config '{config_id}' for automation eligibility")
                 if self._should_process_config(config):
+                    logging.info(f"[VaultAutomation] Config '{config_id}' is eligible for automation")
                     await self._process_config_automation(config_id, config)
+                else:
+                    automation = config.get("automation", {})
+                    enabled = automation.get("enabled", False)
+                    last_run = automation.get("last_run")
+                    frequency_hours = automation.get("frequency_hours", 24)
+                    next_run_time = last_run + (frequency_hours * 3600) if last_run else "never run"
+                    current_time = time.time()
+                    
+                    logging.debug(f"[VaultAutomation] Config '{config_id}' not eligible - enabled: {enabled}, last_run: {last_run}, frequency_hours: {frequency_hours}, next_run_time: {next_run_time}, current_time: {current_time}")
                     
         except Exception as e:
             logging.error(f"[VaultAutomation] Error processing configurations: {e}")
@@ -108,6 +124,7 @@ class VaultAutomationManager:
             connection_method = config.get("connection_method", "direct")
             
             # Test vault access first
+            logging.debug(f"[VaultAutomation] Validating vault access for config '{config_id}'")
             vault_result = validate_browser_mam_id_with_config(
                 browser_mam_id=extracted_mam_id,
                 uid=effective_uid,
@@ -124,17 +141,39 @@ class VaultAutomationManager:
                 )
                 return
             
-            # Check current points by fetching them separately
-            from backend.millionaires_vault_cookies import get_vault_total_points
-            points_result = get_vault_total_points(extracted_mam_id, effective_uid, effective_proxy)
+            # Check current points using session-based approach (same as vault points API)
+            session_label = config.get("associated_session_label", "").strip()
+            if not session_label:
+                await self._log_automation_error(config_id, "No associated session configured", config)
+                return
             
-            if not points_result.get("success"):
-                error_msg = points_result.get("error", "Unknown error fetching points")
+            # Load session configuration to get current mam_id
+            from backend.config import load_session
+            try:
+                session_config = load_session(session_label)
+            except Exception as e:
+                await self._log_automation_error(config_id, f"Failed to load session '{session_label}': {e}", config)
+                return
+            
+            # Get mam_id from session
+            session_mam_id = session_config.get("mam", {}).get("mam_id", "").strip()
+            if not session_mam_id:
+                await self._log_automation_error(config_id, f"Session '{session_label}' has no mam_id configured", config)
+                return
+            
+            # Use the existing get_status function to fetch points (same as vault points API)
+            from backend.mam_api import get_status
+            logging.debug(f"[VaultAutomation] Fetching points for config '{config_id}' via session '{session_label}' with mam_id: [REDACTED]")
+            status_result = get_status(mam_id=session_mam_id, proxy_cfg=effective_proxy)
+            
+            current_points = status_result.get('points')
+            if current_points is None:
+                error_msg = status_result.get('message', 'Unable to fetch points')
                 logging.warning(f"[VaultAutomation] Cannot get current points for config '{config_id}': {error_msg} - skipping this run")
                 await self._update_last_run(config_id, config)
                 return
                 
-            current_points = points_result.get("current_points", 0)
+            # current_points is already set from status_result.get('points')
             min_threshold = automation.get("min_points_threshold", 2000)
             
             logging.info(f"[VaultAutomation] Config '{config_id}' has {current_points} points (threshold: {min_threshold})")
@@ -153,12 +192,13 @@ class VaultAutomationManager:
                 return
             else:
                 pot_reason = pot_check.get('reason', 'Pot check passed')
-                logging.info(f"[VaultAutomation] Config '{config_id}' pot check: {pot_reason}")
+                logging.debug(f"[VaultAutomation] Config '{config_id}' pot check: {pot_reason}")
 
             # Calculate donation amount
             donation_amount = automation.get("donation_amount", 100)
             
             # Perform the donation
+            logging.info(f"[VaultAutomation] Making automated donation of {donation_amount} points for config '{config_id}'")
             success = await self._perform_automated_donation(
                 config_id, config, donation_amount, extracted_mam_id, 
                 effective_uid, effective_proxy, connection_method
@@ -211,7 +251,7 @@ class VaultAutomationManager:
     ) -> bool:
         """Perform the actual automated donation using unified verification system"""
         try:
-            logging.info(f"[VaultAutomation] Making actual donation of {amount} points for config '{config_id}'")
+            logging.debug(f"[VaultAutomation] Making actual donation of {amount} points for config '{config_id}'")
             
             # Get associated session mam_id for verification
             session_mam_id = None
@@ -220,7 +260,7 @@ class VaultAutomationManager:
                     from backend.config import load_session
                     session_config = load_session(config["associated_session_label"])
                     session_mam_id = session_config.get("mam", {}).get("mam_id")
-                    logging.info(f"[VaultAutomation] Using session '{config['associated_session_label']}' for verification")
+                    logging.debug(f"[VaultAutomation] Using session '{config['associated_session_label']}' for verification with mam_id: [REDACTED]")
                 except Exception as e:
                     logging.warning(f"[VaultAutomation] Could not load associated session for verification: {e}")
             
@@ -240,7 +280,7 @@ class VaultAutomationManager:
                 verification_method = result.get('verification_method', 'unknown')
                 
                 logging.info(f"[VaultAutomation] Donation successful for config '{config_id}': {amount} points donated")
-                logging.info(f"[VaultAutomation] Verification: {verification_method} - Before: {points_before}, After: {points_after}")
+                logging.debug(f"[VaultAutomation] Verification: {verification_method} - Before: {points_before}, After: {points_after}")
                 return True
             else:
                 error_msg = result.get("error", "Unknown error")
