@@ -216,6 +216,8 @@ export default function MouseTrapConfigCard({
       </Box>
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
+          {/* Padding above first row, only visible when expanded */}
+          <Box sx={{ height: 7 }} />
           <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <TextField
