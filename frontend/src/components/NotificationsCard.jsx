@@ -8,6 +8,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export default function NotificationsCard() {
   const [showWebhook, setShowWebhook] = useState(false);
+  const [showNotifyString, setShowNotifyString] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const defaultEvents = [
     { key: "port_monitor_failure", label: "Docker Port Monitor Failure" },
@@ -25,7 +26,7 @@ export default function NotificationsCard() {
     { key: "vault_donation_failure", label: "Vault Donation Failure" },
     // Add more as needed
   ];
-  const [config, setConfig] = useState({ webhook_url: "", smtp: {}, event_rules: {} });
+  const [config, setConfig] = useState({ webhook_url: "", smtp: {}, event_rules: {}, apprise: { url: "", notify_url_string: "", include_prefix: false } });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -56,7 +57,7 @@ export default function NotificationsCard() {
   useEffect(() => {
     fetch("/api/notify/config")
       .then(r => r.json())
-      .then(cfg => { setConfig(cfg || {}); setLoading(false); })
+      .then(cfg => { setConfig(prev => ({ ...prev, ...(cfg || {}) })); setLoading(false); })
       .catch(e => { setError("Failed to load settings"); setLoading(false); });
   }, []);
 
@@ -66,11 +67,14 @@ export default function NotificationsCard() {
   const handleSmtpChange = (field, value) => {
     setConfig(cfg => ({ ...cfg, smtp: { ...cfg.smtp, [field]: value } }));
   };
+  const handleAppriseChange = (field, value) => {
+    setConfig(cfg => ({ ...cfg, apprise: { ...(cfg.apprise || {}), [field]: value } }));
+  };
 
   const handleEventRuleChange = (eventKey, channel, checked) => {
     setConfig(cfg => {
       const rules = { ...cfg.event_rules };
-      if (!rules[eventKey]) rules[eventKey] = { email: false, webhook: false };
+      if (!rules[eventKey]) rules[eventKey] = { email: false, webhook: false, apprise: false };
       rules[eventKey][channel] = checked;
       return { ...cfg, event_rules: rules };
     });
@@ -127,6 +131,35 @@ export default function NotificationsCard() {
     }
   };
 
+  const handleTestApprise = async () => {
+    setTestLoading(true); setTestResult(null);
+    try {
+      const res = await fetch("/api/notify/test/apprise", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: true })
+      });
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = null;
+      }
+
+      if (res.ok) {
+        setTestResult(data && data.success ? "Apprise sent!" : "Apprise failed.");
+      } else {
+        const detail = (data && (data.detail || data.message)) || (data ? JSON.stringify(data) : null);
+        const status = ` (HTTP ${res.status})`;
+        setTestResult(detail ? `Apprise failed${status}: ${detail}` : `Apprise failed${status}.`);
+      }
+    } catch {
+      setTestResult("Apprise failed.");
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   if (loading) return <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress /></Box>;
 
   return (
@@ -160,6 +193,7 @@ export default function NotificationsCard() {
                         onChange={e => handleEventRuleChange(ev.key, 'email', e.target.checked)}
                       />}
                       label="Email"
+                      disabled={!config.smtp?.host || !config.smtp?.to_email}
                     />
                     <FormControlLabel
                       control={<Checkbox
@@ -167,6 +201,15 @@ export default function NotificationsCard() {
                         onChange={e => handleEventRuleChange(ev.key, 'webhook', e.target.checked)}
                       />}
                       label="Webhook"
+                      disabled={!config.webhook_url}
+                    />
+                    <FormControlLabel
+                      control={<Checkbox
+                        checked={!!config.event_rules?.[ev.key]?.apprise}
+                        onChange={e => handleEventRuleChange(ev.key, 'apprise', e.target.checked)}
+                      />}
+                      label="Apprise"
+                      disabled={!config.apprise?.url || !config.apprise?.notify_url_string}
                     />
                   </Box>
                 </Box>
@@ -178,11 +221,7 @@ export default function NotificationsCard() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
             <TextField
               label="Webhook URL"
-              value={
-                showWebhook
-                  ? (config.webhook_url || "")
-                  : (config.webhook_url ? `********${config.webhook_url.slice(-6)}` : "")
-              }
+              value={config.webhook_url || ""}
               onChange={e => handleChange("webhook_url", e.target.value)}
               size="small"
               sx={{ flex: 1, minWidth: 350, maxWidth: 600 }}
@@ -283,6 +322,60 @@ export default function NotificationsCard() {
             />
             <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
               <Button variant="outlined" onClick={handleTestSmtp} disabled={testLoading} sx={{ minWidth: 80 }}>
+                TEST
+              </Button>
+            </Box>
+          </Box>
+          <Divider sx={{ my: 3 }} />
+          <Typography variant="subtitle1" sx={{ mt: 2 }}>Apprise</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
+            <TextField
+              label="Apprise URL"
+              value={config.apprise?.url || ""}
+              onChange={e => handleAppriseChange("url", e.target.value)}
+              size="small"
+              sx={{ minWidth: 350, maxWidth: 600, flex: 1 }}
+              helperText="Base URL of where Apprise is installed (e.g., http://localhost:8000)."
+            />
+            <FormControlLabel
+              control={<Checkbox
+                checked={!!config.apprise?.include_prefix}
+                onChange={e => handleAppriseChange('include_prefix', e.target.checked)}
+              />}
+              label={`Include MouseTrap prefix in title`}
+              sx={{ ml: 1, mr: 1 }}
+            />
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
+            <TextField
+              label="Notify URL String"
+              value={config.apprise?.notify_url_string || ""}
+              onChange={e => handleAppriseChange("notify_url_string", e.target.value)}
+              size="small"
+              multiline={showNotifyString}
+              minRows={showNotifyString ? 2 : undefined}
+              sx={{ minWidth: 350, maxWidth: 600 }}
+              helperText={
+                <>
+                  Comma-separated Apprise URLs. See the
+                  &nbsp;<a href="https://github.com/caronc/apprise/wiki#notification-services" target="_blank" rel="noopener noreferrer">Apprise docs</a>.
+                </>
+              }
+              type={showNotifyString ? "text" : "password"}
+              InputProps={{
+                endAdornment: (
+                  <IconButton
+                    aria-label={showNotifyString ? "Hide notify URL string" : "Show notify URL string"}
+                    onClick={() => setShowNotifyString(v => !v)}
+                    edge="end"
+                  >
+                    {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                  </IconButton>
+                )
+              }}
+            />
+            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+              <Button variant="outlined" onClick={handleTestApprise} disabled={testLoading || !config.apprise?.url || !config.apprise?.notify_url_string} sx={{ minWidth: 80 }}>
                 TEST
               </Button>
             </Box>

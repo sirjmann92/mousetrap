@@ -45,7 +45,7 @@ docker-compose up -d
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
 - **Millionaire's Vault**: Advanced browser-cookie-based vault donation automation
-- **Notifications**: Email, webhook, Discord integration with event filtering
+- **Notifications**: Email (SMTP), Webhook (incl. Discord), and Apprise with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
 - **IP monitoring modes**: Flexible IP monitoring for different network setups
@@ -90,7 +90,7 @@ MouseTrap offers three IP monitoring modes to suit different use cases and netwo
 | `IPDATA_API_KEY`| ipdata.co API key (optional)             | test    | 1,500 requests/day free   |
 | `LOGLEVEL`      | Backend log level                        | INFO    | DEBUG, INFO, WARNING      |
 
-> **Note:** For port monitoring, add `-/var/run/docker.sock:/var/run/docker.sock:ro` to volumes
+> **Note:** For port monitoring, add `- /var/run/docker.sock:/var/run/docker.sock:ro` to volumes
 
 ---
 
@@ -287,7 +287,7 @@ MouseTrap supports global proxy management and instant proxy testing:
 - Each check can be configured with its own interval (minimum 1 minute). Status is color-coded (green/yellow/red) based on reachability and last check time.
 - If Docker permissions are missing, the UI shows a warning, but the rest of the app remains fully functional.
 - All port check actions and container restarts are logged in the UI event log and filterable by label.
-- To support "compose stacks" (multiple services in a single Docker Compose script), you can monitor a primary container (e.g. VPN) and define secondary containers. MouseTrap will restart the primvary container and monitor for stability, then it will restart all secondary containers. This allows us to use the Docker Socket to restart an entire group of containers that might be dependent on the primary to restore network connection and stability to the system.
+- To support "compose stacks" (multiple services in a single Docker Compose script), you can monitor a primary container (e.g. VPN) and define secondary containers. MouseTrap will restart the primary container and monitor for stability, then it will restart all secondary containers. This allows us to use the Docker Socket to restart an entire group of containers that might be dependent on the primary to restore network connection and stability to the system.
 
 ---
 
@@ -318,10 +318,10 @@ services:
     container_name: mousetrap
     network_mode: "service:gluetun"
     environment:
-  - TZ=Europe/London
-  - PUID=1000
-  - PGID=1000
-  - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+      - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config
       - ./logs:/app/logs
@@ -361,10 +361,10 @@ services:
     image: ghcr.io/sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
-  - TZ=Europe/London
-  - PUID=1000
-  - PGID=1000
-  - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
+      - TZ=Europe/London
+      - PUID=1000
+      - PGID=1000
+      - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config
       - ./logs:/app/logs 
@@ -416,7 +416,7 @@ Adjust paths and environment variables as needed for your Unraid setup.
 
 ## 🔔 Notifications
 
-MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord). Configure these in the Notifications card in the UI.
+MouseTrap supports notifications via Email (SMTP), Webhook (including Discord), and Apprise. Configure and test these in the Notifications card in the UI.
 
 ### Email (SMTP)
 
@@ -431,7 +431,15 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 ### Webhook
 
 - Enter your webhook URL in the UI. For Discord, check the "Discord" box to send Discord-compatible messages.
-- You can test both Email and Webhook notifications directly from the UI.
+
+
+### Apprise
+
+- Send notifications via an Apprise installation to any number of notification services.
+- In the UI, set:
+  - Apprise URL: e.g., `http://apprise:8000` (base URL only; do not include `/notify`)
+  - Notify URL String: e.g., `tgram://<bot-token>/<chat-id>` (see Apprise docs for providers)
+- See [Apprise documentation](https://github.com/caronc/apprise) for setup and building the notify URL string.
 
 ---
 
