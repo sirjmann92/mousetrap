@@ -338,6 +338,8 @@ export default function PerkAutomationCard({
       </Box>
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
+          {/* Padding above first row, only visible when expanded */}
+          <Box sx={{ height: 7 }} />
           <Box sx={{ mb: 2, maxWidth: 400 }}>
             <TextField
               label="Minimum Points (Session Guardrail)"

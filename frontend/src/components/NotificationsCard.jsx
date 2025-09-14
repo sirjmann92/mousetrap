@@ -20,7 +20,7 @@ export default function NotificationsCard() {
     { key: "seedbox_update_failure", label: "Seedbox Update Failure" },
     { key: "seedbox_update_rate_limited", label: "Seedbox Update Rate Limited" },
     { key: "asn_changed", label: "ASN Changed" },
-    { key: "inactive_hit_and_run", label: "Hit & Run - Inactive (Not Seeding)" },
+  { key: "inactive_hit_and_run", label: "Inactive Hit & Run (Not Seeding)" },
     { key: "inactive_unsatisfied", label: "Inactive Unsatisfied (Pre-H&R)" },
     { key: "vault_donation_success", label: "Vault Donation Success" },
     { key: "vault_donation_failure", label: "Vault Donation Failure" },
