@@ -193,7 +193,7 @@ environment:
 - **[Purchase Rules](docs/purchase_rules.md)**: Automation logic and guardrails
 - **[CHANGELOG](docs/CHANGELOG.md)**: Recent features & bugfixes
 - **[Purchase Logging & Event Log](docs/purchase_logging_and_event_log.md)**: Event log details
-- **[Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)**: External VPN proxy guide
+- **[Gluetun HTTP Proxy Setup](https://github.com/qdm12/gluetun-wiki/blob/main/setup/options/http-proxy.md)**: External VPN proxy guide
 
 ---
 
@@ -202,7 +202,7 @@ environment:
 **Can't access UI?** Check port mapping and firewall settings  
 **Docker permissions error?** Mount Docker socket and set correct DOCKER_GID  
 **Automation not working?** Verify only one session per MAM user has automation enabled  
-**Proxy issues?** Use the proxy test feature before assigning to sessions
+**Proxy issues?** Try the VPN's Docker network IP rather than the host's IP.
 
 For detailed troubleshooting: **[docs/troubleshooting.md](docs/troubleshooting.md)**
 
@@ -243,7 +243,7 @@ MouseTrap can connect to MyAnonaMouse via your VPN container in two ways:
 ```yaml
 services:
   mousetrap:
-    image: your/mousetrap
+    image: ghcr.io/sirjmann92/mousetrap:latest
     network_mode: "service:gluetun"  # or your VPN container name
     ...
 ```
@@ -261,12 +261,11 @@ MouseTrap supports global proxy management and instant proxy testing:
 - **Session configs reference proxies by label** for easy switching and management.
 
 #### Example: Gluetun HTTP Proxy
-- Enable HTTP proxy in Gluetun: [Gluetun HTTP Proxy Docs](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
+- Enable HTTP proxy in Gluetun: [Gluetun HTTP Proxy Docs](https://github.com/qdm12/gluetun-wiki/blob/main/setup/options/http-proxy.md)
 - Add a proxy in MouseTrap with host, port, and (if set) your proxy username/password.
 - Select the proxy in your session config and use the "USE PROXY IP" button to set the correct public IP.
 
-#### More Info
-- [qmcgaw/gluetun HTTP Proxy](https://github.com/qdm12/gluetun-wiki/blob/main/setup/http-proxy.md)
+Note: See Full Docker Compose Examples #2 below for an example using MouseTrap with Gluetun's HTTP proxy
 
 ---
 
