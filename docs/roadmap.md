@@ -17,10 +17,16 @@ This document contains a list of planned enhancements
 
 ### Semi-Automated Renewal Flow
 
-- Provide a “one-click” button that opens MAM’s session page in the browser with instructions for updating the mam_id
+- Provide a “one-click” button that opens MAM’s session page with instructions for updating the mam_id
 
 ## Prowlarr Integration
 
-- Create a button in the UI that will update the mam_id indexer field in Prowlarr (if possible), explore alternatives if direct API integration isn't feasible.
-- Optionally automate mam_id Prowlarr indexer updates (when mam_id for a session changes (via manual update, on save)), update mam_id for MAM indexer in Prowlarr (dependent on #1).
+- Create a button in the UI that will update the mamId indexer field in Prowlarr
 - Create Event Log for mam_id change updates (short-term retention)
+
+```
+curl -s -H "X-Api-Key: API_KEY" "http://localhost:9696/api/v1/indexer/160" \
+| jq '.fields |= map(if .name == "mamId" then .value = "NEW_MAM_ID" else . end)' \
+| curl -X PUT "http://localhost:9696/api/v1/indexer/160" \
+   -H "X-Api-Key: API_KEY" -H "Content-Type: application/json" -d @-
+```
