@@ -47,23 +47,23 @@ export default function VaultConfigCard({ proxies, sessions }) {
   const [validationResult, setValidationResult] = useState(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [manualDonationAmount, setManualDonationAmount] = useState(100);
-  
+
   // CRUD state - simplified like SessionSelector
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // Bookmarklet state
   const [bookmarkletOpen, setBookmarkletOpen] = useState(false);
-  
+
   // Create new config state - like Create New Session workflow
   const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [workingConfigName, setWorkingConfigName] = useState("");
-  
+
   // MAM ID visibility state - like session card
   const [showBrowserMamId, setShowBrowserMamId] = useState(false);
   const [vaultPoints, setVaultPoints] = useState(null);
   const [vaultTotalPoints, setVaultTotalPoints] = useState(null);
   const [pointsLoading, setPointsLoading] = useState(false);
-  
+
   // Bookmarklet code - extract both mam_id and uid cookies from browser
   const bookmarkletCode = `javascript:(function(){try{if(!window.location.href.includes('myanonamouse.net')){alert('Please use this bookmarklet on MyAnonamouse.net');return;}var cookies=document.cookie.split(';');var mamId=null;var uid=null;for(var i=0;i<cookies.length;i++){var cookie=cookies[i].trim();if(cookie.startsWith('mam_id=')){mamId=cookie.substring(7);}else if(cookie.startsWith('uid=')){uid=cookie.substring(4);}}if(mamId&&uid){var browser='unknown';var ua=navigator.userAgent;if(ua.includes('Firefox')){browser='firefox';}else if(ua.includes('Chrome')&&!ua.includes('Edg')){browser='chrome';}else if(ua.includes('Edg')){browser='edge';}else if(ua.includes('Safari')&&!ua.includes('Chrome')){browser='safari';}else if(ua.includes('Opera')||ua.includes('OPR')){browser='opera';}var cookieString='mam_id='+mamId+'; uid='+uid+'; browser='+browser;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cookieString).then(function(){alert('Browser MAM ID copied to clipboard!\\n\\nThis includes both mam_id and uid cookies, plus browser type ('+browser+') for proper headers.');}).catch(function(){prompt('Browser MAM ID (copy this):',cookieString);});}else{prompt('Browser MAM ID (copy this):',cookieString);}}else{var missing=[];if(!mamId)missing.push('mam_id');if(!uid)missing.push('uid');alert('Missing required cookies: '+missing.join(', ')+'\\n\\nMake sure you are logged in to MyAnonamouse and try again.');}}catch(e){alert('Bookmarklet error: '+e.message);console.error('MAM Cookie Extractor Error:',e);}})();`;
 
@@ -119,36 +119,36 @@ export default function VaultConfigCard({ proxies, sessions }) {
     let base = "Configuration";
     let idx = 1;
     let configId = base + idx;
-    
+
     // Find unique name
     while (vaultConfigurations[configId]) {
       idx++;
       configId = base + idx;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       // Get the default configuration template
       const defaultResponse = await fetch(`/api/vault/configuration/${configId}/default`);
       if (!defaultResponse.ok) {
         throw new Error('Failed to get default configuration');
       }
       const defaultConfig = await defaultResponse.json();
-      
+
       // Enter "create new" mode - like Create New Session workflow
       setIsCreatingNew(true);
       setSelectedConfigId(configId);
       setWorkingConfigName(configId);
       setCurrentConfig(defaultConfig);
       setExpanded(true);
-      
-      setSnackbar({ 
-        open: true, 
-        message: 'New configuration ready! Fill in the required fields and save.', 
-        severity: 'info' 
+
+      setSnackbar({
+        open: true,
+        message: 'New configuration ready! Fill in the required fields and save.',
+        severity: 'info'
       });
-      
+
     } catch (error) {
       setSnackbar({ open: true, message: 'Error creating configuration', severity: 'error' });
     } finally {
@@ -158,38 +158,38 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
   const handleSaveConfiguration = async () => {
     if (!currentConfig) return;
-    
+
     // Use the working name for new configs, or selected ID for existing
     const configIdToSave = isCreatingNew ? workingConfigName : selectedConfigId;
-    
+
     if (!configIdToSave) {
       setSnackbar({ open: true, message: 'Configuration name is required', severity: 'error' });
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setSaveStatus(null);
-      
+
       const response = await fetch(`/api/vault/configuration/${configIdToSave}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentConfig)
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
         setSaveStatus({ type: 'success', message: 'Configuration saved successfully!' });
         setSnackbar({ open: true, message: 'Configuration saved successfully!', severity: 'success' });
         setTimeout(() => setSaveStatus(null), 3000);
-        
+
         // Exit create mode and switch to saved config
         if (isCreatingNew) {
           setIsCreatingNew(false);
           setSelectedConfigId(configIdToSave);
         }
-        
+
         await loadVaultConfigurations();
       } else {
         // Handle validation errors or save failures
@@ -209,29 +209,29 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
   const handleValidateConfiguration = async () => {
     if (!currentConfig) return;
-    
+
     // Use the working name for new configs, or selected ID for existing
     const configIdToValidate = isCreatingNew ? workingConfigName : selectedConfigId;
-    
+
     if (!configIdToValidate) {
       setSnackbar({ open: true, message: 'Configuration name is required', severity: 'error' });
       return;
     }
-    
+
     try {
       setIsLoading(true);
       setValidationResult(null);
-      
+
       const response = await fetch(`/api/vault/configuration/${configIdToValidate}/validate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentConfig)
       });
-      
+
       const data = await response.json();
       console.log('[VaultValidation] Response data:', data);
       setValidationResult(data);
-      
+
       if (data.config_valid && data.vault_accessible) {
         setSnackbar({ open: true, message: 'Vault access validated successfully!', severity: 'success' });
         setTimeout(() => setValidationResult(null), 5000);
@@ -252,24 +252,24 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
   const handleManualDonation = async () => {
     if (!currentConfig || !manualDonationAmount) return;
-    
+
     // For new configs, we can try to donate with browser cookies directly
     // Use the working name for new configs, or selected ID for existing
     const configIdToDonate = isCreatingNew ? workingConfigName : selectedConfigId;
-    
+
     if (!configIdToDonate) {
       setSnackbar({ open: true, message: 'Configuration name is required', severity: 'error' });
       return;
     }
-    
+
     if (!currentConfig.browser_mam_id) {
       setSnackbar({ open: true, message: 'Browser cookies are required for donation', severity: 'error' });
       return;
     }
-    
+
     try {
       setIsLoading(true);
-      
+
       // For new unsaved configs, we'll pass the config data in the request body
       const requestBody = isCreatingNew ? {
         amount: manualDonationAmount,
@@ -277,19 +277,19 @@ export default function VaultConfigCard({ proxies, sessions }) {
       } : {
         amount: manualDonationAmount
       };
-      
+
       const response = await fetch(`/api/vault/configuration/${configIdToDonate}/donate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
       });
-      
+
       const data = await response.json();
       console.log('[VaultDonation] Response:', { status: response.status, data });
-      
+
       if (response.ok) {
         setSnackbar({ open: true, message: `Successfully donated ${manualDonationAmount} points!`, severity: 'success' });
-        
+
         // Update points display with data from donation response
         if (data.points_after !== undefined) {
           setVaultPoints(data.points_after);
@@ -298,13 +298,13 @@ export default function VaultConfigCard({ proxies, sessions }) {
           // Fallback: refresh points display if no points data in response
           fetchVaultPoints(currentConfig);
         }
-        
+
         // Update vault total if provided in response
         if (data.vault_total_points !== undefined) {
           setVaultTotalPoints(data.vault_total_points);
           console.debug('[VaultDonation] Vault total updated from donation response:', data.vault_total_points);
         }
-        
+
         // Always refresh vault total after donation to ensure persistence
         // Use multiple refresh attempts to handle any timing issues
         // Preserve existing value on error to prevent disappearing
@@ -312,12 +312,12 @@ export default function VaultConfigCard({ proxies, sessions }) {
           console.debug('First vault total refresh after donation');
           fetchVaultTotal(true);
         }, 1000);
-        
+
         setTimeout(() => {
           console.debug('Second vault total refresh after donation');
           fetchVaultTotal(true);
         }, 3000);
-        
+
         setTimeout(() => {
           console.debug('Final vault total refresh after donation');
           fetchVaultTotal(true);
@@ -340,13 +340,13 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
   const handleDeleteConfirm = async () => {
     if (!selectedConfigId || isCreatingNew) return;
-    
+
     try {
       setIsLoading(true);
       const response = await fetch(`/api/vault/configuration/${selectedConfigId}`, {
         method: 'DELETE'
       });
-      
+
       if (response.ok) {
         setSnackbar({ open: true, message: 'Configuration deleted successfully!', severity: 'success' });
         setDeleteDialogOpen(false);
@@ -395,7 +395,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
       });
 
       const data = await response.json();
-      
+
       if (data.success && typeof data.points === 'number') {
         setVaultPoints(data.points);
       } else {
@@ -469,16 +469,16 @@ export default function VaultConfigCard({ proxies, sessions }) {
   return (
     <>
       <Card sx={{ mb: 3, borderRadius: 2 }}>
-        <Box 
-          sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            cursor: 'pointer', 
-            px: 2, 
-            pt: 2, 
-            pb: 1.5, 
-            minHeight: 56 
-          }} 
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+            px: 2,
+            pt: 2,
+            pb: 1.5,
+            minHeight: 56
+          }}
           onClick={() => setExpanded(e => !e)}
         >
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -494,16 +494,16 @@ export default function VaultConfigCard({ proxies, sessions }) {
             {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
           </IconButton>
         </Box>
-        
+
         <Collapse in={expanded} timeout="auto" unmountOnExit>
           <CardContent sx={{ pt: 0 }}>
             {/* Configuration selector with CRUD controls */}
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
               <FormControl size="small" sx={{ minWidth: 200, maxWidth: 300 }}>
                 <InputLabel>Configuration</InputLabel>
-                <Select 
-                  value={selectedConfigId || ""} 
-                  label="Configuration" 
+                <Select
+                  value={selectedConfigId || ""}
+                  label="Configuration"
                   onChange={(e) => {
                     if (!isCreatingNew) {
                       setSelectedConfigId(e.target.value);
@@ -524,19 +524,19 @@ export default function VaultConfigCard({ proxies, sessions }) {
                   )}
                 </Select>
               </FormControl>
-              
+
               <Tooltip title="Create New Configuration">
                 <IconButton color="success" sx={{ ml: 1 }} onClick={handleCreateConfiguration} disabled={isCreatingNew}>
                   <AddCircleOutlineIcon />
                 </IconButton>
               </Tooltip>
-              
+
               <Tooltip title="Delete Configuration">
                 <span>
-                  <IconButton 
-                    color="error" 
-                    sx={{ ml: 1 }} 
-                    onClick={() => setDeleteDialogOpen(true)} 
+                  <IconButton
+                    color="error"
+                    sx={{ ml: 1 }}
+                    onClick={() => setDeleteDialogOpen(true)}
                     disabled={!selectedConfigId || isCreatingNew}
                   >
                     <DeleteOutlineIcon />
@@ -551,11 +551,11 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 {saveStatus.message}
               </Alert>
             )}
-            
+
             {validationResult && (
               <Alert severity={(validationResult.config_valid && validationResult.vault_accessible) ? 'success' : 'error'} sx={{ mb: 2 }}>
-                {(validationResult.config_valid && validationResult.vault_accessible) 
-                  ? 'Vault access validated successfully!' 
+                {(validationResult.config_valid && validationResult.vault_accessible)
+                  ? 'Vault access validated successfully!'
                   : (validationResult.errors?.join(', ') || validationResult.error || 'Validation failed')
                 }
               </Alert>
@@ -565,7 +565,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
             {currentConfig && (
               <>
                 <Divider sx={{ mb: 3 }} />
-                
+
                 {/* Configuration Name - editable during creation, display only after saved */}
                 <Box sx={{ mb: 3 }}>
                   <TextField
@@ -726,7 +726,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       Test Vault Access
                     </Button>
                   </Box>
-                  
+
                   {/* Right side - only cancel button for new configs */}
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     {isCreatingNew && (
@@ -749,7 +749,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
                 {/* Manual Donation and Automation Settings */}
                 <Divider sx={{ my: 3 }} />
-                
+
                 {/* Manual Donation Section */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle1" sx={{ mb: 1 }}>
@@ -796,8 +796,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
                         }
                         label="Enable Vault Automation"
                       />
-                      <Tooltip 
-                        title="When enabled for the first time, automation will run immediately after saving to establish the schedule" 
+                      <Tooltip
+                        title="When enabled for the first time, automation will run immediately after saving to establish the schedule"
                         arrow
                         placement="right"
                       >
@@ -806,7 +806,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                         </IconButton>
                       </Tooltip>
                     </Box>
-                    
+
                     {currentConfig.automation?.enabled && (
                       <>
                         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
@@ -821,7 +821,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                               inputProps={{ min: 1, max: 168 }}
                             />
                           </Tooltip>
-                          
+
                           <Tooltip title="Minimum points before donating" arrow>
                             <TextField
                               label="Points Threshold"
@@ -848,7 +848,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                             </Select>
                           </FormControl>
                         </Box>
-                        
+
                         {/* Once per pot option */}
                         <Box sx={{ mt: 2 }}>
                           <FormControlLabel
@@ -908,8 +908,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
       </Dialog>
 
       {/* Bookmarklet dialog */}
-      <Dialog 
-        open={bookmarkletOpen} 
+      <Dialog
+        open={bookmarkletOpen}
         onClose={() => setBookmarkletOpen(false)}
         maxWidth="lg"
         fullWidth
@@ -926,22 +926,22 @@ export default function VaultConfigCard({ proxies, sessions }) {
             <br />
             4. The cookies will be automatically copied to your clipboard
           </Typography>
-          
+
           <Typography variant="body2" sx={{ mb: 2, p: 1, bgcolor: 'success.light', borderRadius: 1, color: 'success.contrastText' }}>
             ✨ <strong>New:</strong> This bookmarklet extracts everything needed for vault access in one click! No need for session association or manual configuration.
           </Typography>
-          
+
           <Typography variant="body2" sx={{ mb: 2, p: 1, bgcolor: 'info.light', borderRadius: 1, color: 'info.contrastText' }}>
             💡 <strong>Tip:</strong> If you don't see your bookmarks bar, press <kbd>Ctrl+Shift+B</kbd> (Windows/Linux) or <kbd>Cmd+Shift+B</kbd> (Mac) to show it.
           </Typography>
-          
+
           <Typography variant="body2" sx={{ mb: 2, p: 1, bgcolor: 'warning.light', borderRadius: 1, color: 'warning.contrastText' }}>
             🦊 <strong>Firefox Users:</strong> Dragging may not work due to security restrictions. Instead, <strong>right-click</strong> the button below and select "Bookmark Link" or "Add to Bookmarks".
           </Typography>
-          <Box sx={{ 
-            p: 3, 
-            bgcolor: 'background.default', 
-            borderRadius: 1, 
+          <Box sx={{
+            p: 3,
+            bgcolor: 'background.default',
+            borderRadius: 1,
             mb: 2,
             display: 'flex',
             justifyContent: 'center'
@@ -956,7 +956,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
             >
               <Button
                 variant="contained"
-                sx={{ 
+                sx={{
                   bgcolor: 'primary.main',
                   '&:hover': { bgcolor: 'primary.dark' },
                   cursor: 'grab',

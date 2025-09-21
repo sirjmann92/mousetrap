@@ -248,7 +248,7 @@ export default function MouseTrapConfigCard({
                 </Select>
               </FormControl>
             </Grid>
-            
+
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FormControl size="small" sx={{ minWidth: 130, maxWidth: 175 }}>
@@ -265,14 +265,14 @@ export default function MouseTrapConfigCard({
                     <MenuItem value="static">Static (No Monitoring)</MenuItem>
                   </Select>
                 </FormControl>
-                <Tooltip 
+                <Tooltip
                   title={
                     <div>
                       <strong>Auto (Full):</strong> Automatic IP detection with multiple fallbacks<br/>
                       <strong>Manual:</strong> User-controlled IP updates only<br/>
                       <strong>Static:</strong> No IP monitoring (for static IPs or restricted networks)
                     </div>
-                  } 
+                  }
                   arrow
                 >
                   <IconButton size="small" sx={{ ml: 0.5 }}>
@@ -281,7 +281,7 @@ export default function MouseTrapConfigCard({
                 </Tooltip>
               </Box>
             </Grid>
-            
+
             <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165 }} error={!!freqError}>

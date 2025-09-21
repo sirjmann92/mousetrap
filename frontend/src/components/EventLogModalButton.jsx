@@ -136,10 +136,10 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
           <DescriptionIcon />
         </IconButton>
       </Tooltip>
-    <Dialog 
-  open={open} 
-  onClose={() => setOpen(false)} 
-  maxWidth="md" 
+    <Dialog
+  open={open}
+  onClose={() => setOpen(false)}
+  maxWidth="md"
   fullWidth
   disableScrollLock={true}
   PaperProps={{ sx: { borderRadius: 2, bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default } }}
