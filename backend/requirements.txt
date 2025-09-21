@@ -1,10 +1,11 @@
+aiohttp
+apscheduler
+beautifulsoup4
+cryptography
+docker
 fastapi
-uvicorn
 pyyaml
 requests
 starlette
-beautifulsoup4
-apscheduler
+uvicorn
 watchdog
-cryptography
-docker
