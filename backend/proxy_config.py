@@ -8,6 +8,7 @@ resolve inline proxy configs from session configuration structures.
 import logging
 from pathlib import Path
 import threading
+from typing import Any
 
 import yaml
 
@@ -16,7 +17,7 @@ _LOCK = threading.Lock()
 _logger: logging.Logger = logging.getLogger(__name__)
 
 
-def resolve_proxy_from_session_cfg(cfg):
+def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None:
     """Given a session config dict, return the full proxy config dict (from proxies.yaml) if a label is set,
     or the inline proxy config if present (for backward compatibility).
     Returns None if no proxy is set.
@@ -42,25 +43,28 @@ def resolve_proxy_from_session_cfg(cfg):
     return None
 
 
-def load_proxies():
+def load_proxies() -> dict[str, Any]:
     """Load proxies from PROXIES_PATH.
 
     Returns a dict parsed from YAML or an empty dict if the file does not
     exist or is empty. The _LOCK is used to synchronize file access.
     """
     try:
-        with _LOCK, Path(PROXIES_PATH).open() as f:
+        with _LOCK, Path(PROXIES_PATH).open(encoding="utf-8") as f:
             return yaml.safe_load(f) or {}
     except FileNotFoundError:
         return {}
+    except yaml.YAMLError as e:
+        _logger.warning("[load_proxies] Malformed YAML at %s: %s", PROXIES_PATH, e)
+        return {}
 
 
-def save_proxies(proxies):
+def save_proxies(proxies: dict[str, Any]) -> None:
     """Persist the given proxies mapping to PROXIES_PATH as YAML.
 
     Ensures the parent directory exists before attempting to write. Uses
     the _LOCK to synchronize concurrent access.
     """
     Path(PROXIES_PATH).parent.mkdir(parents=True, exist_ok=True)
-    with _LOCK, Path(PROXIES_PATH).open("w") as f:
+    with _LOCK, Path(PROXIES_PATH).open("w", encoding="utf-8") as f:
         yaml.safe_dump(proxies, f)

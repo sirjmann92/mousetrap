@@ -61,7 +61,7 @@ def sync_browser_mam_id_across_uid_sessions(target_uid: str, browser_mam_id: str
     Returns:
         Dict with sync results
     """
-    result = {"success": False, "updated_sessions": [], "errors": [], "message": ""}
+    result: dict[str, Any] = {"success": False, "updated_sessions": [], "errors": [], "message": ""}
 
     try:
         # Find all sessions with this UID
@@ -113,7 +113,7 @@ def check_vault_automation_conflicts(target_uid: str) -> dict[str, Any]:
     Returns:
         Dict with conflict information
     """
-    result = {"has_conflict": False, "active_sessions": [], "message": ""}
+    result: dict[str, Any] = {"has_conflict": False, "active_sessions": [], "message": ""}
 
     try:
         uid_sessions = get_sessions_by_uid(target_uid)
@@ -154,7 +154,7 @@ def get_uid_vault_summary(target_uid: str) -> dict[str, Any]:
     Returns:
         Dict with vault summary information
     """
-    result = {
+    result: dict[str, Any] = {
         "uid": target_uid,
         "total_sessions": 0,
         "sessions_with_browser_mam_id": 0,

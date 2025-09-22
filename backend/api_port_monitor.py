@@ -5,9 +5,11 @@ delete, recheck and restart port monitoring stacks. Events are emitted to
 the UI event log for important actions.
 """
 
+import asyncio
 from datetime import UTC, datetime
 import logging
 import threading
+from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -21,7 +23,7 @@ router = APIRouter()
 
 # List Docker containers endpoint
 @router.get("/containers", response_model=list[str])
-def list_containers():
+def list_containers() -> list[str]:
     """Returns a list of running Docker container names."""
     client = port_monitor_manager.get_docker_client()
     if not client:
@@ -51,7 +53,7 @@ class UpdatePortMonitorStackRequest(BaseModel):
 @router.put("/stacks", response_model=dict)
 def update_stack(
     name: str = Query(..., description="Stack name"), req: UpdatePortMonitorStackRequest = Body(...)
-):
+) -> dict[str, Any]:
     """Update fields for a named port monitor stack and trigger a recheck.
 
     The endpoint updates stack configuration, persists it, and triggers an
@@ -143,7 +145,7 @@ class AddPortMonitorStackRequest(BaseModel):
 
 
 @router.get("/stacks", response_model=list[PortMonitorStackModel])
-def list_stacks():
+def list_stacks() -> list[PortMonitorStackModel]:
     """Return the configured port monitor stacks in the API response model."""
 
     return [
@@ -164,7 +166,7 @@ def list_stacks():
 
 
 @router.post("/stacks", response_model=dict)
-def add_stack(req: AddPortMonitorStackRequest):
+def add_stack(req: AddPortMonitorStackRequest) -> dict[str, Any]:
     """Create a new port monitor stack and emit a UI event about it."""
 
     port_monitor_manager.add_stack(
@@ -198,7 +200,7 @@ def add_stack(req: AddPortMonitorStackRequest):
 
 
 @router.post("/stacks/recheck", response_model=dict)
-def recheck_stack(name: str = Query(..., description="Stack name")):
+def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
     """Trigger an immediate recheck of the named stack.
 
     Returns success if the stack exists and was rechecked; otherwise raises
@@ -212,7 +214,7 @@ def recheck_stack(name: str = Query(..., description="Stack name")):
 
 
 @router.delete("/stacks", response_model=dict)
-def delete_stack(name: str = Query(..., description="Stack name")):
+def delete_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
     """Remove a configured stack by name and emit a UI event about deletion."""
 
     port_monitor_manager.remove_stack(name)
@@ -233,7 +235,7 @@ def delete_stack(name: str = Query(..., description="Stack name")):
 
 
 @router.post("/stacks/restart", response_model=dict)
-def restart_stack(name: str = Query(..., description="Stack name")):
+def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
     """Initiate a restart for a stack's primary container in background.
 
     Marks the stack restarting and runs the restart work in a daemon
@@ -258,7 +260,7 @@ def restart_stack(name: str = Query(..., description="Stack name")):
     )
 
     # Run restart in background
-    def do_restart():
+    async def do_restart() -> None:
         """Background worker that performs the restart and subsequent recheck."""
         _logger.info(
             "[PortMonitorStackAPI] Background restart thread started for stack '%s'",
@@ -272,7 +274,7 @@ def restart_stack(name: str = Query(..., description="Stack name")):
                 "level": "info",
             }
         )
-        port_monitor_manager.restart_stack(stack)
+        await port_monitor_manager.restart_stack(stack)
         _logger.info(
             "[PortMonitorStackAPI] Restart complete for stack '%s', rechecking status...",
             name,
@@ -296,5 +298,5 @@ def restart_stack(name: str = Query(..., description="Stack name")):
             }
         )
 
-    threading.Thread(target=do_restart, daemon=True).start()
+    threading.Thread(target=lambda: asyncio.run(do_restart()), daemon=True).start()
     return {"success": True}

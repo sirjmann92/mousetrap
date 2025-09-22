@@ -29,19 +29,19 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 
 # --- Automation Scheduler ---
-def run_all_automation_jobs():
+async def run_all_automation_jobs() -> None:
     """Run all available automation jobs.
 
     Convenience function to sequentially run upload credit, wedge, and VIP
     automation jobs. Intended to be called by a scheduler or from startup
     code.
     """
-    upload_credit_automation_job()
-    wedge_automation_job()
-    vip_automation_job()
+    await upload_credit_automation_job()
+    await wedge_automation_job()
+    await vip_automation_job()
 
 
-def upload_credit_automation_job():
+async def upload_credit_automation_job() -> None:
     """Evaluate and run upload credit automation for all sessions.
 
     For each configured session this function:
@@ -71,7 +71,7 @@ def upload_credit_automation_job():
             gb_amount = automation.get("gb", 10)
 
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)
-            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get("points", 0) if isinstance(status, dict) else 0
             if points is None:
                 points = 0
@@ -167,7 +167,7 @@ def upload_credit_automation_job():
                 )
                 continue
             # All guardrails passed, attempt purchase
-            result = buy_upload_credit(gb_amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
+            result = await buy_upload_credit(gb_amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
             success = result.get("success", False) if result else False
             status_message = (
                 f"Automated purchase: Upload Credit ({gb_amount} GB)"
@@ -198,7 +198,7 @@ def upload_credit_automation_job():
                 # Update last purchase timestamp in new field
                 cfg["perk_automation"]["upload_credit"]["last_upload_time"] = now_dt.isoformat()
                 save_session(cfg, old_label=label)
-                notify_event(
+                await notify_event(
                     event_type="automation_success",
                     label=label,
                     status="SUCCESS",
@@ -212,7 +212,7 @@ def upload_credit_automation_job():
                     label,
                     event["error"],
                 )
-                notify_event(
+                await notify_event(
                     event_type="automation_failure",
                     label=label,
                     status="FAILED",
@@ -224,7 +224,7 @@ def upload_credit_automation_job():
             _logger.error("[UploadAuto] Error for '%s': %s", label, e)
 
 
-def vip_automation_job():
+async def vip_automation_job() -> None:
     """Evaluate and run VIP automation for all sessions.
 
     For each configured session this function:
@@ -254,7 +254,7 @@ def vip_automation_job():
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
             # Read weeks from automation config (default 4)
             weeks = automation.get("weeks", 4)
-            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get("points", 0) if isinstance(status, dict) else 0
             if points is None:
                 points = 0
@@ -413,7 +413,7 @@ def vip_automation_job():
             # Support 'max' for automation as well
             is_max = str(weeks).lower() in ["max", "90"]
             duration = "max" if is_max else str(weeks)
-            result = buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
+            result = await buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
             success = result.get("success", False) if result else False
             status_message = (
                 f"Automated purchase: VIP ({'Max me out!' if is_max else f'{weeks} weeks'})"
@@ -447,7 +447,7 @@ def vip_automation_job():
                 automation.pop("cooldown_until", None)
                 automation.pop("last_fail_time", None)
                 save_session(cfg, old_label=label)
-                notify_event(
+                await notify_event(
                     event_type="automation_success",
                     label=label,
                     status="SUCCESS",
@@ -475,7 +475,7 @@ def vip_automation_job():
                         automation["cooldown_until"],
                     )
                 save_session(cfg, old_label=label)
-                notify_event(
+                await notify_event(
                     event_type="automation_failure",
                     label=label,
                     status="FAILED",
@@ -489,7 +489,7 @@ def vip_automation_job():
             )
 
 
-def wedge_automation_job():
+async def wedge_automation_job() -> None:
     """Evaluate and run wedge automation for all sessions.
 
     For each configured session this function:
@@ -517,7 +517,7 @@ def wedge_automation_job():
             trigger_point_threshold = automation.get("trigger_point_threshold", 50000)
 
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
-            status = get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get("points", 0) if isinstance(status, dict) else 0
             if points is None:
                 points = 0
@@ -619,7 +619,7 @@ def wedge_automation_job():
                 )
                 continue
             # All guardrails passed, attempt purchase
-            result = buy_wedge(mam_id, proxy_cfg=proxy_cfg)
+            result = await buy_wedge(mam_id, proxy_cfg=proxy_cfg)
             success = result.get("success", False) if result else False
             status_message = (
                 "Automated purchase: Wedge (points)"
@@ -649,7 +649,7 @@ def wedge_automation_job():
                     "[WedgeAuto] Automated purchase: Wedge (points) for session '%s' succeeded.",
                     label,
                 )
-                notify_event(
+                await notify_event(
                     event_type="automation_success",
                     label=label,
                     status="SUCCESS",
@@ -662,7 +662,7 @@ def wedge_automation_job():
                     label,
                     event["error"],
                 )
-                notify_event(
+                await notify_event(
                     event_type="automation_failure",
                     label=label,
                     status="FAILED",

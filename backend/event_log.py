@@ -7,6 +7,7 @@ import json
 import logging
 from pathlib import Path
 from threading import Lock
+from typing import Any
 
 from backend.utils_redact import redact_sensitive
 
@@ -20,7 +21,7 @@ UI_EVENT_LOG_PATH = _ui_event_log_path
 UI_EVENT_LOG_LOCK = _ui_event_log_lock
 
 
-def _init_ui_event_log():
+def _init_ui_event_log() -> None:
     try:
         _ui_event_log_dir.mkdir(parents=True, exist_ok=True)
         if not _ui_event_log_path.exists():
@@ -33,7 +34,7 @@ def _init_ui_event_log():
 _init_ui_event_log()
 
 
-def append_ui_event_log(event: dict):
+def append_ui_event_log(event: dict[str, Any]) -> None:
     """Append an event (dict) to the persistent UI event log file as a JSON array, with sensitive fields redacted."""
     _ui_event_log_lock.acquire()
     try:
@@ -56,7 +57,7 @@ def append_ui_event_log(event: dict):
         _ui_event_log_lock.release()
 
 
-def get_ui_event_log():
+def get_ui_event_log() -> list:
     """Return the current UI event log as a list of events.
 
     Reads the JSON array stored at UI_EVENT_LOG_PATH and returns it as Python
@@ -72,7 +73,7 @@ def get_ui_event_log():
         return []
 
 
-def clear_ui_event_log():
+def clear_ui_event_log() -> bool:
     """Clear all events from the event log (all sessions)."""
     try:
         _logger.info("[UIEventLog] Attempting to clear event log at: %s", _ui_event_log_path)
@@ -86,7 +87,7 @@ def clear_ui_event_log():
         return True
 
 
-def clear_ui_event_log_for_session(label):
+def clear_ui_event_log_for_session(label: str) -> bool:
     """Remove all events for a specific session label from the event log."""
     try:
         with _ui_event_log_lock:

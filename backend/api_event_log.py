@@ -6,6 +6,8 @@ This module exposes FastAPI routes to:
 - delete UI event logs for a specific session label.
 """
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from backend.event_log import clear_ui_event_log, clear_ui_event_log_for_session, get_ui_event_log
@@ -14,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/ui_event_log")
-def api_ui_event_log():
+def api_ui_event_log() -> list:
     """Retrieve the UI event log.
 
     Returns:
@@ -26,7 +28,7 @@ def api_ui_event_log():
 
 # Delete all logs (all sessions)
 @router.delete("/ui_event_log")
-def api_ui_event_log_delete():
+def api_ui_event_log_delete() -> dict[str, Any]:
     """Delete all UI event logs.
 
     Calls backend.event_log.clear_ui_event_log() to remove all logged UI events.
@@ -43,7 +45,7 @@ def api_ui_event_log_delete():
 
 # Delete logs for a specific session label
 @router.delete("/ui_event_log/{label}")
-def api_ui_event_log_delete_for_session(label: str):
+def api_ui_event_log_delete_for_session(label: str) -> dict[str, Any]:
     """Delete UI event logs for a specific session label.
 
     Calls backend.event_log.clear_ui_event_log_for_session(label) to remove

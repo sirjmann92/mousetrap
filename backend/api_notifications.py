@@ -7,6 +7,7 @@ utilities in :mod:`backend.notifications_backend` for the actual sending logic.
 """
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 import yaml
@@ -22,7 +23,7 @@ from backend.notifications_backend import (
 router = APIRouter()
 
 
-def save_notify_config(cfg):
+def save_notify_config(cfg: dict[str, Any]) -> None:
     """Persist the notification configuration to disk.
 
     Args:
@@ -31,12 +32,12 @@ def save_notify_config(cfg):
     """
     path = Path(NOTIFY_CONFIG_PATH)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w") as f:
+    with path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f)
 
 
 @router.get("/notify/config")
-def get_notify_config():
+def get_notify_config() -> dict[str, Any]:
     """Return the current notification configuration.
 
     The configuration is loaded from the configured notify config path and
@@ -46,7 +47,7 @@ def get_notify_config():
 
 
 @router.post("/notify/config")
-def set_notify_config(cfg: dict):
+def set_notify_config(cfg: dict[str, Any]) -> dict[str, Any]:
     """Save a new notification configuration.
 
     Args:
@@ -61,7 +62,7 @@ def set_notify_config(cfg: dict):
 
 
 @router.post("/notify/test/webhook")
-def test_webhook(payload: dict):
+async def test_webhook(payload: dict[str, Any]) -> dict[str, Any]:
     """Send a test payload to the configured webhook URL.
 
     Args:
@@ -80,12 +81,12 @@ def test_webhook(payload: dict):
     discord_webhook = cfg.get("discord_webhook", False)
     if not url:
         raise HTTPException(status_code=400, detail="Webhook URL not set.")
-    ok = send_webhook_notification(url, payload, discord=discord_webhook)
+    ok = await send_webhook_notification(url, payload, discord=discord_webhook)
     return {"success": ok}
 
 
 @router.post("/notify/test/smtp")
-def test_smtp(payload: dict):
+def test_smtp(payload: dict[str, Any]) -> dict[str, Any]:
     """Send a test SMTP notification using the configured SMTP settings.
 
     Args:
@@ -119,7 +120,7 @@ def test_smtp(payload: dict):
 
 
 @router.post("/notify/test/apprise")
-def test_apprise(payload: dict):
+async def test_apprise(payload: dict[str, Any]) -> dict[str, Any]:
     """Send a test notification via Apprise.
 
     The function builds a small test payload from the provided `payload`
@@ -155,5 +156,7 @@ def test_apprise(payload: dict):
         "details": payload.get("details", {}),
     }
 
-    ok = send_apprise_notification(apprise_url, notify_url_string, test_payload, include_prefix)
+    ok = await send_apprise_notification(
+        apprise_url, notify_url_string, test_payload, include_prefix
+    )
     return {"success": ok}

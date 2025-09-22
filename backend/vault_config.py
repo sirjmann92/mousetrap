@@ -10,7 +10,7 @@ import time
 from typing import Any
 import urllib.parse
 
-import requests
+import aiohttp
 import yaml
 
 from backend.config import _LOCK, list_sessions, load_session
@@ -22,27 +22,27 @@ _logger: logging.Logger = logging.getLogger(__name__)
 POT_CYCLE_THRESHOLD = 20000000
 
 
-def get_vault_config_path():
+def get_vault_config_path() -> Path:
     """Get path to vault configuration file.
 
     Use the same config path logic as the main config
     Check if we're in container (config mounted at /config) or development
     """
     if Path("/config").exists():
-        return "/config/vault_config.yaml"
+        return Path("/config") / "vault_config.yaml"
     # Development path
-    return str(Path(__file__).parent.joinpath("..", "config", "vault_config.yaml"))
+    return Path(__file__).parent.joinpath("..", "config", "vault_config.yaml")
 
 
 def load_vault_config() -> dict[str, Any]:
     """Load vault configuration from file."""
     path = get_vault_config_path()
 
-    if not Path(path).exists():
+    if not path.exists():
         return {"vault_configurations": {}}
 
     try:
-        with _LOCK, Path(path).open("r") as f:
+        with _LOCK, path.open("r", encoding="utf-8") as f:
             config = yaml.safe_load(f) or {}
             if "vault_configurations" not in config:
                 config["vault_configurations"] = {}
@@ -58,10 +58,10 @@ def save_vault_config(config: dict[str, Any]) -> bool:
 
     try:
         # Ensure directory exists
-        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        path.parent.mkdir(parents=True, exist_ok=True)
 
-        with _LOCK, Path(path).open("w") as f:
-            yaml.dump(config, f, default_flow_style=False, sort_keys=True)
+        with _LOCK, path.open("w", encoding="utf-8") as f:
+            yaml.safe_dump(config, f, default_flow_style=False, sort_keys=True)
 
         _logger.info("[VaultConfig] Saved vault configuration")
     except Exception as e:
@@ -214,7 +214,7 @@ def get_effective_uid(vault_config: dict[str, Any]) -> str | None:
     return None
 
 
-def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> str | None:
+async def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> str | None:
     """Extract the mam_id value from browser cookie string."""
     if not browser_mam_id:
         return None
@@ -270,7 +270,7 @@ def get_effective_proxy_config(vault_config: dict[str, Any]) -> dict[str, Any] |
     return None
 
 
-def fetch_pot_donation_history(
+async def fetch_pot_donation_history(
     mam_id: str, uid: str, proxy_config: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Fetch pot donation history from pot.php page using existing vault authentication patterns."""
@@ -288,16 +288,32 @@ def fetch_pot_donation_history(
         }
 
         cookies = {"mam_id": mam_id, "uid": uid}
-        proxies = build_proxy_dict(proxy_config) if proxy_config else {}
+        proxies = build_proxy_dict(proxy_config) if proxy_config else None
+
+        # Map requests-style proxy dict to aiohttp proxy parameters
+        proxy_url = None
+        proxy_auth = None
+        if proxies:
+            proxy_url = proxies.get("https") if proxies.get("https") else proxies.get("http")
+            username = proxy_config.get("username") if proxy_config else None
+            password = proxy_config.get("password") if proxy_config else None
+            if username and password:
+                proxy_auth = aiohttp.BasicAuth(username, password)
 
         # Fetch pot.php page
         url = "https://www.myanonamouse.net/pot.php"
-        response = requests.get(url, headers=headers, cookies=cookies, proxies=proxies, timeout=30)
-
-        if response.status_code != 200:
-            return {"success": False, "error": f"HTTP {response.status_code}"}
-
-        content = response.text
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            try:
+                async with session.get(
+                    url, headers=headers, cookies=cookies, proxy=proxy_url, proxy_auth=proxy_auth
+                ) as response:
+                    if response.status != 200:
+                        return {"success": False, "error": f"HTTP {response.status}"}
+                    content = await response.text()
+            except Exception as e:
+                _logger.error("[VaultConfig] Error fetching pot.php: %s", e)
+                return {"success": False, "error": str(e)}
 
         # Parse current pot total and donation history from the page
 
@@ -309,7 +325,7 @@ def fetch_pot_donation_history(
 
         # Look for user's recent donations in the page
         # This is a simplified approach - we'll track donations by monitoring changes
-        user_donations = []
+        user_donations: list = []
 
         return {
             "success": True,
@@ -323,7 +339,7 @@ def fetch_pot_donation_history(
         return {"success": False, "error": str(e)}
 
 
-def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, Any]:
+async def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, Any]:
     """Check if we should donate to the current pot based on tracking data."""
     try:
         # Get pot tracking data
@@ -334,7 +350,7 @@ def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, Any]:
             return {"should_donate": True, "reason": "Once per pot not enabled"}
 
         # Get effective authentication details
-        extracted_mam_id = extract_mam_id_from_browser_cookies(
+        extracted_mam_id = await extract_mam_id_from_browser_cookies(
             vault_config.get("browser_mam_id", "")
         )
         effective_uid = get_effective_uid(vault_config)
@@ -344,7 +360,9 @@ def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, Any]:
             return {"should_donate": False, "reason": "Missing authentication details"}
 
         # Fetch current pot information
-        pot_info = fetch_pot_donation_history(extracted_mam_id, effective_uid, effective_proxy)
+        pot_info = await fetch_pot_donation_history(
+            extracted_mam_id, effective_uid, effective_proxy
+        )
 
         if not pot_info.get("success"):
             # If we can't fetch pot info, err on the side of caution and allow donation

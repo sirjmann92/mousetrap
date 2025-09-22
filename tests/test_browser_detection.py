@@ -9,7 +9,7 @@ from backend.millionaires_vault_cookies import get_browser_user_agent, parse_bro
 sys.path.append(str(Path(__file__).parent.joinpath("backend")))
 
 
-def test_browser_detection():
+def test_browser_detection() -> None:
     """Test browser cookie parsing and user agent selection.
 
     This test parses sample cookie strings for different browsers, verifies that

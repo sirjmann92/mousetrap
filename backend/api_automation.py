@@ -10,6 +10,7 @@ event log and notifications are attempted via the notifications backend.
 
 from datetime import UTC, datetime
 import logging
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -25,7 +26,7 @@ router = APIRouter()
 
 
 @router.post("/automation/upload_auto")
-async def manual_upload_credit(request: Request):
+async def manual_upload_credit(request: Request) -> dict[str, Any]:
     """Trigger a manual upload-credit purchase for a session.
 
     Expects a JSON body with the following fields:
@@ -55,7 +56,7 @@ async def manual_upload_credit(request: Request):
 
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
-    result = buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
+    result = await buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
     success = result.get("success", False)
     status_message = (
         f"Purchased {amount}GB Upload Credit"
@@ -77,7 +78,7 @@ async def manual_upload_credit(request: Request):
     append_ui_event_log(event)
     try:
         if success:
-            notify_event(
+            await notify_event(
                 event_type="manual_purchase_success",
                 label=label,
                 status="SUCCESS",
@@ -85,7 +86,7 @@ async def manual_upload_credit(request: Request):
                 details={"amount": amount},
             )
         else:
-            notify_event(
+            await notify_event(
                 event_type="manual_purchase_failure",
                 label=label,
                 status="FAILED",
@@ -115,7 +116,7 @@ async def manual_upload_credit(request: Request):
 
 
 @router.post("/automation/wedge")
-async def manual_wedge(request: Request):
+async def manual_wedge(request: Request) -> dict[str, Any]:
     """Trigger a manual wedge purchase for a session.
 
     Expects a JSON body with the following fields:
@@ -145,7 +146,7 @@ async def manual_wedge(request: Request):
 
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
-    result = buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
+    result = await buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
     success = result.get("success", False)
     status_message = (
         f"Purchased Wedge ({method})" if success else f"Wedge purchase failed ({method})"
@@ -165,7 +166,7 @@ async def manual_wedge(request: Request):
     append_ui_event_log(event)
     try:
         if success:
-            notify_event(
+            await notify_event(
                 event_type="manual_purchase_success",
                 label=label,
                 status="SUCCESS",
@@ -173,7 +174,7 @@ async def manual_wedge(request: Request):
                 details={"method": method},
             )
         else:
-            notify_event(
+            await notify_event(
                 event_type="manual_purchase_failure",
                 label=label,
                 status="FAILED",
@@ -203,7 +204,7 @@ async def manual_wedge(request: Request):
 
 
 @router.post("/automation/vip")
-async def manual_vip(request: Request):
+async def manual_vip(request: Request) -> dict[str, Any]:
     """Trigger a manual VIP purchase for a session.
 
     Expects a JSON body with the following fields:
@@ -234,7 +235,7 @@ async def manual_vip(request: Request):
     now = datetime.now(UTC)
     is_max = str(weeks).lower() in ["max", "90"]
     if is_max:
-        result = buy_vip(mam_id, duration="max", proxy_cfg=proxy_cfg)
+        result = await buy_vip(mam_id, duration="max", proxy_cfg=proxy_cfg)
         success = result.get("success", False)
         status_message = (
             "Purchased VIP (Max me out!)" if success else "VIP purchase failed (Max me out!)"
@@ -254,7 +255,7 @@ async def manual_vip(request: Request):
         append_ui_event_log(event)
         try:
             if success:
-                notify_event(
+                await notify_event(
                     event_type="manual_purchase_success",
                     label=label,
                     status="SUCCESS",
@@ -262,7 +263,7 @@ async def manual_vip(request: Request):
                     details={"weeks": "max"},
                 )
             else:
-                notify_event(
+                await notify_event(
                     event_type="manual_purchase_failure",
                     label=label,
                     status="FAILED",
@@ -290,7 +291,7 @@ async def manual_vip(request: Request):
             )
         return {"success": success, **result}
     # For 4 or 8 weeks, just send the value as string
-    result = buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
+    result = await buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
     success = result.get("success", False)
     status_message = (
         f"Purchased VIP ({weeks} weeks)" if success else f"VIP purchase failed ({weeks} weeks)"
@@ -310,7 +311,7 @@ async def manual_vip(request: Request):
     append_ui_event_log(event)
     try:
         if success:
-            notify_event(
+            await notify_event(
                 event_type="manual_purchase_success",
                 label=label,
                 status="SUCCESS",
@@ -318,7 +319,7 @@ async def manual_vip(request: Request):
                 details={"weeks": weeks},
             )
         else:
-            notify_event(
+            await notify_event(
                 event_type="manual_purchase_failure",
                 label=label,
                 status="FAILED",

@@ -7,6 +7,7 @@ and resolve public IP/ASN information through optional proxy configurations.
 import json
 import logging
 import os
+from typing import Any
 
 import aiohttp
 
@@ -15,19 +16,19 @@ from backend.utils import build_proxy_dict
 _logger: logging.Logger = logging.getLogger(__name__)
 
 
-async def get_proxied_public_ip(proxy_cfg):
+async def get_proxied_public_ip(proxy_cfg: dict) -> str | None:
     """Returns the public IP as seen through the given proxy config."""
     proxies = build_proxy_dict(proxy_cfg)
     if not proxies:
         return None
     try:
-        timeout = aiohttp.ClientTimeout(total=6)
         proxy_url = (
             proxies.get("https") or proxies.get("http") if isinstance(proxies, dict) else None
         )
         try:
+            timeout = aiohttp.ClientTimeout(total=10)
             async with (
-                aiohttp.ClientSession() as session,
+                aiohttp.ClientSession(timeout=timeout) as session,
                 session.get("https://api.ipify.org", timeout=timeout, proxy=proxy_url) as resp,
             ):
                 text = await resp.text()
@@ -40,20 +41,21 @@ async def get_proxied_public_ip(proxy_cfg):
         # Defensive: preserve original behavior on unexpected errors
         _logger.warning("[get_proxied_public_ip] Failed: %s", e)
         return None
+    return None
 
 
-async def get_proxied_public_ip_and_asn(proxy_cfg):
+async def get_proxied_public_ip_and_asn(proxy_cfg: dict[str, Any]) -> tuple[str | None, str | None]:
     """Returns (public_ip, asn) as seen through the given proxy config, using ipinfo.io and the API token if available."""
     proxies = build_proxy_dict(proxy_cfg)
     token = os.environ.get("IPINFO_TOKEN")
     url = "https://ipinfo.io/json"
     if token:
         url += f"?token={token}"
-    timeout = aiohttp.ClientTimeout(total=6)
     proxy_url = proxies.get("https") or proxies.get("http") if isinstance(proxies, dict) else None
     try:
+        timeout = aiohttp.ClientTimeout(total=10)
         async with (
-            aiohttp.ClientSession() as session,
+            aiohttp.ClientSession(timeout=timeout) as session,
             session.get(url, timeout=timeout, proxy=proxy_url) as resp,
         ):
             text = await resp.text()
@@ -72,12 +74,12 @@ async def get_proxied_public_ip_and_asn(proxy_cfg):
     return None, None
 
 
-async def get_status(mam_id=None, proxy_cfg=None):
+async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
     """Fetch MaM account status using the provided mam_id and optional proxy configuration.
 
     Parameters
     ----------
-    mam_id : str or None
+    mam_id : str
         MaM session cookie value to identify the user. If None, the function returns a dict indicating
         that no MaM ID was provided.
     proxy_cfg : dict or None
@@ -111,7 +113,8 @@ async def get_status(mam_id=None, proxy_cfg=None):
         }
     url = "https://www.myanonamouse.net/jsonLoad.php?snatch_summary"
     cookies = {"mam_id": mam_id}
-    proxies = build_proxy_dict(proxy_cfg)
+    if proxy_cfg:
+        proxies = build_proxy_dict(proxy_cfg)
     # Log only proxy label and redact password in proxy URL for debugging
     proxy_label = None
     proxy_url_log = None
@@ -196,7 +199,7 @@ async def get_status(mam_id=None, proxy_cfg=None):
         }
 
 
-def dummy_purchase(item):
+def dummy_purchase(item: Any) -> dict[str, Any]:
     """Simulate a purchase action for testing.
 
     Parameters
@@ -221,7 +224,7 @@ def dummy_purchase(item):
     }
 
 
-async def get_mam_seen_ip_info(mam_id=None, proxy_cfg=None):
+async def get_mam_seen_ip_info(mam_id: str, proxy_cfg: dict[str, Any]) -> dict[str, Any]:
     """Calls MAM's /json/jsonIp.php endpoint to get the IP, ASN, and AS as seen by MAM for the session/cookie.
 
     Returns dict: {"ip": str, "ASN": int, "AS": str} or error info.
@@ -241,7 +244,6 @@ async def get_mam_seen_ip_info(mam_id=None, proxy_cfg=None):
             if resp.status >= 400:
                 text = await resp.text()
                 raise Exception(f"HTTP {resp.status}: {text}")
-            # prefer aiohttp's json parser
             data = await resp.json()
 
     except Exception as e:

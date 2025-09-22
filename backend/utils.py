@@ -3,9 +3,10 @@
 import logging
 import os
 import re
+from typing import Any
 
 
-def setup_logging():
+def setup_logging() -> None:
     """Set up global logging configuration for the backend.
 
     Call this once at app startup (e.g., in app.py).
@@ -24,7 +25,7 @@ def setup_logging():
     logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
-def extract_asn_number(asn_str):
+def extract_asn_number(asn_str: str) -> str | None:
     """Extract the numeric ASN from a string.
 
     Accepts values like "AS12345", "as12345", or plain "12345" and returns the
@@ -80,7 +81,7 @@ def build_status_message(status: dict, ip_monitoring_mode: str = "auto") -> str:
 
 
 # --- Proxy utility ---
-def build_proxy_dict(proxy_cfg):
+def build_proxy_dict(proxy_cfg: dict[str, Any]) -> dict[str, Any] | None:
     """Given a proxy config dict, return a requests-compatible proxies dict or None.
 
     Handles host/port/username/password or direct URL fields.

@@ -6,6 +6,8 @@ public IP and ASN. It also ensures sessions referencing deleted proxies are
 cleaned up.
 """
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from backend.config import list_sessions, load_session, save_session
@@ -16,28 +18,30 @@ router = APIRouter()
 
 
 @router.get("/proxy_test/{label}")
-def proxy_test(label: str):
+async def proxy_test(label: str) -> dict[str, Any]:
     """Test a proxy and return its proxied public IP and ASN."""
     proxies = load_proxies()
     proxy_cfg = proxies.get(label)
     if not proxy_cfg:
         raise HTTPException(status_code=404, detail="Proxy not found.")
-    ipinfo_data = get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
-    proxied_ip = get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=ipinfo_data)
-    asn_full, _ = get_asn_and_timezone_from_ip(
-        proxied_ip, proxy_cfg=proxy_cfg, ipinfo_data=ipinfo_data
-    )
-    return {"proxied_ip": proxied_ip, "proxied_asn": asn_full}
+    ipinfo_data = await get_ipinfo_with_fallback(proxy_cfg=proxy_cfg)
+    proxied_ip = await get_public_ip(proxy_cfg=proxy_cfg, ipinfo_data=ipinfo_data)
+    if proxied_ip:
+        asn_full, _ = await get_asn_and_timezone_from_ip(
+            proxied_ip, proxy_cfg=proxy_cfg, ipinfo_data=ipinfo_data
+        )
+        return {"proxied_ip": proxied_ip, "proxied_asn": asn_full}
+    return {"proxied_ip": None, "proxied_asn": None}
 
 
 @router.get("/proxies")
-def list_proxies():
+def list_proxies() -> dict[str, Any]:
     """List all proxy configurations."""
     return load_proxies()
 
 
 @router.post("/proxies")
-def create_proxy(proxy: dict):
+def create_proxy(proxy: dict[str, Any]) -> dict[str, Any]:
     """Create a new proxy configuration. Expects a dict with at least a 'label'."""
     proxies = load_proxies()
     label = proxy.get("label")
@@ -51,7 +55,7 @@ def create_proxy(proxy: dict):
 
 
 @router.put("/proxies/{label}")
-def update_proxy(label: str, proxy: dict):
+def update_proxy(label: str, proxy: dict[str, Any]) -> dict[str, Any]:
     """Update an existing proxy configuration."""
     proxies = load_proxies()
     if label not in proxies:
@@ -62,7 +66,7 @@ def update_proxy(label: str, proxy: dict):
 
 
 @router.delete("/proxies/{label}")
-def delete_proxy(label: str):
+def delete_proxy(label: str) -> dict[str, Any]:
     """Delete a proxy configuration by label."""
     proxies = load_proxies()
     if label not in proxies:

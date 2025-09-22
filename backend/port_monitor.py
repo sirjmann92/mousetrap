@@ -3,6 +3,7 @@
 This module manages stack-based port checks and coordinated restarts.
 """
 
+import asyncio
 from datetime import UTC, datetime
 import logging
 import os
@@ -10,6 +11,7 @@ from pathlib import Path
 import socket
 import threading
 import time
+from typing import Any
 
 import yaml
 
@@ -19,7 +21,7 @@ from backend.notifications_backend import notify_event
 try:
     import docker
 except ImportError:
-    docker = None
+    docker = None  # type: ignore[assignment]
 
 _logger: logging.Logger = logging.getLogger(__name__)
 PORT_MONITOR_CONFIG_PATH = Path(
@@ -86,7 +88,7 @@ class PortMonitorStackManager:
         _last_warning_times (dict): Timestamps used for rate-limiting warnings.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the PortMonitorStackManager and load configured stacks.
 
         The manager holds a list of PortMonitorStack objects and manages
@@ -94,10 +96,10 @@ class PortMonitorStackManager:
         for warnings.
         """
         self.stacks: list[PortMonitorStack] = []
-        self.running = False
-        self.thread = None
-        self._docker_client = None
-        self._last_warning_times = {}  # Rate limiting for warnings
+        self.running: bool = False
+        self.thread: threading.Thread | None = None
+        self._docker_client: docker.DockerClient | None = None
+        self._last_warning_times: dict[str, Any] = {}  # Rate limiting for warnings
         self.load_stacks()
 
     def _should_log_warning(self, key: str, min_interval: int = 30) -> bool:
@@ -111,7 +113,7 @@ class PortMonitorStackManager:
             return True
         return False
 
-    def load_stacks(self):
+    def load_stacks(self) -> None:
         """Load stacks from the configured YAML file.
 
         If the config file does not exist an empty stack list is used. Any
@@ -123,7 +125,7 @@ class PortMonitorStackManager:
             _logger.info("[PortMonitor] No config found at %s", PORT_MONITOR_CONFIG_PATH)
             return
         try:
-            with PORT_MONITOR_CONFIG_PATH.open() as f:
+            with PORT_MONITOR_CONFIG_PATH.open(encoding="utf-8") as f:
                 data = yaml.safe_load(f) or []
             seen = set()
             unique_stacks = []
@@ -153,13 +155,13 @@ class PortMonitorStackManager:
             _logger.error("[PortMonitorStack] Failed to load stacks: %s", e)
             self.stacks = []
 
-    def save_stacks(self):
+    def save_stacks(self) -> None:
         """Persist the current stack list to the configured YAML path.
 
         Errors during writing are logged but not raised to the caller.
         """
         try:
-            with PORT_MONITOR_CONFIG_PATH.open("w") as f:
+            with PORT_MONITOR_CONFIG_PATH.open("w", encoding="utf-8") as f:
                 yaml.safe_dump(
                     [
                         {
@@ -178,7 +180,7 @@ class PortMonitorStackManager:
         except Exception as e:
             _logger.error("[PortMonitorStack] Failed to save stacks: %s", e)
 
-    def get_docker_client(self):
+    def get_docker_client(self) -> docker.DockerClient | None:
         """Return a cached Docker client or create one from the environment.
 
         Returns None if the docker SDK is unavailable or client creation
@@ -296,7 +298,7 @@ class PortMonitorStackManager:
                 stack.public_ip_detected = public_ip_detected
             return False
 
-    def restart_container(self, container_name: str):
+    def restart_container(self, container_name: str) -> bool:
         """Restart a container by name using the docker client.
 
         Returns True on success, False if the docker client is not
@@ -313,7 +315,7 @@ class PortMonitorStackManager:
         else:
             return True
 
-    def restart_stack(self, stack: PortMonitorStack):
+    async def restart_stack(self, stack: PortMonitorStack) -> None:
         """Restart the primary and secondary containers for a stack.
 
         This method updates stack status, records an event in the UI event
@@ -354,7 +356,7 @@ class PortMonitorStackManager:
             if self.check_port(stack.primary_container, stack.primary_port):
                 port_ok = True
                 break
-            time.sleep(5)
+            await asyncio.sleep(5)
 
         if not port_ok:
             # Check if container is running
@@ -384,7 +386,7 @@ class PortMonitorStackManager:
                         "level": "warning",
                     }
                 )
-                notify_event(
+                await notify_event(
                     event_type="port_monitor_port_timeout",
                     label=stack.name,
                     status="WARNING",
@@ -408,7 +410,7 @@ class PortMonitorStackManager:
                         "level": "error",
                     }
                 )
-                notify_event(
+                await notify_event(
                     event_type="port_monitor_container_not_running",
                     label=stack.name,
                     status="ERROR",
@@ -432,7 +434,7 @@ class PortMonitorStackManager:
         secondary_containers: list[str],
         interval: int = 60,
         public_ip: str | None = None,
-    ):
+    ) -> None:
         """Add a new PortMonitorStack and perform an immediate status check.
 
         If a stack with the same name already exists the operation is
@@ -461,7 +463,7 @@ class PortMonitorStackManager:
             "OK" if result else "Failed",
         )
 
-    def recheck_stack(self, name: str):
+    def recheck_stack(self, name: str) -> bool:
         """Re-evaluate a single stack's primary port and update its state.
 
         Returns True if the stack exists and was rechecked, False otherwise.
@@ -476,7 +478,7 @@ class PortMonitorStackManager:
         self.save_stacks()
         return True
 
-    def remove_stack(self, name: str):
+    def remove_stack(self, name: str) -> None:
         """Remove a stack by name and persist the updated stack list."""
         self.stacks = [s for s in self.stacks if s.name != name]
         self.save_stacks()
@@ -492,7 +494,7 @@ class PortMonitorStackManager:
         """Return the list of configured PortMonitorStack objects."""
         return self.stacks
 
-    def monitor_loop(self):
+    async def monitor_loop(self) -> None:
         """Background monitoring loop.
 
         Periodically checks configured stacks and triggers restarts/notifications
@@ -586,7 +588,7 @@ class PortMonitorStackManager:
                                         "level": "error",
                                     }
                                 )
-                                notify_event(
+                                await notify_event(
                                     event_type="port_monitor_manual_ip_paused",
                                     label=stack.name,
                                     status="ERROR",
@@ -601,7 +603,7 @@ class PortMonitorStackManager:
                     if not result:
                         if getattr(stack, "manual_ip_paused", False):
                             continue  # Don't restart if paused
-                        notify_event(
+                        await notify_event(
                             event_type="port_monitor_failure",
                             label=stack.name,
                             status="FAILED",
@@ -613,11 +615,11 @@ class PortMonitorStackManager:
                                 "secondaries": stack.secondary_containers,
                             },
                         )
-                        self.restart_stack(stack)
+                        await self.restart_stack(stack)
                     self.save_stacks()
-            time.sleep(5)
+            await asyncio.sleep(5)
 
-    def start(self):
+    def start(self) -> None:
         """Start background monitoring in a daemon thread.
 
         This initializes stack status and spawns the monitoring thread if it
@@ -632,10 +634,12 @@ class PortMonitorStackManager:
             stack.status = "OK" if result else "Failed"
         self.save_stacks()
         if not self.running:
-            self.thread = threading.Thread(target=self.monitor_loop, daemon=True)
+            self.thread = threading.Thread(
+                target=lambda: asyncio.run(self.monitor_loop()), daemon=True
+            )
             self.thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the background monitoring loop and join the thread."""
         self.running = False
         if self.thread:

@@ -1,5 +1,7 @@
 """Utility to recursively redact sensitive fields from dicts for logging/event logs."""
 
+from typing import Any
+
 REDACT_KEYS = {
     "webhook_url",
     "discord_webhook",
@@ -13,7 +15,7 @@ REDACT_KEYS = {
 REDACTED = "********"
 
 
-def redact_sensitive(data):
+def redact_sensitive(data: Any) -> Any:
     """Recursively redact sensitive values in mappings and sequences.
 
     Parameters

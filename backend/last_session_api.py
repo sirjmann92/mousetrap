@@ -8,6 +8,7 @@ Persistence is a simple YAML file located at `LAST_SESSION_FILE`.
 """
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 import yaml
@@ -16,7 +17,7 @@ router = APIRouter()
 LAST_SESSION_FILE = Path("/config/last_session.yaml")
 
 
-def read_last_session():
+def read_last_session() -> str | None:
     """Read the last session label from disk.
 
     Returns:
@@ -29,7 +30,7 @@ def read_last_session():
         return data.get("label") if isinstance(data, dict) else None
 
 
-def write_last_session(label):
+def write_last_session(label: str | None) -> None:
     """Persist the given session label to disk as YAML.
 
     Args:
@@ -37,11 +38,11 @@ def write_last_session(label):
     """
     LAST_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     with LAST_SESSION_FILE.open("w", encoding="utf-8") as f:
-        yaml.safe_dump({"label": label}, f)
+        yaml.safe_dump({"label": label if label else ""}, f)
 
 
 @router.get("/last_session")
-def get_last_session():
+def get_last_session() -> dict[str, Any]:
     """HTTP GET handler that returns the last saved session label.
 
     Returns:
@@ -54,7 +55,7 @@ def get_last_session():
 
 
 @router.post("/last_session")
-async def set_last_session(request: Request):
+async def set_last_session(request: Request) -> dict[str, Any]:
     """HTTP POST handler to set and persist the last session label.
 
     Expects a JSON body with key `label`. Returns the saved label on success.

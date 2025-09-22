@@ -7,6 +7,7 @@ the backend to locate and manage session files.
 
 from pathlib import Path
 import threading
+from typing import Any
 
 import yaml
 
@@ -19,7 +20,7 @@ SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
 
 
-def get_session_path(label):
+def get_session_path(label: str) -> Path:
     """Return the filesystem path for a session identified by ``label``.
 
     The path is constructed using the module-level ``CONFIG_DIR`` and the
@@ -28,7 +29,7 @@ def get_session_path(label):
     return CONFIG_DIR / f"{SESSION_PREFIX}{label}{SESSION_SUFFIX}"
 
 
-def list_sessions():
+def list_sessions() -> list[str]:
     """Return a list of session labels present in the config directory.
 
     Scans the ``CONFIG_DIR`` for files that match the session naming
@@ -38,7 +39,7 @@ def list_sessions():
     return [f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX)] for f in files]
 
 
-def encrypt_password(password):
+def encrypt_password(password: str) -> str:
     """Placeholder for password encryption.
 
     Currently a no-op that returns the plain password. Intended to be
@@ -48,7 +49,7 @@ def encrypt_password(password):
     return password
 
 
-def decrypt_password(token):
+def decrypt_password(token: str) -> str:
     """Placeholder for password decryption.
 
     Returns the original token in the current implementation.
@@ -57,7 +58,7 @@ def decrypt_password(token):
     return token
 
 
-def load_session(label):
+def load_session(label: str) -> dict[str, Any]:
     """Load a session configuration by label.
 
     If the session file does not exist the default config is returned. The
@@ -68,7 +69,7 @@ def load_session(label):
     if not path.exists():
         cfg = get_default_config(label)
     else:
-        with _LOCK, path.open() as f:
+        with _LOCK, path.open(encoding="utf-8") as f:
             cfg = yaml.safe_load(f) or get_default_config(label)
     # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault("perk_automation", {})
@@ -123,7 +124,7 @@ def load_session(label):
     return cfg
 
 
-def save_session(cfg, old_label=None):
+def save_session(cfg: dict, old_label: str | None = None) -> None:
     """Persist a session configuration to disk.
 
     If ``old_label`` is provided and different from the new label the
@@ -144,11 +145,11 @@ def save_session(cfg, old_label=None):
     # No encryption: just save password as-is
     if "browser_cookie" not in cfg:
         cfg["browser_cookie"] = ""
-    with _LOCK, path.open("w") as f:
+    with _LOCK, path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f)
 
 
-def get_default_config(label=None):
+def get_default_config(label: str | None = None) -> dict[str, Any]:
     """Return a default configuration dictionary used for new sessions.
 
     The returned structure matches the shape expected by the rest of the
@@ -170,7 +171,7 @@ def get_default_config(label=None):
     }
 
 
-def load_config():
+def load_config() -> dict[str, Any]:
     """Load the global default configuration from CONFIG_PATH.
 
     If the config file does not exist returns a default config. Ensures a
@@ -179,7 +180,7 @@ def load_config():
     # Load default config.yaml for defaults only
     if not CONFIG_PATH.exists():
         return get_default_config()
-    with _LOCK, CONFIG_PATH.open() as f:
+    with _LOCK, CONFIG_PATH.open(encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or get_default_config()
         if "mam_ip" not in cfg:
             cfg["mam_ip"] = ""
@@ -190,7 +191,7 @@ def load_config():
         return cfg
 
 
-def save_config(cfg):
+def save_config(cfg: dict[str, Any]) -> None:
     """Persist the given global configuration to CONFIG_PATH.
 
     Ensures the config directory exists and writes the YAML file.
@@ -198,11 +199,11 @@ def save_config(cfg):
     # Save to config.yaml (for defaults)
     config_dir = CONFIG_PATH.parent
     config_dir.mkdir(parents=True, exist_ok=True)
-    with _LOCK, CONFIG_PATH.open("w") as f:
+    with _LOCK, CONFIG_PATH.open("w", encoding="utf-8") as f:
         yaml.safe_dump(cfg, f)
 
 
-def delete_session(label):
+def delete_session(label: str) -> None:
     """Delete the session file for a given label if it exists."""
 
     path = get_session_path(label)

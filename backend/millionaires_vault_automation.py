@@ -33,12 +33,12 @@ _logger: logging.Logger = logging.getLogger(__name__)
 class VaultAutomationManager:
     """Manages automated vault donations for all configured vault instances."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the VaultAutomationManager with default state and check interval."""
         self.running = False
         self.check_interval = 300  # Check every 5 minutes for configs that need processing
 
-    async def start(self):
+    async def start(self) -> None:
         """Start the vault automation manager."""
         self.running = True
         _logger.info("[VaultAutomation] Vault automation manager started")
@@ -56,12 +56,12 @@ class VaultAutomationManager:
                 _logger.error("[VaultAutomation] Error in automation loop: %s", e)
                 await asyncio.sleep(60)  # Wait 1 minute before retrying
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the vault automation manager."""
         self.running = False
         _logger.info("[VaultAutomation] Vault automation manager stopped")
 
-    async def process_all_configurations(self):
+    async def process_all_configurations(self) -> None:
         """Process all vault configurations and run automation where needed."""
         try:
             _logger.debug("[VaultAutomation] Checking all vault configurations...")
@@ -120,7 +120,7 @@ class VaultAutomationManager:
 
         return time.time() >= next_run_time
 
-    async def _process_config_automation(self, config_id: str, config: dict[str, Any]):
+    async def _process_config_automation(self, config_id: str, config: dict[str, Any]) -> None:
         """Process automation for a specific configuration."""
         automation = config.get("automation", {})
 
@@ -139,7 +139,7 @@ class VaultAutomationManager:
                 return
 
             # Extract mam_id from browser cookies
-            extracted_mam_id = extract_mam_id_from_browser_cookies(browser_mam_id)
+            extracted_mam_id = await extract_mam_id_from_browser_cookies(browser_mam_id)
             if not extracted_mam_id:
                 await self._log_automation_error(
                     config_id, "Could not extract mam_id from browser cookies", config
@@ -152,7 +152,7 @@ class VaultAutomationManager:
 
             # Test vault access first
             _logger.debug("[VaultAutomation] Validating vault access for config '%s'", config_id)
-            vault_result = validate_browser_mam_id_with_config(
+            vault_result = await validate_browser_mam_id_with_config(
                 browser_mam_id=extracted_mam_id,
                 uid=effective_uid,
                 proxy_cfg=effective_proxy,
@@ -201,7 +201,7 @@ class VaultAutomationManager:
                 config_id,
                 session_label,
             )
-            status_result = get_status(mam_id=session_mam_id, proxy_cfg=effective_proxy)
+            status_result = await get_status(mam_id=session_mam_id, proxy_cfg=effective_proxy)
 
             current_points = status_result.get("points")
             if current_points is None:
@@ -235,7 +235,7 @@ class VaultAutomationManager:
                 return
 
             # Check if we should donate to this pot cycle (if enabled)
-            pot_check = check_should_donate_to_pot(config)
+            pot_check = await check_should_donate_to_pot(config)
             if not pot_check.get("should_donate", True):
                 reason = pot_check.get("reason", "Unknown reason")
                 _logger.info(
@@ -298,7 +298,7 @@ class VaultAutomationManager:
                 )
 
                 # Send success notification
-                notify_event(
+                await notify_event(
                     event_type="vault_donation_success",
                     label=config_id,
                     status="success",
@@ -350,7 +350,7 @@ class VaultAutomationManager:
                     )
 
             # Use the unified donation function that handles before/after verification internally
-            result = perform_vault_donation(
+            result = await perform_vault_donation(
                 browser_mam_id=browser_mam_id,
                 uid=uid,
                 amount=amount,
@@ -393,7 +393,7 @@ class VaultAutomationManager:
         error_message: str,
         config: dict[str, Any],
         detailed_error: str | None = None,
-    ):
+    ) -> None:
         """Log automation errors to both system logs and event log."""
 
         full_error = f"{error_message}"
@@ -417,7 +417,7 @@ class VaultAutomationManager:
         )
 
         # Send error notification
-        notify_event(
+        await notify_event(
             event_type="vault_automation_error",
             label=config_id,
             status="error",
@@ -428,7 +428,7 @@ class VaultAutomationManager:
         # Update last run to prevent spam
         await self._update_last_run(config_id, config)
 
-    async def _update_last_run(self, config_id: str, config: dict[str, Any]):
+    async def _update_last_run(self, config_id: str, config: dict[str, Any]) -> None:
         """Update the last run timestamp for a configuration."""
         try:
             vault_config = load_vault_config()
@@ -444,7 +444,7 @@ class VaultAutomationManager:
 
 
 # Global instance
-_vault_automation_manager = None
+_vault_automation_manager: VaultAutomationManager | None = None
 
 
 def get_vault_automation_manager() -> VaultAutomationManager:
@@ -455,13 +455,13 @@ def get_vault_automation_manager() -> VaultAutomationManager:
     return _vault_automation_manager
 
 
-async def start_vault_automation():
+async def start_vault_automation() -> None:
     """Start vault automation in the background."""
     manager = get_vault_automation_manager()
     await manager.start()
 
 
-def stop_vault_automation():
+def stop_vault_automation() -> None:
     """Stop vault automation."""
     global _vault_automation_manager
     if _vault_automation_manager:
@@ -469,7 +469,7 @@ def stop_vault_automation():
 
 
 # Legacy main function for compatibility
-def main():
+def main() -> None:
     """Legacy main function - now uses async automation manager."""
 
     try:

@@ -12,8 +12,9 @@ import logging
 import os
 from pathlib import Path
 import smtplib
+from typing import Any
 
-import requests
+import aiohttp
 import yaml
 
 _logger: logging.Logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ _logger: logging.Logger = logging.getLogger(__name__)
 NOTIFY_CONFIG_PATH = os.environ.get("NOTIFY_CONFIG_PATH", "/config/notify.yaml")
 
 
-def send_webhook_notification(url: str, payload: dict, discord: bool = False) -> bool:
+async def send_webhook_notification(url: str, payload: dict, discord: bool = False) -> bool:
     """Send a JSON webhook notification.
 
     Parameters
@@ -38,14 +39,21 @@ def send_webhook_notification(url: str, payload: dict, discord: bool = False) ->
     bool
         True when the request succeeded (HTTP 2xx), False on any exception.
     """
+    timeout = aiohttp.ClientTimeout(total=10)
     try:
-        if discord:
-            # Discord expects {"content": ...}
-            data = {"content": payload.get("message") or str(payload)}
-            resp = requests.post(url, json=data, timeout=10)
-        else:
-            resp = requests.post(url, json=payload, timeout=10)
-        resp.raise_for_status()
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            if discord:
+                # Discord expects {"content": ...}
+                data = {"content": payload.get("message") or str(payload)}
+                async with session.post(url, json=data) as resp:
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        raise Exception(f"HTTP {resp.status}: {text[:200]}")
+            else:
+                async with session.post(url, json=payload) as resp:
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        raise Exception(f"HTTP {resp.status}: {text[:200]}")
     except Exception as e:
         _logger.error("[Notify] Webhook failed: %s", e)
         return False
@@ -108,7 +116,7 @@ def send_smtp_notification(
         return True
 
 
-def send_apprise_notification(
+async def send_apprise_notification(
     apprise_url: str, notify_url_string: str, payload: dict, include_prefix: bool = False
 ) -> bool:
     """Send a notification using Apprise.
@@ -140,33 +148,41 @@ def send_apprise_notification(
         else:
             post_url = f"{apprise_base}/notify"
 
-        response: requests.Response = requests.post(
-            post_url,
-            data={"urls": notify_url_string, "body": message, "title": title, "type": notif_type},
-            timeout=5,
-        )
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.post(
+                post_url,
+                data={
+                    "urls": notify_url_string,
+                    "body": message,
+                    "title": title,
+                    "type": notif_type,
+                },
+            ) as resp,
+        ):
+            if resp.status < 200 or resp.status >= 300:
+                text = await resp.text()
+                _logger.error(
+                    "[Notify] Apprise failed. Response: %s - %s",
+                    resp.status,
+                    text,
+                )
+                return False
 
-        if not response.ok:
-            _logger.error(
-                "[Notify] Apprise failed. Response: %s - %s",
-                response.status_code,
-                response.text,
-            )
-            return False
+            # Try to parse JSON; if JSON is present and explicitly indicates failure,
+            # treat that as a failure. If JSON can't be parsed, fall back to treating
+            # the 200 as success.
+            try:
+                resp_json = await resp.json()
+            except Exception:
+                resp_json = None
 
-        # Try to parse JSON; if JSON is present and explicitly indicates failure,
-        # treat that as a failure. If JSON can't be parsed, fall back to treating
-        # the 200 as success.
-        try:
-            resp_json = response.json()
-        except ValueError:
-            resp_json = None
+            if isinstance(resp_json, dict) and resp_json.get("success") is False:
+                _logger.error("[Notify] Apprise failed. success=false: %s", resp_json)
+                return False
 
-        if isinstance(resp_json, dict) and resp_json.get("success") is False:
-            _logger.error("[Notify] Apprise failed. success=false: %s", resp_json)
-            return False
-
-    except requests.RequestException as e:
+    except aiohttp.ClientError as e:
         _logger.error("[Notify] Apprise failed. %s: %s", type(e).__name__, e)
         return False
     else:
@@ -174,7 +190,7 @@ def send_apprise_notification(
         return True
 
 
-def load_notify_config():
+def load_notify_config() -> dict[str, Any]:
     """Load notification configuration from a YAML file.
 
     The path is taken from the NOTIFY_CONFIG_PATH environment variable or
@@ -188,17 +204,17 @@ def load_notify_config():
     """
     if not Path(NOTIFY_CONFIG_PATH).exists():
         return {}
-    with Path(NOTIFY_CONFIG_PATH).open() as f:
+    with Path(NOTIFY_CONFIG_PATH).open(encoding="utf-8") as f:
         return yaml.safe_load(f) or {}
 
 
-def notify_event(
+async def notify_event(
     event_type: str,
     label: str | None = None,
     status: str | None = None,
     message: str | None = None,
-    details: dict | None = None,
-):
+    details: dict[str, Any] | None = None,
+) -> None:
     """Send notification (webhook and/or SMTP) for important events.
 
     event_type: e.g. 'port_monitor_failure', 'automation_success', 'automation_failure'
@@ -228,7 +244,7 @@ def notify_event(
         webhook_url = cfg.get("webhook_url")
         discord_webhook = cfg.get("discord_webhook", False)
         if webhook_url:
-            send_webhook_notification(webhook_url, payload, discord=discord_webhook)
+            await send_webhook_notification(webhook_url, payload, discord=discord_webhook)
     # SMTP
     if rule.get("email"):
         smtp = cfg.get("smtp", {})
@@ -254,7 +270,7 @@ def notify_event(
         notify_url_string = apprise_cfg.get("notify_url_string")
         include_prefix = apprise_cfg.get("include_prefix", False)
         if apprise_url and notify_url_string:
-            send_apprise_notification(
+            await send_apprise_notification(
                 apprise_url=apprise_url,
                 notify_url_string=notify_url_string,
                 payload=payload,
