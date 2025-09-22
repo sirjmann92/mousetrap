@@ -20,7 +20,7 @@ from backend.perk_automation import buy_upload_credit, buy_vip, buy_wedge
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils_redact import redact_sensitive
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -49,7 +49,7 @@ async def manual_upload_credit(request: Request):
         raise HTTPException(status_code=400, detail="Session label required.")
     cfg = load_session(label)
     if cfg is None:
-        logger.warning("[ManualUpload] Session '%s' not found or not configured.", label)
+        _logger.warning("[ManualUpload] Session '%s' not found or not configured.", label)
         return {"success": False, "error": f"Session '{label}' not found."}
     mam_id = cfg.get("mam", {}).get("mam_id", "")
 
@@ -93,9 +93,9 @@ async def manual_upload_credit(request: Request):
                 details={"amount": amount, "error": result.get("error")},
             )
     except Exception:
-        ...  # Notification failure is ignored
+        _logger.debug("[ManualUpload] Manual upload credit purchase notification failed.")
     if success:
-        logger.info(
+        _logger.info(
             "[ManualUpload] Purchase: %sGB upload credit for session '%s' succeeded.",
             amount,
             label,
@@ -105,7 +105,7 @@ async def manual_upload_credit(request: Request):
         error_val = (
             redacted_result.get("error") if isinstance(redacted_result, dict) else redacted_result
         )
-        logger.warning(
+        _logger.warning(
             "[ManualUpload] Purchase: %sGB upload credit for session '%s' FAILED. Error: %s",
             amount,
             label,
@@ -139,7 +139,7 @@ async def manual_wedge(request: Request):
         raise HTTPException(status_code=400, detail="Session label required.")
     cfg = load_session(label)
     if cfg is None:
-        logger.warning("[ManualWedge] Session '%s' not found or not configured.", label)
+        _logger.warning("[ManualWedge] Session '%s' not found or not configured.", label)
         return {"success": False, "error": f"Session '{label}' not found."}
     mam_id = cfg.get("mam", {}).get("mam_id", "")
 
@@ -181,9 +181,9 @@ async def manual_wedge(request: Request):
                 details={"method": method, "error": result.get("error")},
             )
     except Exception:
-        ...  # Notification failure is ignored
+        _logger.debug("[ManualWedge] Manual wedge purchse notification failed.")
     if success:
-        logger.info(
+        _logger.info(
             "[ManualWedge] Purchase: Wedge (%s) for session '%s' succeeded.",
             method,
             label,
@@ -193,7 +193,7 @@ async def manual_wedge(request: Request):
         error_val = (
             redacted_result.get("error") if isinstance(redacted_result, dict) else redacted_result
         )
-        logger.warning(
+        _logger.warning(
             "[ManualWedge] Purchase: Wedge (%s) for session '%s' FAILED. Error: %s",
             method,
             label,
@@ -227,7 +227,7 @@ async def manual_vip(request: Request):
         raise HTTPException(status_code=400, detail="Session label required.")
     cfg = load_session(label)
     if cfg is None:
-        logger.warning("[ManualVIP] Session '%s' not found or not configured.", label)
+        _logger.warning("[ManualVIP] Session '%s' not found or not configured.", label)
         return {"success": False, "error": f"Session '{label}' not found."}
     mam_id = cfg.get("mam", {}).get("mam_id", "")
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
@@ -270,9 +270,9 @@ async def manual_vip(request: Request):
                     details={"weeks": "max", "error": result.get("error")},
                 )
         except Exception:
-            ...  # Notification failure is ignored
+            _logger.debug("[ManualVIP] Manual VIP (max) purchase notification failed.")
         if success:
-            logger.info(
+            _logger.info(
                 "[ManualVIP] Purchase: VIP (max) for session '%s' succeeded.",
                 label,
             )
@@ -283,7 +283,7 @@ async def manual_vip(request: Request):
                 if isinstance(redacted_result, dict)
                 else redacted_result
             )
-            logger.warning(
+            _logger.warning(
                 "[ManualVIP] Purchase: VIP (max) for session '%s' FAILED. Error: %s",
                 label,
                 error_val,
@@ -326,9 +326,9 @@ async def manual_vip(request: Request):
                 details={"weeks": weeks, "error": result.get("error")},
             )
     except Exception:
-        ...  # Notification failure is ignored
+        _logger.debug("[ManualVIP] Manual VIP purchase notification failed.")
     if success:
-        logger.info(
+        _logger.info(
             "[ManualVIP] Purchase: VIP (%s weeks) for session '%s' succeeded.",
             weeks,
             label,
@@ -338,7 +338,7 @@ async def manual_vip(request: Request):
         error_val = (
             redacted_result.get("error") if isinstance(redacted_result, dict) else redacted_result
         )
-        logger.warning(
+        _logger.warning(
             "[ManualVIP] Purchase: VIP (%s weeks) for session '%s' FAILED. Error: %s",
             weeks,
             label,

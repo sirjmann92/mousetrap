@@ -81,7 +81,7 @@ STATIC_DIR = Path(FRONTEND_BUILD_DIR) / "static"
 
 # Set up global logging configuration
 setup_logging()
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 # FastAPI app creation
 app = FastAPI(title="MouseTrap API")
@@ -294,7 +294,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
 
         # If ASN lookup failed, skip config update and logging
         if asn_to_check is None or asn_to_check == "Unknown ASN":
-            logger.info(
+            _logger.info(
                 "[AutoUpdate] label=%s ASN lookup failed or unavailable (likely fallback provider). Skipping ASN comparison to avoid false notifications.",
                 label,
             )
@@ -310,12 +310,12 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             # Log ASN compare and result at INFO level, but only once per check
             if norm_last != norm_check:
                 reason = f"ASN changed: {norm_last} -> {norm_check}"
-                logger.info(
+                _logger.info(
                     "[AutoUpdate] label=%s ASN changed, no seedbox API call. reason=%s",
                     label,
                     reason,
                 )
-                logger.debug(
+                _logger.debug(
                     "[AutoUpdate][RETURN] label=%s Returning after ASN change, no seedbox update performed. reason=%s",
                     label,
                     reason,
@@ -333,7 +333,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                     "msg": "ASN changed, no seedbox update performed.",
                     "reason": reason,
                 }
-            logger.info(
+            _logger.info(
                 "[AutoUpdate] label=%s ASN check: %s -> %s | No change needed",
                 label,
                 norm_last,
@@ -349,35 +349,35 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         ip_to_check = detected_ip
     # If IP lookup failed, skip config update and logging
     if ip_to_check is None:
-        logger.warning(
-            "[AutoUpdate] label=%s Could not detect valid public IP. Skipping config update and ASN/IP change logger.",
+        _logger.warning(
+            "[AutoUpdate] label=%s Could not detect valid public IP. Skipping config update and ASN/IP change _logger.",
             label,
         )
         return False, {"success": False, "msg": "IP lookup failed. No update performed."}
     if last_seedbox_ip is None or ip_to_check != last_seedbox_ip:
         update_needed = True
         reason = f"IP changed: {last_seedbox_ip} -> {ip_to_check or 'N/A'}"
-        logger.info(
+        _logger.info(
             "[AutoUpdate] label=%s IP changed: %s -> %s",
             label,
             last_seedbox_ip,
             ip_to_check or "N/A",
         )
     else:
-        logger.info(
+        _logger.info(
             "[AutoUpdate] label=%s IP check: %s -> %s | No change needed",
             label,
             last_seedbox_ip,
             ip_to_check,
         )
     if update_needed:
-        logger.info(
+        _logger.info(
             "[AutoUpdate] label=%s update_needed=True asn=%s reason=%s",
             label,
             asn,
             reason,
         )
-        logger.debug(
+        _logger.debug(
             "[AutoUpdate][DEBUG] label=%s session_type=%s update_needed=%s",
             label,
             session_type,
@@ -385,11 +385,11 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
         )
         # If update is needed (IP or proxied IP changed), call seedbox API
         if not mam_id:
-            logger.warning(
+            _logger.warning(
                 "[AutoUpdate] label=%s update_needed=True but mam_id is missing. Skipping seedbox API call.",
                 label,
             )
-            logger.debug(
+            _logger.debug(
                 "[AutoUpdate][RETURN] label=%s Returning due to missing mam_id. reason=%s",
                 label,
                 reason,
@@ -397,7 +397,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             return False, {"success": False, "error": "mam_id missing", "reason": reason}
         # Only treat as rate-limited if the API actually returns 429 or 'too recent', not just based on timer
         try:
-            logger.debug(
+            _logger.debug(
                 "[AutoUpdate][TRACE] label=%s About to call seedbox API (using proxy)",
                 label,
             )
@@ -408,19 +408,19 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 timeout=10,
                 proxies=proxies,
             )
-            logger.debug(
+            _logger.debug(
                 "[AutoUpdate][TRACE] label=%s Seedbox API call complete. Status=%s",
                 label,
                 resp.status_code,
             )
             try:
                 result = resp.json()
-                logger.debug(
+                _logger.debug(
                     "[AutoUpdate][TRACE] label=%s Seedbox API response JSON received",
                     label,
                 )
             except Exception as e_json:
-                logger.warning(
+                _logger.warning(
                     "[AutoUpdate][TRACE] label=%s Non-JSON response from seedbox API (error: %s)",
                     label,
                     e_json,
@@ -438,17 +438,17 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 cfg["mam_ip"] = new_ip
                 cfg["last_seedbox_update"] = now.isoformat()
                 cfg["last_seedbox_asn"] = asn
-                logger.debug("[AutoUpdate][DEBUG] label=%s about to save config", label)
+                _logger.debug("[AutoUpdate][DEBUG] label=%s about to save config", label)
                 try:
                     save_session(cfg, old_label=label)
-                    logger.debug("[AutoUpdate][DEBUG] label=%s save_session successful.", label)
+                    _logger.debug("[AutoUpdate][DEBUG] label=%s save_session successful.", label)
                 except Exception as e:
-                    logger.error(
+                    _logger.error(
                         "[AutoUpdate][ERROR] label=%s save_session failed: %s",
                         label,
                         e,
                     )
-                logger.info(
+                _logger.info(
                     "[AutoUpdate] label=%s result=success reason=%s",
                     label,
                     reason,
@@ -474,13 +474,13 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 cfg["mam_ip"] = new_ip
                 cfg["last_seedbox_update"] = now.isoformat()
                 cfg["last_seedbox_asn"] = asn
-                logger.debug("[AutoUpdate][DEBUG] label=%s about to save config", label)
+                _logger.debug("[AutoUpdate][DEBUG] label=%s about to save config", label)
                 try:
                     save_session(cfg, old_label=label)
-                    logger.debug("[AutoUpdate][DEBUG] label=%s save_session successful.", label)
+                    _logger.debug("[AutoUpdate][DEBUG] label=%s save_session successful.", label)
                 except Exception as e:
-                    logger.error("[AutoUpdate][ERROR] label=%s save_session failed: %s", label, e)
-                logger.info(
+                    _logger.error("[AutoUpdate][ERROR] label=%s save_session failed: %s", label, e)
+                _logger.info(
                     "[AutoUpdate] label=%s result=no_change reason=%s",
                     label,
                     reason,
@@ -518,7 +518,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                     "reason": reason,
                     "rate_limit_minutes": rate_limit_minutes,
                 }
-            logger.info(
+            _logger.info(
                 "[AutoUpdate] label=%s result=error reason=%s",
                 label,
                 reason,
@@ -536,13 +536,13 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
                 "reason": reason,
             }
         except Exception as e:
-            logger.warning(
+            _logger.warning(
                 "[AutoUpdate] label=%s result=exception reason=%s error=%s",
                 label,
                 reason,
                 e,
             )
-            logger.debug(
+            _logger.debug(
                 "[AutoUpdate][RETURN] label=%s Returning after exception in seedbox API call. reason=%s",
                 label,
                 reason,
@@ -558,7 +558,7 @@ def auto_update_seedbox_if_needed(cfg, label, ip_to_use, asn, now):
             return True, {"success": False, "error": str(e), "reason": reason}
     else:
         # Already logged IP/ASN compare and result above, so just add a single debug trace for return
-        logger.debug(
+        _logger.debug(
             "[AutoUpdate][RETURN] label=%s Returning default path (no update needed or triggered).",
             label,
         )
@@ -585,7 +585,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)):
 
     cfg = load_session(label) if label else None
     if cfg is None:
-        logger.warning("Session '%s' not found or not configured.", label)
+        _logger.warning("Session '%s' not found or not configured.", label)
         return {
             "configured": False,
             "status_message": "Session not configured. Please save session details to begin.",
@@ -707,7 +707,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)):
         cfg = load_session(label)
         proxy_cfg = resolve_proxy_from_session_cfg(cfg)
         # Always perform a fresh status check and update both cache and YAML
-        logger.debug(
+        _logger.debug(
             "[SessionCheck][TRIGGER] label=%s source=%s",
             label,
             "forced_api_status" if force else "auto_api_status",
@@ -727,7 +727,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)):
             )
         else:
             auto_update_triggered, auto_update_result = False, None
-            logger.debug(
+            _logger.debug(
                 "[Status] Skipping auto-update for session '%s' in %s mode",
                 label,
                 ip_monitoring_mode,
@@ -978,7 +978,7 @@ def api_list_sessions():
     Response format: {"sessions": [...labels...]}
     """
     sessions = list_sessions()
-    logger.debug("[Session] Listed sessions: count=%s", len(sessions))
+    _logger.debug("[Session] Listed sessions: count=%s", len(sessions))
     return {"sessions": sessions}
 
 
@@ -990,7 +990,7 @@ def api_load_session(label: str):
     """
     cfg = load_session(label)
     if cfg is None:
-        logger.warning("Session '%s' not found or not configured.", label)
+        _logger.warning("Session '%s' not found or not configured.", label)
         raise HTTPException(status_code=404, detail=f"Session '{label}' not found.")
     return cfg
 
@@ -1074,7 +1074,7 @@ async def api_save_session(request: Request):
             clear_ui_event_log_for_session(label)
             # Only log creation event
             save_session(cfg, old_label=old_label)
-            logger.info("[Session] Created session: label=%s", label)
+            _logger.info("[Session] Created session: label=%s", label)
             append_ui_event_log(
                 {
                     "event": "session_created",
@@ -1091,7 +1091,7 @@ async def api_save_session(request: Request):
         else:
             # Only log save event (update)
             save_session(cfg, old_label=old_label)
-            logger.info("[Session] Saved session: label=%s old_label=%s", label, old_label)
+            _logger.info("[Session] Saved session: label=%s old_label=%s", label, old_label)
             append_ui_event_log(
                 {
                     "event": "session_saved",
@@ -1106,7 +1106,7 @@ async def api_save_session(request: Request):
         try:
             register_all_session_jobs()
         except Exception as e:
-            logger.error("[APScheduler] Failed to re-register session jobs after save: %s", e)
+            _logger.error("[APScheduler] Failed to re-register session jobs after save: %s", e)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
@@ -1126,7 +1126,7 @@ def api_delete_session(label: str):
         # If no sessions remain, blank out last_session.yaml
         if len(list_sessions()) == 0:
             write_last_session(None)
-        logger.info("[Session] Deleted session: label=%s", label)
+        _logger.info("[Session] Deleted session: label=%s", label)
         append_ui_event_log(
             {
                 "event": "session_deleted",
@@ -1157,7 +1157,7 @@ async def api_save_perkautomation(request: Request):
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         if cfg is None:
-            logger.warning("Session '%s' not found or not configured.", label)
+            _logger.warning("Session '%s' not found or not configured.", label)
             return {"success": False, "error": f"Session '{label}' not found."}
         # Save automation settings to session config
         new_pa = data.get("perk_automation", {})
@@ -1205,7 +1205,7 @@ async def api_save_perkautomation(request: Request):
         save_session(cfg, old_label=label)
 
     except Exception as e:
-        logger.warning("[PerkAutomation] Failed to save automation settings: %s", e)
+        _logger.warning("[PerkAutomation] Failed to save automation settings: %s", e)
         return {"success": False, "error": str(e)}
     else:
         return {"success": True}
@@ -1225,7 +1225,7 @@ async def api_update_seedbox(request: Request):
             raise HTTPException(status_code=400, detail="Session label required.")
         cfg = load_session(label)
         if cfg is None:
-            logger.warning("Session '%s' not found or not configured.", label)
+            _logger.warning("Session '%s' not found or not configured.", label)
             raise HTTPException(status_code=404, detail=f"Session '{label}' not found.")
         mam_id = cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
@@ -1266,7 +1266,7 @@ async def api_update_seedbox(request: Request):
                 else v
                 for k, v in proxies.items()
             }
-            logger.debug(
+            _logger.debug(
                 "[SeedboxUpdate] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log
             )
 
@@ -1293,10 +1293,10 @@ async def api_update_seedbox(request: Request):
                 except Exception:
                     result = {"Success": False, "msg": f"Non-JSON response: {resp_text}"}
         except Exception as e:
-            logger.warning("[SeedboxUpdate] HTTP request failed: %s", e)
+            _logger.warning("[SeedboxUpdate] HTTP request failed: %s", e)
             return {"success": False, "error": str(e)}
 
-        logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
+        _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp.status_code == 200 and result.get("Success"):
             cfg["last_seedbox_ip"] = ip_to_use
             cfg["last_seedbox_asn"] = asn
@@ -1328,7 +1328,7 @@ async def api_update_seedbox(request: Request):
             }
         return {"success": False, "error": result.get("msg", "Unknown error"), "raw": result}
     except Exception as e:
-        logger.error("[SeedboxUpdate] Failed: %s", e)
+        _logger.error("[SeedboxUpdate] Failed: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -1382,7 +1382,7 @@ def api_vault_total():
                         }
 
     except Exception as e:
-        logger.error("[VaultTotal] Error: %s", e)
+        _logger.error("[VaultTotal] Error: %s", e)
         return {"success": False, "error": str(e)}
     else:
         return {
@@ -1399,7 +1399,7 @@ def api_vault_uid_summary(uid: str):
         summary = get_uid_vault_summary(uid)
 
     except Exception as e:
-        logger.error("[VaultUIDSummary] Error: %s", e)
+        _logger.error("[VaultUIDSummary] Error: %s", e)
         return {"status": "error", "message": f"Error getting UID summary: {e!s}"}
     else:
         return {"status": "success", "summary": summary}
@@ -1420,7 +1420,7 @@ def api_vault_uid_sync_browser_mam_id(uid: str, request: dict):
         return {"status": "success" if result["success"] else "error", "result": result}
 
     except Exception as e:
-        logger.error("[VaultUIDSync] Error: %s", e)
+        _logger.error("[VaultUIDSync] Error: %s", e)
         return {"status": "error", "message": f"Error syncing browser MAM ID: {e!s}"}
 
 
@@ -1432,7 +1432,7 @@ def api_vault_uid_conflicts(uid: str):
         conflicts = check_vault_automation_conflicts(uid)
 
     except Exception as e:
-        logger.error("[VaultUIDConflicts] Error: %s", e)
+        _logger.error("[VaultUIDConflicts] Error: %s", e)
         return {"status": "error", "message": f"Error checking conflicts: {e!s}"}
     else:
         return {"status": "success", "conflicts": conflicts}
@@ -1465,7 +1465,7 @@ def api_list_vault_configurations():
             }
 
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error listing configurations: %s", e)
+        _logger.error("[VaultConfigAPI] Error listing configurations: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         return {"configurations": configurations}
@@ -1485,7 +1485,7 @@ def api_get_vault_configuration(config_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error getting configuration '%s': %s", config_id, e)
+        _logger.error("[VaultConfigAPI] Error getting configuration '%s': %s", config_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         return vault_config
@@ -1526,7 +1526,7 @@ async def api_save_vault_configuration(config_id: str, request: Request):
             return {"success": True, "warnings": validation["warnings"]}
 
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error saving configuration '%s': %s", config_id, e)
+        _logger.error("[VaultConfigAPI] Error saving configuration '%s': %s", config_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         return {"success": False, "errors": ["Failed to save vault configuration"]}
@@ -1542,7 +1542,7 @@ def api_delete_vault_configuration(config_id: str):
             return {"success": True}
         raise HTTPException(status_code=404, detail=f"Vault configuration '{config_id}' not found")
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error deleting configuration '%s': %s", config_id, e)
+        _logger.error("[VaultConfigAPI] Error deleting configuration '%s': %s", config_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -1554,7 +1554,7 @@ def api_get_default_vault_configuration(config_id: str):
         default_config = get_default_vault_configuration()
 
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error getting default configuration: %s", e)
+        _logger.error("[VaultConfigAPI] Error getting default configuration: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         return default_config
@@ -1618,7 +1618,7 @@ async def api_validate_vault_configuration(config_id: str, request: Request):
                 }
             )
 
-            logger.info(
+            _logger.info(
                 "[VaultValidation] Test vault access for config '%s' (UID: %s): %s",
                 config_id,
                 effective_uid,
@@ -1641,7 +1641,7 @@ async def api_validate_vault_configuration(config_id: str, request: Request):
         }
 
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error validating configuration '%s': %s", config_id, e)
+        _logger.error("[VaultConfigAPI] Error validating configuration '%s': %s", config_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -1663,7 +1663,7 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
         # Use inline config if provided (for unsaved configs), otherwise load from disk
         if inline_config:
             vault_config = inline_config
-            logger.info(
+            _logger.info(
                 "[VaultDonation] Using inline config for unsaved configuration '%s'",
                 config_id,
             )
@@ -1702,7 +1702,7 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
                 session_config = load_session(vault_config["associated_session_label"])
                 session_mam_id = session_config.get("mam", {}).get("mam_id")
             except Exception as e:
-                logger.warning(
+                _logger.warning(
                     "[VaultDonation] Could not load associated session for verification: %s",
                     e,
                 )
@@ -1751,9 +1751,9 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
                     },
                 )
             except Exception as e:
-                logger.warning("[VaultDonation] Failed to send success notification: %s", e)
+                _logger.warning("[VaultDonation] Failed to send success notification: %s", e)
 
-            logger.info(
+            _logger.info(
                 "[VaultDonation] Manual donation successful for config '%s': %s points (UID: %s)",
                 config_id,
                 donation_result.get("amount_donated", amount),
@@ -1801,9 +1801,9 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
                 },
             )
         except Exception as e:
-            logger.warning("[VaultDonation] Failed to send failure notification: %s", e)
+            _logger.warning("[VaultDonation] Failed to send failure notification: %s", e)
 
-        logger.error(
+        _logger.error(
             "[VaultDonation] Manual donation failed for config '%s': %s",
             config_id,
             donation_result.get("error"),
@@ -1814,7 +1814,7 @@ async def api_vault_configuration_donate(config_id: str, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error during manual donation for '%s': %s", config_id, e)
+        _logger.error("[VaultConfigAPI] Error during manual donation for '%s': %s", config_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -1869,7 +1869,7 @@ async def api_vault_configuration_rename(config_id: str, request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("[VaultConfigAPI] Error renaming configuration '%s': %s", config_id, e)
+        _logger.error("[VaultConfigAPI] Error renaming configuration '%s': %s", config_id, e)
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
@@ -1880,20 +1880,20 @@ async def api_vault_get_points(request: Request):
         data = await request.json()
         config_id = data.get("config_id", "").strip()
 
-        logger.info("[VaultPoints] Request for config_id: '%s'", config_id)
+        _logger.info("[VaultPoints] Request for config_id: '%s'", config_id)
 
         if not config_id:
-            logger.warning("[VaultPoints] Config ID is required but not provided")
+            _logger.warning("[VaultPoints] Config ID is required but not provided")
             raise HTTPException(status_code=400, detail="Config ID is required")
 
         # Load vault configuration
         vault_config = load_vault_config()
         config = vault_config.get("vault_configurations", {}).get(config_id)
 
-        logger.info("[VaultPoints] Processing request for config '%s'", config_id)
+        _logger.info("[VaultPoints] Processing request for config '%s'", config_id)
 
         if not config:
-            logger.warning("[VaultPoints] Vault configuration '%s' not found", config_id)
+            _logger.warning("[VaultPoints] Vault configuration '%s' not found", config_id)
             raise HTTPException(
                 status_code=404, detail=f"Vault configuration '{config_id}' not found"
             )
@@ -1901,7 +1901,7 @@ async def api_vault_get_points(request: Request):
         # Get associated session label
         session_label = config.get("associated_session_label", "").strip()
         if not session_label:
-            logger.warning(
+            _logger.warning(
                 "[VaultPoints] No associated session configured for vault config '%s'", config_id
             )
             raise HTTPException(
@@ -1914,7 +1914,7 @@ async def api_vault_get_points(request: Request):
         try:
             session_config = load_session(session_label)
         except Exception as e:
-            logger.error("[VaultPoints] Failed to load session '%s': %s", session_label, e)
+            _logger.error("[VaultPoints] Failed to load session '%s': %s", session_label, e)
             raise HTTPException(
                 status_code=404,
                 detail=f"Session '{session_label}' not found or could not be loaded",
@@ -1923,7 +1923,7 @@ async def api_vault_get_points(request: Request):
         # Get mam_id from session
         mam_id = session_config.get("mam", {}).get("mam_id", "").strip()
         if not mam_id:
-            logger.warning("[VaultPoints] Session '%s' has no mam_id configured", session_label)
+            _logger.warning("[VaultPoints] Session '%s' has no mam_id configured", session_label)
             raise HTTPException(
                 status_code=400, detail=f"Session '{session_label}' has no mam_id configured"
             )
@@ -1936,7 +1936,7 @@ async def api_vault_get_points(request: Request):
 
         points = status_result.get("points")
         if points is not None:
-            logger.info(
+            _logger.info(
                 "[VaultPoints] Successfully fetched points for config '%s' via session '%s': %s",
                 config_id,
                 session_label,
@@ -1944,7 +1944,7 @@ async def api_vault_get_points(request: Request):
             )
             return {"success": True, "points": points}
         error_msg = status_result.get("message", "Unable to fetch points")
-        logger.warning(
+        _logger.warning(
             "[VaultPoints] Failed to fetch points for config '%s' via session '%s': %s",
             config_id,
             session_label,
@@ -1954,7 +1954,7 @@ async def api_vault_get_points(request: Request):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("[VaultPoints] Error fetching points: %s", e)
+        _logger.error("[VaultPoints] Error fetching points: %s", e)
         raise HTTPException(status_code=500, detail=str(e)) from e
     else:
         return {"success": False, "error": error_msg}
@@ -2021,7 +2021,7 @@ def session_check_job(label):
             args, _, _, values = inspect.getargvalues(frame)
             if "trigger_source" in values:
                 trigger_source = values["trigger_source"]
-        logger.info("[SessionCheck] label=%s source=%s", label, trigger_source)
+        _logger.info("[SessionCheck] label=%s source=%s", label, trigger_source)
         cfg = load_session(label)
         mam_id = cfg.get("mam", {}).get("mam_id", "")
         mam_ip_override = cfg.get("mam_ip", "").strip()
@@ -2077,14 +2077,14 @@ def session_check_job(label):
                 status["auto_update_seedbox"] = auto_update_result
                 # Log the result of the update attempt for visibility
                 if auto_update_result.get("success"):
-                    logger.info(
+                    _logger.info(
                         "[AutoUpdate] label=%s update result: %s reason=%s",
                         label,
                         auto_update_result.get("msg", "Success"),
                         auto_update_result.get("reason"),
                     )
                 else:
-                    logger.info(
+                    _logger.info(
                         "[AutoUpdate] label=%s update result: %s reason=%s",
                         label,
                         auto_update_result.get("error", "Error"),
@@ -2099,7 +2099,7 @@ def session_check_job(label):
             # Log event using pre-update (old) and detected/proxied (new) values
             # Ensure auto_update is always a string, never None/null in JSON
             auto_update_val = get_auto_update_val(status)
-            # ...removed debug logger...
+            # ...removed debug _logger...
             # If we are rate-limited, log a specific message instead of a generic warning
             rate_limit_result = status.get("auto_update_seedbox")
             is_rate_limited = False
@@ -2125,7 +2125,7 @@ def session_check_job(label):
                     "status_message": msg or "Rate limited, waiting to update IP/ASN in config.",
                 }
                 append_ui_event_log(event)
-                logger.info("[SessionCheck][INFO] label=%s %s", label, msg)
+                _logger.info("[SessionCheck][INFO] label=%s %s", label, msg)
             elif prev_ip is None or prev_asn is None or new_ip is None or new_asn is None:
                 warn_msg = "Unable to determine current or new IP/ASN—check connectivity or configuration. No update performed."
                 event = {
@@ -2140,7 +2140,7 @@ def session_check_job(label):
                     "status_message": warn_msg,
                 }
                 append_ui_event_log(event)
-                logger.warning("[SessionCheck][WARNING] label=%s %s", label, warn_msg)
+                _logger.warning("[SessionCheck][WARNING] label=%s %s", label, warn_msg)
             else:
                 event = {
                     "timestamp": now.isoformat(),
@@ -2154,9 +2154,9 @@ def session_check_job(label):
                     "status_message": status.get("status_message", status.get("message", "OK")),
                 }
                 append_ui_event_log(event)
-                # ...removed debug logger...
+                # ...removed debug _logger...
     except Exception as e:
-        logger.error("[APScheduler] Error in job for '%s': %s", label, e)
+        _logger.error("[APScheduler] Error in job for '%s': %s", label, e)
 
 
 # On startup, reset last_check_time to now for all sessions to keep timers in sync
@@ -2174,7 +2174,7 @@ def reset_all_last_check_times():
             cfg["last_check_time"] = now
             save_session(cfg, old_label=label)
         except Exception as e:
-            logger.warning(
+            _logger.warning(
                 "[Startup] Failed to reset last_check_time for session '%s': %s", label, e
             )
 
@@ -2194,7 +2194,7 @@ def register_all_session_jobs():
         mam_id = cfg.get("mam", {}).get("mam_id", "")
         # Only register if frequency is set and valid, and MaM ID is present
         if not check_freq or not isinstance(check_freq, int) or check_freq < 1 or not mam_id:
-            logger.info(
+            _logger.info(
                 "[APScheduler] Skipping job registration for session '%s' (missing or invalid input)",
                 label,
             )
@@ -2212,7 +2212,7 @@ def register_all_session_jobs():
             coalesce=True,
             max_instances=1,
         )
-        logger.info(
+        _logger.info(
             "[APScheduler] Registered job for session '%s' every %s min",
             label,
             check_freq,
@@ -2232,10 +2232,10 @@ def run_initial_session_checks():
             # Add a small delay between session checks to prevent rate limiting
             if i > 0:
                 time.sleep(2)
-            logger.info("[Startup] Running initial session check for '%s'", label)
+            _logger.info("[Startup] Running initial session check for '%s'", label)
             session_check_job(label)
         except Exception as e:
-            logger.warning("[Startup] Initial session check failed for '%s': %s", label, e)
+            _logger.warning("[Startup] Initial session check failed for '%s': %s", label, e)
 
 
 def main():
@@ -2257,7 +2257,7 @@ def main():
         allow_headers=["*"],
     )
 
-    logger.debug("Serving static from: %s", STATIC_DIR)
+    _logger.debug("Serving static from: %s", STATIC_DIR)
     if not Path(STATIC_DIR).is_dir():
         raise RuntimeError(f"Directory '{STATIC_DIR}' does not exist")
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -2279,9 +2279,9 @@ def main():
             coalesce=True,
             max_instances=1,
         )
-        logger.info("[APScheduler] Registered automation jobs to run every 10 min")
+        _logger.info("[APScheduler] Registered automation jobs to run every 10 min")
     except Exception as e:
-        logger.error("[APScheduler] Failed to register automation jobs: %s", e)
+        _logger.error("[APScheduler] Failed to register automation jobs: %s", e)
 
 
 if __name__ == "__main__":

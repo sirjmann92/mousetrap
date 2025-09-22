@@ -16,7 +16,7 @@ import smtplib
 import requests
 import yaml
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 # Notification config (could be loaded from YAML or env)
 NOTIFY_CONFIG_PATH = os.environ.get("NOTIFY_CONFIG_PATH", "/config/notify.yaml")
 
@@ -47,7 +47,7 @@ def send_webhook_notification(url: str, payload: dict, discord: bool = False) ->
             resp = requests.post(url, json=payload, timeout=10)
         resp.raise_for_status()
     except Exception as e:
-        logger.error("[Notify] Webhook failed: %s", e)
+        _logger.error("[Notify] Webhook failed: %s", e)
         return False
     else:
         return True
@@ -102,7 +102,7 @@ def send_smtp_notification(
         server.sendmail(username, to_email, msg.as_string())
         server.quit()
     except Exception as e:
-        logger.error("[Notify] SMTP failed: %s", e)
+        _logger.error("[Notify] SMTP failed: %s", e)
         return False
     else:
         return True
@@ -117,7 +117,7 @@ def send_apprise_notification(
     """
 
     if not notify_url_string or not apprise_url:
-        logger.error("[Notify] Apprise config missing apprise_url or notify_url_string")
+        _logger.error("[Notify] Apprise config missing apprise_url or notify_url_string")
         return False
 
     event_type = payload.get("event_type", "Notification").replace("_", " ").title()
@@ -147,7 +147,7 @@ def send_apprise_notification(
         )
 
         if not response.ok:
-            logger.error(
+            _logger.error(
                 "[Notify] Apprise failed. Response: %s - %s",
                 response.status_code,
                 response.text,
@@ -163,14 +163,14 @@ def send_apprise_notification(
             resp_json = None
 
         if isinstance(resp_json, dict) and resp_json.get("success") is False:
-            logger.error("[Notify] Apprise failed. success=false: %s", resp_json)
+            _logger.error("[Notify] Apprise failed. success=false: %s", resp_json)
             return False
 
     except requests.RequestException as e:
-        logger.error("[Notify] Apprise failed. %s: %s", type(e).__name__, e)
+        _logger.error("[Notify] Apprise failed. %s: %s", type(e).__name__, e)
         return False
     else:
-        logger.info("[Notify] Apprise sent successfully")
+        _logger.info("[Notify] Apprise sent successfully")
         return True
 
 

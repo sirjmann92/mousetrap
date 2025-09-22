@@ -12,7 +12,7 @@ import yaml
 
 CONFIG_DIR = Path("/config")
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
-LOCK = threading.Lock()
+_LOCK = threading.Lock()
 
 
 SESSION_PREFIX = "session-"
@@ -68,7 +68,7 @@ def load_session(label):
     if not path.exists():
         cfg = get_default_config(label)
     else:
-        with LOCK, path.open() as f:
+        with _LOCK, path.open() as f:
             cfg = yaml.safe_load(f) or get_default_config(label)
     # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault("perk_automation", {})
@@ -144,7 +144,7 @@ def save_session(cfg, old_label=None):
     # No encryption: just save password as-is
     if "browser_cookie" not in cfg:
         cfg["browser_cookie"] = ""
-    with LOCK, path.open("w") as f:
+    with _LOCK, path.open("w") as f:
         yaml.safe_dump(cfg, f)
 
 
@@ -179,7 +179,7 @@ def load_config():
     # Load default config.yaml for defaults only
     if not CONFIG_PATH.exists():
         return get_default_config()
-    with LOCK, CONFIG_PATH.open() as f:
+    with _LOCK, CONFIG_PATH.open() as f:
         cfg = yaml.safe_load(f) or get_default_config()
         if "mam_ip" not in cfg:
             cfg["mam_ip"] = ""
@@ -198,7 +198,7 @@ def save_config(cfg):
     # Save to config.yaml (for defaults)
     config_dir = CONFIG_PATH.parent
     config_dir.mkdir(parents=True, exist_ok=True)
-    with LOCK, CONFIG_PATH.open("w") as f:
+    with _LOCK, CONFIG_PATH.open("w") as f:
         yaml.safe_dump(cfg, f)
 
 

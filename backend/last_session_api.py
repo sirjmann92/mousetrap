@@ -24,7 +24,7 @@ def read_last_session():
     """
     if not LAST_SESSION_FILE.exists():
         return None
-    with LAST_SESSION_FILE.open() as f:
+    with LAST_SESSION_FILE.open(encoding="utf-8") as f:
         data = yaml.safe_load(f)
         return data.get("label") if isinstance(data, dict) else None
 
@@ -35,7 +35,8 @@ def write_last_session(label):
     Args:
         label: The session label to persist.
     """
-    with LAST_SESSION_FILE.open("w") as f:
+    LAST_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with LAST_SESSION_FILE.open("w", encoding="utf-8") as f:
         yaml.safe_dump({"label": label}, f)
 
 

@@ -12,7 +12,7 @@ import aiohttp
 
 from backend.utils import build_proxy_dict
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 async def get_proxied_public_ip(proxy_cfg):
@@ -34,11 +34,11 @@ async def get_proxied_public_ip(proxy_cfg):
                 if resp.status == 200:
                     return text.strip()
         except Exception as e:
-            logger.warning("[get_proxied_public_ip] Failed: %s", e)
+            _logger.warning("[get_proxied_public_ip] Failed: %s", e)
             return None
     except Exception as e:
         # Defensive: preserve original behavior on unexpected errors
-        logger.warning("[get_proxied_public_ip] Failed: %s", e)
+        _logger.warning("[get_proxied_public_ip] Failed: %s", e)
         return None
 
 
@@ -61,13 +61,13 @@ async def get_proxied_public_ip_and_asn(proxy_cfg):
                 try:
                     data = json.loads(text)
                 except Exception as je:
-                    logger.warning("[get_proxied_public_ip_and_asn] JSON parse failed: %s", je)
+                    _logger.warning("[get_proxied_public_ip_and_asn] JSON parse failed: %s", je)
                     return None, None
                 ip = data.get("ip")
                 asn = data.get("org", "Unknown ASN")
                 return ip, asn
     except Exception as e:
-        logger.warning("[get_proxied_public_ip_and_asn] Failed: %s", e)
+        _logger.warning("[get_proxied_public_ip_and_asn] Failed: %s", e)
         return None, None
     return None, None
 
@@ -123,7 +123,7 @@ async def get_status(mam_id=None, proxy_cfg=None):
             else v
             for k, v in proxies.items()
         }
-        logger.debug("[get_status] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log)
+        _logger.debug("[get_status] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log)
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         proxy_url = (
@@ -136,7 +136,7 @@ async def get_status(mam_id=None, proxy_cfg=None):
             # Handle HTTP errors similarly to requests.raise_for_status
             if resp.status >= 400:
                 if resp.status == 403:
-                    logger.warning(
+                    _logger.warning(
                         "[get_status] 403 Forbidden for url: %s | proxy_label: %s | proxies: %s | cookies: %s",
                         url,
                         proxy_label,
@@ -144,7 +144,7 @@ async def get_status(mam_id=None, proxy_cfg=None):
                         cookies,
                     )
                 else:
-                    logger.warning(
+                    _logger.warning(
                         "[get_status] HTTP error %s for url: %s | proxy_label: %s | proxies: %s | cookies: %s",
                         resp.status,
                         url,

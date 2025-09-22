@@ -13,11 +13,13 @@ import urllib.parse
 import requests
 import yaml
 
-from backend.config import LOCK, list_sessions, load_session
+from backend.config import _LOCK, list_sessions, load_session
 from backend.proxy_config import load_proxies
 from backend.utils import build_proxy_dict
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
+
+POT_CYCLE_THRESHOLD = 20000000
 
 
 def get_vault_config_path():
@@ -40,13 +42,13 @@ def load_vault_config() -> dict[str, Any]:
         return {"vault_configurations": {}}
 
     try:
-        with LOCK, Path(path).open("r") as f:
+        with _LOCK, Path(path).open("r") as f:
             config = yaml.safe_load(f) or {}
             if "vault_configurations" not in config:
                 config["vault_configurations"] = {}
             return config
     except Exception as e:
-        logger.error("[VaultConfig] Error loading vault config: %s", e)
+        _logger.error("[VaultConfig] Error loading vault config: %s", e)
         return {"vault_configurations": {}}
 
 
@@ -58,12 +60,12 @@ def save_vault_config(config: dict[str, Any]) -> bool:
         # Ensure directory exists
         Path(path).parent.mkdir(parents=True, exist_ok=True)
 
-        with LOCK, Path(path).open("w") as f:
+        with _LOCK, Path(path).open("w") as f:
             yaml.dump(config, f, default_flow_style=False, sort_keys=True)
 
-        logger.info("[VaultConfig] Saved vault configuration")
+        _logger.info("[VaultConfig] Saved vault configuration")
     except Exception as e:
-        logger.error("[VaultConfig] Error saving vault config: %s", e)
+        _logger.error("[VaultConfig] Error saving vault config: %s", e)
         return False
     else:
         return True
@@ -189,7 +191,7 @@ def get_effective_uid(vault_config: dict[str, Any]) -> str | None:
                 session_config = load_session(session_label)
                 return session_config.get("last_status", {}).get("raw", {}).get("uid")
             except Exception as e:
-                logger.error(
+                _logger.error(
                     "[VaultConfig] Error getting UID from session '%s': %s",
                     session_label,
                     e,
@@ -204,11 +206,9 @@ def get_effective_uid(vault_config: dict[str, Any]) -> str | None:
                 uid_match = re.search(r"uid=([^;]+)", browser_mam_id)
                 if uid_match:
                     return uid_match.group(1).strip()
-                logger.warning("[VaultConfig] No UID found in browser cookie string")
+                _logger.warning("[VaultConfig] No UID found in browser cookie string")
             except Exception as e:
-                logger.error("[VaultConfig] Error parsing UID from browser cookies: %s", e)
-                return None
-            else:
+                _logger.error("[VaultConfig] Error parsing UID from browser cookies: %s", e)
                 return None
 
     return None
@@ -227,9 +227,9 @@ def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> str | None:
             # URL decode the mam_id value in case it's encoded
             try:
                 decoded_mam_id = urllib.parse.unquote(mam_id_value)
-                logger.debug("[VaultConfig] Extracted and decoded mam_id: [REDACTED]")
+                _logger.debug("[VaultConfig] Extracted and decoded mam_id: [REDACTED]")
             except Exception as decode_error:
-                logger.warning(
+                _logger.warning(
                     "[VaultConfig] Failed to URL decode mam_id, using original: %s",
                     decode_error,
                 )
@@ -238,12 +238,12 @@ def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> str | None:
                 return decoded_mam_id
         else:
             # If no mam_id= prefix, assume the whole string is the mam_id value
-            logger.warning(
+            _logger.warning(
                 "[VaultConfig] No 'mam_id=' found in browser cookie string, using full string"
             )
             return browser_mam_id.strip()
     except Exception as e:
-        logger.error("[VaultConfig] Error extracting mam_id from browser cookies: %s", e)
+        _logger.error("[VaultConfig] Error extracting mam_id from browser cookies: %s", e)
         return None
 
 
@@ -265,7 +265,7 @@ def get_effective_proxy_config(vault_config: dict[str, Any]) -> dict[str, Any] |
         if proxy_label in available_proxies:
             return available_proxies[proxy_label]
     except Exception as e:
-        logger.error("[VaultConfig] Error getting proxy config '%s': %s", proxy_label, e)
+        _logger.error("[VaultConfig] Error getting proxy config '%s': %s", proxy_label, e)
 
     return None
 
@@ -315,11 +315,11 @@ def fetch_pot_donation_history(
             "success": True,
             "current_pot_total": current_pot,
             "user_donations": user_donations,
-            "pot_id": f"pot_{current_pot // 20000000}",  # Rough pot cycle identifier
+            "pot_id": f"pot_{current_pot // POT_CYCLE_THRESHOLD}",  # Rough pot cycle identifier
         }
 
     except Exception as e:
-        logger.error("[VaultConfig] Error fetching pot donation history: %s", e)
+        _logger.error("[VaultConfig] Error fetching pot donation history: %s", e)
         return {"success": False, "error": str(e)}
 
 
@@ -348,7 +348,7 @@ def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, Any]:
 
         if not pot_info.get("success"):
             # If we can't fetch pot info, err on the side of caution and allow donation
-            logger.warning(
+            _logger.warning(
                 "[VaultConfig] Could not fetch pot info, allowing donation: %s",
                 pot_info.get("error"),
             )
@@ -366,7 +366,7 @@ def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, Any]:
             }
 
     except Exception as e:
-        logger.error("[VaultConfig] Error checking pot donation status: %s", e)
+        _logger.error("[VaultConfig] Error checking pot donation status: %s", e)
         # On error, allow donation to avoid blocking legitimate donations
         return {"should_donate": True, "reason": f"Error checking status: {e}"}
     else:
@@ -399,13 +399,13 @@ def update_pot_tracking(vault_config_id: str, pot_id: str) -> bool:
         success = save_vault_config(full_config)
 
         if success:
-            logger.info(
+            _logger.info(
                 "[VaultConfig] Updated pot tracking for config '%s': donated to pot %s",
                 vault_config_id,
                 pot_id,
             )
     except Exception as e:
-        logger.error("[VaultConfig] Error updating pot tracking: %s", e)
+        _logger.error("[VaultConfig] Error updating pot tracking: %s", e)
         return False
     else:
         return success

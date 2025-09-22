@@ -12,7 +12,7 @@ from backend.config import list_sessions, load_session
 from backend.mam_api import get_status
 from backend.utils import build_proxy_dict
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 def build_browser_cookies_from_session(session_config: dict, browser_mam_id: str) -> str:
@@ -135,7 +135,7 @@ def get_browser_headers(browser_type: str = "chrome") -> dict:
     browser_type = browser_type.lower()
     headers = browser_headers.get(browser_type, browser_headers["chrome"])
 
-    logger.info(
+    _logger.info(
         "[get_browser_headers] Using headers for %s: User-Agent: %s...",
         browser_type,
         headers["User-Agent"][:50],
@@ -188,9 +188,9 @@ def parse_browser_cookies(cookie_string: str) -> dict[str, str]:
                         value = urllib.parse.unquote(value)
                     cookies[key] = value
 
-        logger.debug("[parse_browser_cookies] Parsed cookies: %s", list(cookies.keys()))
+        _logger.debug("[parse_browser_cookies] Parsed cookies: %s", list(cookies.keys()))
     except Exception as e:
-        logger.error("[parse_browser_cookies] Error parsing cookie string: %s", e)
+        _logger.error("[parse_browser_cookies] Error parsing cookie string: %s", e)
 
     return cookies
 
@@ -242,7 +242,7 @@ def validate_browser_mam_id(
         cookie_string = f"mam_id={actual_mam_id}; uid={uid}"
         result["cookie_string"] = cookie_string
 
-        logger.debug(
+        _logger.debug(
             "[validate_browser_mam_id] Testing browser_mam_id with session UID %s, browser: %s",
             uid,
             browser_type,
@@ -270,7 +270,7 @@ def validate_browser_mam_id(
 
     except Exception as e:
         result["error"] = f"Validation error: {e!s}"
-        logger.error("[validate_browser_mam_id] Exception: %s", e)
+        _logger.error("[validate_browser_mam_id] Exception: %s", e)
 
     return result
 
@@ -278,11 +278,11 @@ def validate_browser_mam_id(
 def _try_vault_access_direct(vault_url: str, cookies: dict, headers: dict, result: dict) -> dict:
     """Try vault access via direct connection."""
     try:
-        logger.info("[validate_browser_mam_id] Attempting vault access via direct connection")
+        _logger.info("[validate_browser_mam_id] Attempting vault access via direct connection")
 
         resp = requests.get(vault_url, cookies=cookies, headers=headers, timeout=10)
 
-        logger.info("[validate_browser_mam_id] Direct access result: status=%s", resp.status_code)
+        _logger.info("[validate_browser_mam_id] Direct access result: status=%s", resp.status_code)
 
         if resp.status_code == 200:
             html = resp.text.lower()
@@ -293,7 +293,7 @@ def _try_vault_access_direct(vault_url: str, cookies: dict, headers: dict, resul
                 for term in ["donation", "millionaire", "vault", "contribute", "donate"]
             )
 
-            logger.info(
+            _logger.info(
                 "[validate_browser_mam_id] Direct access analysis: login_form=%s, login_text=%s, vault_terms=%s",
                 has_login_form,
                 has_login_text,
@@ -304,7 +304,7 @@ def _try_vault_access_direct(vault_url: str, cookies: dict, headers: dict, resul
                 result["vault_accessible"] = True
                 result["valid"] = True
                 result["access_method"] = "direct"
-                logger.info(
+                _logger.info(
                     "[validate_browser_mam_id] Vault access successful via direct connection!"
                 )
             else:
@@ -316,7 +316,7 @@ def _try_vault_access_direct(vault_url: str, cookies: dict, headers: dict, resul
 
     except Exception as e:
         result["error"] = f"Direct connection failed: {e!s}"
-        logger.warning("[validate_browser_mam_id] Direct access failed: %s", e)
+        _logger.warning("[validate_browser_mam_id] Direct access failed: %s", e)
 
     return result
 
@@ -335,13 +335,13 @@ def _try_vault_access_proxy(
             result["error"] = "Proxy method selected but proxy configuration invalid"
             return result
 
-        logger.info("[validate_browser_mam_id] Attempting vault access via proxy")
+        _logger.info("[validate_browser_mam_id] Attempting vault access via proxy")
 
         resp = requests.get(
             vault_url, cookies=cookies, proxies=proxies, headers=headers, timeout=10
         )
 
-        logger.info("[validate_browser_mam_id] Proxy access result: status=%s", resp.status_code)
+        _logger.info("[validate_browser_mam_id] Proxy access result: status=%s", resp.status_code)
 
         if resp.status_code == 200:
             html = resp.text.lower()
@@ -352,7 +352,7 @@ def _try_vault_access_proxy(
                 for term in ["donation", "millionaire", "vault", "contribute", "donate"]
             )
 
-            logger.info(
+            _logger.info(
                 "[validate_browser_mam_id] Proxy access analysis: login_form=%s, login_text=%s, vault_terms=%s",
                 has_login_form,
                 has_login_text,
@@ -363,7 +363,7 @@ def _try_vault_access_proxy(
                 result["vault_accessible"] = True
                 result["valid"] = True
                 result["access_method"] = "proxy"
-                logger.info("[validate_browser_mam_id] Vault access successful via proxy!")
+                _logger.info("[validate_browser_mam_id] Vault access successful via proxy!")
             else:
                 result["error"] = (
                     "Proxy connection failed - browser MAM ID may not work with this proxy IP"
@@ -373,7 +373,7 @@ def _try_vault_access_proxy(
 
     except Exception as e:
         result["error"] = f"Proxy connection failed: {e!s}"
-        logger.warning("[validate_browser_mam_id] Proxy access failed: %s", e)
+        _logger.warning("[validate_browser_mam_id] Proxy access failed: %s", e)
 
     return result
 
@@ -383,7 +383,7 @@ def _try_vault_access_auto(
 ) -> dict:
     """Try vault access - direct first, then proxy fallback."""
     # First try direct
-    logger.info("[validate_browser_mam_id] Auto mode: trying direct connection first")
+    _logger.info("[validate_browser_mam_id] Auto mode: trying direct connection first")
     result = _try_vault_access_direct(vault_url, cookies, headers, result)
 
     if result["valid"]:
@@ -391,7 +391,7 @@ def _try_vault_access_auto(
 
     # If direct failed and we have proxy config, try proxy
     if proxy_cfg:
-        logger.info("[validate_browser_mam_id] Auto mode: direct failed, trying proxy")
+        _logger.info("[validate_browser_mam_id] Auto mode: direct failed, trying proxy")
         result = _try_vault_access_proxy(vault_url, cookies, headers, proxy_cfg, result)
 
         if result["valid"]:
@@ -401,7 +401,7 @@ def _try_vault_access_auto(
     result["error"] = (
         "Both direct and proxy connections failed - browser MAM ID may be tied to different IP"
     )
-    logger.warning("[validate_browser_mam_id] Auto mode: both direct and proxy access failed")
+    _logger.warning("[validate_browser_mam_id] Auto mode: both direct and proxy access failed")
 
     return result
 
@@ -439,7 +439,7 @@ def check_seedbox_session_health(mam_id: str, proxy_cfg: dict | None = None) -> 
 
     except Exception as e:
         result["error"] = f"Health check error: {e!s}"
-        logger.warning("[check_seedbox_session_health] Error: %s", e)
+        _logger.warning("[check_seedbox_session_health] Error: %s", e)
 
     return result
 
@@ -608,16 +608,16 @@ def validate_browser_mam_id_with_config(
         cookie_string = f"mam_id={actual_mam_id}; uid={uid}"
         result["cookie_string"] = cookie_string
 
-        logger.info(
+        _logger.info(
             "[validate_browser_mam_id_with_config] Raw browser_mam_id: %s...",
             browser_mam_id[:50],
         )
-        logger.info("[validate_browser_mam_id_with_config] Parsed cookies: %s", parsed_cookies)
-        logger.info(
+        _logger.info("[validate_browser_mam_id_with_config] Parsed cookies: %s", parsed_cookies)
+        _logger.info(
             "[validate_browser_mam_id_with_config] Final cookie_string: %s...",
             cookie_string[:50],
         )
-        logger.info(
+        _logger.info(
             "[validate_browser_mam_id_with_config] Testing browser_mam_id with UID %s, browser: %s",
             uid,
             browser_type,
@@ -642,7 +642,7 @@ def validate_browser_mam_id_with_config(
 
     except Exception as e:
         result["error"] = f"Validation error: {e!s}"
-        logger.error("[validate_browser_mam_id_with_config] Exception: %s", e)
+        _logger.error("[validate_browser_mam_id_with_config] Exception: %s", e)
 
     return result
 
@@ -698,7 +698,7 @@ def get_vault_total_points(mam_id: str, uid: str, proxy_cfg: dict | None = None)
             points_str = points_match.group(1).replace(",", "")
             result["vault_total_points"] = int(points_str)
             result["success"] = True
-            logger.info(
+            _logger.info(
                 "[get_vault_total_points] Current vault total: %s points",
                 f"{result['vault_total_points']:,}",
             )
@@ -707,7 +707,7 @@ def get_vault_total_points(mam_id: str, uid: str, proxy_cfg: dict | None = None)
 
     except Exception as e:
         result["error"] = f"Error fetching vault total: {e!s}"
-        logger.error("[get_vault_total_points] Exception: %s", e)
+        _logger.error("[get_vault_total_points] Exception: %s", e)
 
     return result
 
@@ -768,15 +768,15 @@ def perform_vault_donation(
                         break
 
                 if session_config:
-                    logger.info(
+                    _logger.info(
                         "[perform_vault_donation] Using session-based verification with mam_id: [REDACTED]"
                     )
                 else:
-                    logger.warning(
+                    _logger.warning(
                         "[perform_vault_donation] Could not find session with mam_id [REDACTED]"
                     )
             except Exception as e:
-                logger.warning(
+                _logger.warning(
                     "[perform_vault_donation] Error loading session for verification: %s",
                     e,
                 )
@@ -786,18 +786,18 @@ def perform_vault_donation(
             try:
                 status_before = get_status(mam_id=verification_mam_id, proxy_cfg=session_proxy_cfg)
                 result["points_before"] = status_before.get("points")
-                logger.info(
+                _logger.info(
                     "[perform_vault_donation] Points before donation (session): %s",
                     result["points_before"],
                 )
             except Exception as e:
-                logger.warning(
+                _logger.warning(
                     "[perform_vault_donation] Could not get points before donation via session: %s",
                     e,
                 )
         else:
             result["verification_method"] = "browser_fallback"
-            logger.info("[perform_vault_donation] No session available for verification")
+            _logger.info("[perform_vault_donation] No session available for verification")
 
         # Prepare cookies and headers
         # Parse browser_mam_id to detect browser type and extract actual mam_id
@@ -805,7 +805,7 @@ def perform_vault_donation(
         browser_type = parsed_cookies.get("browser", "chrome")  # Default to chrome
         actual_mam_id = parsed_cookies.get("mam_id") or browser_mam_id
 
-        logger.info(
+        _logger.info(
             "[perform_vault_donation] Browser parsing - browser_mam_id length: %s, parsed_cookies: %s, browser_type: %s",
             len(browser_mam_id),
             parsed_cookies,
@@ -853,7 +853,7 @@ def perform_vault_donation(
                     expected_points = result["points_before"] - amount
                     points_difference = result["points_before"] - result["points_after"]
 
-                    logger.info(
+                    _logger.info(
                         "[perform_vault_donation] Unified verification - Before: %s, After: %s, Expected: %s, Actual difference: %s",
                         result["points_before"],
                         result["points_after"],
@@ -866,13 +866,13 @@ def perform_vault_donation(
                         points_difference >= (amount * 0.5)
                         and abs(points_difference - amount) <= 50
                     ):  # Stricter verification
-                        logger.info(
+                        _logger.info(
                             "[perform_vault_donation] Unified verification successful - donation confirmed"
                         )
                         result["success"] = True
                         result["amount_donated"] = amount
                     else:
-                        logger.warning(
+                        _logger.warning(
                             "[perform_vault_donation] Unified verification failed - points did not decrease correctly"
                         )
                         result["success"] = False
@@ -880,14 +880,14 @@ def perform_vault_donation(
                             f"Donation verification failed - expected {amount} point decrease, got {points_difference}"
                         )
                 else:
-                    logger.warning("[perform_vault_donation] Could not get points after donation")
+                    _logger.warning("[perform_vault_donation] Could not get points after donation")
                     result["success"] = False
                     result["error"] = (
                         "Could not verify donation - unable to check points after donation"
                     )
 
             except Exception as e:
-                logger.warning(
+                _logger.warning(
                     "[perform_vault_donation] Error during post-donation verification: %s",
                     e,
                 )
@@ -898,26 +898,26 @@ def perform_vault_donation(
             result["success"] = donation_result.get("success", False)
             result["amount_donated"] = donation_result.get("amount_donated", 0)
             result["error"] = donation_result.get("error")
-            logger.info(
+            _logger.info(
                 "[perform_vault_donation] No unified verification available - using donation result: %s",
                 result["success"],
             )
 
         # Log final result
         if result["success"]:
-            logger.info(
+            _logger.info(
                 "[perform_vault_donation] Final result: SUCCESS - %s points donated via %s",
                 result["amount_donated"],
                 result["access_method"],
             )
         else:
-            logger.error(
+            _logger.error(
                 "[perform_vault_donation] Final result: FAILED - %s",
                 result.get("error", "Unknown error"),
             )
 
     except Exception as e:
-        logger.error("[perform_vault_donation] Exception during donation: %s", e)
+        _logger.error("[perform_vault_donation] Exception during donation: %s", e)
         result["error"] = f"Donation failed: {e!s}"
         return result
     else:
@@ -934,7 +934,7 @@ def _perform_vault_donation_direct(
 ) -> dict:
     """Perform vault donation via direct connection."""
     try:
-        logger.info(
+        _logger.info(
             "[perform_vault_donation] Attempting donation via direct connection: %s points",
             amount,
         )
@@ -944,11 +944,11 @@ def _perform_vault_donation_direct(
 
         if resp.status_code != 200:
             result["error"] = f"Failed to access vault page: HTTP {resp.status_code}"
-            logger.error("[perform_vault_donation] GET request failed: %s", resp.status_code)
+            _logger.error("[perform_vault_donation] GET request failed: %s", resp.status_code)
             return result
 
         html = resp.text
-        logger.debug("[perform_vault_donation] Vault page HTML length: %s", len(html))
+        _logger.debug("[perform_vault_donation] Vault page HTML length: %s", len(html))
 
         # Check if we're logged in (not seeing login form)
         if 'type="password"' in html.lower() or 'name="password"' in html.lower():
@@ -961,7 +961,7 @@ def _perform_vault_donation_direct(
         if points_match:
             points_str = points_match.group(1).replace(",", "")
             result["vault_total_points"] = int(points_str)
-            logger.info(
+            _logger.info(
                 "[perform_vault_donation] Current vault total: %s points",
                 f"{result['vault_total_points']:,}",
             )
@@ -979,14 +979,14 @@ def _perform_vault_donation_direct(
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
                 csrf_token = match.group(1)
-                logger.info(
+                _logger.info(
                     "[perform_vault_donation] Found potential token: %s...",
                     csrf_token[:20],
                 )
                 break
 
         if not csrf_token:
-            logger.info("[perform_vault_donation] No CSRF token found in page")
+            _logger.info("[perform_vault_donation] No CSRF token found in page")
 
         # Look for any other required form fields
         hidden_fields = {}
@@ -996,7 +996,7 @@ def _perform_vault_donation_direct(
             field_value = match.group(2)
             if field_name.lower() not in ["csrf_token", "token", "_token"]:  # Don't duplicate token
                 hidden_fields[field_name] = field_value
-                logger.info(
+                _logger.info(
                     "[perform_vault_donation] Found hidden field: %s = %s...",
                     field_name,
                     field_value[:20],
@@ -1023,22 +1023,22 @@ def _perform_vault_donation_direct(
         # Use the exact URL from documentation - no need for complex form parsing
         post_url = vault_url  # Always use the same URL for POST as documented
 
-        logger.info("[perform_vault_donation] POST URL: %s", post_url)
-        logger.info("[perform_vault_donation] Form data: %s", donation_data)
-        logger.info("[perform_vault_donation] Headers: %s", headers)
+        _logger.info("[perform_vault_donation] POST URL: %s", post_url)
+        _logger.info("[perform_vault_donation] Form data: %s", donation_data)
+        _logger.info("[perform_vault_donation] Headers: %s", headers)
 
         # Submit donation
         donation_resp = requests.post(
             post_url, data=donation_data, cookies=cookies, headers=headers, timeout=10
         )
 
-        logger.info("[perform_vault_donation] POST response status: %s", donation_resp.status_code)
+        _logger.info("[perform_vault_donation] POST response status: %s", donation_resp.status_code)
 
         if donation_resp.status_code == 200:
             donation_html = donation_resp.text.lower()
 
             # Log response snippet for debugging
-            logger.info(
+            _logger.info(
                 "[perform_vault_donation] Response preview: %s",
                 donation_resp.text[:300],
             )
@@ -1059,7 +1059,7 @@ def _perform_vault_donation_direct(
 
             # If we don't have a clear success indicator, verify by checking points balance
             if not has_success_indicator and result.get("points_before"):
-                logger.info(
+                _logger.info(
                     "[perform_vault_donation] No clear success indicator found, verifying by checking points balance"
                 )
 
@@ -1086,7 +1086,7 @@ def _perform_vault_donation_direct(
                             if current_points is not None:
                                 expected_points = result["points_before"] - amount
 
-                                logger.info(
+                                _logger.info(
                                     "[perform_vault_donation] Points verification (session) - Before: %s, Current: %s, Expected: %s",
                                     result["points_before"],
                                     current_points,
@@ -1097,26 +1097,26 @@ def _perform_vault_donation_direct(
                                 if (
                                     abs(current_points - expected_points) <= 100
                                 ):  # Allow 100 point discrepancy for rounding/timing
-                                    logger.info(
+                                    _logger.info(
                                         "[perform_vault_donation] Points verification successful - donation appears to have worked"
                                     )
                                     has_success_indicator = True
                                     result["points_after"] = current_points
                                 else:
-                                    logger.warning(
+                                    _logger.warning(
                                         "[perform_vault_donation] Points verification failed - points did not decrease as expected"
                                     )
                             else:
-                                logger.warning(
+                                _logger.warning(
                                     "[perform_vault_donation] Could not verify points via session - get_status returned no points"
                                 )
                         else:
-                            logger.warning(
+                            _logger.warning(
                                 "[perform_vault_donation] Could not find session with mam_id %s for verification",
                                 verification_mam_id,
                             )
                     except Exception as e:
-                        logger.warning(
+                        _logger.warning(
                             "[perform_vault_donation] Error during session-based verification: %s",
                             e,
                         )
@@ -1134,7 +1134,7 @@ def _perform_vault_donation_direct(
                     if current_points is not None:
                         expected_points = result["points_before"] - amount
 
-                        logger.info(
+                        _logger.info(
                             "[perform_vault_donation] Points verification (browser) - Before: %s, Current: %s, Expected: %s",
                             result["points_before"],
                             current_points,
@@ -1145,17 +1145,17 @@ def _perform_vault_donation_direct(
                         if (
                             abs(current_points - expected_points) <= 100
                         ):  # Allow 100 point discrepancy for rounding/timing
-                            logger.info(
+                            _logger.info(
                                 "[perform_vault_donation] Points verification successful - donation appears to have worked"
                             )
                             has_success_indicator = True
                             result["points_after"] = current_points
                         else:
-                            logger.warning(
+                            _logger.warning(
                                 "[perform_vault_donation] Points verification failed - points did not decrease as expected"
                             )
                     else:
-                        logger.warning(
+                        _logger.warning(
                             "[perform_vault_donation] Could not verify points - get_status returned no points"
                         )
 
@@ -1173,7 +1173,7 @@ def _perform_vault_donation_direct(
                         points_str = new_points_match.group(1).replace(",", "")
                         result["points_after"] = int(points_str)
 
-                logger.info(
+                _logger.info(
                     "[perform_vault_donation] Direct donation successful: %s points", amount
                 )
             # Look for specific error messages
@@ -1187,10 +1187,10 @@ def _perform_vault_donation_direct(
                 result["error"] = "Authentication failed - cookies may be expired"
             else:
                 result["error"] = "Donation not processed - no success confirmation received"
-                logger.warning("[perform_vault_donation] No success indicators found in response")
+                _logger.warning("[perform_vault_donation] No success indicators found in response")
         else:
             result["error"] = f"Donation request failed: HTTP {donation_resp.status_code}"
-            logger.error(
+            _logger.error(
                 "[perform_vault_donation] POST failed with %s: %s",
                 donation_resp.status_code,
                 donation_resp.text[:200],
@@ -1198,7 +1198,7 @@ def _perform_vault_donation_direct(
 
     except Exception as e:
         result["error"] = f"Direct donation failed: {e!s}"
-        logger.warning("[perform_vault_donation] Direct donation failed: %s", e)
+        _logger.warning("[perform_vault_donation] Direct donation failed: %s", e)
 
     return result
 
@@ -1218,7 +1218,7 @@ def _perform_vault_donation_proxy(
             result["error"] = "Proxy method selected but no proxy configured"
             return result
 
-        logger.info("[perform_vault_donation] Attempting donation via proxy: %s points", amount)
+        _logger.info("[perform_vault_donation] Attempting donation via proxy: %s points", amount)
 
         # Use the same logic as direct but with proxy
         proxies = build_proxy_dict(proxy_cfg)
@@ -1290,7 +1290,7 @@ def _perform_vault_donation_proxy(
 
             # If we don't have a clear success indicator, verify by checking points balance
             if not has_success_indicator and result.get("points_before"):
-                logger.info(
+                _logger.info(
                     "[perform_vault_donation] No clear success indicator found, verifying by checking points balance via proxy"
                 )
 
@@ -1323,7 +1323,7 @@ def _perform_vault_donation_proxy(
                 if current_points is not None:
                     expected_points = result["points_before"] - amount
 
-                    logger.info(
+                    _logger.info(
                         "[perform_vault_donation] Points verification via proxy - Before: %s, Current: %s, Expected: %s",
                         result["points_before"],
                         current_points,
@@ -1334,17 +1334,17 @@ def _perform_vault_donation_proxy(
                     if (
                         abs(current_points - expected_points) <= 100
                     ):  # Allow 100 point discrepancy for rounding/timing
-                        logger.info(
+                        _logger.info(
                             "[perform_vault_donation] Points verification successful via proxy - donation appears to have worked"
                         )
                         has_success_indicator = True
                         result["points_after"] = current_points
                     else:
-                        logger.warning(
+                        _logger.warning(
                             "[perform_vault_donation] Points verification failed via proxy - points did not decrease as expected"
                         )
                 else:
-                    logger.warning(
+                    _logger.warning(
                         "[perform_vault_donation] Could not verify points via proxy - get_status returned no points"
                     )
 
@@ -1362,7 +1362,9 @@ def _perform_vault_donation_proxy(
                         points_str = new_points_match.group(1).replace(",", "")
                         result["points_after"] = int(points_str)
 
-                logger.info("[perform_vault_donation] Proxy donation successful: %s points", amount)
+                _logger.info(
+                    "[perform_vault_donation] Proxy donation successful: %s points", amount
+                )
             # Look for specific error messages
             elif "insufficient" in donation_html or "not enough" in donation_html:
                 result["error"] = "Insufficient points for donation"
@@ -1374,7 +1376,7 @@ def _perform_vault_donation_proxy(
                 result["error"] = "Authentication failed - cookies may be expired"
             else:
                 result["error"] = "Donation not processed - no success confirmation received"
-                logger.warning(
+                _logger.warning(
                     "[perform_vault_donation] No success indicators found in proxy response"
                 )
         else:
@@ -1382,7 +1384,7 @@ def _perform_vault_donation_proxy(
 
     except Exception as e:
         result["error"] = f"Proxy donation failed: {e!s}"
-        logger.warning("[perform_vault_donation] Proxy donation failed: %s", e)
+        _logger.warning("[perform_vault_donation] Proxy donation failed: %s", e)
 
     return result
 
@@ -1397,7 +1399,7 @@ def _perform_vault_donation_auto(
     verification_mam_id: str | None = None,
 ) -> dict:
     """Perform vault donation using auto method (try direct first, then proxy)."""
-    logger.info("[perform_vault_donation] Attempting auto donation: %s points", amount)
+    _logger.info("[perform_vault_donation] Attempting auto donation: %s points", amount)
 
     # Try direct first
     result = _perform_vault_donation_direct(
@@ -1409,7 +1411,9 @@ def _perform_vault_donation_auto(
 
     # If direct failed and proxy is available, try proxy
     if proxy_cfg:
-        logger.info("[perform_vault_donation] Direct failed, trying proxy: %s", result.get("error"))
+        _logger.info(
+            "[perform_vault_donation] Direct failed, trying proxy: %s", result.get("error")
+        )
         # Reset result for proxy attempt
         result = {
             "success": False,
@@ -1423,6 +1427,6 @@ def _perform_vault_donation_auto(
             vault_url, cookies, headers, amount, proxy_cfg, result, verification_mam_id
         )
     else:
-        logger.warning("[perform_vault_donation] Direct failed and no proxy available")
+        _logger.warning("[perform_vault_donation] Direct failed and no proxy available")
 
     return result

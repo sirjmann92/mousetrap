@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from backend.event_log import append_ui_event_log
 from backend.port_monitor import port_monitor_manager
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -30,7 +30,7 @@ def list_containers():
         containers = client.containers.list()
         return [c.name for c in containers]
     except Exception as e:
-        logger.error("[PortMonitorAPI] Error listing containers: %s", e)
+        _logger.error("[PortMonitorAPI] Error listing containers: %s", e)
         raise HTTPException(status_code=500, detail="Error listing containers") from e
 
 
@@ -60,7 +60,7 @@ def update_stack(
     """
 
     stack = port_monitor_manager.get_stack(name)
-    logger.info("[PortMonitorStackAPI] Restart requested for stack '%s'", name)
+    _logger.info("[PortMonitorStackAPI] Update requested for stack '%s'", name)
     if not stack:
         raise HTTPException(status_code=404, detail="Stack not found")
     # Only log if something actually changed
@@ -87,11 +87,11 @@ def update_stack(
     if changed:
         append_ui_event_log(
             {
-                "event": "port_monitor_restart_requested",
+                "event": "port_monitor_edit",
                 "event_type": "port_monitor_edit",
                 "label": name,
                 "stack": name,
-                "timestamp": datetime.now(tz=UTC),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "status_message": f"Stack '{name}' edited: primary={req.primary_container}:{req.primary_port}, secondaries={req.secondary_containers}, interval={req.interval} minutes.",
                 "details": {
                     "old": old_values,
@@ -102,7 +102,7 @@ def update_stack(
                         "interval": req.interval,
                     },
                 },
-                "message": f"Restart requested for stack '{name}'",
+                "message": f"Stack '{name}' edited",
                 "level": "info",
             }
         )
@@ -182,7 +182,7 @@ def add_stack(req: AddPortMonitorStackRequest):
             "event_type": "port_monitor_create",
             "label": req.name,
             "stack": req.name,
-            "timestamp": datetime.now(tz=UTC),
+            "timestamp": datetime.now(UTC).isoformat(),
             "status_message": f"Stack '{req.name}' created: primary={req.primary_container}:{req.primary_port}, secondaries={req.secondary_containers}, interval={req.interval} minutes.",
             "details": {
                 "primary_container": req.primary_container,
@@ -222,7 +222,7 @@ def delete_stack(name: str = Query(..., description="Stack name")):
             "event_type": "port_monitor_delete",
             "label": name,
             "stack": name,
-            "timestamp": datetime.now(tz=UTC),
+            "timestamp": datetime.now(UTC).isoformat(),
             "status_message": f"Stack '{name}' deleted.",
             "details": {},
             "message": f"Stack '{name}' deleted.",
@@ -246,7 +246,7 @@ def restart_stack(name: str = Query(..., description="Stack name")):
     # Set status to 'Restarting' and save immediately
     stack.status = "Restarting"
     port_monitor_manager.save_stacks()
-    logger.info("[PortMonitorStackAPI] Stack '%s' status set to 'Restarting'", name)
+    _logger.info("[PortMonitorStackAPI] Stack '%s' status set to 'Restarting'", name)
     append_ui_event_log(
         {
             "event": "port_monitor_status",
@@ -260,7 +260,7 @@ def restart_stack(name: str = Query(..., description="Stack name")):
     # Run restart in background
     def do_restart():
         """Background worker that performs the restart and subsequent recheck."""
-        logger.info(
+        _logger.info(
             "[PortMonitorStackAPI] Background restart thread started for stack '%s'",
             name,
         )
@@ -273,7 +273,7 @@ def restart_stack(name: str = Query(..., description="Stack name")):
             }
         )
         port_monitor_manager.restart_stack(stack)
-        logger.info(
+        _logger.info(
             "[PortMonitorStackAPI] Restart complete for stack '%s', rechecking status...",
             name,
         )
@@ -286,7 +286,7 @@ def restart_stack(name: str = Query(..., description="Stack name")):
             }
         )
         port_monitor_manager.recheck_stack(stack.name)
-        logger.info("[PortMonitorStackAPI] Status recheck complete for stack '%s'", name)
+        _logger.info("[PortMonitorStackAPI] Status recheck complete for stack '%s'", name)
         append_ui_event_log(
             {
                 "event": "port_monitor_status_rechecked",

@@ -9,7 +9,7 @@ from typing import Any
 
 from backend.config import list_sessions, load_session, save_session
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 def get_sessions_by_uid(target_uid: str) -> list[dict[str, Any]]:
@@ -42,11 +42,11 @@ def get_sessions_by_uid(target_uid: str) -> list[dict[str, Any]]:
                     )
 
             except Exception as e:
-                logger.warning("[get_sessions_by_uid] Error loading session %s: %s", label, e)
+                _logger.warning("[get_sessions_by_uid] Error loading session %s: %s", label, e)
                 continue
 
     except Exception as e:
-        logger.error("[get_sessions_by_uid] Error: %s", e)
+        _logger.error("[get_sessions_by_uid] Error: %s", e)
 
     return matching_sessions
 
@@ -87,7 +87,7 @@ def sync_browser_mam_id_across_uid_sessions(target_uid: str, browser_mam_id: str
             except Exception as e:
                 error_msg = f"Failed to update session {session_data['label']}: {e}"
                 result["errors"].append(error_msg)
-                logger.warning("[sync_browser_mam_id_across_uid_sessions] %s", error_msg)
+                _logger.warning("[sync_browser_mam_id_across_uid_sessions] %s", error_msg)
 
         if result["updated_sessions"]:
             result["success"] = True
@@ -99,7 +99,7 @@ def sync_browser_mam_id_across_uid_sessions(target_uid: str, browser_mam_id: str
 
     except Exception as e:
         result["message"] = f"Sync error: {e!s}"
-        logger.error("[sync_browser_mam_id_across_uid_sessions] Error: %s", e)
+        _logger.error("[sync_browser_mam_id_across_uid_sessions] Error: %s", e)
 
     return result
 
@@ -140,7 +140,7 @@ def check_vault_automation_conflicts(target_uid: str) -> dict[str, Any]:
 
     except Exception as e:
         result["message"] = f"Conflict check error: {e!s}"
-        logger.error("[check_vault_automation_conflicts] Error: %s", e)
+        _logger.error("[check_vault_automation_conflicts] Error: %s", e)
 
     return result
 
@@ -193,6 +193,6 @@ def get_uid_vault_summary(target_uid: str) -> dict[str, Any]:
         result["browser_mam_id_values"] = list(result["browser_mam_id_values"])
 
     except Exception as e:
-        logger.error("[get_uid_vault_summary] Error: %s", e)
+        _logger.error("[get_uid_vault_summary] Error: %s", e)
 
     return result

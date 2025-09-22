@@ -27,7 +27,7 @@ from backend.vault_config import (
     update_pot_tracking,
 )
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 class VaultAutomationManager:
@@ -41,42 +41,42 @@ class VaultAutomationManager:
     async def start(self):
         """Start the vault automation manager."""
         self.running = True
-        logger.info("[VaultAutomation] Vault automation manager started")
+        _logger.info("[VaultAutomation] Vault automation manager started")
 
         while self.running:
             try:
-                logger.debug("[VaultAutomation] Running automation check cycle...")
+                _logger.debug("[VaultAutomation] Running automation check cycle...")
                 await self.process_all_configurations()
-                logger.debug(
+                _logger.debug(
                     "[VaultAutomation] Automation check completed, sleeping for %s seconds",
                     self.check_interval,
                 )
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                logger.error("[VaultAutomation] Error in automation loop: %s", e)
+                _logger.error("[VaultAutomation] Error in automation loop: %s", e)
                 await asyncio.sleep(60)  # Wait 1 minute before retrying
 
     def stop(self):
         """Stop the vault automation manager."""
         self.running = False
-        logger.info("[VaultAutomation] Vault automation manager stopped")
+        _logger.info("[VaultAutomation] Vault automation manager stopped")
 
     async def process_all_configurations(self):
         """Process all vault configurations and run automation where needed."""
         try:
-            logger.debug("[VaultAutomation] Checking all vault configurations...")
+            _logger.debug("[VaultAutomation] Checking all vault configurations...")
             vault_config = load_vault_config()
             configurations = vault_config.get("vault_configurations", {})
 
-            logger.debug("[VaultAutomation] Found %s vault configurations", len(configurations))
+            _logger.debug("[VaultAutomation] Found %s vault configurations", len(configurations))
 
             for config_id, config in configurations.items():
-                logger.debug(
+                _logger.debug(
                     "[VaultAutomation] Checking config '%s' for automation eligibility",
                     config_id,
                 )
                 if self._should_process_config(config):
-                    logger.info(
+                    _logger.info(
                         "[VaultAutomation] Config '%s' is eligible for automation",
                         config_id,
                     )
@@ -89,7 +89,7 @@ class VaultAutomationManager:
                     next_run_time = last_run + (frequency_hours * 3600) if last_run else "never run"
                     current_time = time.time()
 
-                    logger.debug(
+                    _logger.debug(
                         "[VaultAutomation] Config '%s' not eligible - enabled: %s, last_run: %s, frequency_hours: %s, next_run_time: %s, current_time: %s",
                         config_id,
                         enabled,
@@ -100,7 +100,7 @@ class VaultAutomationManager:
                     )
 
         except Exception as e:
-            logger.error("[VaultAutomation] Error processing configurations: %s", e)
+            _logger.error("[VaultAutomation] Error processing configurations: %s", e)
 
     def _should_process_config(self, config: dict[str, Any]) -> bool:
         """Check if a configuration should be processed for automation."""
@@ -125,7 +125,7 @@ class VaultAutomationManager:
         automation = config.get("automation", {})
 
         try:
-            logger.info("[VaultAutomation] Processing automation for config '%s'", config_id)
+            _logger.info("[VaultAutomation] Processing automation for config '%s'", config_id)
 
             # Validate configuration and get effective values
             effective_uid = get_effective_uid(config)
@@ -151,7 +151,7 @@ class VaultAutomationManager:
             connection_method = config.get("connection_method", "direct")
 
             # Test vault access first
-            logger.debug("[VaultAutomation] Validating vault access for config '%s'", config_id)
+            _logger.debug("[VaultAutomation] Validating vault access for config '%s'", config_id)
             vault_result = validate_browser_mam_id_with_config(
                 browser_mam_id=extracted_mam_id,
                 uid=effective_uid,
@@ -196,7 +196,7 @@ class VaultAutomationManager:
 
             # Use the existing get_status function to fetch points (same as vault points API)
 
-            logger.debug(
+            _logger.debug(
                 "[VaultAutomation] Fetching points for config '%s' via session '%s' with mam_id: [REDACTED]",
                 config_id,
                 session_label,
@@ -206,7 +206,7 @@ class VaultAutomationManager:
             current_points = status_result.get("points")
             if current_points is None:
                 error_msg = status_result.get("message", "Unable to fetch points")
-                logger.warning(
+                _logger.warning(
                     "[VaultAutomation] Cannot get current points for config '%s': %s - skipping this run",
                     config_id,
                     error_msg,
@@ -217,7 +217,7 @@ class VaultAutomationManager:
             # current_points is already set from status_result.get('points')
             min_threshold = automation.get("min_points_threshold", 2000)
 
-            logger.info(
+            _logger.info(
                 "[VaultAutomation] Config '%s' has %s points (threshold: %s)",
                 config_id,
                 current_points,
@@ -225,7 +225,7 @@ class VaultAutomationManager:
             )
 
             if current_points < min_threshold:
-                logger.info(
+                _logger.info(
                     "[VaultAutomation] Config '%s' has %s points, below threshold %s - no donation",
                     config_id,
                     current_points,
@@ -238,19 +238,19 @@ class VaultAutomationManager:
             pot_check = check_should_donate_to_pot(config)
             if not pot_check.get("should_donate", True):
                 reason = pot_check.get("reason", "Unknown reason")
-                logger.info(
+                _logger.info(
                     "[VaultAutomation] Config '%s' skipping donation: %s", config_id, reason
                 )
                 await self._update_last_run(config_id, config)
                 return
             pot_reason = pot_check.get("reason", "Pot check passed")
-            logger.debug("[VaultAutomation] Config '%s' pot check: %s", config_id, pot_reason)
+            _logger.debug("[VaultAutomation] Config '%s' pot check: %s", config_id, pot_reason)
 
             # Calculate donation amount
             donation_amount = automation.get("donation_amount", 100)
 
             # Perform the donation
-            logger.info(
+            _logger.info(
                 "[VaultAutomation] Making automated donation of %s points for config '%s'",
                 donation_amount,
                 config_id,
@@ -271,13 +271,13 @@ class VaultAutomationManager:
                 if current_pot_id and config.get("automation", {}).get("once_per_pot", False):
                     pot_update_success = update_pot_tracking(config_id, current_pot_id)
                     if pot_update_success:
-                        logger.info(
+                        _logger.info(
                             "[VaultAutomation] Updated pot tracking for config '%s': pot %s",
                             config_id,
                             current_pot_id,
                         )
                     else:
-                        logger.warning(
+                        _logger.warning(
                             "[VaultAutomation] Failed to update pot tracking for config '%s'",
                             config_id,
                         )
@@ -310,7 +310,7 @@ class VaultAutomationManager:
             await self._update_last_run(config_id, config)
 
         except Exception as e:
-            logger.error("[VaultAutomation] Error processing config '%s': %s", config_id, e)
+            _logger.error("[VaultAutomation] Error processing config '%s': %s", config_id, e)
             await self._log_automation_error(
                 config_id, f"Automation processing error: {e!s}", config
             )
@@ -327,7 +327,7 @@ class VaultAutomationManager:
     ) -> bool:
         """Perform the actual automated donation using unified verification system."""
         try:
-            logger.debug(
+            _logger.debug(
                 "[VaultAutomation] Making actual donation of %s points for config '%s'",
                 amount,
                 config_id,
@@ -339,12 +339,12 @@ class VaultAutomationManager:
                 try:
                     session_config = load_session(config["associated_session_label"])
                     session_mam_id = session_config.get("mam", {}).get("mam_id")
-                    logger.debug(
+                    _logger.debug(
                         "[VaultAutomation] Using session '%s' for verification with mam_id: [REDACTED]",
                         config["associated_session_label"],
                     )
                 except Exception as e:
-                    logger.warning(
+                    _logger.warning(
                         "[VaultAutomation] Could not load associated session for verification: %s",
                         e,
                     )
@@ -364,12 +364,12 @@ class VaultAutomationManager:
                 points_after = result.get("points_after")
                 verification_method = result.get("verification_method", "unknown")
 
-                logger.info(
+                _logger.info(
                     "[VaultAutomation] Donation successful for config '%s': %s points donated",
                     config_id,
                     amount,
                 )
-                logger.debug(
+                _logger.debug(
                     "[VaultAutomation] Verification: %s - Before: %s, After: %s",
                     verification_method,
                     points_before,
@@ -377,12 +377,12 @@ class VaultAutomationManager:
                 )
                 return True
             error_msg = result.get("error", "Unknown error")
-            logger.error(
+            _logger.error(
                 "[VaultAutomation] Donation failed for config '%s': %s", config_id, error_msg
             )
 
         except Exception as e:
-            logger.error("[VaultAutomation] Donation failed for config '%s': %s", config_id, e)
+            _logger.error("[VaultAutomation] Donation failed for config '%s': %s", config_id, e)
             return False
         else:
             return False
@@ -400,7 +400,7 @@ class VaultAutomationManager:
         if detailed_error:
             full_error += f" - {detailed_error}"
 
-        logger.error("[VaultAutomation] Config '%s': %s", config_id, full_error)
+        _logger.error("[VaultAutomation] Config '%s': %s", config_id, full_error)
 
         # Log to event log
         append_ui_event_log(
@@ -438,7 +438,7 @@ class VaultAutomationManager:
                 )
                 save_vault_config(vault_config)
         except Exception as e:
-            logger.error(
+            _logger.error(
                 "[VaultAutomation] Error updating last run for config '%s': %s", config_id, e
             )
 
@@ -475,9 +475,9 @@ def main():
     try:
         asyncio.run(start_vault_automation())
     except KeyboardInterrupt:
-        logger.info("[VaultAutomation] Vault automation stopped by user")
+        _logger.info("[VaultAutomation] Vault automation stopped by user")
     except Exception as e:
-        logger.error("[VaultAutomation] Vault automation crashed: %s", e)
+        _logger.error("[VaultAutomation] Vault automation crashed: %s", e)
 
 
 if __name__ == "__main__":

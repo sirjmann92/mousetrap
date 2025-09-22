@@ -11,7 +11,7 @@ import requests
 
 from backend.utils import build_proxy_dict
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
@@ -44,14 +44,14 @@ def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
                     else v
                     for k, v in proxies.items()
                 }
-                logger.debug(
+                _logger.debug(
                     "[buy_upload_credit] Using proxy label: %s, proxies: %s",
                     proxy_label,
                     proxy_url_log,
                 )
-        logger.debug("[buy_upload_credit] Making request to: %s", url)
+        _logger.debug("[buy_upload_credit] Making request to: %s", url)
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
-        logger.debug("[buy_upload_credit] Response: status=%s", resp.status_code)
+        _logger.debug("[buy_upload_credit] Response: status=%s", resp.status_code)
         resp.raise_for_status()
         try:
             data = resp.json()
@@ -64,7 +64,7 @@ def buy_upload_credit(gb, mam_id=None, proxy_cfg=None):
         if data.get("success") or data.get("Success"):
             return {"success": True, "gb": gb, "response": data}
     except Exception as e:
-        logger.error("[buy_upload_credit] Exception: %s", e)
+        _logger.error("[buy_upload_credit] Exception: %s", e)
         return {"success": False, "error": str(e), "gb": gb}
     else:
         return {"success": False, "gb": gb, "response": data}
@@ -99,13 +99,15 @@ def buy_vip(mam_id, duration="max", proxy_cfg=None):
                 else v
                 for k, v in proxies.items()
             }
-            logger.debug("[buy_vip] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log)
+            _logger.debug(
+                "[buy_vip] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log
+            )
     try:
-        logger.debug("[buy_vip] Making request to: %s with params: %s", url, params)
+        _logger.debug("[buy_vip] Making request to: %s with params: %s", url, params)
         resp = requests.get(
             url, params=params, cookies=cookies, timeout=10, proxies=proxies, headers=headers
         )
-        logger.debug("[buy_vip] Response: status=%s", resp.status_code)
+        _logger.debug("[buy_vip] Response: status=%s", resp.status_code)
         resp.raise_for_status()
         try:
             data = resp.json()
@@ -119,7 +121,7 @@ def buy_vip(mam_id, duration="max", proxy_cfg=None):
         if data.get("success") or data.get("Success"):
             return {"success": True, "response": data}
     except Exception as e:
-        logger.error("[buy_vip] Exception: %s", e)
+        _logger.error("[buy_vip] Exception: %s", e)
         return {"success": False, "error": str(e)}
     else:
         return {"success": False, "response": data}
@@ -154,13 +156,13 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None):
                 else v
                 for k, v in proxies.items()
             }
-            logger.debug(
+            _logger.debug(
                 "[buy_wedge] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log
             )
     try:
-        logger.debug("[buy_wedge] Making request to: %s", url)
+        _logger.debug("[buy_wedge] Making request to: %s", url)
         resp = requests.get(url, cookies=cookies, timeout=10, proxies=proxies, headers=headers)
-        logger.debug("[buy_wedge] Response: status=%s", resp.status_code)
+        _logger.debug("[buy_wedge] Response: status=%s", resp.status_code)
         resp.raise_for_status()
         try:
             data = resp.json()
@@ -174,7 +176,7 @@ def buy_wedge(mam_id, method="points", proxy_cfg=None):
         if data.get("success") or data.get("Success"):
             return {"success": True, "response": data}
     except Exception as e:
-        logger.error("[buy_wedge] Exception: %s", e)
+        _logger.error("[buy_wedge] Exception: %s", e)
         return {"success": False, "error": str(e)}
     else:
         return {"success": False, "response": data}

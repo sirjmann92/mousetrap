@@ -29,7 +29,9 @@ def save_notify_config(cfg):
         cfg: Dictionary containing the notification configuration to save.
 
     """
-    with Path(NOTIFY_CONFIG_PATH).open("w") as f:
+    path = Path(NOTIFY_CONFIG_PATH)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w") as f:
         yaml.safe_dump(cfg, f)
 
 

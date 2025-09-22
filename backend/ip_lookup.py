@@ -24,7 +24,7 @@ import requests
 
 from backend.utils import build_proxy_dict
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 # Simple cache to prevent duplicate rapid requests (reduce 403 errors)
 _ip_cache = {}
 _cache_timeout = 30  # Cache for 30 seconds
@@ -39,7 +39,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
     if cache_key in _ip_cache:
         cached_data, cached_time = _ip_cache[cache_key]
         if current_time - cached_time < _cache_timeout:
-            logger.debug("[IP Lookup] Using cached result for %s", ip or "self")
+            _logger.debug("[IP Lookup] Using cached result for %s", ip or "self")
             return cached_data
 
     providers = []
@@ -53,7 +53,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
 
     # 1. IPinfo Lite (if token available) - Best data quality and highest limits
     if ipinfo_token:
-        logger.debug(
+        _logger.debug(
             "[IP Lookup] IPinfo token: ***%s",
             ipinfo_token[-4:] if len(ipinfo_token) > 4 else "***",
         )
@@ -68,7 +68,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
     # 2. ipdata.co - Use with API key if available, otherwise free tier
     # Note: Currently experiencing connectivity issues, but keeping in chain
     if ipdata_api_key:
-        logger.debug(
+        _logger.debug(
             "[IP Lookup] ipdata API key: ***%s",
             ipdata_api_key[-4:] if len(ipdata_api_key) > 4 else "***",
         )
@@ -77,7 +77,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
         else:
             url_ipdata = f"https://api.ipdata.co/?api-key={ipdata_api_key}"
     else:
-        logger.debug(
+        _logger.debug(
             "[IP Lookup] No IPDATA_API_KEY set, using ipdata.co free tier (1500 requests/day)"
         )
         if ip:
@@ -94,7 +94,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
     providers.append((url_ipapi, "ipapi", headers))
 
     # 4. IPinfo Standard - Good HTTPS fallback without authentication required
-    logger.debug("[IP Lookup] Adding IPinfo Standard API as fallback (1000 requests/month)")
+    _logger.debug("[IP Lookup] Adding IPinfo Standard API as fallback (1000 requests/month)")
     if ip:
         url_ipinfo_std = f"https://ipinfo.io/{ip}/json"
     else:
@@ -125,7 +125,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
             else v
             for k, v in proxies.items()
         }
-    logger.debug("[ip_lookup] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log)
+        _logger.debug("[ip_lookup] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log)
 
     for provider_data in providers:
         url, provider = provider_data[0], provider_data[1]
@@ -134,7 +134,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
         try:
             resp = requests.get(url, timeout=10, proxies=proxies, headers=request_headers)
             if resp.status_code != 200:
-                logger.warning(
+                _logger.warning(
                     "%s lookup failed for IP %s: HTTP %s",
                     provider,
                     ip or "self",
@@ -149,7 +149,7 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
                 else:
                     data = resp.json()
             except Exception as json_e:
-                logger.warning(
+                _logger.warning(
                     "%s lookup failed for IP %s: Invalid JSON response - %s",
                     provider,
                     ip or "self",
@@ -157,8 +157,8 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
                 )
                 continue
 
-            logger.debug("%s raw response for IP %s: %s", provider, ip or "self", data)
-            logger.debug("%s lookup successful for IP %s", provider, ip or "self")
+            _logger.debug("%s raw response for IP %s: %s", provider, ip or "self", data)
+            _logger.debug("%s lookup successful for IP %s", provider, ip or "self")
 
             # Normalize output for ipinfo_lite and ipinfo_standard
             result = None
@@ -229,10 +229,10 @@ def get_ipinfo_with_fallback(ip: str | None = None, proxy_cfg=None) -> dict:
                 return result
 
         except Exception as e:
-            logger.warning("%s lookup failed for IP %s: %s", provider, ip or "self", e)
+            _logger.warning("%s lookup failed for IP %s: %s", provider, ip or "self", e)
             continue
 
-    logger.error(
+    _logger.error(
         "All IP lookup providers failed for IP %s. Fallback chain: ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded IPs",
         ip or "self",
     )
@@ -246,7 +246,7 @@ def get_asn_and_timezone_from_ip(ip, proxy_cfg=None, ipinfo_data=None):
         asn = data.get("asn", None)
         tz = data.get("timezone", None)
     except Exception as e:
-        logger.warning("ASN lookup failed for IP %s: %s", ip, e)
+        _logger.warning("ASN lookup failed for IP %s: %s", ip, e)
         return None, None
     else:
         return asn, tz

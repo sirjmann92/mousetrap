@@ -25,7 +25,7 @@ from backend.notifications_backend import notify_event
 from backend.perk_automation import buy_upload_credit, buy_vip, buy_wedge
 from backend.proxy_config import resolve_proxy_from_session_cfg
 
-logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 # --- Automation Scheduler ---
@@ -80,7 +80,7 @@ def upload_credit_automation_job():
             if session_min_points is not None and int(points) < int(session_min_points):
                 guardrail_reason = f"Below session minimum points: {points} < {session_min_points}"
                 log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -103,11 +103,7 @@ def upload_credit_automation_job():
             last_purchase = None
             if last_upload_time:
                 try:
-                    last_purchase = datetime.fromisoformat(
-                        last_upload_time
-                        if "T" in last_upload_time
-                        else last_upload_time.replace(" ", "T")
-                    )
+                    last_purchase = datetime.fromisoformat(last_upload_time)
                 except Exception:
                     last_purchase = None
             now_dt = now if isinstance(now, datetime) else datetime.now(UTC)
@@ -134,7 +130,7 @@ def upload_credit_automation_job():
                         "(Time-based trigger not satisfied.)"
                     )
                 log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -155,7 +151,7 @@ def upload_credit_automation_job():
                     f"Below automation point threshold: {points} < {trigger_point_threshold}"
                 )
                 log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -194,7 +190,7 @@ def upload_credit_automation_job():
             }
 
             if success:
-                logger.info(
+                _logger.info(
                     "[UploadAuto] Automated purchase: Upload Credit (%s GB) for session '%s' succeeded.",
                     gb_amount,
                     label,
@@ -210,7 +206,7 @@ def upload_credit_automation_job():
                     details={"amount": gb_amount, "points_before": points},
                 )
             else:
-                logger.warning(
+                _logger.warning(
                     "[UploadAuto] Automated purchase: Upload Credit (%s GB) for session '%s' FAILED. Error: %s",
                     gb_amount,
                     label,
@@ -225,7 +221,7 @@ def upload_credit_automation_job():
                 )
             append_ui_event_log(event)
         except Exception as e:
-            logger.error("[UploadAuto] Error for '%s': %s", label, e)
+            _logger.error("[UploadAuto] Error for '%s': %s", label, e)
 
 
 def vip_automation_job():
@@ -267,7 +263,7 @@ def vip_automation_job():
             if session_min_points is not None and int(points) < int(session_min_points):
                 guardrail_reason = f"Below session minimum points: {points} < {session_min_points}"
                 log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -295,9 +291,7 @@ def vip_automation_job():
             last_purchase = None
             if last_vip_time:
                 try:
-                    last_purchase = datetime.fromisoformat(
-                        last_vip_time if "T" in last_vip_time else last_vip_time.replace(" ", "T")
-                    )
+                    last_purchase = datetime.fromisoformat(last_vip_time)
                 except Exception:
                     last_purchase = None
             now_dt = now if isinstance(now, datetime) else datetime.now(UTC)
@@ -324,7 +318,7 @@ def vip_automation_job():
                         "(Time-based trigger not satisfied.)"
                     )
                 log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -350,7 +344,7 @@ def vip_automation_job():
                     f"Below automation point threshold: {points} < {trigger_point_threshold}"
                 )
                 log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -375,7 +369,7 @@ def vip_automation_job():
             cooldown_until = automation.get("cooldown_until")
             now_ts = int(time.time())
             if cooldown_until and now_ts < cooldown_until:
-                logger.info(
+                _logger.info(
                     "[VIPAuto] label=%s trigger=automation result=skipped reason=cooldown active until %s",
                     label,
                     cooldown_until,
@@ -397,7 +391,7 @@ def vip_automation_job():
             # If retry > 0, and last failure was < 60s ago, wait before retrying
             last_fail_time = automation.get("last_fail_time", 0)
             if retry > 0 and (now_ts - last_fail_time) < 60:
-                logger.info(
+                _logger.info(
                     "[VIPAuto] label=%s trigger=automation result=skipped reason=waiting_between_retries retry=%s",
                     label,
                     retry,
@@ -442,7 +436,7 @@ def vip_automation_job():
             }
 
             if success:
-                logger.info(
+                _logger.info(
                     "[VIPAuto] Automated purchase: VIP (%s) for session '%s' succeeded.",
                     ("max" if is_max else weeks),
                     label,
@@ -461,7 +455,7 @@ def vip_automation_job():
                     details={"amount": weeks, "points_before": points},
                 )
             else:
-                logger.warning(
+                _logger.warning(
                     "[VIPAuto] Automated purchase: VIP (%s) for session '%s' FAILED. Error: %s",
                     ("max" if is_max else weeks),
                     label,
@@ -474,7 +468,7 @@ def vip_automation_job():
                 if retry >= 3:
                     # Set cooldown until next main run (10 min = 600s)
                     automation["cooldown_until"] = now_ts + 600
-                    logger.warning(
+                    _logger.warning(
                         "[VIPAuto] Automated purchase: VIP (%s) for session '%s' retries_exceeded, cooldown_until=%s",
                         ("max" if is_max else weeks),
                         label,
@@ -490,7 +484,7 @@ def vip_automation_job():
                 )
             append_ui_event_log(event)
         except Exception as e:
-            logger.error(
+            _logger.error(
                 "[VIPAuto] label=%s trigger=automation result=exception error=%s", label, e
             )
 
@@ -529,7 +523,7 @@ def wedge_automation_job():
                 points = 0
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
             session_min_points = cfg.get("perk_automation", {}).get("min_points")
-            logger.debug(
+            _logger.debug(
                 "[AutoWedge][DEBUG] Session '%s': points=%s, session_min_points=%s",
                 label,
                 points,
@@ -538,7 +532,7 @@ def wedge_automation_job():
             if session_min_points is not None and int(points) < int(session_min_points):
                 guardrail_reason = f"Below session minimum points: {points} < {session_min_points}"
                 log_msg = "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -561,11 +555,7 @@ def wedge_automation_job():
             last_purchase = None
             if last_wedge_time:
                 try:
-                    last_purchase = datetime.fromisoformat(
-                        last_wedge_time
-                        if "T" in last_wedge_time
-                        else last_wedge_time.replace(" ", "T")
-                    )
+                    last_purchase = datetime.fromisoformat(last_wedge_time)
                 except Exception:
                     last_purchase = None
             now_dt = now if isinstance(now, datetime) else datetime.now(UTC)
@@ -592,7 +582,7 @@ def wedge_automation_job():
                         "(Time-based trigger not satisfied.)"
                     )
                 log_msg = "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -613,7 +603,7 @@ def wedge_automation_job():
                     f"Below automation point threshold: {points} < {trigger_point_threshold}"
                 )
                 log_msg = "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                logger.info(log_msg, label, guardrail_reason)
+                _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
                     {
                         "timestamp": now.isoformat(),
@@ -655,7 +645,7 @@ def wedge_automation_job():
                 # Update last purchase timestamp in new field
                 cfg["perk_automation"]["wedge_automation"]["last_wedge_time"] = now_dt.isoformat()
                 save_session(cfg, old_label=label)
-                logger.info(
+                _logger.info(
                     "[WedgeAuto] Automated purchase: Wedge (points) for session '%s' succeeded.",
                     label,
                 )
@@ -667,7 +657,7 @@ def wedge_automation_job():
                     details={"amount": 1, "points_before": points},
                 )
             else:
-                logger.warning(
+                _logger.warning(
                     "[WedgeAuto] Automated purchase: Wedge (points) for session '%s' FAILED. Error: %s",
                     label,
                     event["error"],
@@ -681,6 +671,6 @@ def wedge_automation_job():
                 )
             append_ui_event_log(event)
         except Exception as e:
-            logger.error(
+            _logger.error(
                 "[WedgeAuto] label=%s trigger=automation result=exception error=%s", label, e
             )
