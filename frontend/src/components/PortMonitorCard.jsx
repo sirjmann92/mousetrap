@@ -204,8 +204,8 @@ const handleCancelEdit = () => {
           {success && <Alert severity="success" sx={{ mb: 1 }}>{success}</Alert>}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
             {/* Always enable Stack Name field if not editing */}
-            <TextField label="Stack Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 220, maxWidth: 320 }} variant="outlined" disabled={Boolean(editingStack)} />
-            <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320 }}>
+            <TextField label="Stack Name" value={name} onChange={e => setName(e.target.value)} size="small" sx={{ minWidth: 220, maxWidth: 350 }} variant="outlined" disabled={Boolean(editingStack)} />
+            <FormControl size="small" sx={{ minWidth: 220, maxWidth: 350 }}>
               <InputLabel id="primary-container-label">Primary Container</InputLabel>
               <Select
                 labelId="primary-container-label"
@@ -237,10 +237,10 @@ const handleCancelEdit = () => {
                 </Select>
               </FormControl>
               <Tooltip title="If the app cannot detect the public IP of the container automatically, enter it here to override. This is only needed if detection fails (e.g., curl/wget missing in container)." placement="top" arrow>
-                <TextField label="Public IP (optional)" value={publicIp} onChange={e => setPublicIp(e.target.value)} size="small" sx={{ minWidth: 180, maxWidth: 240 }} helperText="Override detected public IP" />
+                <TextField label="Public IP (optional)" value={publicIp} onChange={e => setPublicIp(e.target.value)} size="small" sx={{ minWidth: 150, maxWidth: 210 }} />
               </Tooltip>
             </Box>
-            <FormControl size="small" sx={{ minWidth: 220, maxWidth: 320 }} variant="outlined">
+            <FormControl size="small" sx={{ minWidth: 220, maxWidth: 350 }} variant="outlined">
               <InputLabel id="secondary-containers-label">Secondary Containers</InputLabel>
               <Select
                 labelId="secondary-containers-label"
