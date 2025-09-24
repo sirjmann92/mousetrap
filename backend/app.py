@@ -989,24 +989,28 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     check_freq_minutes = cfg.get("check_freq", 5)
     # Use cached last_check_time unless a real check was just performed
     try:
-        last_check_dt = datetime.fromisoformat(last_check_time) if last_check_time else None
+        parsed_last_check_dt: datetime | None = (
+            datetime.fromisoformat(last_check_time) if last_check_time else None
+        )
     except Exception:
-        last_check_dt = None
-    if not last_check_dt:
+        parsed_last_check_dt = None
+    if not parsed_last_check_dt:
         # Fallback: use now as last_check_time if missing/invalid
-        last_check_dt = now
+        parsed_last_check_dt = now
         last_check_time = now.isoformat()
     # Only update next_check_time if a real check was performed
     if force or not status:
-        next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
-        next_check_time: str | None = next_check_dt.isoformat()
+        next_check_dt = parsed_last_check_dt + timedelta(minutes=check_freq_minutes)
+        next_check_time_val: str = next_check_dt.isoformat()
     else:
         # Use cached next_check_time if available
-        next_check_time = cfg.get("next_check_time")
-        if not next_check_time:
+        cached_next_check_time: str | None = cfg.get("next_check_time")
+        if not cached_next_check_time:
             # If not present, calculate from last_check_time
-            next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
-            next_check_time = next_check_dt.isoformat()
+            next_check_dt = parsed_last_check_dt + timedelta(minutes=check_freq_minutes)
+            next_check_time_val = next_check_dt.isoformat()
+        else:
+            next_check_time_val = cached_next_check_time
     return {
         "mam_cookie_exists": status.get("mam_cookie_exists"),
         "points": status.get("points"),
@@ -1030,7 +1034,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         "ip_source": "configured",
         "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,
-        "next_check_time": next_check_time,
+        "next_check_time": next_check_time_val,
         "timezone": timezone_used,
         "check_freq": check_freq_minutes,
         "status_message": status.get("status_message"),
