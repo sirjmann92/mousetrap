@@ -85,6 +85,15 @@ _logger: logging.Logger = logging.getLogger(__name__)
 # FastAPI app creation
 app = FastAPI(title="MouseTrap API")
 
+# Mount static files BEFORE any catch-all routes
+# Serve logs directory as static files for UI event log access
+logs_dir = Path(__file__).resolve().parent.parent / "logs"
+if logs_dir.is_dir():
+    app.mount("/logs", StaticFiles(directory=str(logs_dir)), name="logs")
+
+# Mount frontend static files
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 # Mount API routers
 app.include_router(automation_router, prefix="/api")
 app.include_router(last_session_router, prefix="/api")
@@ -2261,14 +2270,9 @@ async def run_initial_session_checks() -> None:
 async def main() -> None:
     """Application entry point for running under `__main__`.
 
-    Sets up static mounts, middleware, session caches, scheduler jobs and
+    Sets up middleware, session caches, scheduler jobs and
     starts background automation and monitoring tasks.
     """
-    # Serve logs directory as static files for UI event log access (must be before any catch-all routes)
-    logs_dir = Path(__file__).resolve().parent.parent / "logs"
-    if logs_dir.is_dir():
-        app.mount("/logs", StaticFiles(directory=str(logs_dir)), name="logs")
-
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],  # For dev; restrict in prod!
@@ -2276,11 +2280,6 @@ async def main() -> None:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-
-    _logger.debug("Serving static from: %s", STATIC_DIR)
-    if not Path(STATIC_DIR).is_dir():
-        raise RuntimeError(f"Directory '{STATIC_DIR}' does not exist")
-    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     reset_all_last_check_times()
 
