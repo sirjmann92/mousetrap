@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import time
 from typing import Any
-import urllib.parse
 
 import aiohttp
 import yaml
@@ -224,24 +223,14 @@ async def extract_mam_id_from_browser_cookies(browser_mam_id: str) -> str | None
         mam_id_match = re.search(r"mam_id=([^;]+)", browser_mam_id)
         if mam_id_match:
             mam_id_value = mam_id_match.group(1).strip()
-            # URL decode the mam_id value in case it's encoded
-            try:
-                decoded_mam_id = urllib.parse.unquote(mam_id_value)
-                _logger.debug("[VaultConfig] Extracted and decoded mam_id: [REDACTED]")
-            except Exception as decode_error:
-                _logger.warning(
-                    "[VaultConfig] Failed to URL decode mam_id, using original: %s",
-                    decode_error,
-                )
-                return mam_id_value
-            else:
-                return decoded_mam_id
-        else:
-            # If no mam_id= prefix, assume the whole string is the mam_id value
-            _logger.warning(
-                "[VaultConfig] No 'mam_id=' found in browser cookie string, using full string"
-            )
-            return browser_mam_id.strip()
+            # Don't URL decode mam_id as it corrupts the cookie value and breaks MAM authentication
+            _logger.debug("[VaultConfig] Extracted mam_id: [REDACTED]")
+            return mam_id_value
+        # If no mam_id= prefix, assume the whole string is the mam_id value
+        _logger.warning(
+            "[VaultConfig] No 'mam_id=' found in browser cookie string, using full string"
+        )
+        return browser_mam_id.strip()
     except Exception as e:
         _logger.error("[VaultConfig] Error extracting mam_id from browser cookies: %s", e)
         return None

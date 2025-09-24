@@ -5,7 +5,6 @@ import logging
 import re
 import time
 from typing import Any
-import urllib.parse
 
 import aiohttp
 
@@ -70,10 +69,10 @@ def get_browser_headers(browser_type: str = "chrome") -> dict[str, Any]:
     """
     browser_headers = {
         "firefox": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:130.0) Gecko/20100101 Firefox/130.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.5",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
             "DNT": "1",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
@@ -82,32 +81,32 @@ def get_browser_headers(browser_type: str = "chrome") -> dict[str, Any]:
             "Sec-Fetch-Site": "none",
         },
         "chrome": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "none",
             "Sec-Fetch-User": "?1",
-            "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+            "sec-ch-ua": '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
         },
         "edge": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
             "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Encoding": "gzip, deflate, br, zstd",
             "Connection": "keep-alive",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "none",
             "Sec-Fetch-User": "?1",
-            "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Microsoft Edge";v="120"',
+            "sec-ch-ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
         },
@@ -134,14 +133,7 @@ def get_browser_headers(browser_type: str = "chrome") -> dict[str, Any]:
     }
 
     browser_type = browser_type.lower()
-    headers = browser_headers.get(browser_type, browser_headers["chrome"])
-
-    _logger.info(
-        "[get_browser_headers] Using headers for %s: User-Agent: %s...",
-        browser_type,
-        headers["User-Agent"][:50],
-    )
-    return headers
+    return browser_headers.get(browser_type, browser_headers["chrome"])
 
 
 def get_browser_user_agent(browser_type: str = "chrome") -> str:
@@ -184,9 +176,8 @@ def parse_browser_cookies(cookie_string: str) -> dict[str, str]:
                 key = key.strip()
                 value = value.strip()
                 if key in ["mam_id", "uid", "browser"]:
-                    # URL decode the value in case it's encoded from bookmarklet
-                    if key == "mam_id":
-                        value = urllib.parse.unquote(value)
+                    # Don't URL decode mam_id as it corrupts the cookie value and breaks MAM authentication
+                    # The bookmarklet extracts raw cookie values that should be used as-is
                     cookies[key] = value
 
         _logger.debug("[parse_browser_cookies] Parsed cookies: %s", list(cookies.keys()))
@@ -222,22 +213,23 @@ async def validate_browser_mam_id(
         # Check if we have browser mam_id
         result["has_browser_mam_id"] = bool(browser_mam_id)
 
-        # Get UID from existing session data
-        uid = session_config.get("last_status", {}).get("raw", {}).get("uid")
-        result["has_session_uid"] = bool(uid)
-
         if not result["has_browser_mam_id"]:
             result["error"] = "Browser mam_id is required"
             return result
 
-        if not result["has_session_uid"]:
-            result["error"] = "Session UID not found. Please refresh session status first."
-            return result
-
-        # Parse cookies to detect browser type if available
+        # Parse cookies to detect browser type and extract mam_id AND uid from browser cookie string
         parsed_cookies = parse_browser_cookies(browser_mam_id)
         browser_type = parsed_cookies.get("browser", "chrome")  # Default to chrome
         actual_mam_id = parsed_cookies.get("mam_id") or browser_mam_id
+        uid = parsed_cookies.get("uid")  # Get uid from browser cookie string, not session
+
+        result["has_session_uid"] = bool(uid)
+
+        if not result["has_session_uid"]:
+            result["error"] = (
+                "UID not found in browser cookie string. Please use the bookmarklet or include uid=value in the cookie string."
+            )
+            return result
 
         # Build full cookie string using extracted values
         cookie_string = f"mam_id={actual_mam_id}; uid={uid}"
@@ -250,7 +242,7 @@ async def validate_browser_mam_id(
         )
 
         # Parse cookies for validation
-        cookies = {"mam_id": actual_mam_id, "uid": str(uid)}
+        cookies = {"mam_id": actual_mam_id, "uid": uid}
 
         # Use auto vault connection method (try direct first, then proxy fallback)
         vault_method = "auto"
@@ -281,15 +273,11 @@ async def _try_vault_access_direct(
 ) -> dict[str, Any]:
     """Try vault access via direct connection."""
     try:
-        _logger.info("[validate_browser_mam_id] Attempting vault access via direct connection")
-
         timeout = aiohttp.ClientTimeout(total=10)
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.get(vault_url, cookies=cookies, headers=headers) as resp,
+            session.get(vault_url, headers=headers, cookies=cookies) as resp,
         ):
-            _logger.info("[validate_browser_mam_id] Direct access result: status=%s", resp.status)
-
             if resp.status == 200:
                 html = (await resp.text()).lower()
 
@@ -300,20 +288,10 @@ async def _try_vault_access_direct(
                     for term in ["donation", "millionaire", "vault", "contribute", "donate"]
                 )
 
-                _logger.info(
-                    "[validate_browser_mam_id] Direct access analysis: login_form=%s, login_text=%s, vault_terms=%s",
-                    has_login_form,
-                    has_login_text,
-                    has_vault_terms,
-                )
-
                 if not (has_login_form or has_login_text) and has_vault_terms:
                     result["vault_accessible"] = True
                     result["valid"] = True
                     result["access_method"] = "direct"
-                    _logger.info(
-                        "[validate_browser_mam_id] Vault access successful via direct connection!"
-                    )
                 else:
                     result["error"] = (
                         "Direct connection failed - browser MAM ID may be tied to different IP"
@@ -323,7 +301,7 @@ async def _try_vault_access_direct(
 
     except Exception as e:
         result["error"] = f"Direct connection failed: {e!s}"
-        _logger.warning("[validate_browser_mam_id] Direct access failed: %s", e)
+        _logger.warning("[_try_vault_access_direct] Direct access failed: %s", e)
 
     return result
 
@@ -349,9 +327,11 @@ async def _try_vault_access_proxy(
         timeout = aiohttp.ClientTimeout(total=10)
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.get(vault_url, cookies=cookies, headers=headers, proxy=proxy_url) as resp,
+            session.get(vault_url, headers=headers, proxy=proxy_url, cookies=cookies) as resp,
         ):
-            _logger.info("[validate_browser_mam_id] Proxy access result: status=%s", resp.status)
+            _logger.info(
+                "[validate_browser_mam_id] Proxy GET request result: status=%s", resp.status
+            )
 
             if resp.status == 200:
                 html = (await resp.text()).lower()
@@ -635,21 +615,6 @@ async def validate_browser_mam_id_with_config(
         cookie_string = f"mam_id={actual_mam_id}; uid={uid}"
         result["cookie_string"] = cookie_string
 
-        _logger.info(
-            "[validate_browser_mam_id_with_config] Raw browser_mam_id: %s...",
-            browser_mam_id[:50],
-        )
-        _logger.info("[validate_browser_mam_id_with_config] Parsed cookies: %s", parsed_cookies)
-        _logger.info(
-            "[validate_browser_mam_id_with_config] Final cookie_string: %s...",
-            cookie_string[:50],
-        )
-        _logger.info(
-            "[validate_browser_mam_id_with_config] Testing browser_mam_id with UID %s, browser: %s",
-            uid,
-            browser_type,
-        )
-
         # Parse cookies for validation
         cookies = {"mam_id": actual_mam_id, "uid": str(uid)}
 
@@ -697,7 +662,7 @@ async def get_vault_total_points(
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
-        vault_url = "https://www.myanonamouse.net/millionaires/donate.php"
+        vault_url = "https://www.myanonamouse.net/millionaires/pot.php"
 
         # Get the vault page
         timeout = aiohttp.ClientTimeout(total=15 if proxy_cfg else 10)
@@ -729,10 +694,6 @@ async def get_vault_total_points(
             points_str = points_match.group(1).replace(",", "")
             result["vault_total_points"] = int(points_str)
             result["success"] = True
-            _logger.info(
-                "[get_vault_total_points] Current vault total: %s points",
-                f"{result['vault_total_points']:,}",
-            )
         else:
             result["error"] = "Could not parse vault total points from page"
 
@@ -997,10 +958,6 @@ async def _perform_vault_donation_direct(
             if points_match:
                 points_str = points_match.group(1).replace(",", "")
                 result["vault_total_points"] = int(points_str)
-                _logger.info(
-                    "[perform_vault_donation] Current vault total: %s points",
-                    f"{result['vault_total_points']:,}",
-                )
 
             # Look for any hidden form fields or tokens that might be required
             csrf_token = None
@@ -1236,9 +1193,8 @@ async def _perform_vault_donation_direct(
             else:
                 result["error"] = f"Donation request failed: HTTP {donation_resp.status}"
                 _logger.error(
-                    "[perform_vault_donation] POST failed with %s: %s",
+                    "[perform_vault_donation] POST failed with status %s",
                     donation_resp.status,
-                    donation_text[:200] if "donation_text" in locals() else "",
                 )
 
     except Exception as e:

@@ -28,13 +28,13 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   const [seedboxLoading, setSeedboxLoading] = useState(false);
   const pollingRef = useRef();
   const lastCheckRef = useRef(null);
-  const lastForcedCheckRef = useRef(null); // Track last next_check_time for which we forced a check
 
   // Fetch status from backend
   const fetchStatus = async (force = false) => {
     try {
       let url = sessionLabel ? `/api/status?label=${encodeURIComponent(sessionLabel)}` : "/api/status";
       if (force) url += (url.includes('?') ? '&' : '?') + 'force=1';
+
       const res = await fetch(url);
       const data = await res.json();
       if (data.success === false || data.error) {
@@ -85,39 +85,29 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
   // Poll backend every 5 seconds for status, but only if session is fully configured
   useEffect(() => {
     let pollInterval = null;
-    let lastNextCheckTime = status && status.next_check_time;
-    let polling = false;
 
     const isConfigured = status && status.configured !== false && status.next_check_time;
 
-    const startPolling = () => {
-      if (polling) return;
-      polling = true;
+    // Start polling when timer reaches 0 or is very close (within 10 seconds)
+    if (isConfigured && timer <= 10) {
       pollInterval = setInterval(async () => {
-        const res = await fetchStatus(false);
-        const newNextCheck = (res && res.next_check_time) || (status && status.next_check_time);
-        if (newNextCheck && newNextCheck !== lastNextCheckTime) {
-          lastNextCheckTime = newNextCheck;
-          clearInterval(pollInterval);
-          pollInterval = null;
-          polling = false;
+        try {
+          await fetchStatus(false);
+        } catch (error) {
+          console.error('Polling error:', error);
         }
       }, 5000);
-    };
-
-    // Only poll if session is configured and timer hits 0
-    if (isConfigured && timer === 0) {
-      startPolling();
     }
 
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [timer, sessionLabel, status && status.next_check_time, status && status.configured]);
+  }, [timer, sessionLabel, status?.next_check_time, status?.configured]);
 
   // Timer is always derived from backend's next_check_time and current time
   useEffect(() => {
-    let interval = setInterval(() => {
+    // Calculate timer immediately when next_check_time changes
+    const calculateTimer = () => {
       if (status && status.next_check_time) {
         const nextCheck = Date.parse(status.next_check_time);
         const now = Date.now();
@@ -126,9 +116,15 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       } else {
         setTimer(0);
       }
-    }, 1000);
+    };
+
+    // Run immediately
+    calculateTimer();
+
+    // Then run every second
+    let interval = setInterval(calculateTimer, 1000);
     return () => clearInterval(interval);
-  }, [status && status.next_check_time]);
+  }, [status?.next_check_time]); // Use optional chaining and the actual string value
 
   // Always perform a force=1 status check on first load/session select
   // On initial load/session select, fetch latest status (do NOT force a backend check)
