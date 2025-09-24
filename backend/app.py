@@ -20,7 +20,6 @@ import aiohttp
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
 from apscheduler.triggers.interval import IntervalTrigger  # type: ignore[import-untyped]
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
@@ -227,6 +226,35 @@ async def start_vault_automation_manager() -> None:
     asyncio.create_task(vault_automation_manager.start())  # noqa: RUF006
 
 
+# Initialize APScheduler on FastAPI startup
+@app.on_event("startup")  # type: ignore[deprecated]
+async def initialize_scheduler() -> None:
+    """Initialize APScheduler and register all session jobs on startup."""
+    reset_all_last_check_times()
+    await run_initial_session_checks()
+
+    # Register all jobs BEFORE starting the scheduler
+    register_all_session_jobs()
+
+    # Register the automation jobs to run every 10 minutes
+    try:
+        scheduler.add_job(
+            sync_automation_jobs,
+            trigger=IntervalTrigger(minutes=10),
+            id="automation_jobs",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
+        _logger.info("[APScheduler] Registered automation jobs to run every 10 min")
+    except Exception as e:
+        _logger.error("[APScheduler] Failed to register automation jobs: %s", e)
+
+    # Start scheduler AFTER all jobs are registered
+    scheduler.start()
+    _logger.info("[APScheduler] Background scheduler started")
+
+
 @app.get("/api/automation/guardrails")
 def api_automation_guardrails() -> dict[str, Any]:
     """Returns a mapping of session labels to MaM usernames and enabled automations for guardrail logic.
@@ -290,6 +318,7 @@ async def auto_update_seedbox_if_needed(
     reason: str | None = None
     # Remove all IP logic for the API call; only use mam_id and proxy
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
+    proxies = None
     if proxy_cfg:
         proxies = build_proxy_dict(proxy_cfg)
     # Do not log proxies dict (may contain sensitive info)
@@ -357,7 +386,7 @@ async def auto_update_seedbox_if_needed(
         ip_to_check = proxied_ip
     else:
         # For non-proxied, get detected public IP (not mam_ip)
-        detected_ip = get_public_ip()
+        detected_ip = await get_public_ip()
         ip_to_check = detected_ip
     # If IP lookup failed, skip config update and logging
     if ip_to_check is None:
@@ -388,12 +417,6 @@ async def auto_update_seedbox_if_needed(
             label,
             asn,
             reason,
-        )
-        _logger.debug(
-            "[AutoUpdate][DEBUG] label=%s session_type=%s update_needed=%s",
-            label,
-            session_type,
-            update_needed,
         )
         # If update is needed (IP or proxied IP changed), call seedbox API
         if not mam_id:
@@ -453,17 +476,13 @@ async def auto_update_seedbox_if_needed(
                     if proxied_ip:
                         new_ip = proxied_ip
                     else:
-                        new_ip = get_public_ip()
+                        new_ip = await get_public_ip()
                     cfg["last_seedbox_ip"] = new_ip
                     cfg["mam_ip"] = new_ip
                     cfg["last_seedbox_update"] = now.isoformat()
                     cfg["last_seedbox_asn"] = asn
-                    _logger.debug("[AutoUpdate][DEBUG] label=%s about to save config", label)
                     try:
                         save_session(cfg, old_label=label)
-                        _logger.debug(
-                            "[AutoUpdate][DEBUG] label=%s save_session successful.", label
-                        )
                     except Exception as e:
                         _logger.error(
                             "[AutoUpdate][ERROR] label=%s save_session failed: %s",
@@ -491,17 +510,13 @@ async def auto_update_seedbox_if_needed(
                     if proxied_ip:
                         new_ip = proxied_ip
                     else:
-                        new_ip = get_public_ip()
+                        new_ip = await get_public_ip()
                     cfg["last_seedbox_ip"] = new_ip
                     cfg["mam_ip"] = new_ip
                     cfg["last_seedbox_update"] = now.isoformat()
                     cfg["last_seedbox_asn"] = asn
-                    _logger.debug("[AutoUpdate][DEBUG] label=%s about to save config", label)
                     try:
                         save_session(cfg, old_label=label)
-                        _logger.debug(
-                            "[AutoUpdate][DEBUG] label=%s save_session successful.", label
-                        )
                     except Exception as e:
                         _logger.error(
                             "[AutoUpdate][ERROR] label=%s save_session failed: %s", label, e
@@ -677,7 +692,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     # Always resolve proxy config immediately before every get_status call
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     # If session is not configured (no mam_id), return not configured status
-    if not mam_id or not proxy_cfg:
+    if not mam_id:
         return {
             "configured": False,
             "status_message": "Session not configured. Please save session details to begin.",
@@ -695,7 +710,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     asn = match.group(2) if match else asn_full
     mam_session_as = asn_full
     # Also get MAM's perspective for display only
-    mam_seen = await get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg)
+    mam_seen = await get_mam_seen_ip_info(mam_id, proxy_cfg=proxy_cfg or {})
     mam_seen_asn = str(mam_seen.get("ASN")) if mam_seen.get("ASN") is not None else None
     mam_seen_as = mam_seen.get("AS")
     tz_env = os.environ.get("TZ")
@@ -728,6 +743,50 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
                 "next_check_time": None,
                 "details": {},
             }
+
+    # If we have cached data and not forcing, use it and calculate next_check_time
+    if not force and status:
+        # Use cached data with calculated timing
+        check_freq_minutes = cfg.get("check_freq", 15)
+        if last_check_time:
+            try:
+                last_check_dt = datetime.fromisoformat(last_check_time)
+                next_check_dt = last_check_dt + timedelta(minutes=check_freq_minutes)
+                next_check_time = next_check_dt.isoformat()
+            except Exception:
+                # Fallback if time parsing fails
+                next_check_dt = now + timedelta(minutes=check_freq_minutes)
+                next_check_time = next_check_dt.isoformat()
+        else:
+            next_check_dt = now + timedelta(minutes=check_freq_minutes)
+            next_check_time = next_check_dt.isoformat()
+
+        # Return cached status with calculated timing
+        return {
+            "mam_cookie_exists": status.get("mam_cookie_exists"),
+            "points": status.get("points"),
+            "cheese": status.get("cheese"),
+            "wedge_active": status.get("wedge_active"),
+            "vip_active": status.get("vip_active"),
+            "current_ip": ip_to_use,
+            "current_ip_asn": asn,
+            "mam_session_as": mam_session_as,
+            "mam_seen_asn": mam_seen_asn,
+            "mam_seen_as": mam_seen_as,
+            "configured_ip": ip_to_use,
+            "configured_asn": asn,
+            "mam_id": mam_id,
+            "check_freq": check_freq_minutes,
+            "last_check_time": last_check_time,
+            "next_check_time": next_check_time,
+            "configured": True,
+            "status_message": status.get("status_message", "OK"),
+            "auto_update_seedbox": status.get("auto_update_seedbox"),
+            "details": status,
+            "detected_public_ip": detected_public_ip,
+            "detected_public_ip_asn": detected_public_ip_asn,
+        }
+
     if force or not status:
         # Always reload session config and resolve proxy before every real check
         cfg = load_session(label)
@@ -2188,6 +2247,26 @@ async def session_check_job(label: str) -> None:
         _logger.error("[APScheduler] Error in job for '%s': %s", label, e)
 
 
+def sync_session_check_job(label: str) -> None:
+    """Sync wrapper for async session_check_job to work with BackgroundScheduler."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(session_check_job(label))
+    finally:
+        loop.close()
+
+
+def sync_automation_jobs() -> None:
+    """Sync wrapper for async run_all_automation_jobs to work with BackgroundScheduler."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(run_all_automation_jobs())
+    finally:
+        loop.close()
+
+
 # On startup, reset last_check_time to now for all sessions to keep timers in sync
 def reset_all_last_check_times() -> None:
     """Reset the `last_check_time` for all sessions to the current time.
@@ -2233,7 +2312,7 @@ def register_all_session_jobs() -> None:
         if scheduler.get_job(job_id):
             scheduler.remove_job(job_id)
         scheduler.add_job(
-            session_check_job,
+            sync_session_check_job,
             trigger=IntervalTrigger(minutes=check_freq),
             args=[label],
             id=job_id,
@@ -2265,43 +2344,3 @@ async def run_initial_session_checks() -> None:
             await session_check_job(label)
         except Exception as e:
             _logger.warning("[Startup] Initial session check failed for '%s': %s", label, e)
-
-
-async def main() -> None:
-    """Application entry point for running under `__main__`.
-
-    Sets up middleware, session caches, scheduler jobs and
-    starts background automation and monitoring tasks.
-    """
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],  # For dev; restrict in prod!
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-    reset_all_last_check_times()
-
-    await run_initial_session_checks()
-
-    register_all_session_jobs()
-    scheduler.start()
-
-    # Register the automation jobs to run every 10 minutes
-    try:
-        scheduler.add_job(
-            run_all_automation_jobs,
-            trigger=IntervalTrigger(minutes=10),
-            id="automation_jobs",
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-        _logger.info("[APScheduler] Registered automation jobs to run every 10 min")
-    except Exception as e:
-        _logger.error("[APScheduler] Failed to register automation jobs: %s", e)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

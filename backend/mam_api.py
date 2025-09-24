@@ -113,6 +113,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
         }
     url = "https://www.myanonamouse.net/jsonLoad.php?snatch_summary"
     cookies = {"mam_id": mam_id}
+    proxies = None
     if proxy_cfg:
         proxies = build_proxy_dict(proxy_cfg)
     # Log only proxy label and redact password in proxy URL for debugging
