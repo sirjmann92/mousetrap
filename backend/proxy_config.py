@@ -1,39 +1,70 @@
-def resolve_proxy_from_session_cfg(cfg):
-    """
-    Given a session config dict, return the full proxy config dict (from proxies.yaml) if a label is set,
+"""Proxy configuration helpers.
+
+This module manages loading and saving proxy definitions from a YAML file
+mounted at `PROXIES_PATH`. It provides a small compatibility helper to
+resolve inline proxy configs from session configuration structures.
+"""
+
+import logging
+from pathlib import Path
+import threading
+from typing import Any
+
+import yaml
+
+PROXIES_PATH = "/config/proxies.yaml"
+_LOCK = threading.Lock()
+_logger: logging.Logger = logging.getLogger(__name__)
+
+
+def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None:
+    """Given a session config dict, return the full proxy config dict (from proxies.yaml) if a label is set,
     or the inline proxy config if present (for backward compatibility).
     Returns None if no proxy is set.
     """
-    import logging
+
     proxy = cfg.get("proxy", {})
-    logging.debug(f"[resolve_proxy_from_session_cfg] Input cfg proxy: {proxy}")
+    _logger.debug("[resolve_proxy_from_session_cfg] Input cfg proxy: %s", proxy)
     if isinstance(proxy, dict) and "label" in proxy:
         proxies = load_proxies()
         label = proxy["label"]
         resolved = proxies.get(label)
-        logging.debug(f"[resolve_proxy_from_session_cfg] Looking up label '{label}' in proxies.yaml. Resolved: {resolved}")
+        _logger.debug(
+            "[resolve_proxy_from_session_cfg] Looking up label '%s' in proxies.yaml. Resolved: %s",
+            label,
+            resolved,
+        )
         return resolved
     # fallback: legacy inline proxy config
     if proxy.get("host"):
-        logging.debug(f"[resolve_proxy_from_session_cfg] Using inline proxy config: {proxy}")
+        _logger.debug("[resolve_proxy_from_session_cfg] Using inline proxy config: %s", proxy)
         return proxy
-    logging.debug(f"[resolve_proxy_from_session_cfg] No proxy config found.")
+    _logger.debug("[resolve_proxy_from_session_cfg] No proxy config found.")
     return None
-import os
-import yaml
-import threading
 
-PROXIES_PATH = "/config/proxies.yaml"
-LOCK = threading.Lock()
 
-def load_proxies():
-    if not os.path.exists(PROXIES_PATH):
+def load_proxies() -> dict[str, Any]:
+    """Load proxies from PROXIES_PATH.
+
+    Returns a dict parsed from YAML or an empty dict if the file does not
+    exist or is empty. The _LOCK is used to synchronize file access.
+    """
+    try:
+        with _LOCK, Path(PROXIES_PATH).open(encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except FileNotFoundError:
         return {}
-    with LOCK, open(PROXIES_PATH, "r") as f:
-        proxies = yaml.safe_load(f) or {}
-    return proxies
+    except yaml.YAMLError as e:
+        _logger.warning("[load_proxies] Malformed YAML at %s: %s", PROXIES_PATH, e)
+        return {}
 
-def save_proxies(proxies):
-    os.makedirs(os.path.dirname(PROXIES_PATH), exist_ok=True)
-    with LOCK, open(PROXIES_PATH, "w") as f:
+
+def save_proxies(proxies: dict[str, Any]) -> None:
+    """Persist the given proxies mapping to PROXIES_PATH as YAML.
+
+    Ensures the parent directory exists before attempting to write. Uses
+    the _LOCK to synchronize concurrent access.
+    """
+    Path(PROXIES_PATH).parent.mkdir(parents=True, exist_ok=True)
+    with _LOCK, Path(PROXIES_PATH).open("w", encoding="utf-8") as f:
         yaml.safe_dump(proxies, f)

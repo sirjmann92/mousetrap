@@ -1,0 +1,13 @@
+-r backend/requirements.txt
+mypy
+pre-commit
+ruff
+types-cffi
+types-docker
+types-PyMySQL
+types-pyRFC3339
+types-python-dateutil
+types-PySocks
+types-PyYAML
+types-requests
+types-setuptools

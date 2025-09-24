@@ -303,4 +303,3 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
 });
 
 export default StatusCard;
-

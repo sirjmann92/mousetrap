@@ -40,17 +40,17 @@ fi
 EXISTING_GROUP=$(getent group "$PGID" | cut -d: -f1 2>/dev/null)
 if [ -n "$EXISTING_GROUP" ] && [ "$EXISTING_GROUP" != "$GROUPNAME" ]; then
 	log_info "GID $PGID is already in use by group '$EXISTING_GROUP'"
-	
+
 	# Special handling for Alpine's 'users' group (conflicts with Unraid PGID=100)
 	if [ "$EXISTING_GROUP" = "users" ] && [ "$PGID" = "100" ]; then
 		log_info "Removing Alpine's 'users' group to use GID 100"
-		
+
 		# Remove users with 'users' as primary group
-		getent passwd | grep ":100:" | cut -d: -f1 | while read username; do
+		getent passwd | grep ":100:" | cut -d: -f1 | while read -r username; do
 			log_info "Changing user '$username' primary group from 'users' to 'nobody'"
 			usermod -g nobody "$username" 2>/dev/null || true
 		done
-		
+
 		# Remove users from 'users' group membership
 		USERS_IN_GROUP=$(getent group users | cut -d: -f4)
 		if [ -n "$USERS_IN_GROUP" ]; then
@@ -58,7 +58,7 @@ if [ -n "$EXISTING_GROUP" ] && [ "$EXISTING_GROUP" != "$GROUPNAME" ]; then
 				deluser "$user" users 2>/dev/null || true
 			done
 		fi
-		
+
 		# Delete the group
 		if delgroup users 2>/dev/null; then
 			log_info "Successfully removed 'users' group"

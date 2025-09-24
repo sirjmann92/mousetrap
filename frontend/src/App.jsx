@@ -274,7 +274,7 @@ export default function App() {
           />
         )}
         {/* 4. Millionaire's Vault Configuration */}
-        <VaultConfigCard 
+        <VaultConfigCard
           proxies={proxies}
           sessions={sessions}
         />
