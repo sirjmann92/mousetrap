@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -328,57 +327,66 @@ export default function NotificationsCard() {
           </Box>
           <Divider sx={{ my: 3 }} />
           <Typography variant="subtitle1" sx={{ mt: 2 }}>Apprise</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, mb: 2, width: '100%' }}>
             <TextField
               label="Apprise URL"
               value={config.apprise?.url || ""}
               onChange={e => handleAppriseChange("url", e.target.value)}
               size="small"
-              sx={{ minWidth: 350, maxWidth: 600, flex: 1 }}
-              helperText="Base URL of where Apprise is installed (e.g., http://localhost:8000)."
-            />
-            <FormControlLabel
-              control={<Checkbox
-                checked={!!config.apprise?.include_prefix}
-                onChange={e => handleAppriseChange('include_prefix', e.target.checked)}
-              />}
-              label={`Include MouseTrap prefix in title`}
-              sx={{ ml: 1, mr: 1 }}
-            />
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, width: '100%' }}>
-            <TextField
-              label="Notify URL String"
-              value={config.apprise?.notify_url_string || ""}
-              onChange={e => handleAppriseChange("notify_url_string", e.target.value)}
-              size="small"
-              multiline={showNotifyString}
-              minRows={showNotifyString ? 2 : undefined}
               sx={{ minWidth: 350, maxWidth: 600 }}
-              helperText={
-                <>
-                  Comma-separated Apprise URLs. See the
-                  &nbsp;<a href="https://github.com/caronc/apprise/wiki#notification-services" target="_blank" rel="noopener noreferrer">Apprise docs</a>.
-                </>
-              }
-              type={showNotifyString ? "text" : "password"}
-              InputProps={{
-                endAdornment: (
-                  <IconButton
-                    aria-label={showNotifyString ? "Hide notify URL string" : "Show notify URL string"}
-                    onClick={() => setShowNotifyString(v => !v)}
-                    edge="end"
-                  >
-                    {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                )
-              }}
+              helperText="Apprise location (e.g., http://localhost:8000)."
             />
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
-              <Button variant="outlined" onClick={handleTestApprise} disabled={testLoading || !config.apprise?.url || !config.apprise?.notify_url_string} sx={{ minWidth: 80 }}>
-                TEST
-              </Button>
+            <Box sx={{ height: 40, display: 'flex', alignItems: 'center', ml: 1, mr: 1 }}>
+              <FormControlLabel
+                control={<Checkbox
+                  checked={!!config.apprise?.include_prefix}
+                  onChange={e => handleAppriseChange('include_prefix', e.target.checked)}
+                />}
+                label={`Include MouseTrap prefix in title`}
+                sx={{ m: 0 }}
+              />
             </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, width: '100%', mb: 2 }}>
+            <TextField
+                label="Notify URL String"
+                value={config.apprise?.notify_url_string || ""}
+                onChange={e => handleAppriseChange("notify_url_string", e.target.value)}
+                size="small"
+                multiline={showNotifyString}
+                minRows={showNotifyString ? 2 : undefined}
+                sx={{ minWidth: 350, maxWidth: 600 }}
+                helperText={
+                  <>
+                    Comma-separated Apprise URLs. See the
+                    &nbsp;<a
+                      href="https://github.com/caronc/apprise/wiki#notification-services"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#1976d2', textDecoration: 'underline', fontWeight: 500 }}
+                    >
+                      Apprise docs
+                    </a>.
+                  </>
+                }
+                type={showNotifyString ? "text" : "password"}
+                InputProps={{
+                  endAdornment: (
+                    <IconButton
+                      aria-label={showNotifyString ? "Hide notify URL string" : "Show notify URL string"}
+                      onClick={() => setShowNotifyString(v => !v)}
+                      edge="end"
+                    >
+                      {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                    </IconButton>
+                  )
+                }}
+              />
+              <Box sx={{ height: 40, display: 'flex', alignItems: 'center', flex: 1, justifyContent: 'flex-end' }}>
+                <Button variant="outlined" onClick={handleTestApprise} disabled={testLoading || !config.apprise?.url || !config.apprise?.notify_url_string} sx={{ minWidth: 80 }}>
+                  TEST
+                </Button>
+              </Box>
           </Box>
           <Divider sx={{ my: 3 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
