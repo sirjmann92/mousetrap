@@ -28,7 +28,7 @@ from backend.utils import build_proxy_dict
 _logger: logging.Logger = logging.getLogger(__name__)
 # Simple cache to prevent duplicate rapid requests (reduce 403 errors)
 _ip_cache: dict[str, Any] = {}
-_cache_timeout = 30  # Cache for 30 seconds
+_cache_timeout = 300  # Cache for 5 minutes to reduce rate limiting
 
 
 async def get_ipinfo_with_fallback(
@@ -193,8 +193,17 @@ async def get_ipinfo_with_fallback(
                     # ipinfo_lite: ip, asn, as_name, as_domain, country_code, country, continent_code, continent
                     # ipinfo_standard: ip, org, etc.
                     if provider == "ipinfo_lite":
-                        asn_val = data.get("asn")
-                        org_val = data.get("as_name")
+                        asn_num = data.get("asn")
+                        as_name = data.get("as_name", "")
+                        # Combine ASN number with name for consistency with other providers
+                        # Check if asn_num already has "AS" prefix to avoid duplication
+                        asn_prefix = asn_num if str(asn_num).startswith("AS") else f"AS{asn_num}"
+                        asn_val = (
+                            f"{asn_prefix} {as_name}".strip()
+                            if asn_num and as_name
+                            else (asn_num or as_name or "")
+                        )
+                        org_val = as_name
                     else:
                         asn_val = str(data.get("org", ""))
                         org_val = data.get("org", "")
@@ -228,6 +237,7 @@ async def get_ipinfo_with_fallback(
                     # httpbin.org/ip returns just the IP as plain text, handled above
                     result = {"ip": data.get("ip"), "asn": None, "org": "", "timezone": None}
                 elif provider == "ipapi":
+                    # ipapi returns "as" field which may already contain "AS" prefix
                     asn_val = str(data.get("as", ""))
                     result = {
                         "ip": data.get("query"),
@@ -238,8 +248,16 @@ async def get_ipinfo_with_fallback(
                 elif provider == "ipdata":
                     asn: dict[str, Any] | str | None = data.get("asn", {})
                     if isinstance(asn, dict):
-                        asn_str = f"AS{asn.get('asn', '')} {asn.get('name', '')}" if asn else ""
-                        org_name = asn.get("name", "")
+                        asn_num = asn.get("asn", "")
+                        asn_name = asn.get("name", "")
+                        # Check if asn_num already has "AS" prefix to avoid duplication
+                        asn_prefix = asn_num if str(asn_num).startswith("AS") else f"AS{asn_num}"
+                        asn_str = (
+                            f"{asn_prefix} {asn_name}".strip()
+                            if asn_num and asn_name
+                            else (asn_num or asn_name or "")
+                        )
+                        org_name = asn_name
                     else:
                         asn_str = str(asn) if asn else ""
                         org_name = ""

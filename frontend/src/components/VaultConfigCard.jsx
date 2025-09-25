@@ -86,7 +86,15 @@ export default function VaultConfigCard({ proxies, sessions }) {
       const response = await fetch('/api/vault/configurations');
       if (response.ok) {
         const data = await response.json();
-        setVaultConfigurations(data.configurations || {});
+        const configurations = data.configurations || {};
+        setVaultConfigurations(configurations);
+
+        // Auto-select if there's only one configuration and no current selection
+        const configKeys = Object.keys(configurations);
+        if (configKeys.length === 1 && !selectedConfigId) {
+          const autoSelectedId = configKeys[0];
+          setSelectedConfigId(autoSelectedId);
+        }
       } else {
         console.error('Error loading vault configurations');
         setVaultConfigurations({});
@@ -497,6 +505,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
         <Collapse in={expanded} timeout="auto" unmountOnExit>
           <CardContent sx={{ pt: 0 }}>
+            {/* Padding above first row, only visible when expanded */}
+            <Box sx={{ height: 7 }} />
             {/* Configuration selector with CRUD controls */}
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
               <FormControl size="small" sx={{ minWidth: 200, maxWidth: 300 }}>
@@ -809,7 +819,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
                     {currentConfig.automation?.enabled && (
                       <>
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                           <Tooltip title="How often to check points (1-168 hours)" arrow>
                             <TextField
                               label="Frequency (hours)"
@@ -817,7 +827,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                               value={currentConfig.automation?.frequency_hours || 24}
                               onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), frequency_hours: parseInt(e.target.value) || 24}})}
                               size="small"
-                              sx={{ width: 150 }}
+                              sx={{ width: 130 }}
                               inputProps={{ min: 1, max: 168 }}
                             />
                           </Tooltip>
@@ -829,7 +839,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                               value={currentConfig.automation?.min_points_threshold || 2000}
                               onChange={(e) => setCurrentConfig({...currentConfig, automation: {...(currentConfig.automation || {}), min_points_threshold: parseInt(e.target.value) || 2000}})}
                               size="small"
-                              sx={{ width: 150 }}
+                              sx={{ width: 130 }}
                               inputProps={{ min: 0 }}
                             />
                           </Tooltip>
@@ -847,10 +857,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
                               ))}
                             </Select>
                           </FormControl>
-                        </Box>
 
-                        {/* Once per pot option */}
-                        <Box sx={{ mt: 2 }}>
+                          {/* Once per pot option moved to same row */}
                           <FormControlLabel
                             control={
                               <Checkbox
