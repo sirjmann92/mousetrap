@@ -68,6 +68,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
         cheese: data.cheese || null,
         status_message: data.status_message || "", // user-friendly status message
         details: data.details || {}, // raw backend details
+        vault_automation_enabled: data.vault_automation_enabled || false,
       };
       setStatus(newStatus);
       if (onStatusUpdate) onStatusUpdate(newStatus);
@@ -220,8 +221,6 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
             </Tooltip>
           </Box>
         </Box>
-  {/* Network & Proxy Details Accordion */}
-  <NetworkProxyDetailsAccordion status={status} />
         {/* MAM Details Accordion (restored, styled to match) */}
         {/* Robust error handling: if status is set and has error, only render the error alert */}
         {status && status.error ? (
@@ -267,9 +266,11 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                       <Alert severity="warning">{status.proxy_error}</Alert>
                     </Box>
                   )}
-                  <AutomationStatusRow autoWedge={autoWedge} autoVIP={autoVIP} autoUpload={autoUpload} />
+                  <AutomationStatusRow autoWedge={autoWedge} autoVIP={autoVIP} autoUpload={autoUpload} vaultAutomation={status.vault_automation_enabled} />
                   <MamDetailsAccordion status={status} />
-                  {/* 1px invisible box for padding/squared corners below MAM Details accordion */}
+                  {/* Network & Proxy Details Accordion */}
+                  <NetworkProxyDetailsAccordion status={status} />
+                  {/* 1px invisible box for padding/squared corners below Network Details accordion */}
                   <Box sx={{ height: 1, width: '100%', border: 0, background: 'none', p: 0, m: 0 }} />
                 </React.Fragment>
               )}

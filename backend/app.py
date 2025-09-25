@@ -110,6 +110,22 @@ scheduler = BackgroundScheduler()
 session_status_cache: dict[str, Any] = {}
 
 
+def is_vault_automation_enabled() -> bool:
+    """Check if vault automation is enabled globally in any vault configuration."""
+    try:
+        vault_config = load_vault_config()
+        vault_configurations = vault_config.get("vault_configurations", {})
+
+        # Check if any vault configuration has automation enabled
+        return any(
+            config.get("automation", {}).get("enabled", False)
+            for config in vault_configurations.values()
+        )
+    except Exception as e:
+        _logger.error("[VaultAutomation] Error checking vault automation status: %s", e)
+        return False
+
+
 def get_auto_update_val(status: dict[str, Any]) -> str:
     """Return a human-readable representation of the auto-update status.
 
@@ -638,7 +654,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         }
     # Proxied public IP/ASN detection (single API call optimization)
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
-    proxied_public_ip, proxied_public_ip_asn = None, None
+    proxied_public_ip, proxied_public_ip_asn, proxied_public_ip_as = None, None, None
     proxy_error = None
     if proxy_cfg and proxy_cfg.get("host"):
         # Single API call for proxied IP/ASN data
@@ -649,6 +665,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
             asn_str = str(asn_full_proxied) if asn_full_proxied is not None else ""
             match_proxied = re.search(r"(AS)?(\d+)", asn_str) if asn_str else None
             proxied_public_ip_asn = match_proxied.group(2) if match_proxied else asn_str
+            proxied_public_ip_as = asn_full_proxied
             # Save to config if changed
             if proxied_public_ip and cfg.get("proxied_public_ip") != proxied_public_ip:
                 cfg["proxied_public_ip"] = proxied_public_ip
@@ -785,6 +802,12 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
             "details": status,
             "detected_public_ip": detected_public_ip,
             "detected_public_ip_asn": detected_public_ip_asn,
+            "detected_public_ip_as": detected_public_ip_as,
+            "proxied_public_ip": proxied_public_ip,
+            "proxied_public_ip_asn": proxied_public_ip_asn,
+            "proxied_public_ip_as": proxied_public_ip_as,
+            "ip_monitoring_mode": ip_monitoring_mode,
+            "vault_automation_enabled": is_vault_automation_enabled(),
         }
 
     if force or not status:
@@ -1024,13 +1047,14 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         "configured_asn": asn,
         "mam_seen_asn": mam_seen_asn,
         "mam_seen_as": mam_seen_as,
-        "detected_public_ip": status.get("detected_public_ip"),
-        "detected_public_ip_asn": status.get("detected_public_ip_asn"),
-        "detected_public_ip_as": status.get("detected_public_ip_as"),
+        "detected_public_ip": detected_public_ip,
+        "detected_public_ip_asn": detected_public_ip_asn,
+        "detected_public_ip_as": detected_public_ip_as,
         "proxied_public_ip": proxied_public_ip,
         "proxied_public_ip_asn": proxied_public_ip_asn,
-        "proxied_public_ip_as": status.get("proxied_public_ip_as"),
+        "proxied_public_ip_as": proxied_public_ip_as,
         "ip_monitoring_mode": ip_monitoring_mode,
+        "vault_automation_enabled": is_vault_automation_enabled(),
         "ip_source": "configured",
         "message": status.get("message", "Please provide your MaM ID in the configuration."),
         "last_check_time": last_check_time,
@@ -1970,7 +1994,7 @@ async def api_vault_get_points(request: Request) -> dict[str, Any]:
         data = await request.json()
         config_id = data.get("config_id", "").strip()
 
-        _logger.info("[VaultPoints] Request for config_id: '%s'", config_id)
+        _logger.debug("[VaultPoints] Request for config_id: '%s'", config_id)
 
         if not config_id:
             _logger.warning("[VaultPoints] Config ID is required but not provided")
@@ -1980,7 +2004,7 @@ async def api_vault_get_points(request: Request) -> dict[str, Any]:
         vault_config = load_vault_config()
         config = vault_config.get("vault_configurations", {}).get(config_id)
 
-        _logger.info("[VaultPoints] Processing request for config '%s'", config_id)
+        _logger.debug("[VaultPoints] Processing request for config '%s'", config_id)
 
         if not config:
             _logger.warning("[VaultPoints] Vault configuration '%s' not found", config_id)

@@ -6,7 +6,7 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
   <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
 </p>
 
-![MouseTrap dashboard](images/mousetrap-001.png)
+![MouseTrap dashboard](images/mousetrap-002.png)
 
 ---
 
@@ -287,6 +287,8 @@ Note: See Full Docker Compose Examples #2 below for an example using MouseTrap w
 - If Docker permissions are missing, the UI shows a warning, but the rest of the app remains fully functional.
 - All port check actions and container restarts are logged in the UI event log and filterable by label.
 - To support "compose stacks" (multiple services in a single Docker Compose script), you can monitor a primary container (e.g. VPN) and define secondary containers. MouseTrap will restart the primary container and monitor for stability, then it will restart all secondary containers. This allows us to use the Docker Socket to restart an entire group of containers that might be dependent on the primary to restore network connection and stability to the system.
+
+![MouseTrap dashboard](images/port_monitor_stack.png)
 
 ---
 

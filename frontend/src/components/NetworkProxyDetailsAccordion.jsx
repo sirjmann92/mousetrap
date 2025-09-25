@@ -25,9 +25,9 @@ export default function NetworkProxyDetailsAccordion({ status }) {
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session IP Address:</Typography>
           <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip || "N/A"}</Typography>
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>MAM Session ASN:</Typography>
-          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip ? renderASN(status.current_ip_asn, status.mam_session_as) : 'N/A'}</Typography>
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.current_ip ? renderASN(status.current_ip_asn, null) : 'N/A'}</Typography>
           <Typography component="dt" sx={{ fontWeight: 500, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>Connection Proxied:</Typography>
-          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{details.proxy && details.proxy.host && String(details.proxy.host).trim() !== '' && details.proxy.port && String(details.proxy.port).trim() !== '' ? "Yes" : "No"}</Typography>
+          <Typography component="dd" sx={{ m: 0, fontSize: '0.92rem', lineHeight: 1.3, py: 0.2 }}>{status.proxied_public_ip && status.proxied_public_ip !== "N/A" ? "Yes" : "No"}</Typography>
         </Box>
       </AccordionDetails>
     </Accordion>
