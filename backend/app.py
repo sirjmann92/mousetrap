@@ -14,6 +14,7 @@ import logging
 import os
 from pathlib import Path
 import re
+import time
 from typing import Any
 
 import aiohttp
@@ -108,6 +109,57 @@ vault_automation_manager = VaultAutomationManager()
 scheduler = BackgroundScheduler()
 
 session_status_cache: dict[str, Any] = {}
+# Global cache for notification deduplication by MAM ID
+# Format: {mam_id: {event_type: {count_change_key: timestamp}}}
+notification_dedup_cache: dict[str, dict[str, dict[str, float]]] = {}
+
+
+def should_send_notification(
+    mam_id: str, event_type: str, old_count: int, new_count: int, dedup_window_minutes: int = 60
+) -> bool:
+    """Check if we should send a notification based on deduplication cache.
+
+    Args:
+        mam_id: The MAM account ID
+        event_type: Type of event (e.g., 'inactive_hit_and_run', 'inactive_unsatisfied')
+        old_count: Previous count value
+        new_count: New count value
+        dedup_window_minutes: Minutes to prevent duplicate notifications (default 60)
+
+    Returns:
+        True if notification should be sent, False if it's a duplicate
+    """
+    if not mam_id:
+        return True  # Always allow if no MAM ID
+
+    # Create a unique key for this specific count change
+    count_change_key = f"{old_count}→{new_count}"
+    now = time.time()
+    dedup_window_seconds = dedup_window_minutes * 60
+
+    # Initialize nested dict structure if needed
+    if mam_id not in notification_dedup_cache:
+        notification_dedup_cache[mam_id] = {}
+    if event_type not in notification_dedup_cache[mam_id]:
+        notification_dedup_cache[mam_id][event_type] = {}
+
+    # Check if we've recently notified about this exact change
+    last_notification_time = notification_dedup_cache[mam_id][event_type].get(count_change_key)
+
+    if last_notification_time and (now - last_notification_time) < dedup_window_seconds:
+        # Duplicate notification within window - skip it
+        return False
+
+    # Record this notification and clean up old entries
+    notification_dedup_cache[mam_id][event_type][count_change_key] = now
+
+    # Clean up old entries to prevent memory growth
+    cutoff_time = now - dedup_window_seconds
+    for key in list(notification_dedup_cache[mam_id][event_type].keys()):
+        if notification_dedup_cache[mam_id][event_type][key] < cutoff_time:
+            del notification_dedup_cache[mam_id][event_type][key]
+
+    return True
 
 
 def is_vault_automation_enabled() -> bool:
@@ -161,62 +213,95 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
     if not isinstance(old_status, dict) or not isinstance(new_status, dict):
         return
 
+    # Get MAM ID for deduplication
+    mam_id = cfg.get("mam", {}).get("mam_id", "")
+
     old_raw = old_status.get("raw", {})
     new_raw = new_status.get("raw", {})
 
     # Check inactive hit & run increment
-    old_inact_hnr = (
+    old_inact_hnr_raw = (
         old_raw.get("inactHnr", {}).get("count", 0)
         if isinstance(old_raw.get("inactHnr"), dict)
         else 0
     )
-    new_inact_hnr = (
+    new_inact_hnr_raw = (
         new_raw.get("inactHnr", {}).get("count", 0)
         if isinstance(new_raw.get("inactHnr"), dict)
+        else 0
+    )
+    # Ensure values are integers for comparison
+    old_inact_hnr = (
+        int(old_inact_hnr_raw)
+        if isinstance(old_inact_hnr_raw, int | str) and str(old_inact_hnr_raw).isdigit()
+        else 0
+    )
+    new_inact_hnr = (
+        int(new_inact_hnr_raw)
+        if isinstance(new_inact_hnr_raw, int | str) and str(new_inact_hnr_raw).isdigit()
         else 0
     )
 
     if new_inact_hnr > old_inact_hnr:
         increment = new_inact_hnr - old_inact_hnr
 
-        await notify_event(
-            event_type="inactive_hit_and_run",
-            label=label,
-            status="INCREMENT",
-            message=f"Inactive Hit & Run count increased by {increment} (from {old_inact_hnr} to {new_inact_hnr})",
-            details={
-                "old_count": old_inact_hnr,
-                "new_count": new_inact_hnr,
-                "increment": increment,
-            },
-        )
+        # Check deduplication - only notify if this change hasn't been reported recently for this MAM ID
+        if should_send_notification(mam_id, "inactive_hit_and_run", old_inact_hnr, new_inact_hnr):
+            await notify_event(
+                event_type="inactive_hit_and_run",
+                label=label,
+                status="INCREMENT",
+                message=f"Inactive Hit & Run count increased by {increment} (from {old_inact_hnr} to {new_inact_hnr})",
+                details={
+                    "old_count": old_inact_hnr,
+                    "new_count": new_inact_hnr,
+                    "increment": increment,
+                    "mam_id": mam_id,
+                },
+            )
 
     # Check inactive unsatisfied increment
-    old_inact_unsat = (
+    old_inact_unsat_raw = (
         old_raw.get("inactUnsat", {}).get("count", 0)
         if isinstance(old_raw.get("inactUnsat"), dict)
         else 0
     )
-    new_inact_unsat = (
+    new_inact_unsat_raw = (
         new_raw.get("inactUnsat", {}).get("count", 0)
         if isinstance(new_raw.get("inactUnsat"), dict)
+        else 0
+    )
+    # Ensure values are integers for comparison
+    old_inact_unsat = (
+        int(old_inact_unsat_raw)
+        if isinstance(old_inact_unsat_raw, int | str) and str(old_inact_unsat_raw).isdigit()
+        else 0
+    )
+    new_inact_unsat = (
+        int(new_inact_unsat_raw)
+        if isinstance(new_inact_unsat_raw, int | str) and str(new_inact_unsat_raw).isdigit()
         else 0
     )
 
     if new_inact_unsat > old_inact_unsat:
         increment = new_inact_unsat - old_inact_unsat
 
-        await notify_event(
-            event_type="inactive_unsatisfied",
-            label=label,
-            status="INCREMENT",
-            message=f"Inactive Unsatisfied (Pre-H&R) count increased by {increment} (from {old_inact_unsat} to {new_inact_unsat})",
-            details={
-                "old_count": old_inact_unsat,
-                "new_count": new_inact_unsat,
-                "increment": increment,
-            },
-        )
+        # Check deduplication - only notify if this change hasn't been reported recently for this MAM ID
+        if should_send_notification(
+            mam_id, "inactive_unsatisfied", old_inact_unsat, new_inact_unsat
+        ):
+            await notify_event(
+                event_type="inactive_unsatisfied",
+                label=label,
+                status="INCREMENT",
+                message=f"Inactive Unsatisfied (Pre-H&R) count increased by {increment} (from {old_inact_unsat} to {new_inact_unsat})",
+                details={
+                    "old_count": old_inact_unsat,
+                    "new_count": new_inact_unsat,
+                    "increment": increment,
+                    "mam_id": mam_id,
+                },
+            )
 
 
 # Start PortMonitorStackManager monitor loop on FastAPI startup
@@ -2195,6 +2280,8 @@ async def session_check_job(label: str) -> None:
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
+            # Check for increments in hit & run and unsatisfied counts before auto-update logic
+            await check_and_notify_count_increments(cfg, status, label)
             # Auto-update logic
             auto_update_triggered, auto_update_result = await auto_update_seedbox_if_needed(
                 cfg, label, ip_to_use, asn, now
