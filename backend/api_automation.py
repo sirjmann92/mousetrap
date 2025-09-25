@@ -48,6 +48,15 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
     amount = data.get("amount", 1)
     if not label:
         raise HTTPException(status_code=400, detail="Session label required.")
+
+    # Validate upload credit amount - MAM only accepts certain values
+    valid_amounts = [1, 2.5, 5, 20, 100]
+    if amount not in valid_amounts:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid upload credit amount: {amount}GB. Valid amounts are: {', '.join(map(str, valid_amounts))}GB",
+        )
+
     cfg = load_session(label)
     if cfg is None:
         _logger.warning("[ManualUpload] Session '%s' not found or not configured.", label)
