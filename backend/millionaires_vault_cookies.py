@@ -760,7 +760,7 @@ async def perform_vault_donation(
                         break
 
                 if session_config:
-                    _logger.info(
+                    _logger.debug(
                         "[perform_vault_donation] Using session-based verification with mam_id: [REDACTED]"
                     )
                 else:
@@ -780,7 +780,7 @@ async def perform_vault_donation(
                     mam_id=verification_mam_id, proxy_cfg=session_proxy_cfg
                 )
                 result["points_before"] = status_before.get("points")
-                _logger.info(
+                _logger.debug(
                     "[perform_vault_donation] Points before donation (session): %s",
                     result["points_before"],
                 )
@@ -799,7 +799,7 @@ async def perform_vault_donation(
         browser_type = parsed_cookies.get("browser", "chrome")  # Default to chrome
         actual_mam_id = parsed_cookies.get("mam_id") or browser_mam_id
 
-        _logger.info(
+        _logger.debug(
             "[perform_vault_donation] Browser parsing - browser_mam_id length: %s, parsed_cookies: %s, browser_type: %s",
             len(browser_mam_id),
             parsed_cookies,
@@ -993,7 +993,7 @@ async def _perform_vault_donation_direct(
                     "_token",
                 ]:  # Don't duplicate token
                     hidden_fields[field_name] = field_value
-                    _logger.info(
+                    _logger.debug(
                         "[perform_vault_donation] Found hidden field: %s = %s...",
                         field_name,
                         field_value[:20],
@@ -1020,23 +1020,23 @@ async def _perform_vault_donation_direct(
             # Use the exact URL from documentation - no need for complex form parsing
             post_url = vault_url  # Always use the same URL for POST as documented
 
-            _logger.info("[perform_vault_donation] POST URL: %s", post_url)
-            _logger.info("[perform_vault_donation] Form data: %s", donation_data)
-            _logger.info("[perform_vault_donation] Headers: %s", headers)
+            _logger.debug("[perform_vault_donation] POST URL: %s", post_url)
+            _logger.debug("[perform_vault_donation] Form data: %s", donation_data)
+            _logger.debug("[perform_vault_donation] Headers: %s", headers)
 
             # Submit donation
             donation_resp = await session.post(
                 post_url, data=donation_data, cookies=cookies, headers=headers
             )
 
-            _logger.info("[perform_vault_donation] POST response status: %s", donation_resp.status)
+            _logger.debug("[perform_vault_donation] POST response status: %s", donation_resp.status)
 
             if donation_resp.status == 200:
                 donation_text = await donation_resp.text()
                 donation_html = donation_text.lower()
 
                 # Log response snippet for debugging
-                _logger.info(
+                _logger.debug(
                     "[perform_vault_donation] Response preview: %s",
                     donation_text[:300],
                 )
@@ -1057,7 +1057,7 @@ async def _perform_vault_donation_direct(
 
                 # If we don't have a clear success indicator, verify by checking points balance
                 if not has_success_indicator and result.get("points_before"):
-                    _logger.info(
+                    _logger.debug(
                         "[perform_vault_donation] No clear success indicator found, verifying by checking points balance"
                     )
 
@@ -1084,7 +1084,7 @@ async def _perform_vault_donation_direct(
                                 if current_points is not None:
                                     expected_points = result["points_before"] - amount
 
-                                    _logger.info(
+                                    _logger.debug(
                                         "[perform_vault_donation] Points verification (session) - Before: %s, Current: %s, Expected: %s",
                                         result["points_before"],
                                         current_points,
@@ -1095,7 +1095,7 @@ async def _perform_vault_donation_direct(
                                     if (
                                         abs(current_points - expected_points) <= 100
                                     ):  # Allow 100 point discrepancy for rounding/timing
-                                        _logger.info(
+                                        _logger.debug(
                                             "[perform_vault_donation] Points verification successful - donation appears to have worked"
                                         )
                                         has_success_indicator = True
@@ -1132,7 +1132,7 @@ async def _perform_vault_donation_direct(
                         if current_points is not None:
                             expected_points = result["points_before"] - amount
 
-                            _logger.info(
+                            _logger.debug(
                                 "[perform_vault_donation] Points verification (browser) - Before: %s, Current: %s, Expected: %s",
                                 result["points_before"],
                                 current_points,
@@ -1143,7 +1143,7 @@ async def _perform_vault_donation_direct(
                             if (
                                 abs(current_points - expected_points) <= 100
                             ):  # Allow 100 point discrepancy for rounding/timing
-                                _logger.info(
+                                _logger.debug(
                                     "[perform_vault_donation] Points verification successful - donation appears to have worked"
                                 )
                                 has_success_indicator = True
