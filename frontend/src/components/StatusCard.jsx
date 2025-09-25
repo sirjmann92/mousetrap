@@ -181,7 +181,7 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
       <CardContent>
         {/* Session Status Header: align text and icon vertically with buttons */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 48 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', minHeight: 48, gap: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0, mr: 1 }}>
                 Session Status
@@ -200,6 +200,27 @@ const StatusCard = forwardRef(function StatusCard({ autoWedge, autoVIP, autoUplo
                 }
                 // Show yellow question mark if status is unknown (no error, no explicit success/failure)
                 return <InfoOutlinedIcon sx={{ color: 'warning.main', fontSize: 28, verticalAlign: 'middle' }} titleAccess="Session unknown" />;
+              })()}
+            </Box>
+            {/* Connectable Status */}
+            <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', height: 40, mb: 0, mr: 1 }}>
+                Connectable
+              </Typography>
+              {(() => {
+                if (!status || !status.details || !status.details.raw) return null;
+                const connectable = status.details.raw.connectable;
+
+                if (connectable === undefined || connectable === null || connectable === 'N/A') return null;
+
+                if (connectable === 'yes') {
+                  return <CheckCircleIcon sx={{ color: 'success.main', fontSize: 28, verticalAlign: 'middle' }} titleAccess="Connectable: Yes" />;
+                }
+                if (connectable === 'no') {
+                  return <CancelIcon sx={{ color: 'error.main', fontSize: 28, verticalAlign: 'middle' }} titleAccess="Connectable: No" />;
+                }
+
+                return null;
               })()}
             </Box>
           </Box>

@@ -12,13 +12,16 @@ import {
   InputLabel,
   FormControl,
   Divider,
-  Collapse
+  Collapse,
+  Tooltip,
+  Alert
 } from "@mui/material";
 import ConfirmDialog from "./ConfirmDialog";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import AddIcon from '@mui/icons-material/Add';
+import NetworkCheckIcon from '@mui/icons-material/NetworkCheck';
 import { useSession } from '../context/SessionContext';
 
 export default function ProxyConfigCard({ proxies, setProxies, refreshProxies }) {
@@ -28,17 +31,39 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
   const [showConfirm, setShowConfirm] = useState(false);
   const { proxy, setProxy } = useSession();
 
+  // State declarations must come before useEffect hooks that reference them
+  const [expanded, setExpanded] = useState(false);
+  const [editLabel, setEditLabel] = useState("");
+  const [editProxy, setEditProxy] = useState(null);
+  const [form, setForm] = useState({ label: "", host: "", port: "", username: "", password: "" });
+  const [isEditing, setIsEditing] = useState(false);
+  const [testingProxy, setTestingProxy] = useState(null);
+  const [testResults, setTestResults] = useState({});
+  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState(null);
+
   // Fetch sessions on mount and when proxies change
   useEffect(() => {
     fetch('/api/sessions')
       .then(res => res.json())
       .then(data => setSessions(data.sessions || []));
   }, [proxies]);
-  const [expanded, setExpanded] = useState(false);
-  const [editLabel, setEditLabel] = useState("");
-  const [editProxy, setEditProxy] = useState(null);
-  const [form, setForm] = useState({ label: "", host: "", port: "", username: "", password: "" });
-  const [isEditing, setIsEditing] = useState(false);
+
+  // Auto-dismiss success messages after 2 seconds
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
+
+  // Auto-dismiss error messages after 2 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   // proxies and onProxiesChanged are managed by parent
 
@@ -103,6 +128,47 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
     setExpanded(true);
   };
 
+  const handleTestProxy = async (label) => {
+    setTestingProxy(label);
+    setError(null);
+    setSuccess(null);
+
+    // Clear any previous test result for this proxy
+    setTestResults(prev => {
+      const updated = { ...prev };
+      delete updated[label];
+      return updated;
+    });
+
+    try {
+      const response = await fetch(`/api/proxy_test/${encodeURIComponent(label)}`);
+      const data = await response.json();
+
+      if (data.proxied_ip) {
+        const statusMsg = 'OK';
+        setSuccess(`Proxy tested: ${label} — ${statusMsg}`);
+        setTestResults(prev => ({
+          ...prev,
+          [label]: { ...data, status: statusMsg }
+        }));
+      } else {
+        setError(`Proxy test failed: ${label} — No IP returned`);
+        setTestResults(prev => ({
+          ...prev,
+          [label]: { error: 'No IP returned', status: 'Failed' }
+        }));
+      }
+    } catch (error) {
+      setError(`Proxy test failed: ${label}`);
+      setTestResults(prev => ({
+        ...prev,
+        [label]: { error: 'Test failed', status: 'Failed' }
+      }));
+    } finally {
+      setTestingProxy(null);
+    }
+  };
+
   return (
     <>
     <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
@@ -133,18 +199,94 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
               <Button variant="contained" onClick={handleSave} sx={{ minWidth: 140 }}>{isEditing ? "Update Proxy" : "Save Proxy"}</Button>
             </Box>
             {Object.keys(proxies).length > 0 && <Divider sx={{ my: 2 }} />}
-            {Object.keys(proxies).length === 0 && (
-              <Typography sx={{ mt: 3, mb: 2, color: 'text.secondary', textAlign: 'center', fontStyle: 'italic' }}>
-                No proxies configured.
-              </Typography>
-            )}
-            {Object.entries(proxies).map(([label, proxy]) => (
-              <Box key={label} sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ flex: 1, fontWeight: 400 }}>{label} ({proxy.host}:{proxy.port})</Typography>
-                <IconButton onClick={() => handleEdit(label)}><EditIcon /></IconButton>
-                <IconButton onClick={() => handleDelete(label)}><DeleteIcon /></IconButton>
-              </Box>
-            ))}
+            <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>Configured Proxies</Typography>
+            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {success && <Alert severity="success" sx={{ mb: 1 }}>{success}</Alert>}
+            <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
+              {Object.keys(proxies).length === 0 && (
+                <Typography color="text.secondary">No proxies configured.</Typography>
+              )}
+              {Object.entries(proxies).map(([label, proxy]) => {
+                const testResult = testResults[label];
+                return (
+                  <Box
+                    key={label}
+                    sx={theme => ({
+                      mb: 2,
+                      p: 2,
+                      borderRadius: 2,
+                      background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
+                      boxShadow: 0,
+                      position: 'relative',
+                    })}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, minWidth: 320 }}>
+                        Proxy: {label}
+                      </Typography>
+                      <Box>
+                        <Tooltip title="Test Proxy">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleTestProxy(label)}
+                            disabled={testingProxy === label}
+                          >
+                            <NetworkCheckIcon
+                              color={testResult?.error ? 'error' : testResult?.proxied_ip ? 'success' : 'primary'}
+                              fontSize="small"
+                            />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Edit Proxy">
+                          <IconButton size="small" onClick={() => handleEdit(label)}>
+                            <EditIcon color="primary" fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Proxy">
+                          <IconButton size="small" onClick={() => handleDelete(label)}>
+                            <DeleteIcon color="error" fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Box>
+                    <Typography variant="body2" sx={{ minWidth: 320 }}>
+                      Host: {proxy.host}:{proxy.port}
+                    </Typography>
+                    {proxy.username && (
+                      <Typography variant="body2" sx={{ minWidth: 320 }}>
+                        Username: {proxy.username}
+                      </Typography>
+                    )}
+                    {testResult && testResult.status && (
+                      <Typography
+                        variant="body2"
+                        sx={(theme) => ({
+                          minWidth: 320,
+                          fontWeight: 600,
+                          color: testResult.status === 'OK'
+                            ? theme.palette.success.main
+                            : theme.palette.error.main,
+                        })}
+                      >
+                        Status: {testResult.status}
+                      </Typography>
+                    )}
+                    {testResult && !testResult.error && testResult.proxied_ip && (
+                      <>
+                        <Typography variant="body2" sx={{ minWidth: 320 }}>
+                          Proxied IP: {testResult.proxied_ip}
+                        </Typography>
+                        {testResult.proxied_asn && (
+                          <Typography variant="body2" sx={{ minWidth: 320 }}>
+                            Proxied ASN: {testResult.proxied_asn}
+                          </Typography>
+                        )}
+                      </>
+                    )}
+                  </Box>
+                );
+              })}
+            </Box>
           </Box>
         </CardContent>
       </Collapse>

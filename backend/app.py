@@ -1215,11 +1215,21 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 }
             )
 
-        # Re-register the session job with the new interval (or create if new)
+        # Handle session job management for label changes and updates
         try:
-            register_all_session_jobs()
+            # If label changed, remove the old job
+            if old_label and old_label != label:
+                old_job_id = f"session_check_{old_label}"
+                if scheduler.get_job(old_job_id):
+                    scheduler.remove_job(old_job_id)
+                    _logger.info("[APScheduler] Removed job for renamed session '%s'", old_label)
+
+            # Register/update the job for the current session
+            register_session_job(label)
         except Exception as e:
-            _logger.error("[APScheduler] Failed to re-register session jobs after save: %s", e)
+            _logger.error(
+                "[APScheduler] Failed to manage session job for '%s' after save: %s", label, e
+            )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
@@ -2316,6 +2326,45 @@ def reset_all_last_check_times() -> None:
 
 
 # Register jobs for all sessions on startup
+def register_session_job(label: str) -> None:
+    """Register APScheduler job for a single session.
+
+    Args:
+        label: The session label to register a job for
+    """
+    cfg = load_session(label)
+    check_freq = cfg.get("check_freq")
+    mam_id = cfg.get("mam", {}).get("mam_id", "")
+
+    # Only register if frequency is set and valid, and MaM ID is present
+    if not check_freq or not isinstance(check_freq, int) or check_freq < 1 or not mam_id:
+        _logger.info(
+            "[APScheduler] Skipping job registration for session '%s' (missing or invalid input)",
+            label,
+        )
+        return
+
+    job_id = f"session_check_{label}"
+    # Remove any existing job for this label
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
+
+    scheduler.add_job(
+        sync_session_check_job,
+        trigger=IntervalTrigger(minutes=check_freq),
+        args=[label],
+        id=job_id,
+        replace_existing=True,
+        coalesce=True,
+        max_instances=1,
+    )
+    _logger.info(
+        "[APScheduler] Registered job for session '%s' every %s min",
+        label,
+        check_freq,
+    )
+
+
 def register_all_session_jobs() -> None:
     """Register APScheduler jobs for all sessions with valid settings.
 
@@ -2325,34 +2374,7 @@ def register_all_session_jobs() -> None:
     """
     session_labels = list_sessions()
     for label in session_labels:
-        cfg = load_session(label)
-        check_freq = cfg.get("check_freq")
-        mam_id = cfg.get("mam", {}).get("mam_id", "")
-        # Only register if frequency is set and valid, and MaM ID is present
-        if not check_freq or not isinstance(check_freq, int) or check_freq < 1 or not mam_id:
-            _logger.info(
-                "[APScheduler] Skipping job registration for session '%s' (missing or invalid input)",
-                label,
-            )
-            continue
-        job_id = f"session_check_{label}"
-        # Remove any existing job for this label
-        if scheduler.get_job(job_id):
-            scheduler.remove_job(job_id)
-        scheduler.add_job(
-            sync_session_check_job,
-            trigger=IntervalTrigger(minutes=check_freq),
-            args=[label],
-            id=job_id,
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-        _logger.info(
-            "[APScheduler] Registered job for session '%s' every %s min",
-            label,
-            check_freq,
-        )
+        register_session_job(label)
 
 
 # Immediate session check for all sessions at startup
