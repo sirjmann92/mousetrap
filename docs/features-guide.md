@@ -94,7 +94,9 @@ MouseTrap provides automated management for MyAnonamouse (MaM) seedbox sessions 
 
 ### Global Proxy System
 - **Centralized management**: Configure proxies once, use across sessions
-- **Proxy testing**: Built-in connectivity and IP detection testing
+- **Interactive proxy testing**: Built-in "Test Proxy" button for each configured proxy
+- **Real-time validation**: Test connectivity and IP detection with visual feedback
+- **Success/failure notifications**: Material-UI alerts show test results with auto-dismiss
 - **Instant IP detection**: See what IP MaM will detect through each proxy
 - **Authentication support**: Username/password for authenticated proxies
 
@@ -353,6 +355,8 @@ services:
 ### Real-Time Status Display
 - **Current session info**: MAM ID, IP address, ASN details
 - **Account statistics**: Points, cheese, H&R counts, inactive torrents
+- **Connectivity status**: Visual connectable indicator (green checkmark/red X)
+- **Session status**: Current session state alongside connectivity information
 - **Rate limiting**: Visual indication of MaM API rate limiting
 - **Last update**: When information was last refreshed from MaM
 
