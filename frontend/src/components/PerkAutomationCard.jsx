@@ -450,7 +450,6 @@ export default function PerkAutomationCard({
               { value: 2.5, label: "2.5GB" },
               { value: 5, label: "5GB" },
               { value: 20, label: "20GB" },
-              { value: 50, label: "50GB" },
               { value: 100, label: "100GB" }
             ]}
             onSelectChange={e => setUploadAmount(e.target.value)}

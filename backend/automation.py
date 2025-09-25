@@ -70,6 +70,17 @@ async def upload_credit_automation_job() -> None:
             trigger_point_threshold = automation.get("trigger_point_threshold", 50000)
             gb_amount = automation.get("gb", 10)
 
+            # Validate upload credit amount - MAM only accepts certain values
+            valid_amounts = [1, 2.5, 5, 20, 100]
+            if gb_amount not in valid_amounts:
+                _logger.error(
+                    "[UploadAuto] Invalid upload credit amount configured: %sGB. Skipping session '%s'. Valid amounts are: %s",
+                    gb_amount,
+                    label,
+                    ", ".join(map(str, valid_amounts)),
+                )
+                continue
+
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get("points", 0) if isinstance(status, dict) else 0
