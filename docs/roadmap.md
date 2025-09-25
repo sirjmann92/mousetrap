@@ -2,8 +2,8 @@ This document contains a list of planned enhancements
 
 # Planned
 
-- Proxy test - Provide the ability to natively test individual proxy connections
 - Wedge/Cheese - Display the current browser session's cheese and wedge counts (requires scraping)
+- Lottery automation
 
 ## Session Expiry Tracking
 
