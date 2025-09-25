@@ -229,9 +229,14 @@ async def notify_event(
     # Prevent spam: only send if at least one channel is enabled for this event
     if not rule.get("email") and not rule.get("webhook") and not rule.get("apprise"):
         return
-    # Always prepend session name to the message if label is present
-    session_prefix = f"Session: {label}, " if label else ""
-    full_message = f"{session_prefix}{message}" if message else session_prefix.rstrip(", ")
+    # Always prepend MouseTrap and session name to the message
+    mousetrap_prefix = "MouseTrap: "
+    session_part = f"Session: {label}, " if label else ""
+    full_message = (
+        f"{mousetrap_prefix}{session_part}{message}"
+        if message
+        else f"{mousetrap_prefix}{session_part}".rstrip(", ")
+    )
     payload = {
         "event_type": event_type,
         "label": label,
