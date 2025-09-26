@@ -113,6 +113,7 @@ export default function PerkAutomationCard({
         setVipTriggerType(vip.trigger_type ?? 'time');
         setVipTriggerDays(vip.trigger_days ?? 7);
         setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
+        setVipWeeks(vip.weeks ?? 4);
         // Save username for guardrails
         let username = null;
         if (cfg.last_status && cfg.last_status.raw && cfg.last_status.raw.username) {
