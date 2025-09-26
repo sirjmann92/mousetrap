@@ -4,6 +4,7 @@ This document contains a list of planned enhancements
 
 - Wedge/Cheese - Display the current browser session's cheese and wedge counts (requires scraping)
 - Lottery automation
+- Simplify notification options (reduce rows with success/failure options)
 
 ## Session Expiry Tracking
 
