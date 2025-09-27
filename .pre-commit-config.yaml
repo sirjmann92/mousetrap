@@ -34,13 +34,20 @@ repos:
         additional_dependencies:
           - tomli
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.12
+    rev: v0.13.2
     hooks:
       # Run the linter.
       - id: ruff-check
         args: [--fix]
       # Run the formatter.
       - id: ruff-format
+
+  - repo: https://github.com/biomejs/pre-commit
+    rev: 'v2.2.4'
+    hooks:
+      - id: biome-check
+        files: ^frontend/
+        additional_dependencies: ['@biomejs/biome@2.2.4']
 
 ci:
   autofix_commit_msg: |
