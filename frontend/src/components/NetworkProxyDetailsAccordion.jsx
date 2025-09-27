@@ -1,6 +1,6 @@
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { Accordion, AccordionDetails, AccordionSummary, Box, Typography } from '@mui/material';
-import { renderASN } from '../utils/statusUtils';
+import { renderASN } from '../utils/statusUtils.jsx';
 
 export default function NetworkProxyDetailsAccordion({ status }) {
   if (!status) return null;

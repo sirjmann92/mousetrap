@@ -3,6 +3,8 @@
 This module manages stack-based port checks and coordinated restarts.
 """
 
+from __future__ import annotations
+
 import asyncio
 from datetime import UTC, datetime
 import logging
@@ -188,12 +190,25 @@ class PortMonitorStackManager:
         """
         if self._docker_client is not None:
             return self._docker_client
+        # If the docker python SDK failed to import, warn once and return None
         if not docker:
+            warning_key = "docker_module_missing"
+            if self._should_log_warning(warning_key, min_interval=60):
+                _logger.warning(
+                    "[PortMonitorStack] Docker python SDK not installed; docker-related features will be unavailable."
+                )
             return None
         try:
             client = docker.from_env()
             self._docker_client = client
-        except Exception:
+        except Exception as e:
+            # Log the error creating the docker client (rate limited)
+            warning_key = "docker_from_env_failed"
+            if self._should_log_warning(warning_key, min_interval=60):
+                _logger.error(
+                    "[PortMonitorStack] Failed to create docker client from environment: %s",
+                    e,
+                )
             return None
         else:
             return self._docker_client

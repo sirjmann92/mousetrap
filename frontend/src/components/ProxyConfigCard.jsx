@@ -16,7 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useSession } from '../context/SessionContext';
+import { useSession } from '../context/SessionContext.jsx';
 import ConfirmDialog from './ConfirmDialog';
 
 export default function ProxyConfigCard({ proxies, refreshProxies }) {

@@ -14,7 +14,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
-import { useSession } from '../context/SessionContext';
+import { useSession } from '../context/SessionContext.jsx';
 import { stringifyMessage } from '../utils/utils';
 import AutomationSection from './AutomationSection';
 import ConfirmDialog from './ConfirmDialog';

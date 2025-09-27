@@ -21,7 +21,7 @@ import ProxyConfigCard from './components/ProxyConfigCard';
 import SessionSelector from './components/SessionSelector';
 import StatusCard from './components/StatusCard';
 import VaultConfigCard from './components/VaultConfigCard';
-import { useSession } from './context/SessionContext';
+import { useSession } from './context/SessionContext.jsx';
 
 export default function App() {
   // Fetch all proxies and update state

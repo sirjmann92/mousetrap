@@ -13,9 +13,9 @@ import {
   Typography,
 } from '@mui/material';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
-import { useSession } from '../context/SessionContext';
-import { stringifyMessage } from '../utils/statusUtils';
-import { getStatusMessageColor } from '../utils/utils';
+import { useSession } from '../context/SessionContext.jsx';
+import { stringifyMessage } from '../utils/statusUtils.jsx';
+import { getStatusMessageColor } from '../utils/utils.jsx';
 import AutomationStatusRow from './AutomationStatusRow';
 import MamDetailsAccordion from './MamDetailsAccordion';
 import NetworkProxyDetailsAccordion from './NetworkProxyDetailsAccordion';
@@ -106,26 +106,24 @@ const StatusCard = forwardRef(function StatusCard(
   );
 
   // Poll backend every 5 seconds for status, but only if session is fully configured
+  const isConfigured = status && status.configured !== false && status.next_check_time;
+  const isNearNextCheck = timer <= 10;
+
   useEffect(() => {
-    let pollInterval = null;
-
-    const isConfigured = status && status.configured !== false && status.next_check_time;
-
-    // Start polling when timer reaches 0 or is very close (within 10 seconds)
-    if (isConfigured && timer <= 10) {
-      pollInterval = setInterval(async () => {
-        try {
-          await fetchStatus(false);
-        } catch (error) {
-          console.error('Polling error:', error);
-        }
-      }, 5000);
+    if (!isConfigured || !isNearNextCheck) {
+      return undefined;
     }
 
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [timer, status, fetchStatus]);
+    const intervalId = setInterval(async () => {
+      try {
+        await fetchStatus(false);
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [fetchStatus, isConfigured, isNearNextCheck]);
 
   // Timer is always derived from backend's next_check_time and current time
   useEffect(() => {

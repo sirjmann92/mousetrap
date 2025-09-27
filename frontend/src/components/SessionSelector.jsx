@@ -15,20 +15,30 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import { useSession } from '../context/SessionContext';
+import { useSession } from '../context/SessionContext.jsx';
 
 export default function SessionSelector({ onLoadSession, onCreateSession, onDeleteSession, sx }) {
   const { sessionLabel: selectedLabel, setSessionLabel: setSelectedLabel } = useSession();
   const [sessions, setSessions] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/sessions')
-      .then((res) => res.json())
-      .then((data) => setSessions(data.sessions || []));
+  // fetch sessions from backend; callable so we can refresh after create/delete
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sessions');
+      const data = await res.json();
+      setSessions(data.sessions || []);
+    } catch (err) {
+      // keep existing sessions on error
+      console.error('failed to fetch sessions', err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchSessions();
+  }, [fetchSessions]);
 
   const handleChange = (e) => {
     setSelectedLabel(e.target.value);
@@ -49,7 +59,13 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
 
   const handleDeleteConfirm = () => {
     setDeleteDialogOpen(false);
-    onDeleteSession(selectedLabel);
+    // call the prop and then refresh the sessions list; support promise returns
+    const maybePromise = onDeleteSession?.(selectedLabel);
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      maybePromise.then(() => fetchSessions()).catch(() => fetchSessions());
+    } else {
+      fetchSessions();
+    }
   };
 
   const handleDeleteCancel = () => {
@@ -75,7 +91,18 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
         </Select>
       </FormControl>
       <Tooltip title="Create New Session">
-        <IconButton color="success" onClick={onCreateSession} sx={{ ml: 1 }}>
+        <IconButton
+          color="success"
+          onClick={() => {
+            const maybePromise = onCreateSession?.();
+            if (maybePromise && typeof maybePromise.then === 'function') {
+              maybePromise.then(() => fetchSessions()).catch(() => fetchSessions());
+            } else {
+              fetchSessions();
+            }
+          }}
+          sx={{ ml: 1 }}
+        >
           <AddCircleOutlineIcon />
         </IconButton>
       </Tooltip>

@@ -1,15 +1,18 @@
 # Stage 1: Build frontend
-FROM node:20-alpine AS frontend-build
+FROM node:22.20.0-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
 COPY frontend/ ./
-RUN npm ci --only=production --silent \
+RUN npm ci --silent \
     && npm cache clean --force \
+    # Build the frontend using devDependencies (vite, plugins)
     && npm run build \
+    # Clean up everything except the build output - we only need /frontend/build in the next stage
+    && npm cache clean --force \
     && rm -rf node_modules src public package*.json
 
 # Stage 2: Backend (FastAPI)
-FROM python:3.11-alpine AS backend
+FROM python:3.13-alpine AS backend
 WORKDIR /app
 
 # Copy requirements first for better caching
