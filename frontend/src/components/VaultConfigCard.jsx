@@ -12,13 +12,11 @@ import {
   Card,
   CardContent,
   Checkbox,
-  Chip,
   CircularProgress,
   Collapse,
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   Divider,
   FormControl,
@@ -33,7 +31,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import FeedbackSnackbar from './FeedbackSnackbar';
 
 export default function VaultConfigCard({ proxies, sessions }) {
@@ -46,8 +44,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
   const [saveStatus, setSaveStatus] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
   const [snackbar, setSnackbar] = useState({
-    open: false,
     message: '',
+    open: false,
     severity: 'success',
   });
   const [manualDonationAmount, setManualDonationAmount] = useState(100);
@@ -72,20 +70,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
   const bookmarkletCode = `javascript:(function(){try{if(!window.location.href.includes('myanonamouse.net')){alert('Please use this bookmarklet on MyAnonamouse.net');return;}var cookies=document.cookie.split(';');var mamId=null;var uid=null;for(var i=0;i<cookies.length;i++){var cookie=cookies[i].trim();if(cookie.startsWith('mam_id=')){mamId=cookie.substring(7);}else if(cookie.startsWith('uid=')){uid=cookie.substring(4);}}if(mamId&&uid){var browser='unknown';var ua=navigator.userAgent;if(ua.includes('Firefox')){browser='firefox';}else if(ua.includes('Chrome')&&!ua.includes('Edg')){browser='chrome';}else if(ua.includes('Edg')){browser='edge';}else if(ua.includes('Safari')&&!ua.includes('Chrome')){browser='safari';}else if(ua.includes('Opera')||ua.includes('OPR')){browser='opera';}var cookieString='mam_id='+mamId+'; uid='+uid+'; browser='+browser;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cookieString).then(function(){alert('Browser MAM ID copied to clipboard!\\n\\nThis includes both mam_id and uid cookies, plus browser type ('+browser+') for proper headers.');}).catch(function(){prompt('Browser MAM ID (copy this):',cookieString);});}else{prompt('Browser MAM ID (copy this):',cookieString);}}else{var missing=[];if(!mamId)missing.push('mam_id');if(!uid)missing.push('uid');alert('Missing required cookies: '+missing.join(', ')+'\\n\\nMake sure you are logged in to MyAnonamouse and try again.');}}catch(e){alert('Bookmarklet error: '+e.message);console.error('MAM Cookie Extractor Error:',e);}})();`;
 
   // Load vault configurations on mount
-  useEffect(() => {
-    loadVaultConfigurations();
-  }, []);
+  // (moved) useEffect hooks for loading configurations are declared after the
+  // loader functions to avoid referencing callbacks before they're defined.
 
-  // Load current configuration when selection changes - but not for new configs being created
-  useEffect(() => {
-    if (selectedConfigId && !isCreatingNew) {
-      loadVaultConfiguration(selectedConfigId);
-    } else if (!selectedConfigId) {
-      setCurrentConfig(null);
-    }
-  }, [selectedConfigId, isCreatingNew]);
-
-  const loadVaultConfigurations = async () => {
+  const loadVaultConfigurations = useCallback(async () => {
     try {
       const response = await fetch('/api/vault/configurations');
       if (response.ok) {
@@ -95,9 +83,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
         // Auto-select if there's only one configuration and no current selection
         const configKeys = Object.keys(configurations);
-        if (configKeys.length === 1 && !selectedConfigId) {
+        if (configKeys.length === 1) {
           const autoSelectedId = configKeys[0];
-          setSelectedConfigId(autoSelectedId);
+          // Only set if nothing is currently selected - use functional update to avoid stale closure
+          setSelectedConfigId((prev) => (prev ? prev : autoSelectedId));
         }
       } else {
         console.error('Error loading vault configurations');
@@ -107,9 +96,9 @@ export default function VaultConfigCard({ proxies, sessions }) {
       console.error('Error loading vault configurations:', error);
       setVaultConfigurations({});
     }
-  };
+  }, []);
 
-  const loadVaultConfiguration = async (configId) => {
+  const loadVaultConfiguration = useCallback(async (configId) => {
     try {
       setIsLoading(true);
       const response = await fetch(`/api/vault/configuration/${configId}`);
@@ -124,7 +113,21 @@ export default function VaultConfigCard({ proxies, sessions }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  // Load vault configurations on mount
+  useEffect(() => {
+    loadVaultConfigurations();
+  }, [loadVaultConfigurations]);
+
+  // Load current configuration when selection changes - but not for new configs being created
+  useEffect(() => {
+    if (selectedConfigId && !isCreatingNew) {
+      loadVaultConfiguration(selectedConfigId);
+    } else if (!selectedConfigId) {
+      setCurrentConfig(null);
+    }
+  }, [selectedConfigId, isCreatingNew, loadVaultConfiguration]);
 
   const handleCreateConfiguration = async () => {
     // Generate a unique default name (like Create New Session)
@@ -156,14 +159,14 @@ export default function VaultConfigCard({ proxies, sessions }) {
       setExpanded(true);
 
       setSnackbar({
-        open: true,
         message: 'New configuration ready! Fill in the required fields and save.',
+        open: true,
         severity: 'info',
       });
     } catch (_error) {
       setSnackbar({
-        open: true,
         message: 'Error creating configuration',
+        open: true,
         severity: 'error',
       });
     } finally {
@@ -179,8 +182,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
     if (!configIdToSave) {
       setSnackbar({
-        open: true,
         message: 'Configuration name is required',
+        open: true,
         severity: 'error',
       });
       return;
@@ -191,21 +194,21 @@ export default function VaultConfigCard({ proxies, sessions }) {
       setSaveStatus(null);
 
       const response = await fetch(`/api/vault/configuration/${configIdToSave}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentConfig),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
         setSaveStatus({
-          type: 'success',
           message: 'Configuration saved successfully!',
+          type: 'success',
         });
         setSnackbar({
-          open: true,
           message: 'Configuration saved successfully!',
+          open: true,
           severity: 'success',
         });
         setTimeout(() => setSaveStatus(null), 3000);
@@ -222,15 +225,15 @@ export default function VaultConfigCard({ proxies, sessions }) {
         const errorMessage = data.errors
           ? data.errors.join(', ')
           : data.detail || data.error || 'Failed to save configuration';
-        setSaveStatus({ type: 'error', message: errorMessage });
-        setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+        setSaveStatus({ message: errorMessage, type: 'error' });
+        setSnackbar({ message: errorMessage, open: true, severity: 'error' });
         setTimeout(() => setSaveStatus(null), 5000);
       }
     } catch (_error) {
-      setSaveStatus({ type: 'error', message: 'Error saving configuration' });
+      setSaveStatus({ message: 'Error saving configuration', type: 'error' });
       setSnackbar({
-        open: true,
         message: 'Error saving configuration',
+        open: true,
         severity: 'error',
       });
       setTimeout(() => setSaveStatus(null), 5000);
@@ -247,8 +250,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
     if (!configIdToValidate) {
       setSnackbar({
-        open: true,
         message: 'Configuration name is required',
+        open: true,
         severity: 'error',
       });
       return;
@@ -259,9 +262,9 @@ export default function VaultConfigCard({ proxies, sessions }) {
       setValidationResult(null);
 
       const response = await fetch(`/api/vault/configuration/${configIdToValidate}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(currentConfig),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
 
       const data = await response.json();
@@ -270,8 +273,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
       if (data.config_valid && data.vault_accessible) {
         setSnackbar({
-          open: true,
           message: 'Vault access validated successfully!',
+          open: true,
           severity: 'success',
         });
         setTimeout(() => setValidationResult(null), 5000);
@@ -279,18 +282,18 @@ export default function VaultConfigCard({ proxies, sessions }) {
         const errorMsg =
           data.errors?.join(', ') || data.detail || data.error || 'Validation failed';
         console.error('[VaultValidation] Validation failed:', data);
-        setSnackbar({ open: true, message: errorMsg, severity: 'error' });
+        setSnackbar({ message: errorMsg, open: true, severity: 'error' });
         setTimeout(() => setValidationResult(null), 7000);
       }
     } catch (_error) {
       setValidationResult({
         config_valid: false,
-        vault_accessible: false,
         errors: ['Validation request failed'],
+        vault_accessible: false,
       });
       setSnackbar({
-        open: true,
         message: 'Validation request failed',
+        open: true,
         severity: 'error',
       });
       setTimeout(() => setValidationResult(null), 7000);
@@ -308,8 +311,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
     if (!configIdToDonate) {
       setSnackbar({
-        open: true,
         message: 'Configuration name is required',
+        open: true,
         severity: 'error',
       });
       return;
@@ -317,8 +320,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
     if (!currentConfig.browser_mam_id) {
       setSnackbar({
-        open: true,
         message: 'Browser cookies are required for donation',
+        open: true,
         severity: 'error',
       });
       return;
@@ -338,21 +341,21 @@ export default function VaultConfigCard({ proxies, sessions }) {
           };
 
       const response = await fetch(`/api/vault/configuration/${configIdToDonate}/donate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
 
       const data = await response.json();
       console.log('[VaultDonation] Response:', {
-        status: response.status,
         data,
+        status: response.status,
       });
 
       if (response.ok) {
         setSnackbar({
-          open: true,
           message: `Successfully donated ${manualDonationAmount} points!`,
+          open: true,
           severity: 'success',
         });
 
@@ -394,16 +397,16 @@ export default function VaultConfigCard({ proxies, sessions }) {
       } else {
         console.error('[VaultDonation] Donation failed:', data);
         setSnackbar({
-          open: true,
           message: data.detail || data.error || 'Donation failed',
+          open: true,
           severity: 'error',
         });
       }
     } catch (error) {
       console.error('[VaultDonation] Request failed:', error);
       setSnackbar({
-        open: true,
         message: 'Donation request failed',
+        open: true,
         severity: 'error',
       });
     } finally {
@@ -426,8 +429,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
       if (response.ok) {
         setSnackbar({
-          open: true,
           message: 'Configuration deleted successfully!',
+          open: true,
           severity: 'success',
         });
         setDeleteDialogOpen(false);
@@ -437,15 +440,15 @@ export default function VaultConfigCard({ proxies, sessions }) {
       } else {
         const data = await response.json();
         setSnackbar({
-          open: true,
           message: data.detail || data.error || 'Error deleting configuration',
+          open: true,
           severity: 'error',
         });
       }
     } catch (_error) {
       setSnackbar({
-        open: true,
         message: 'Error deleting configuration',
+        open: true,
         severity: 'error',
       });
     } finally {
@@ -461,79 +464,85 @@ export default function VaultConfigCard({ proxies, sessions }) {
     setBookmarkletOpen(true);
   };
 
-  const fetchVaultPoints = async (config) => {
-    if (!config || !selectedConfigId || !config.associated_session_label) {
-      setVaultPoints(null);
-      return;
-    }
-
-    // Don't fetch points for unsaved configurations
-    if (isCreatingNew) {
-      setVaultPoints(null);
-      return;
-    }
-
-    setPointsLoading(true);
-    try {
-      const response = await fetch('/api/vault/points', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          config_id: selectedConfigId,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && typeof data.points === 'number') {
-        setVaultPoints(data.points);
-      } else {
-        console.error('Failed to fetch vault points:', data.error || 'Unknown error');
+  const fetchVaultPoints = useCallback(
+    async (config) => {
+      if (!config || !selectedConfigId || !config.associated_session_label) {
         setVaultPoints(null);
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching vault points:', error);
-      setVaultPoints(null);
-    } finally {
-      setPointsLoading(false);
-    }
-  };
 
-  const fetchVaultTotal = async (preserveOnError = false) => {
-    // Don't fetch if there are no configurations loaded yet
-    if (Object.keys(vaultConfigurations).length === 0) {
-      console.debug('Skipping vault total fetch - no configurations loaded');
-      return;
-    }
+      // Don't fetch points for unsaved configurations
+      if (isCreatingNew) {
+        setVaultPoints(null);
+        return;
+      }
 
-    try {
-      console.debug('Fetching vault total...');
-      const response = await fetch('/api/vault/total');
-      if (response.ok) {
+      setPointsLoading(true);
+      try {
+        const response = await fetch('/api/vault/points', {
+          body: JSON.stringify({
+            config_id: selectedConfigId,
+          }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        });
+
         const data = await response.json();
-        if (data.success) {
-          setVaultTotalPoints(data.vault_total_points);
-          console.debug('Vault total fetched successfully:', data.vault_total_points);
+
+        if (data.success && typeof data.points === 'number') {
+          setVaultPoints(data.points);
         } else {
-          // Only log as debug - this is expected when no vault configs exist yet
-          console.debug('Vault total not available:', data.error);
+          console.error('Failed to fetch vault points:', data.error || 'Unknown error');
+          setVaultPoints(null);
+        }
+      } catch (error) {
+        console.error('Error fetching vault points:', error);
+        setVaultPoints(null);
+      } finally {
+        setPointsLoading(false);
+      }
+    },
+    [selectedConfigId, isCreatingNew],
+  );
+
+  const fetchVaultTotal = useCallback(
+    async (preserveOnError = false) => {
+      // Don't fetch if there are no configurations loaded yet
+      if (Object.keys(vaultConfigurations).length === 0) {
+        console.debug('Skipping vault total fetch - no configurations loaded');
+        return;
+      }
+
+      try {
+        console.debug('Fetching vault total...');
+        const response = await fetch('/api/vault/total');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setVaultTotalPoints(data.vault_total_points);
+            console.debug('Vault total fetched successfully:', data.vault_total_points);
+          } else {
+            // Only log as debug - this is expected when no vault configs exist yet
+            console.debug('Vault total not available:', data.error);
+            if (!preserveOnError) {
+              setVaultTotalPoints(null);
+            }
+          }
+        } else {
+          console.debug('Failed to fetch vault total - likely no configurations yet');
           if (!preserveOnError) {
             setVaultTotalPoints(null);
           }
         }
-      } else {
-        console.debug('Failed to fetch vault total - likely no configurations yet');
+      } catch (error) {
+        console.debug('Error fetching vault total:', error);
         if (!preserveOnError) {
           setVaultTotalPoints(null);
         }
       }
-    } catch (error) {
-      console.debug('Error fetching vault total:', error);
-      if (!preserveOnError) {
-        setVaultTotalPoints(null);
-      }
-    }
-  };
+    },
+    [vaultConfigurations],
+  );
 
   // Fetch points when configuration is selected and has associated session
   useEffect(() => {
@@ -550,7 +559,13 @@ export default function VaultConfigCard({ proxies, sessions }) {
     } else {
       setVaultPoints(null);
     }
-  }, [selectedConfigId, currentConfig?.associated_session_label, isCreatingNew]);
+  }, [
+    selectedConfigId,
+    currentConfig?.associated_session_label,
+    isCreatingNew,
+    currentConfig,
+    fetchVaultPoints,
+  ]);
 
   // Fetch vault total when component mounts and when vault configurations are loaded
   useEffect(() => {
@@ -558,29 +573,29 @@ export default function VaultConfigCard({ proxies, sessions }) {
     if (Object.keys(vaultConfigurations).length > 0) {
       fetchVaultTotal();
     }
-  }, [vaultConfigurations]);
+  }, [vaultConfigurations, fetchVaultTotal]);
 
   return (
     <>
-      <Card sx={{ mb: 3, borderRadius: 2 }}>
+      <Card sx={{ borderRadius: 2, mb: 3 }}>
         <Box
+          onClick={() => setExpanded((e) => !e)}
           sx={{
-            display: 'flex',
             alignItems: 'center',
             cursor: 'pointer',
-            px: 2,
-            pt: 2,
-            pb: 1.5,
+            display: 'flex',
             minHeight: 56,
+            pb: 1.5,
+            pt: 2,
+            px: 2,
           }}
-          onClick={() => setExpanded((e) => !e)}
         >
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          <Typography sx={{ flexGrow: 1 }} variant="h6">
             Millionaire's Vault Configuration
           </Typography>
           {/* Vault Total styled like Points in PerkAutomationCard header */}
           {vaultTotalPoints !== null && (
-            <Typography variant="body1" sx={{ mr: 2, color: 'primary.main' }}>
+            <Typography sx={{ color: 'primary.main', mr: 2 }} variant="body1">
               🏆 Vault Total: <b>{vaultTotalPoints.toLocaleString()}</b> points
             </Typography>
           )}
@@ -592,19 +607,19 @@ export default function VaultConfigCard({ proxies, sessions }) {
             {/* Padding above first row, only visible when expanded */}
             <Box sx={{ height: 7 }} />
             {/* Configuration selector with CRUD controls */}
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-              <FormControl size="small" sx={{ minWidth: 200, maxWidth: 300 }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', mb: 3 }}>
+              <FormControl size="small" sx={{ maxWidth: 300, minWidth: 200 }}>
                 <InputLabel>Configuration</InputLabel>
                 <Select
-                  value={selectedConfigId || ''}
+                  disabled={isCreatingNew}
                   label="Configuration"
+                  MenuProps={{ disableScrollLock: true }}
                   onChange={(e) => {
                     if (!isCreatingNew) {
                       setSelectedConfigId(e.target.value);
                     }
                   }}
-                  disabled={isCreatingNew}
-                  MenuProps={{ disableScrollLock: true }}
+                  value={selectedConfigId || ''}
                 >
                   {Object.keys(vaultConfigurations).map((configId) => (
                     <MenuItem key={configId} value={configId}>
@@ -622,9 +637,9 @@ export default function VaultConfigCard({ proxies, sessions }) {
               <Tooltip title="Create New Configuration">
                 <IconButton
                   color="success"
-                  sx={{ ml: 1 }}
-                  onClick={handleCreateConfiguration}
                   disabled={isCreatingNew}
+                  onClick={handleCreateConfiguration}
+                  sx={{ ml: 1 }}
                 >
                   <AddCircleOutlineIcon />
                 </IconButton>
@@ -634,9 +649,9 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 <span>
                   <IconButton
                     color="error"
-                    sx={{ ml: 1 }}
-                    onClick={() => setDeleteDialogOpen(true)}
                     disabled={!selectedConfigId || isCreatingNew}
+                    onClick={() => setDeleteDialogOpen(true)}
+                    sx={{ ml: 1 }}
                   >
                     <DeleteOutlineIcon />
                   </IconButton>
@@ -676,36 +691,36 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 {/* Configuration Name - editable during creation, display only after saved */}
                 <Box sx={{ mb: 3 }}>
                   <TextField
+                    disabled={!isCreatingNew}
+                    error={isCreatingNew && !workingConfigName}
                     label="Configuration Name"
-                    value={isCreatingNew ? workingConfigName : selectedConfigId}
                     onChange={(e) => {
                       if (isCreatingNew) {
                         setWorkingConfigName(e.target.value);
                       }
                     }}
-                    size="small"
-                    sx={{ width: 300 }}
                     placeholder="Enter configuration name"
                     required
-                    error={isCreatingNew && !workingConfigName}
-                    disabled={!isCreatingNew}
+                    size="small"
+                    sx={{ width: 300 }}
+                    value={isCreatingNew ? workingConfigName : selectedConfigId}
                   />
                 </Box>
 
                 {/* Associated Session - for UID and points source */}
-                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, mb: 3 }}>
                   <FormControl size="small" sx={{ width: 300 }}>
                     <InputLabel>Associated Session</InputLabel>
                     <Select
-                      value={currentConfig.associated_session_label || ''}
                       label="Associated Session"
+                      MenuProps={{ disableScrollLock: true }}
                       onChange={(e) =>
                         setCurrentConfig({
                           ...currentConfig,
                           associated_session_label: e.target.value,
                         })
                       }
-                      MenuProps={{ disableScrollLock: true }}
+                      value={currentConfig.associated_session_label || ''}
                     >
                       <MenuItem value="">
                         <em>No session association</em>
@@ -718,20 +733,19 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     </Select>
                   </FormControl>
                   <Tooltip
-                    title="Associated session is required for points display and notifications. Without it, you can still perform manual donations but won't see current points or receive notifications."
                     placement="right"
+                    title="Associated session is required for points display and notifications. Without it, you can still perform manual donations but won't see current points or receive notifications."
                   >
                     <IconButton size="small" sx={{ ml: 0.5 }}>
                       <InfoOutlinedIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
                   {/* Points Display - now just to the right of selector and tooltip */}
-                  {currentConfig &&
-                    currentConfig.associated_session_label &&
+                  {currentConfig?.associated_session_label &&
                     (pointsLoading ? (
                       <>
                         <CircularProgress size={14} />
-                        <Typography variant="subtitle1" color="text.secondary">
+                        <Typography color="text.secondary" variant="subtitle1">
                           Loading...
                         </Typography>
                       </>
@@ -739,13 +753,13 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       vaultPoints !== undefined &&
                       typeof vaultPoints === 'number' ? (
                       <Typography
+                        sx={{ color: 'success.main', fontWeight: 600 }}
                         variant="subtitle1"
-                        sx={{ fontWeight: 600, color: 'success.main' }}
                       >
                         Points: {vaultPoints.toLocaleString()}
                       </Typography>
                     ) : (
-                      <Typography variant="subtitle1" color="error.main" sx={{ fontWeight: 500 }}>
+                      <Typography color="error.main" sx={{ fontWeight: 500 }} variant="subtitle1">
                         Points: Error
                       </Typography>
                     ))}
@@ -754,31 +768,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 {/* Browser MAM ID - simplified for cookie extraction */}
                 <Box sx={{ mb: 2 }}>
                   <TextField
-                    label="Browser MAM ID + UID"
-                    value={
-                      showBrowserMamId
-                        ? currentConfig.browser_mam_id || ''
-                        : currentConfig.browser_mam_id || ''
-                          ? `mam_id=********...${(currentConfig.browser_mam_id || '').toString().slice(-20)}; uid=***...`
-                          : ''
-                    }
-                    onChange={(e) =>
-                      setCurrentConfig({
-                        ...currentConfig,
-                        browser_mam_id: e.target.value,
-                      })
-                    }
-                    size="small"
-                    required
                     error={!currentConfig.browser_mam_id}
-                    inputProps={{ maxLength: 1000 }}
-                    placeholder="mam_id=...; uid=..."
                     helperText="Required browser cookies for vault access"
-                    sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
-                    type={showBrowserMamId ? 'text' : 'password'}
-                    multiline
-                    minRows={2}
-                    maxRows={6}
                     InputProps={{
                       endAdornment: (
                         <InputAdornment position="end">
@@ -786,32 +777,55 @@ export default function VaultConfigCard({ proxies, sessions }) {
                             aria-label={
                               showBrowserMamId ? 'Hide Browser MAM ID' : 'Show Browser MAM ID'
                             }
-                            onClick={() => setShowBrowserMamId((v) => !v)}
                             edge="end"
+                            onClick={() => setShowBrowserMamId((v) => !v)}
                           >
                             {showBrowserMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
                           </IconButton>
                         </InputAdornment>
                       ),
                     }}
+                    inputProps={{ maxLength: 1000 }}
+                    label="Browser MAM ID + UID"
+                    maxRows={6}
+                    minRows={2}
+                    multiline
+                    onChange={(e) =>
+                      setCurrentConfig({
+                        ...currentConfig,
+                        browser_mam_id: e.target.value,
+                      })
+                    }
+                    placeholder="mam_id=...; uid=..."
+                    required
+                    size="small"
+                    sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
+                    type={showBrowserMamId ? 'text' : 'password'}
+                    value={
+                      showBrowserMamId
+                        ? currentConfig.browser_mam_id || ''
+                        : currentConfig.browser_mam_id || ''
+                          ? `mam_id=********...${(currentConfig.browser_mam_id || '').toString().slice(-20)}; uid=***...`
+                          : ''
+                    }
                   />
                 </Box>
 
                 {/* Connection Method - required field */}
                 <Box sx={{ mb: 2 }}>
-                  <FormControl size="small" sx={{ width: 300 }} required>
+                  <FormControl required size="small" sx={{ width: 300 }}>
                     <InputLabel>Connection Method *</InputLabel>
                     <Select
-                      value={currentConfig.connection_method || 'direct'}
                       label="Connection Method"
+                      MenuProps={{ disableScrollLock: true }}
                       onChange={(e) =>
                         setCurrentConfig({
                           ...currentConfig,
                           connection_method: e.target.value,
                         })
                       }
-                      MenuProps={{ disableScrollLock: true }}
                       required
+                      value={currentConfig.connection_method || 'direct'}
                     >
                       <MenuItem value="direct">Direct (Browser Connection)</MenuItem>
                       <MenuItem value="proxy">Via Proxy</MenuItem>
@@ -825,15 +839,15 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     <FormControl size="small" sx={{ width: 200 }}>
                       <InputLabel>Vault Proxy</InputLabel>
                       <Select
-                        value={currentConfig.vault_proxy_label || ''}
                         label="Vault Proxy"
+                        MenuProps={{ disableScrollLock: true }}
                         onChange={(e) =>
                           setCurrentConfig({
                             ...currentConfig,
                             vault_proxy_label: e.target.value,
                           })
                         }
-                        MenuProps={{ disableScrollLock: true }}
+                        value={currentConfig.vault_proxy_label || ''}
                       >
                         <MenuItem value="">No Proxy</MenuItem>
                         {Object.keys(proxies || {}).map((proxyLabel) => (
@@ -850,26 +864,26 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 <Box
                   sx={{
                     display: 'flex',
+                    gap: 1,
                     justifyContent: 'space-between',
                     mt: 2,
-                    gap: 1,
                   }}
                 >
                   {/* Left side buttons */}
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button
-                      variant="outlined"
-                      onClick={generateBookmarklet}
                       disabled={isLoading}
+                      onClick={generateBookmarklet}
                       sx={{ minWidth: 140 }}
+                      variant="outlined"
                     >
                       Get Browser Cookies
                     </Button>
                     <Button
-                      variant="outlined"
-                      onClick={handleValidateConfiguration}
                       disabled={isLoading || !currentConfig.browser_mam_id}
+                      onClick={handleValidateConfiguration}
                       sx={{ minWidth: 140 }}
+                      variant="outlined"
                     >
                       Test Vault Access
                     </Button>
@@ -879,15 +893,15 @@ export default function VaultConfigCard({ proxies, sessions }) {
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     {isCreatingNew && (
                       <Button
-                        variant="outlined"
+                        disabled={isLoading}
                         onClick={() => {
                           setIsCreatingNew(false);
                           setSelectedConfigId('');
                           setCurrentConfig(null);
                           setWorkingConfigName('');
                         }}
-                        disabled={isLoading}
                         sx={{ minWidth: 100 }}
+                        variant="outlined"
                       >
                         Cancel
                       </Button>
@@ -900,17 +914,17 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
                 {/* Manual Donation Section */}
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  <Typography sx={{ mb: 1 }} variant="subtitle1">
                     Manual Donation
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                  <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
                     <FormControl size="small" sx={{ width: 150 }}>
                       <InputLabel>Donation Amount</InputLabel>
                       <Select
-                        value={manualDonationAmount}
                         label="Donation Amount"
-                        onChange={(e) => setManualDonationAmount(parseInt(e.target.value))}
                         MenuProps={{ disableScrollLock: true }}
+                        onChange={(e) => setManualDonationAmount(parseInt(e.target.value, 10))}
+                        value={manualDonationAmount}
                       >
                         {[
                           100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300, 1400,
@@ -923,10 +937,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       </Select>
                     </FormControl>
                     <Button
-                      variant="outlined"
-                      onClick={handleManualDonation}
                       disabled={isLoading || !currentConfig.browser_mam_id || !manualDonationAmount}
+                      onClick={handleManualDonation}
                       sx={{ minWidth: 140 }}
+                      variant="outlined"
                     >
                       Donate Now
                     </Button>
@@ -935,11 +949,11 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
                 {/* Automation Settings Section */}
                 <Box>
-                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                  <Typography sx={{ mb: 1 }} variant="subtitle1">
                     Vault Automation
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
                       <FormControlLabel
                         control={
                           <Switch
@@ -958,9 +972,9 @@ export default function VaultConfigCard({ proxies, sessions }) {
                         label="Enable Vault Automation"
                       />
                       <Tooltip
-                        title="When enabled for the first time, automation will run immediately after saving to establish the schedule"
                         arrow
                         placement="right"
+                        title="When enabled for the first time, automation will run immediately after saving to establish the schedule"
                       >
                         <IconButton size="small" sx={{ ml: 0.5 }}>
                           <InfoOutlinedIcon fontSize="small" />
@@ -969,114 +983,112 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     </Box>
 
                     {currentConfig.automation?.enabled && (
-                      <>
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            gap: 2,
-                            alignItems: 'center',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          <Tooltip title="How often to check points (1-168 hours)" arrow>
-                            <TextField
-                              label="Frequency (hours)"
-                              type="number"
-                              value={currentConfig.automation?.frequency_hours || 24}
-                              onChange={(e) =>
-                                setCurrentConfig({
-                                  ...currentConfig,
-                                  automation: {
-                                    ...(currentConfig.automation || {}),
-                                    frequency_hours: parseInt(e.target.value) || 24,
-                                  },
-                                })
-                              }
-                              size="small"
-                              sx={{ width: 130 }}
-                              inputProps={{ min: 1, max: 168 }}
-                            />
-                          </Tooltip>
-
-                          <Tooltip title="Minimum points before donating" arrow>
-                            <TextField
-                              label="Points Threshold"
-                              type="number"
-                              value={currentConfig.automation?.min_points_threshold || 2000}
-                              onChange={(e) =>
-                                setCurrentConfig({
-                                  ...currentConfig,
-                                  automation: {
-                                    ...(currentConfig.automation || {}),
-                                    min_points_threshold: parseInt(e.target.value) || 2000,
-                                  },
-                                })
-                              }
-                              size="small"
-                              sx={{ width: 130 }}
-                              inputProps={{ min: 0 }}
-                            />
-                          </Tooltip>
-
-                          <FormControl size="small" sx={{ width: 150 }}>
-                            <InputLabel>Donation Amount</InputLabel>
-                            <Select
-                              value={currentConfig.automation?.donation_amount || 100}
-                              label="Donation Amount"
-                              onChange={(e) =>
-                                setCurrentConfig({
-                                  ...currentConfig,
-                                  automation: {
-                                    ...(currentConfig.automation || {}),
-                                    donation_amount: parseInt(e.target.value),
-                                  },
-                                })
-                              }
-                              MenuProps={{ disableScrollLock: true }}
-                            >
-                              {[
-                                100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300,
-                                1400, 1500, 1600, 1700, 1800, 1900, 2000,
-                              ].map((amount) => (
-                                <MenuItem key={amount} value={amount}>
-                                  {amount} points
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-
-                          {/* Once per pot option moved to same row */}
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={currentConfig.automation?.once_per_pot || false}
-                                onChange={(e) =>
-                                  setCurrentConfig({
-                                    ...currentConfig,
-                                    automation: {
-                                      ...(currentConfig.automation || {}),
-                                      once_per_pot: e.target.checked,
-                                    },
-                                  })
-                                }
-                              />
+                      <Box
+                        sx={{
+                          alignItems: 'center',
+                          display: 'flex',
+                          flexWrap: 'wrap',
+                          gap: 2,
+                        }}
+                      >
+                        <Tooltip arrow title="How often to check points (1-168 hours)">
+                          <TextField
+                            inputProps={{ max: 168, min: 1 }}
+                            label="Frequency (hours)"
+                            onChange={(e) =>
+                              setCurrentConfig({
+                                ...currentConfig,
+                                automation: {
+                                  ...(currentConfig.automation || {}),
+                                  frequency_hours: parseInt(e.target.value, 10) || 24,
+                                },
+                              })
                             }
-                            label={
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                Only donate once per pot cycle
-                                <Tooltip
-                                  title="When enabled, this prevents multiple donations to the same 20M pot cycle. The system tracks pot cycles and will only donate once per ~20 million point pot, regardless of how often automation runs."
-                                  arrow
-                                >
-                                  <IconButton size="small" sx={{ ml: 1 }}>
-                                    <InfoOutlinedIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                              </Box>
-                            }
+                            size="small"
+                            sx={{ width: 130 }}
+                            type="number"
+                            value={currentConfig.automation?.frequency_hours || 24}
                           />
-                        </Box>
-                      </>
+                        </Tooltip>
+
+                        <Tooltip arrow title="Minimum points before donating">
+                          <TextField
+                            inputProps={{ min: 0 }}
+                            label="Points Threshold"
+                            onChange={(e) =>
+                              setCurrentConfig({
+                                ...currentConfig,
+                                automation: {
+                                  ...(currentConfig.automation || {}),
+                                  min_points_threshold: parseInt(e.target.value, 10) || 2000,
+                                },
+                              })
+                            }
+                            size="small"
+                            sx={{ width: 130 }}
+                            type="number"
+                            value={currentConfig.automation?.min_points_threshold || 2000}
+                          />
+                        </Tooltip>
+
+                        <FormControl size="small" sx={{ width: 150 }}>
+                          <InputLabel>Donation Amount</InputLabel>
+                          <Select
+                            label="Donation Amount"
+                            MenuProps={{ disableScrollLock: true }}
+                            onChange={(e) =>
+                              setCurrentConfig({
+                                ...currentConfig,
+                                automation: {
+                                  ...(currentConfig.automation || {}),
+                                  donation_amount: parseInt(e.target.value, 10),
+                                },
+                              })
+                            }
+                            value={currentConfig.automation?.donation_amount || 100}
+                          >
+                            {[
+                              100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200, 1300,
+                              1400, 1500, 1600, 1700, 1800, 1900, 2000,
+                            ].map((amount) => (
+                              <MenuItem key={amount} value={amount}>
+                                {amount} points
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+
+                        {/* Once per pot option moved to same row */}
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={currentConfig.automation?.once_per_pot || false}
+                              onChange={(e) =>
+                                setCurrentConfig({
+                                  ...currentConfig,
+                                  automation: {
+                                    ...(currentConfig.automation || {}),
+                                    once_per_pot: e.target.checked,
+                                  },
+                                })
+                              }
+                            />
+                          }
+                          label={
+                            <Box sx={{ alignItems: 'center', display: 'flex' }}>
+                              Only donate once per pot cycle
+                              <Tooltip
+                                arrow
+                                title="When enabled, this prevents multiple donations to the same 20M pot cycle. The system tracks pot cycles and will only donate once per ~20 million point pot, regardless of how often automation runs."
+                              >
+                                <IconButton size="small" sx={{ ml: 1 }}>
+                                  <InfoOutlinedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          }
+                        />
+                      </Box>
                     )}
                   </Box>
                 </Box>
@@ -1085,10 +1097,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 <Divider sx={{ my: 3 }} />
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
-                    variant="contained"
-                    onClick={handleSaveConfiguration}
                     disabled={isLoading}
+                    onClick={handleSaveConfiguration}
                     sx={{ minWidth: 180 }}
+                    variant="contained"
                   >
                     {isCreatingNew ? 'Save Configuration' : 'Save Changes'}
                   </Button>
@@ -1100,7 +1112,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
       </Card>
 
       {/* Delete Configuration Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} disableScrollLock>
+      <Dialog disableScrollLock onClose={handleDeleteCancel} open={deleteDialogOpen}>
         <DialogTitle>Delete Configuration</DialogTitle>
         <DialogContent>
           <Typography>
@@ -1109,10 +1121,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteCancel} color="primary" variant="outlined">
+          <Button color="primary" onClick={handleDeleteCancel} variant="outlined">
             Cancel
           </Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+          <Button color="error" onClick={handleDeleteConfirm} variant="contained">
             Delete
           </Button>
         </DialogActions>
@@ -1120,15 +1132,15 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
       {/* Bookmarklet dialog */}
       <Dialog
-        open={bookmarkletOpen}
-        onClose={() => setBookmarkletOpen(false)}
-        maxWidth="lg"
-        fullWidth
         disableScrollLock
+        fullWidth
+        maxWidth="lg"
+        onClose={() => setBookmarkletOpen(false)}
+        open={bookmarkletOpen}
       >
         <DialogTitle>Get Browser Cookies for Vault Access</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>
+          <Typography sx={{ mb: 2 }} variant="body2">
             1. Drag the button below to your bookmarks bar (or right-click → "Bookmark Link" in
             Firefox)
             <br />
@@ -1141,42 +1153,42 @@ export default function VaultConfigCard({ proxies, sessions }) {
           </Typography>
 
           <Typography
-            variant="body2"
             sx={{
-              mb: 2,
-              p: 1,
               bgcolor: 'success.light',
               borderRadius: 1,
               color: 'success.contrastText',
+              mb: 2,
+              p: 1,
             }}
+            variant="body2"
           >
             ✨ <strong>New:</strong> This bookmarklet extracts everything needed for vault access in
             one click! No need for session association or manual configuration.
           </Typography>
 
           <Typography
-            variant="body2"
             sx={{
-              mb: 2,
-              p: 1,
               bgcolor: 'info.light',
               borderRadius: 1,
               color: 'info.contrastText',
+              mb: 2,
+              p: 1,
             }}
+            variant="body2"
           >
             💡 <strong>Tip:</strong> If you don't see your bookmarks bar, press{' '}
             <kbd>Ctrl+Shift+B</kbd> (Windows/Linux) or <kbd>Cmd+Shift+B</kbd> (Mac) to show it.
           </Typography>
 
           <Typography
-            variant="body2"
             sx={{
-              mb: 2,
-              p: 1,
               bgcolor: 'warning.light',
               borderRadius: 1,
               color: 'warning.contrastText',
+              mb: 2,
+              p: 1,
             }}
+            variant="body2"
           >
             🦊 <strong>Firefox Users:</strong> Dragging may not work due to security restrictions.
             Instead, <strong>right-click</strong> the button below and select "Bookmark Link" or
@@ -1184,47 +1196,47 @@ export default function VaultConfigCard({ proxies, sessions }) {
           </Typography>
           <Box
             sx={{
-              p: 3,
               bgcolor: 'background.default',
               borderRadius: 1,
-              mb: 2,
               display: 'flex',
               justifyContent: 'center',
+              mb: 2,
+              p: 3,
             }}
           >
             <a
+              draggable="true"
               href={bookmarkletCode}
               style={{
-                textDecoration: 'none',
                 display: 'inline-block',
+                textDecoration: 'none',
               }}
-              draggable="true"
             >
               <Button
-                variant="contained"
                 sx={{
-                  bgcolor: 'primary.main',
-                  '&:hover': { bgcolor: 'primary.dark' },
-                  cursor: 'grab',
                   '&:active': { cursor: 'grabbing' },
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  bgcolor: 'primary.main',
+                  cursor: 'grab',
                 }}
+                variant="contained"
               >
                 Get Vault Cookies
               </Button>
             </a>
           </Box>
-          <Typography variant="caption" color="text.secondary">
+          <Typography color="text.secondary" variant="caption">
             Bookmarklet code:
           </Typography>
           <TextField
+            fullWidth
+            inputProps={{ readOnly: true }}
             multiline
             rows={4}
-            fullWidth
-            value={bookmarkletCode}
-            variant="outlined"
             size="small"
             sx={{ mt: 1 }}
-            inputProps={{ readOnly: true }}
+            value={bookmarkletCode}
+            variant="outlined"
           />
         </DialogContent>
         <DialogActions>
@@ -1234,10 +1246,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
       {/* Snackbar for feedback */}
       <FeedbackSnackbar
-        open={snackbar.open}
         message={snackbar.message}
-        severity={snackbar.severity}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
+        open={snackbar.open}
+        severity={snackbar.severity}
       />
     </>
   );

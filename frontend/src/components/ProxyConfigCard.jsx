@@ -1,4 +1,3 @@
-import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -11,20 +10,16 @@ import {
   CardContent,
   Collapse,
   Divider,
-  FormControl,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext';
 import ConfirmDialog from './ConfirmDialog';
 
-export default function ProxyConfigCard({ proxies, setProxies, refreshProxies }) {
+export default function ProxyConfigCard({ proxies, refreshProxies }) {
   const [_sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
   const [_sessionsUsingProxy, setSessionsUsingProxy] = useState([]);
@@ -36,11 +31,11 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
   const [editLabel, setEditLabel] = useState('');
   const [_editProxy, setEditProxy] = useState(null);
   const [form, setForm] = useState({
-    label: '',
     host: '',
+    label: '',
+    password: '',
     port: '',
     username: '',
-    password: '',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [testingProxy, setTestingProxy] = useState(null);
@@ -48,12 +43,13 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
 
-  // Fetch sessions on mount and when proxies change
+  // Fetch sessions on mount. Parent manages `proxies` and will re-render this
+  // component if needed; no need to re-run this effect when `proxies` changes.
   useEffect(() => {
     fetch('/api/sessions')
       .then((res) => res.json())
       .then((data) => setSessions(data.sessions || []));
-  }, [proxies]);
+  }, []);
 
   // Auto-dismiss success messages after 2 seconds
   useEffect(() => {
@@ -111,13 +107,13 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
     const method = isEditing ? 'PUT' : 'POST';
     const url = isEditing ? `/api/proxies/${editLabel}` : '/api/proxies';
     fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form),
+      headers: { 'Content-Type': 'application/json' },
+      method,
     })
       .then((res) => res.json())
       .then(() => {
-        setForm({ label: '', host: '', port: '', username: '', password: '' });
+        setForm({ host: '', label: '', password: '', port: '', username: '' });
         setIsEditing(false);
         setEditLabel('');
         setEditProxy(null);
@@ -126,7 +122,7 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
   };
 
   const handleAddNew = () => {
-    setForm({ label: '', host: '', port: '', username: '', password: '' });
+    setForm({ host: '', label: '', password: '', port: '', username: '' });
     setIsEditing(false);
     setEditLabel('');
     setEditProxy(null);
@@ -176,27 +172,27 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
 
   return (
     <>
-      <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+      <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
         <Box
+          onClick={handleExpand}
           sx={{
-            display: 'flex',
             alignItems: 'center',
             cursor: 'pointer',
-            px: 2,
-            pt: 2,
-            pb: 1.5,
+            display: 'flex',
             minHeight: 56,
+            pb: 1.5,
+            pt: 2,
+            px: 2,
           }}
-          onClick={handleExpand}
         >
           <Typography
-            variant="h6"
             sx={{
+              alignItems: 'center',
+              display: 'flex',
               flexGrow: 1,
               fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
             }}
+            variant="h6"
           >
             Proxy Configuration
           </Typography>
@@ -222,37 +218,37 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
                 }}
               >
                 <TextField
+                  disabled={isEditing}
+                  InputProps={{ style: { background: 'inherit' } }}
                   label="Label"
                   name="label"
-                  value={form.label}
                   onChange={handleInputChange}
-                  disabled={isEditing}
                   required
                   size="small"
                   sx={{ width: 220 }}
+                  value={form.label}
                   variant="outlined"
-                  InputProps={{ style: { background: 'inherit' } }}
                 />
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
                     label="Host"
                     name="host"
-                    value={form.host}
                     onChange={handleInputChange}
                     required
                     size="small"
                     sx={{ width: 220 }}
+                    value={form.host}
                     variant="outlined"
                   />
                   <TextField
                     label="Port"
                     name="port"
-                    value={form.port}
                     onChange={handleInputChange}
                     required
-                    type="number"
                     size="small"
                     sx={{ width: 120 }}
+                    type="number"
+                    value={form.port}
                     variant="outlined"
                   />
                 </Box>
@@ -260,20 +256,20 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
                   <TextField
                     label="Username"
                     name="username"
-                    value={form.username}
                     onChange={handleInputChange}
                     size="small"
                     sx={{ width: 220 }}
+                    value={form.username}
                     variant="outlined"
                   />
                   <TextField
                     label="Password"
                     name="password"
-                    value={form.password}
                     onChange={handleInputChange}
-                    type="password"
                     size="small"
                     sx={{ width: 220 }}
+                    type="password"
+                    value={form.password}
                     variant="outlined"
                   />
                 </Box>
@@ -287,19 +283,19 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
                 }}
               >
                 <Button
-                  variant="outlined"
                   color="secondary"
                   onClick={handleAddNew}
                   sx={{ minWidth: 100, mr: 2 }}
+                  variant="outlined"
                 >
                   Clear
                 </Button>
-                <Button variant="contained" onClick={handleSave} sx={{ minWidth: 140 }}>
+                <Button onClick={handleSave} sx={{ minWidth: 140 }} variant="contained">
                   {isEditing ? 'Update Proxy' : 'Save Proxy'}
                 </Button>
               </Box>
               {Object.keys(proxies).length > 0 && <Divider sx={{ my: 2 }} />}
-              <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
+              <Typography sx={{ fontWeight: 600, mb: 1, mt: 2 }} variant="subtitle2">
                 Configured Proxies
               </Typography>
               {error && (
@@ -322,30 +318,30 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
                     <Box
                       key={label}
                       sx={(theme) => ({
+                        background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
+                        borderRadius: 2,
+                        boxShadow: 0,
                         mb: 2,
                         p: 2,
-                        borderRadius: 2,
-                        background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
-                        boxShadow: 0,
                         position: 'relative',
                       })}
                     >
                       <Box
                         sx={{
-                          display: 'flex',
                           alignItems: 'center',
+                          display: 'flex',
                           justifyContent: 'space-between',
                         }}
                       >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, minWidth: 320 }}>
+                        <Typography sx={{ fontWeight: 600, minWidth: 320 }} variant="subtitle2">
                           Proxy: {label}
                         </Typography>
                         <Box>
                           <Tooltip title="Test Proxy">
                             <IconButton
-                              size="small"
-                              onClick={() => handleTestProxy(label)}
                               disabled={testingProxy === label}
+                              onClick={() => handleTestProxy(label)}
+                              size="small"
                             >
                               <NetworkCheckIcon
                                 color={
@@ -360,47 +356,47 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Edit Proxy">
-                            <IconButton size="small" onClick={() => handleEdit(label)}>
+                            <IconButton onClick={() => handleEdit(label)} size="small">
                               <EditIcon color="primary" fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete Proxy">
-                            <IconButton size="small" onClick={() => handleDelete(label)}>
+                            <IconButton onClick={() => handleDelete(label)} size="small">
                               <DeleteIcon color="error" fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </Box>
                       </Box>
-                      <Typography variant="body2" sx={{ minWidth: 320 }}>
+                      <Typography sx={{ minWidth: 320 }} variant="body2">
                         Host: {proxy.host}:{proxy.port}
                       </Typography>
                       {proxy.username && (
-                        <Typography variant="body2" sx={{ minWidth: 320 }}>
+                        <Typography sx={{ minWidth: 320 }} variant="body2">
                           Username: {proxy.username}
                         </Typography>
                       )}
-                      {testResult && testResult.status && (
+                      {testResult?.status && (
                         <Typography
-                          variant="body2"
                           sx={(theme) => ({
-                            minWidth: 320,
-                            fontWeight: 600,
                             color:
                               testResult.status === 'OK'
                                 ? theme.palette.success.main
                                 : theme.palette.error.main,
+                            fontWeight: 600,
+                            minWidth: 320,
                           })}
+                          variant="body2"
                         >
                           Status: {testResult.status}
                         </Typography>
                       )}
                       {testResult && !testResult.error && testResult.proxied_ip && (
                         <>
-                          <Typography variant="body2" sx={{ minWidth: 320 }}>
+                          <Typography sx={{ minWidth: 320 }} variant="body2">
                             Proxied IP: {testResult.proxied_ip}
                           </Typography>
                           {testResult.proxied_asn && (
-                            <Typography variant="body2" sx={{ minWidth: 320 }}>
+                            <Typography sx={{ minWidth: 320 }} variant="body2">
                               Proxied ASN: {testResult.proxied_asn}
                             </Typography>
                           )}
@@ -415,10 +411,8 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
         </Collapse>
       </Card>
       <ConfirmDialog
-        open={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        onConfirm={confirmDelete}
-        title="Delete Proxy?"
+        confirmColor="error"
+        confirmLabel="Delete"
         message={
           <span>
             <b>Warning:</b> Deleting this proxy will immediately remove it from any sessions that
@@ -430,8 +424,10 @@ export default function ProxyConfigCard({ proxies, setProxies, refreshProxies })
             Are you sure you want to delete this proxy?
           </span>
         }
-        confirmLabel="Delete"
-        confirmColor="error"
+        onClose={() => setShowConfirm(false)}
+        onConfirm={confirmDelete}
+        open={showConfirm}
+        title="Delete Proxy?"
       />
     </>
   );

@@ -1,11 +1,9 @@
 import {
   Box,
-  Button,
   Checkbox,
   FormControl,
   FormControlLabel,
   Grid,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -13,7 +11,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import React from 'react';
 
 /**
  * Generic automation section for PerkAutomationCard (Wedge, VIP, Upload, etc)
@@ -49,7 +46,6 @@ export default function AutomationSection({
   selectOptions = [],
   onSelectChange,
   extraControls = null,
-  triggerType,
   onTriggerTypeChange,
   triggerTypeValue,
   triggerDays,
@@ -61,27 +57,27 @@ export default function AutomationSection({
 }) {
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+      <Typography sx={{ mb: 1 }} variant="subtitle1">
         {title}
       </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
-        <Tooltip title={tooltip} disableHoverListener={!tooltip} arrow>
+      <Box sx={{ alignItems: 'center', display: 'flex', mb: 2, width: '100%' }}>
+        <Tooltip arrow disableHoverListener={!tooltip} title={tooltip}>
           <span>
             <FormControlLabel
-              control={<Checkbox checked={enabled} onChange={onToggle} disabled={toggleDisabled} />}
+              control={<Checkbox checked={enabled} disabled={toggleDisabled} onChange={onToggle} />}
               label={<span>{toggleLabel}</span>}
-              sx={{ minWidth: 220, mr: 3, whiteSpace: 'nowrap', flexShrink: 0 }}
+              sx={{ flexShrink: 0, minWidth: 220, mr: 3, whiteSpace: 'nowrap' }}
             />
           </span>
         </Tooltip>
         {selectLabel && (
-          <FormControl size="small" sx={{ minWidth: 120, mr: 1, flexShrink: 0 }}>
+          <FormControl size="small" sx={{ flexShrink: 0, minWidth: 120, mr: 1 }}>
             <InputLabel>{selectLabel}</InputLabel>
             <Select
-              value={selectValue}
               label={selectLabel}
-              onChange={onSelectChange}
               MenuProps={{ disableScrollLock: true }}
+              onChange={onSelectChange}
+              value={selectValue}
             >
               {selectOptions.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>
@@ -96,15 +92,15 @@ export default function AutomationSection({
         {confirmButton}
       </Box>
       {/* Trigger options row */}
-      <Grid container spacing={2} alignItems="center" sx={{ mt: 1, mb: 2 }}>
+      <Grid alignItems="center" container spacing={2} sx={{ mb: 2, mt: 1 }}>
         <Grid item>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Trigger Type</InputLabel>
             <Select
-              value={triggerTypeValue}
               label="Trigger Type"
-              onChange={onTriggerTypeChange}
               MenuProps={{ disableScrollLock: true }}
+              onChange={onTriggerTypeChange}
+              value={triggerTypeValue}
             >
               <MenuItem value="time">Time-based</MenuItem>
               <MenuItem value="points">Point-based</MenuItem>
@@ -116,11 +112,11 @@ export default function AutomationSection({
           <Grid item>
             <TextField
               label="Every X Days"
-              type="number"
-              value={triggerDays}
               onChange={onTriggerDaysChange}
               size="small"
               sx={{ minWidth: 120 }}
+              type="number"
+              value={triggerDays}
             />
           </Grid>
         )}
@@ -128,11 +124,11 @@ export default function AutomationSection({
           <Grid item>
             <TextField
               label="Point Threshold"
-              type="number"
-              value={triggerPointThreshold}
               onChange={onTriggerPointThresholdChange}
               size="small"
               sx={{ minWidth: 140 }}
+              type="number"
+              value={triggerPointThreshold}
             />
           </Grid>
         )}

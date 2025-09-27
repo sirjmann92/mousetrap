@@ -1,24 +1,23 @@
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Box, Typography } from '@mui/material';
-import React from 'react';
 
 export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload, vaultAutomation }) {
   return (
-    <Box sx={{ mt: 2, mb: 1 }}>
+    <Box sx={{ mb: 1, mt: 2 }}>
       <Box
         sx={{
+          alignItems: 'center',
           display: 'flex',
           flexDirection: 'row',
-          alignItems: 'center',
           gap: 2,
         }}
       >
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mr: 1 }}>
+        <Typography sx={{ fontWeight: 600, mr: 1 }} variant="subtitle1">
           Automation:
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+          <Typography sx={{ fontWeight: 500 }} variant="body2">
             Wedge:
           </Typography>
           {autoWedge ? (
@@ -41,8 +40,8 @@ export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload, va
             />
           )}
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5, ml: 2 }}>
+          <Typography sx={{ fontWeight: 500 }} variant="body2">
             VIP Time:
           </Typography>
           {autoVIP ? (
@@ -65,8 +64,8 @@ export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload, va
             />
           )}
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5, ml: 2 }}>
+          <Typography sx={{ fontWeight: 500 }} variant="body2">
             Upload Credit:
           </Typography>
           {autoUpload ? (
@@ -89,8 +88,8 @@ export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload, va
             />
           )}
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 2 }}>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+        <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5, ml: 2 }}>
+          <Typography sx={{ fontWeight: 500 }} variant="body2">
             Vault:
           </Typography>
           {vaultAutomation ? (

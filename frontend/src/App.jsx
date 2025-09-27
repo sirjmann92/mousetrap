@@ -10,7 +10,7 @@ import {
   Typography,
 } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import React from 'react';
+import React, { useCallback } from 'react';
 import MouseTrapIcon from './assets/mousetrap-icon.svg';
 import EventLogModalButton from './components/EventLogModalButton';
 import MouseTrapConfigCard from './components/MouseTrapConfigCard';
@@ -25,7 +25,7 @@ import { useSession } from './context/SessionContext';
 
 export default function App() {
   // Fetch all proxies and update state
-  const refreshProxies = async () => {
+  const refreshProxies = useCallback(async () => {
     try {
       const res = await fetch('/api/proxies');
       const data = await res.json();
@@ -33,7 +33,7 @@ export default function App() {
     } catch (_e) {
       setProxies({});
     }
-  };
+  }, []);
   // Get context setters from SessionContext
   const {
     setSessionLabel,
@@ -61,14 +61,68 @@ export default function App() {
   const statusCardRef = React.useRef();
 
   // Fetch all sessions and update state, restoring last session if available
-  const refreshSessions = async () => {
+  // (defined after loadSession)
+
+  // On mount, fetch proxies
+  React.useEffect(() => {
+    refreshProxies();
+  }, [refreshProxies]);
+
+  // Handler to refresh session and proxies after session save
+  const handleSessionSaved = (label) => {
+    // Always reload session after save to get latest proxy/password info
+    loadSession(label);
+    // Optionally refresh sessions or proxies if needed
+    refreshSessions();
+    // Always force status refresh to update timer immediately
+    if (statusCardRef?.current?.forceStatusRefresh) {
+      statusCardRef.current.forceStatusRefresh();
+    }
+  };
+
+  // Load session config by label (now updates context)
+  const loadSession = React.useCallback(
+    async (labelToLoad) => {
+      try {
+        const res = await fetch(`/api/session/${labelToLoad}`);
+        const cfg = await res.json();
+        setSelectedLabel(cfg?.label ?? labelToLoad);
+        setSessionLabel(cfg?.label ?? labelToLoad);
+        setOldLabel(cfg?.label ?? labelToLoad);
+        setMamId(cfg?.mam?.mam_id ?? '');
+        setSessionType(cfg?.mam?.session_type ?? '');
+        setIpMonitoringMode(cfg?.mam?.ip_monitoring_mode ?? 'auto');
+        setMamIp(cfg?.mam_ip ?? '');
+        setCheckFrequency(cfg?.check_freq ?? '');
+        setProxy(cfg?.proxy ?? {});
+        setProxiedIp(cfg?.proxied_public_ip ?? '');
+        setProxiedAsn(cfg?.proxied_public_ip_asn ?? '');
+      } catch (_e) {
+        // handle error
+      }
+    },
+    [
+      setSessionLabel,
+      setOldLabel,
+      setMamId,
+      setSessionType,
+      setIpMonitoringMode,
+      setMamIp,
+      setCheckFrequency,
+      setProxy,
+      setProxiedIp,
+      setProxiedAsn,
+    ],
+  );
+
+  // Fetch all sessions and update state, restoring last session if available
+  const refreshSessions = React.useCallback(async () => {
     try {
       const res = await fetch('/api/sessions');
       const data = await res.json();
       setSessions(data.sessions || []);
       // Try to restore last session from backend
       if ((!selectedLabel || !data.sessions.includes(selectedLabel)) && data.sessions.length > 0) {
-        // Fetch last session from backend
         try {
           const lastSessionRes = await fetch('/api/last_session');
           const lastSessionData = await lastSessionRes.json();
@@ -87,45 +141,7 @@ export default function App() {
     } catch (_e) {
       setSessions([]);
     }
-  };
-
-  // On mount, fetch proxies
-  React.useEffect(() => {
-    refreshProxies();
-  }, []);
-
-  // Handler to refresh session and proxies after session save
-  const handleSessionSaved = (label, oldLabel) => {
-    // Always reload session after save to get latest proxy/password info
-    loadSession(label);
-    // Optionally refresh sessions or proxies if needed
-    refreshSessions();
-    // Always force status refresh to update timer immediately
-    if (statusCardRef && statusCardRef.current && statusCardRef.current.forceStatusRefresh) {
-      statusCardRef.current.forceStatusRefresh();
-    }
-  };
-
-  // Load session config by label (now updates context)
-  const loadSession = async (labelToLoad) => {
-    try {
-      const res = await fetch(`/api/session/${labelToLoad}`);
-      const cfg = await res.json();
-      setSelectedLabel(cfg?.label ?? labelToLoad);
-      setSessionLabel(cfg?.label ?? labelToLoad);
-      setOldLabel(cfg?.label ?? labelToLoad);
-      setMamId(cfg?.mam?.mam_id ?? '');
-      setSessionType(cfg?.mam?.session_type ?? '');
-      setIpMonitoringMode(cfg?.mam?.ip_monitoring_mode ?? 'auto');
-      setMamIp(cfg?.mam_ip ?? '');
-      setCheckFrequency(cfg?.check_freq ?? '');
-      setProxy(cfg?.proxy ?? {});
-      setProxiedIp(cfg?.proxied_public_ip ?? '');
-      setProxiedAsn(cfg?.proxied_public_ip_asn ?? '');
-    } catch (_e) {
-      // handle error
-    }
-  };
+  }, [selectedLabel, loadSession]);
   // Theme state and persistence
   const [mode, setMode] = React.useState(() => {
     const saved = window.localStorage.getItem('themeMode');
@@ -140,7 +156,7 @@ export default function App() {
   React.useEffect(() => {
     refreshSessions();
     // eslint-disable-next-line
-  }, []);
+  }, [refreshSessions]);
 
   const theme = React.useMemo(
     () =>
@@ -171,9 +187,9 @@ export default function App() {
     }
     // Save a new session with default config
     await fetch(`/api/session/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: newLabel }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
     });
     loadSession(newLabel);
     refreshSessions();
@@ -193,9 +209,9 @@ export default function App() {
 
   // Handler to update proxiedIp/proxiedAsn from StatusCard
   const handleStatusUpdate = (status) => {
-    if (status && status.proxied_public_ip) setProxiedIp(status.proxied_public_ip);
+    if (status?.proxied_public_ip) setProxiedIp(status.proxied_public_ip);
     else setProxiedIp('');
-    if (status && status.proxied_public_ip_asn) setProxiedAsn(status.proxied_public_ip_asn);
+    if (status?.proxied_public_ip_asn) setProxiedAsn(status.proxied_public_ip_asn);
     else setProxiedAsn('');
   };
 
@@ -205,26 +221,26 @@ export default function App() {
       <AppBar
         position="fixed"
         sx={{
-          mb: 3,
-          width: '100%',
-          left: 0,
-          right: 0,
           boxSizing: 'border-box',
+          left: 0,
+          mb: 3,
+          right: 0,
+          width: '100%',
         }}
       >
         <Toolbar>
           <img
-            src={MouseTrapIcon}
             alt="MouseTrap"
-            style={{ width: 48, height: 48, marginRight: 20 }}
+            src={MouseTrapIcon}
+            style={{ height: 48, marginRight: 20, width: 48 }}
           />
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+          <Typography component="div" sx={{ flexGrow: 1 }} variant="h6">
             MouseTrap
           </Typography>
           <SessionSelector
-            onLoadSession={loadSession}
             onCreateSession={handleCreateSession}
             onDeleteSession={handleDeleteSession}
+            onLoadSession={loadSession}
             sx={{
               background: mode === 'dark' ? '#222' : '#fff',
               borderRadius: 1,
@@ -241,9 +257,9 @@ export default function App() {
           </IconButton>
           <Switch
             checked={mode === 'dark'}
-            onChange={() => setMode(mode === 'light' ? 'dark' : 'light')}
             color="default"
             inputProps={{ 'aria-label': 'toggle dark mode' }}
+            onChange={() => setMode(mode === 'light' ? 'dark' : 'light')}
             sx={{ ml: 1 }}
           />
         </Toolbar>
@@ -255,43 +271,43 @@ export default function App() {
         {/* 1. Session Status */}
         {sessions.length > 0 && (
           <StatusCard
-            ref={statusCardRef}
-            autoWedge={autoWedge}
-            autoVIP={autoVIP}
             autoUpload={autoUpload}
+            autoVIP={autoVIP}
+            autoWedge={autoWedge}
             onSessionDataChanged={() => loadSession(selectedLabel)}
             onStatusUpdate={handleStatusUpdate}
+            ref={statusCardRef}
           />
         )}
         {/* 2. Session Configuration */}
         <MouseTrapConfigCard
-          proxies={proxies}
-          onSessionSaved={handleSessionSaved}
+          forceExpand={forceExpandConfig}
           hasSessions={sessions.length > 0}
           onCreateNewSession={handleCreateSession}
-          forceExpand={forceExpandConfig}
           onForceExpandHandled={() => setForceExpandConfig(false)}
+          onSessionSaved={handleSessionSaved}
+          proxies={proxies}
         />
         {/* 3. Perk Purchase & Automation */}
         {sessions.length > 0 && (
           <PerkAutomationCard
-            autoWedge={autoWedge}
-            setAutoWedge={setAutoWedge}
-            autoVIP={autoVIP}
-            setAutoVIP={setAutoVIP}
             autoUpload={autoUpload}
-            setAutoUpload={setAutoUpload}
-            uploadAmount={uploadAmount}
-            setUploadAmount={setUploadAmount}
-            vipWeeks={vipWeeks}
-            setVipWeeks={setVipWeeks}
-            wedgeMethod={wedgeMethod}
-            setWedgeMethod={setWedgeMethod}
+            autoVIP={autoVIP}
+            autoWedge={autoWedge}
             onActionComplete={() => {
-              if (statusCardRef.current && statusCardRef.current.fetchStatus) {
+              if (statusCardRef.current?.fetchStatus) {
                 statusCardRef.current.fetchStatus();
               }
             }}
+            setAutoUpload={setAutoUpload}
+            setAutoVIP={setAutoVIP}
+            setAutoWedge={setAutoWedge}
+            setUploadAmount={setUploadAmount}
+            setVipWeeks={setVipWeeks}
+            setWedgeMethod={setWedgeMethod}
+            uploadAmount={uploadAmount}
+            vipWeeks={vipWeeks}
+            wedgeMethod={wedgeMethod}
           />
         )}
         {/* 4. Millionaire's Vault Configuration */}
@@ -303,8 +319,8 @@ export default function App() {
         {/* 7. Proxy Configuration */}
         <ProxyConfigCard
           proxies={proxies}
-          setProxies={setProxies}
           refreshProxies={refreshProxies}
+          setProxies={setProxies}
         />
       </Container>
     </ThemeProvider>

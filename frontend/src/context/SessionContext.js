@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 const SessionContext = createContext();
 
@@ -10,7 +10,7 @@ export function SessionProvider({ children }) {
     fetch('/api/last_session')
       .then((res) => res.json())
       .then((data) => {
-        if (data && data.label) setSessionLabel(data.label);
+        if (data?.label) setSessionLabel(data.label);
       });
   }, []);
 
@@ -18,9 +18,9 @@ export function SessionProvider({ children }) {
   useEffect(() => {
     if (sessionLabel) {
       fetch('/api/last_session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: sessionLabel }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
     }
   }, [sessionLabel]);
@@ -43,36 +43,36 @@ export function SessionProvider({ children }) {
   const [detectedIp, setDetectedIp] = useState('');
 
   const value = {
-    sessionLabel,
-    setSessionLabel,
-    sessionInfo,
-    setSessionInfo,
-    status,
-    setStatus,
-    points,
-    setPoints,
-    cheese,
-    setCheese,
-    detectedIp,
-    setDetectedIp,
-    mamId,
-    setMamId,
-    sessionType,
-    setSessionType,
-    ipMonitoringMode,
-    setIpMonitoringMode,
-    mamIp,
-    setMamIp,
     checkFrequency,
-    setCheckFrequency,
+    cheese,
+    detectedIp,
+    ipMonitoringMode,
+    mamId,
+    mamIp,
     oldLabel,
-    setOldLabel,
-    proxy,
-    setProxy,
-    proxiedIp,
-    setProxiedIp,
+    points,
     proxiedAsn,
+    proxiedIp,
+    proxy,
+    sessionInfo,
+    sessionLabel,
+    sessionType,
+    setCheckFrequency,
+    setCheese,
+    setDetectedIp,
+    setIpMonitoringMode,
+    setMamId,
+    setMamIp,
+    setOldLabel,
+    setPoints,
     setProxiedAsn,
+    setProxiedIp,
+    setProxy,
+    setSessionInfo,
+    setSessionLabel,
+    setSessionType,
+    setStatus,
+    status,
   };
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

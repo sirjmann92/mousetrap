@@ -15,7 +15,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useSession } from '../context/SessionContext';
 
@@ -28,7 +28,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
     fetch('/api/sessions')
       .then((res) => res.json())
       .then((data) => setSessions(data.sessions || []));
-  }, [selectedLabel]);
+  }, []);
 
   const handleChange = (e) => {
     setSelectedLabel(e.target.value);
@@ -36,9 +36,9 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
     // Only persist to backend if the label exists in the sessions list
     if (sessions.includes(e.target.value)) {
       fetch('/api/last_session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: e.target.value }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
     }
   };
@@ -57,15 +57,15 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', ...sx }}>
-      <FormControl size="small" sx={{ minWidth: 160, maxWidth: 240 }}>
+    <Box sx={{ alignItems: 'center', display: 'flex', ...sx }}>
+      <FormControl size="small" sx={{ maxWidth: 240, minWidth: 160 }}>
         <InputLabel>Session</InputLabel>
         <Select
-          value={selectedLabel}
           label="Session"
+          MenuProps={{ disableScrollLock: true }}
           onChange={handleChange}
           sx={{ width: 180 }}
-          MenuProps={{ disableScrollLock: true }}
+          value={selectedLabel}
         >
           {sessions.map((label) => (
             <MenuItem key={label} value={label}>
@@ -75,7 +75,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
         </Select>
       </FormControl>
       <Tooltip title="Create New Session">
-        <IconButton color="success" sx={{ ml: 1 }} onClick={onCreateSession}>
+        <IconButton color="success" onClick={onCreateSession} sx={{ ml: 1 }}>
           <AddCircleOutlineIcon />
         </IconButton>
       </Tooltip>
@@ -83,15 +83,15 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
         <span>
           <IconButton
             color="error"
-            sx={{ ml: 1 }}
-            onClick={handleDeleteClick}
             disabled={sessions.length === 0}
+            onClick={handleDeleteClick}
+            sx={{ ml: 1 }}
           >
             <DeleteOutlineIcon />
           </IconButton>
         </span>
       </Tooltip>
-      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} disableScrollLock={true}>
+      <Dialog disableScrollLock={true} onClose={handleDeleteCancel} open={deleteDialogOpen}>
         <DialogTitle>Delete Session</DialogTitle>
         <DialogContent>
           <Typography>
@@ -99,10 +99,10 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteCancel} color="primary" variant="outlined">
+          <Button color="primary" onClick={handleDeleteCancel} variant="outlined">
             Cancel
           </Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
+          <Button color="error" onClick={handleDeleteConfirm} variant="contained">
             Delete
           </Button>
         </DialogActions>

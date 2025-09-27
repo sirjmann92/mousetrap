@@ -20,7 +20,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function NotificationsCard() {
   const [showWebhook, setShowWebhook] = useState(false);
@@ -46,10 +46,10 @@ export default function NotificationsCard() {
     // Add more as needed
   ];
   const [config, setConfig] = useState({
-    webhook_url: '',
-    smtp: {},
+    apprise: { include_prefix: false, notify_url_string: '', url: '' },
     event_rules: {},
-    apprise: { url: '', notify_url_string: '', include_prefix: false },
+    smtp: {},
+    webhook_url: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,7 +85,7 @@ export default function NotificationsCard() {
         setConfig((prev) => ({ ...prev, ...(cfg || {}) }));
         setLoading(false);
       })
-      .catch((e) => {
+      .catch(() => {
         setError('Failed to load settings');
         setLoading(false);
       });
@@ -107,7 +107,7 @@ export default function NotificationsCard() {
   const handleEventRuleChange = (eventKey, channel, checked) => {
     setConfig((cfg) => {
       const rules = { ...cfg.event_rules };
-      if (!rules[eventKey]) rules[eventKey] = { email: false, webhook: false, apprise: false };
+      if (!rules[eventKey]) rules[eventKey] = { apprise: false, email: false, webhook: false };
       rules[eventKey][channel] = checked;
       return { ...cfg, event_rules: rules };
     });
@@ -119,9 +119,9 @@ export default function NotificationsCard() {
     setSuccess(null);
     try {
       const res = await fetch('/api/notify/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       if (!res.ok) throw new Error('Save failed');
       setSuccess('Settings saved.');
@@ -137,12 +137,12 @@ export default function NotificationsCard() {
     setTestResult(null);
     try {
       const res = await fetch('/api/notify/test/webhook', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          test: true,
           message: 'Test webhook from MouseTrap',
+          test: true,
         }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       setTestResult(data.success ? 'Webhook sent!' : 'Webhook failed.');
@@ -158,12 +158,12 @@ export default function NotificationsCard() {
     setTestResult(null);
     try {
       const res = await fetch('/api/notify/test/smtp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          subject: 'MouseTrap SMTP Test',
           body: 'This is a test email from MouseTrap.',
+          subject: 'MouseTrap SMTP Test',
         }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       setTestResult(data.success ? 'SMTP email sent!' : 'SMTP failed.');
@@ -179,9 +179,9 @@ export default function NotificationsCard() {
     setTestResult(null);
     try {
       const res = await fetch('/api/notify/test/apprise', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ test: true }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       let data = null;
       try {
@@ -191,7 +191,7 @@ export default function NotificationsCard() {
       }
 
       if (res.ok) {
-        setTestResult(data && data.success ? 'Apprise sent!' : 'Apprise failed.');
+        setTestResult(data?.success ? 'Apprise sent!' : 'Apprise failed.');
       } else {
         const detail =
           (data && (data.detail || data.message)) || (data ? JSON.stringify(data) : null);
@@ -213,24 +213,24 @@ export default function NotificationsCard() {
     );
 
   return (
-    <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+    <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
       <Box
+        onClick={() => setExpanded((e) => !e)}
         sx={{
-          display: 'flex',
           alignItems: 'center',
           cursor: 'pointer',
-          px: 2,
-          pt: 2,
-          pb: 1.5,
+          display: 'flex',
           minHeight: 56,
+          pb: 1.5,
+          pt: 2,
+          px: 2,
         }}
-        onClick={() => setExpanded((e) => !e)}
       >
-        <Typography variant="h6" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+        <Typography sx={{ alignItems: 'center', display: 'flex', flexGrow: 1 }} variant="h6">
           Notifications
           <Tooltip
-            title="Choose which events trigger notifications and which channels to use"
             arrow
+            title="Choose which events trigger notifications and which channels to use"
           >
             <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
               <InfoOutlinedIcon fontSize="small" />
@@ -259,8 +259,8 @@ export default function NotificationsCard() {
                 <Box
                   key={ev.key}
                   sx={{
-                    display: 'flex',
                     alignItems: 'center',
+                    display: 'flex',
                     gap: 2,
                     justifyContent: 'space-between',
                   }}
@@ -274,8 +274,8 @@ export default function NotificationsCard() {
                           onChange={(e) => handleEventRuleChange(ev.key, 'email', e.target.checked)}
                         />
                       }
-                      label="Email"
                       disabled={!config.smtp?.host || !config.smtp?.to_email}
+                      label="Email"
                     />
                     <FormControlLabel
                       control={
@@ -286,8 +286,8 @@ export default function NotificationsCard() {
                           }
                         />
                       }
-                      label="Webhook"
                       disabled={!config.webhook_url}
+                      label="Webhook"
                     />
                     <FormControlLabel
                       control={
@@ -298,8 +298,8 @@ export default function NotificationsCard() {
                           }
                         />
                       }
-                      label="Apprise"
                       disabled={!config.apprise?.url || !config.apprise?.notify_url_string}
+                      label="Apprise"
                     />
                   </Box>
                 </Box>
@@ -307,36 +307,36 @@ export default function NotificationsCard() {
             </Box>
           </FormGroup>
           <Divider sx={{ my: 3 }} />
-          <Typography variant="subtitle1" sx={{ mt: 2 }}>
+          <Typography sx={{ mt: 2 }} variant="subtitle1">
             Webhook
           </Typography>
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'center',
+              display: 'flex',
               gap: 2,
               mb: 2,
               width: '100%',
             }}
           >
             <TextField
-              label="Webhook URL"
-              value={config.webhook_url || ''}
-              onChange={(e) => handleChange('webhook_url', e.target.value)}
-              size="small"
-              sx={{ flex: 1, minWidth: 350, maxWidth: 600 }}
-              type={showWebhook ? 'text' : 'password'}
               InputProps={{
                 endAdornment: (
                   <IconButton
                     aria-label={showWebhook ? 'Hide webhook URL' : 'Show webhook URL'}
-                    onClick={() => setShowWebhook((v) => !v)}
                     edge="end"
+                    onClick={() => setShowWebhook((v) => !v)}
                   >
                     {showWebhook ? <VisibilityOffIcon /> : <VisibilityIcon />}
                   </IconButton>
                 ),
               }}
+              label="Webhook URL"
+              onChange={(e) => handleChange('webhook_url', e.target.value)}
+              size="small"
+              sx={{ flex: 1, maxWidth: 600, minWidth: 350 }}
+              type={showWebhook ? 'text' : 'password'}
+              value={config.webhook_url || ''}
             />
             <FormControlLabel
               control={
@@ -353,51 +353,49 @@ export default function NotificationsCard() {
               label="Discord"
               sx={{ ml: 1, mr: 1 }}
             />
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
               <Button
-                variant="outlined"
-                onClick={handleTestWebhook}
                 disabled={testLoading || !config.webhook_url}
+                onClick={handleTestWebhook}
                 sx={{ minWidth: 80 }}
+                variant="outlined"
               >
                 TEST
               </Button>
             </Box>
           </Box>
           <Divider sx={{ my: 3 }} />
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <Box sx={{ alignItems: 'center', display: 'flex', mb: 1 }}>
             <Typography variant="subtitle1">SMTP Email</Typography>
             <Tooltip
-              title={
-                <>
-                  <div style={{ maxWidth: 320 }}>
-                    <b>Gmail SMTP Setup:</b>
-                    <br />
-                    Use <b>smtp.gmail.com</b> as host.
-                    <br />
-                    Port <b>587</b> for TLS, <b>465</b> for SSL.
-                    <br />
-                    You must create an <b>App Password</b> (not your main password).
-                    <br />
-                    <a
-                      href="https://support.google.com/mail/answer/185833?hl=en"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Create App Password
-                    </a>
-                    <br />
-                    <a
-                      href="https://support.google.com/a/answer/176600?hl=en"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      SMTP Setup Instructions
-                    </a>
-                  </div>
-                </>
-              }
               arrow
+              title={
+                <div style={{ maxWidth: 320 }}>
+                  <b>Gmail SMTP Setup:</b>
+                  <br />
+                  Use <b>smtp.gmail.com</b> as host.
+                  <br />
+                  Port <b>587</b> for TLS, <b>465</b> for SSL.
+                  <br />
+                  You must create an <b>App Password</b> (not your main password).
+                  <br />
+                  <a
+                    href="https://support.google.com/mail/answer/185833?hl=en"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    Create App Password
+                  </a>
+                  <br />
+                  <a
+                    href="https://support.google.com/a/answer/176600?hl=en"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    SMTP Setup Instructions
+                  </a>
+                </div>
+              }
             >
               <IconButton size="small" sx={{ ml: 1 }}>
                 <InfoOutlinedIcon fontSize="small" />
@@ -407,41 +405,41 @@ export default function NotificationsCard() {
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               label="SMTP Host"
-              value={config.smtp?.host || ''}
               onChange={(e) => handleSmtpChange('host', e.target.value)}
               size="small"
-              sx={{ width: 350, maxWidth: 600 }}
+              sx={{ maxWidth: 600, width: 350 }}
+              value={config.smtp?.host || ''}
             />
             <TextField
               label="SMTP Port"
-              type="number"
-              value={config.smtp?.port || ''}
               onChange={(e) => handleSmtpChange('port', e.target.value)}
               size="small"
               sx={{ width: 120 }}
+              type="number"
+              value={config.smtp?.port || ''}
             />
           </Box>
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <TextField
               label="Username"
-              value={config.smtp?.username || ''}
               onChange={(e) => handleSmtpChange('username', e.target.value)}
               size="small"
-              sx={{ width: 350, maxWidth: 600 }}
+              sx={{ maxWidth: 600, width: 350 }}
+              value={config.smtp?.username || ''}
             />
             <TextField
               label="Password"
-              type="password"
-              value={config.smtp?.password || ''}
               onChange={(e) => handleSmtpChange('password', e.target.value)}
               size="small"
               sx={{ width: 220 }}
+              type="password"
+              value={config.smtp?.password || ''}
             />
           </Box>
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'center',
+              display: 'flex',
               gap: 2,
               mb: 2,
               width: '100%',
@@ -449,10 +447,10 @@ export default function NotificationsCard() {
           >
             <TextField
               label="To Email"
-              value={config.smtp?.to_email || ''}
               onChange={(e) => handleSmtpChange('to_email', e.target.value)}
               size="small"
-              sx={{ width: 350, maxWidth: 600 }}
+              sx={{ maxWidth: 600, width: 350 }}
+              value={config.smtp?.to_email || ''}
             />
             <FormControlLabel
               control={
@@ -464,43 +462,43 @@ export default function NotificationsCard() {
               label="Use TLS"
               sx={{ ml: 1, mr: 1 }}
             />
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
               <Button
-                variant="outlined"
-                onClick={handleTestSmtp}
                 disabled={testLoading}
+                onClick={handleTestSmtp}
                 sx={{ minWidth: 80 }}
+                variant="outlined"
               >
                 TEST
               </Button>
             </Box>
           </Box>
           <Divider sx={{ my: 3 }} />
-          <Typography variant="subtitle1" sx={{ mt: 2 }}>
+          <Typography sx={{ mt: 2 }} variant="subtitle1">
             Apprise
           </Typography>
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'flex-start',
+              display: 'flex',
               gap: 2,
               mb: 2,
               width: '100%',
             }}
           >
             <TextField
+              helperText="Apprise location (e.g., http://localhost:8000)."
               label="Apprise URL"
-              value={config.apprise?.url || ''}
               onChange={(e) => handleAppriseChange('url', e.target.value)}
               size="small"
-              sx={{ minWidth: 350, maxWidth: 600 }}
-              helperText="Apprise location (e.g., http://localhost:8000)."
+              sx={{ maxWidth: 600, minWidth: 350 }}
+              value={config.apprise?.url || ''}
             />
             <Box
               sx={{
-                height: 40,
-                display: 'flex',
                 alignItems: 'center',
+                display: 'flex',
+                height: 40,
                 ml: 1,
                 mr: 1,
               }}
@@ -519,68 +517,68 @@ export default function NotificationsCard() {
           </Box>
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'flex-start',
+              display: 'flex',
               gap: 2,
-              width: '100%',
               mb: 2,
+              width: '100%',
             }}
           >
             <TextField
-              label="Notify URL String"
-              value={config.apprise?.notify_url_string || ''}
-              onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
-              size="small"
-              multiline={showNotifyString}
-              minRows={showNotifyString ? 2 : undefined}
-              sx={{ minWidth: 350, maxWidth: 600 }}
               helperText={
                 <>
                   Comma-separated Apprise URLs. See the &nbsp;
                   <a
                     href="https://github.com/caronc/apprise/wiki#notification-services"
-                    target="_blank"
                     rel="noopener noreferrer"
                     style={{
                       color: '#1976d2',
-                      textDecoration: 'underline',
                       fontWeight: 500,
+                      textDecoration: 'underline',
                     }}
+                    target="_blank"
                   >
                     Apprise docs
                   </a>
                   .
                 </>
               }
-              type={showNotifyString ? 'text' : 'password'}
               InputProps={{
                 endAdornment: (
                   <IconButton
                     aria-label={
                       showNotifyString ? 'Hide notify URL string' : 'Show notify URL string'
                     }
-                    onClick={() => setShowNotifyString((v) => !v)}
                     edge="end"
+                    onClick={() => setShowNotifyString((v) => !v)}
                   >
                     {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
                   </IconButton>
                 ),
               }}
+              label="Notify URL String"
+              minRows={showNotifyString ? 2 : undefined}
+              multiline={showNotifyString}
+              onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
+              size="small"
+              sx={{ maxWidth: 600, minWidth: 350 }}
+              type={showNotifyString ? 'text' : 'password'}
+              value={config.apprise?.notify_url_string || ''}
             />
             <Box
               sx={{
-                height: 40,
-                display: 'flex',
                 alignItems: 'center',
+                display: 'flex',
                 flex: 1,
+                height: 40,
                 justifyContent: 'flex-end',
               }}
             >
               <Button
-                variant="outlined"
-                onClick={handleTestApprise}
                 disabled={testLoading || !config.apprise?.url || !config.apprise?.notify_url_string}
+                onClick={handleTestApprise}
                 sx={{ minWidth: 80 }}
+                variant="outlined"
               >
                 TEST
               </Button>
@@ -588,7 +586,7 @@ export default function NotificationsCard() {
           </Box>
           <Divider sx={{ my: 3 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="contained" onClick={handleSave} disabled={saving}>
+            <Button disabled={saving} onClick={handleSave} variant="contained">
               Save Settings
             </Button>
           </Box>

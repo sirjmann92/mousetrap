@@ -12,11 +12,8 @@ import {
   Checkbox,
   Collapse,
   FormControl,
-  FormControlLabel,
   IconButton,
   InputLabel,
-  List,
-  ListItem,
   ListItemText,
   MenuItem,
   Select,
@@ -24,12 +21,11 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import CircularProgress from '@mui/material/CircularProgress';
-import React, { useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 
 export default function PortMonitorCard() {
   const API_BASE = '/api/port-monitor';
-  const fetchStacks = async () => {
+  const fetchStacks = useCallback(async () => {
     try {
       const res = await fetch('/api/port-monitor/stacks');
       if (!res.ok) throw new Error('Failed to fetch stacks');
@@ -38,11 +34,11 @@ export default function PortMonitorCard() {
     } catch (_e) {
       setStacks([]);
     }
-  };
+  }, []);
   // Fetch on mount
   useEffect(() => {
     fetchStacks();
-  }, []);
+  }, [fetchStacks]);
   const [stacks, setStacks] = useState([]);
   const [containers, setContainers] = useState([]);
   const [expanded, setExpanded] = useState(false);
@@ -70,7 +66,7 @@ export default function PortMonitorCard() {
   };
   const INTERVAL_OPTIONS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
 
-  const fetchContainers = async () => {
+  const fetchContainers = useCallback(async () => {
     try {
       const res = await fetch('/api/port-monitor/containers');
       if (!res.ok) throw new Error('Failed to fetch containers');
@@ -78,7 +74,7 @@ export default function PortMonitorCard() {
     } catch (_e) {
       setContainers([]);
     }
-  };
+  }, []);
 
   // Auto-hide success alert after 2 seconds
   useEffect(() => {
@@ -96,7 +92,12 @@ export default function PortMonitorCard() {
 
   useEffect(() => {
     fetchContainers();
-  }, []);
+  }, [fetchContainers]);
+
+  // Generate unique ids for InputLabel components to satisfy accessibility
+  const primaryContainerId = useId();
+  const intervalSelectId = useId();
+  const secondaryContainersId = useId();
 
   const handleAddStack = async () => {
     setLoading(true);
@@ -104,16 +105,16 @@ export default function PortMonitorCard() {
     setSuccess(null);
     try {
       const res = await fetch(`${API_BASE}/stacks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          interval,
           name,
           primary_container: primaryContainer,
           primary_port: Number(primaryPort),
-          secondary_containers: secondaryContainers,
-          interval,
           public_ip: publicIp || undefined,
+          secondary_containers: secondaryContainers,
         }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       if (!res.ok) throw new Error('Failed to add stack');
       setSuccess('Stack added.');
@@ -142,15 +143,15 @@ export default function PortMonitorCard() {
     setSuccess(null);
     try {
       const res = await fetch(`${API_BASE}/stacks?name=${encodeURIComponent(editingStack)}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          interval,
           primary_container: primaryContainer,
           primary_port: Number(primaryPort),
-          secondary_containers: secondaryContainers,
-          interval,
           public_ip: publicIp || undefined,
+          secondary_containers: secondaryContainers,
         }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT',
       });
       if (!res.ok) throw new Error('Failed to update stack');
       setSuccess('Stack updated.');
@@ -203,20 +204,20 @@ export default function PortMonitorCard() {
   };
 
   return (
-    <Card sx={{ mb: 3, borderRadius: 2, boxShadow: 2 }}>
+    <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
       <Box
+        onClick={() => setExpanded((e) => !e)}
         sx={{
-          display: 'flex',
           alignItems: 'center',
           cursor: 'pointer',
-          px: 2,
-          pt: 2,
-          pb: 1.5,
+          display: 'flex',
           minHeight: 56,
+          pb: 1.5,
+          pt: 2,
+          px: 2,
         }}
-        onClick={() => setExpanded((e) => !e)}
       >
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+        <Typography sx={{ flexGrow: 1 }} variant="h6">
           Docker Port Monitor
         </Typography>
         <IconButton size="small">
@@ -232,7 +233,7 @@ export default function PortMonitorCard() {
               will not work.
             </Alert>
           )}
-          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 1 }}>
+          <Typography color="text.secondary" gutterBottom sx={{ mb: 1 }} variant="body2">
             Define a stack of containers to monitor and restart together. Select a primary container
             and port, and any secondary containers.
           </Typography>
@@ -249,24 +250,24 @@ export default function PortMonitorCard() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 2 }}>
             {/* Always enable Stack Name field if not editing */}
             <TextField
+              disabled={Boolean(editingStack)}
               label="Stack Name"
-              value={name}
               onChange={(e) => setName(e.target.value)}
               size="small"
-              sx={{ minWidth: 220, maxWidth: 350 }}
+              sx={{ maxWidth: 350, minWidth: 220 }}
+              value={name}
               variant="outlined"
-              disabled={Boolean(editingStack)}
             />
-            <FormControl size="small" sx={{ minWidth: 220, maxWidth: 350 }}>
-              <InputLabel id="primary-container-label">Primary Container</InputLabel>
+            <FormControl size="small" sx={{ maxWidth: 350, minWidth: 220 }}>
+              <InputLabel id={primaryContainerId}>Primary Container</InputLabel>
               <Select
-                labelId="primary-container-label"
-                value={primaryContainer}
                 label="Primary Container"
-                onChange={(e) => setPrimaryContainer(e.target.value)}
+                labelId={primaryContainerId}
                 MenuProps={{ disableScrollLock: true }}
+                onChange={(e) => setPrimaryContainer(e.target.value)}
+                value={primaryContainer}
               >
-                <MenuItem value="" disabled>
+                <MenuItem disabled value="">
                   {containers.length === 0 ? 'No running containers' : 'Select container'}
                 </MenuItem>
                 {containers
@@ -289,20 +290,20 @@ export default function PortMonitorCard() {
             >
               <TextField
                 label="Primary Port"
-                type="number"
-                value={primaryPort}
                 onChange={(e) => setPrimaryPort(e.target.value)}
                 size="small"
-                sx={{ minWidth: 110, maxWidth: 130 }}
+                sx={{ maxWidth: 130, minWidth: 110 }}
+                type="number"
+                value={primaryPort}
               />
-              <FormControl size="small" sx={{ minWidth: 200, maxWidth: 260 }}>
-                <InputLabel id="interval-select-label">Check Interval (min)</InputLabel>
+              <FormControl size="small" sx={{ maxWidth: 260, minWidth: 200 }}>
+                <InputLabel id={intervalSelectId}>Check Interval (min)</InputLabel>
                 <Select
-                  labelId="interval-select-label"
-                  value={interval}
                   label="Check Interval (min)"
-                  onChange={(e) => setInterval(Number(e.target.value))}
+                  labelId={intervalSelectId}
                   MenuProps={{ disableScrollLock: true }}
+                  onChange={(e) => setInterval(Number(e.target.value))}
+                  value={interval}
                 >
                   {INTERVAL_OPTIONS.map((opt) => (
                     <MenuItem key={opt} value={opt}>
@@ -312,29 +313,29 @@ export default function PortMonitorCard() {
                 </Select>
               </FormControl>
               <Tooltip
-                title="If the app cannot detect the public IP of the container automatically, enter it here to override. This is only needed if detection fails (e.g., curl/wget missing in container)."
-                placement="top"
                 arrow
+                placement="top"
+                title="If the app cannot detect the public IP of the container automatically, enter it here to override. This is only needed if detection fails (e.g., curl/wget missing in container)."
               >
                 <TextField
                   label="Public IP (optional)"
-                  value={publicIp}
                   onChange={(e) => setPublicIp(e.target.value)}
                   size="small"
-                  sx={{ minWidth: 150, maxWidth: 210 }}
+                  sx={{ maxWidth: 210, minWidth: 150 }}
+                  value={publicIp}
                 />
               </Tooltip>
             </Box>
-            <FormControl size="small" sx={{ minWidth: 220, maxWidth: 350 }} variant="outlined">
-              <InputLabel id="secondary-containers-label">Secondary Containers</InputLabel>
+            <FormControl size="small" sx={{ maxWidth: 350, minWidth: 220 }} variant="outlined">
+              <InputLabel id={secondaryContainersId}>Secondary Containers</InputLabel>
               <Select
-                labelId="secondary-containers-label"
+                label="Secondary Containers"
+                labelId={secondaryContainersId}
+                MenuProps={{ disableScrollLock: true }}
                 multiple
-                value={secondaryContainers}
                 onChange={(e) => setSecondaryContainers(e.target.value)}
                 renderValue={(selected) => selected.join(', ')}
-                label="Secondary Containers"
-                MenuProps={{ disableScrollLock: true }}
+                value={secondaryContainers}
               >
                 {containers
                   .filter((c) => c !== primaryContainer)
@@ -352,45 +353,45 @@ export default function PortMonitorCard() {
               sx={{
                 display: 'flex',
                 flexDirection: 'row',
+                gap: 1,
                 justifyContent: 'flex-end',
                 width: '100%',
-                gap: 1,
               }}
             >
               {editingStack ? (
                 <>
                   <Button
-                    variant="contained"
                     color="primary"
-                    onClick={handleSaveEdit}
                     disabled={!name || !primaryContainer || !primaryPort || loading}
+                    onClick={handleSaveEdit}
                     sx={{ minWidth: 110 }}
+                    variant="contained"
                   >
                     Save Changes
                   </Button>
                   <Button
-                    variant="outlined"
                     color="secondary"
-                    onClick={handleCancelEdit}
                     disabled={loading}
+                    onClick={handleCancelEdit}
+                    variant="outlined"
                   >
                     Cancel
                   </Button>
                 </>
               ) : (
                 <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleAddStack}
                   disabled={!name || !primaryContainer || !primaryPort || loading}
+                  onClick={handleAddStack}
+                  startIcon={<AddIcon />}
                   sx={{ minWidth: 110 }}
+                  variant="contained"
                 >
                   Add Stack
                 </Button>
               )}
             </Box>
           </Box>
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
+          <Typography sx={{ fontWeight: 600, mb: 1, mt: 2 }} variant="subtitle2">
             Configured Stacks
           </Typography>
           <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
@@ -407,36 +408,36 @@ export default function PortMonitorCard() {
                 <Box
                   key={stack.name}
                   sx={(theme) => ({
+                    background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
+                    borderRadius: 2,
+                    boxShadow: 0,
                     mb: 2,
                     p: 2,
-                    borderRadius: 2,
-                    background: theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
-                    boxShadow: 0,
                     position: 'relative',
                   })}
                 >
                   <Box
                     sx={{
-                      display: 'flex',
                       alignItems: 'center',
+                      display: 'flex',
                       justifyContent: 'space-between',
                     }}
                   >
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, minWidth: 320 }}>
+                    <Typography sx={{ fontWeight: 600, minWidth: 320 }} variant="subtitle2">
                       Stack: {stack.name}
                     </Typography>
                     {stack.public_ip && stack.public_ip !== '' && (
                       <Box sx={{ ml: 2 }}>
                         <Typography
-                          variant="caption"
                           color="info.main"
                           sx={{
-                            fontWeight: 700,
                             background: '#e3f2fd',
+                            borderRadius: 1,
+                            fontWeight: 700,
                             px: 1,
                             py: 0.5,
-                            borderRadius: 1,
                           }}
+                          variant="caption"
                         >
                           Public IP Override: {stack.public_ip}
                         </Typography>
@@ -444,13 +445,12 @@ export default function PortMonitorCard() {
                     )}
                     <Box>
                       <Tooltip title="Edit Stack">
-                        <IconButton size="small" onClick={() => handleEditStack(stack)}>
+                        <IconButton onClick={() => handleEditStack(stack)} size="small">
                           <EditIcon color="primary" fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Recheck Stack Status">
                         <IconButton
-                          size="small"
                           onClick={async () => {
                             setLoading(true);
                             setError(null);
@@ -475,36 +475,34 @@ export default function PortMonitorCard() {
                             }
                             setLoading(false);
                           }}
+                          size="small"
                         >
                           <RefreshIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Restart Stack">
-                        <IconButton size="small" onClick={() => handleRestartStack(stack.name)}>
+                        <IconButton onClick={() => handleRestartStack(stack.name)} size="small">
                           <RefreshIcon color="warning" fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Stack">
-                        <IconButton size="small" onClick={() => handleDeleteStack(stack.name)}>
+                        <IconButton onClick={() => handleDeleteStack(stack.name)} size="small">
                           <DeleteIcon color="error" fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     </Box>
                   </Box>
-                  <Typography variant="body2" sx={{ minWidth: 320 }}>
+                  <Typography sx={{ minWidth: 320 }} variant="body2">
                     Primary: {stack.primary_container}:{stack.primary_port}
                   </Typography>
-                  <Typography variant="body2" sx={{ minWidth: 320 }}>
+                  <Typography sx={{ minWidth: 320 }} variant="body2">
                     Secondaries: {stack.secondary_containers.join(', ') || 'None'}
                   </Typography>
-                  <Typography variant="body2" sx={{ minWidth: 320 }}>
+                  <Typography sx={{ minWidth: 320 }} variant="body2">
                     Check Interval: {stack.interval} {stack.interval === 1 ? 'minute' : 'minutes'}
                   </Typography>
                   <Typography
-                    variant="body2"
                     sx={{
-                      minWidth: 320,
-                      fontWeight: 600,
                       color:
                         stack.status === 'OK'
                           ? (theme) => theme.palette.success.main
@@ -513,7 +511,10 @@ export default function PortMonitorCard() {
                             : stack.status === 'Restarting...'
                               ? (theme) => theme.palette.warning.main
                               : (theme) => theme.palette.error.main,
+                      fontWeight: 600,
+                      minWidth: 320,
                     }}
+                    variant="body2"
                   >
                     Status: {stack.status || 'Unknown'}
                   </Typography>

@@ -6,7 +6,6 @@ import {
   DialogContentText,
   DialogTitle,
 } from '@mui/material';
-import React from 'react';
 
 /**
  * Reusable confirmation dialog for automation actions.
@@ -31,7 +30,7 @@ export default function ConfirmDialog({
   confirmColor = 'primary',
 }) {
   return (
-    <Dialog open={open} onClose={onClose} disableScrollLock={true}>
+    <Dialog disableScrollLock={true} onClose={onClose} open={open}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>
         <DialogContentText>{message}</DialogContentText>
@@ -39,11 +38,11 @@ export default function ConfirmDialog({
       <DialogActions>
         <Button onClick={onClose}>{cancelLabel}</Button>
         <Button
+          color={confirmColor}
           onClick={() => {
             onClose();
             onConfirm();
           }}
-          color={confirmColor}
           variant="contained"
         >
           {confirmLabel}

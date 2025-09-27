@@ -4,20 +4,12 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
   Card,
   CardContent,
   Collapse,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
   FormControl,
   Grid,
   IconButton,
@@ -30,13 +22,12 @@ import {
 } from '@mui/material';
 import Snackbar from '@mui/material/Snackbar';
 import PropTypes from 'prop-types';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useSession } from '../context/SessionContext';
 
 export default function MouseTrapConfigCard({
   proxies = {},
-  onProxiesChanged,
   onSessionSaved,
   hasSessions = true,
   onCreateNewSession,
@@ -58,11 +49,8 @@ export default function MouseTrapConfigCard({
     checkFrequency,
     setCheckFrequency,
     oldLabel,
-    setOldLabel,
     proxy,
     setProxy,
-    proxiedIp,
-    proxiedAsn,
   } = useSession();
 
   // Local state for editing label
@@ -91,8 +79,8 @@ export default function MouseTrapConfigCard({
   // proxies now comes from props
   // proxyStatus.ip will now be the actual proxied public IP (not the proxy server's host)
   const [_proxyStatus, setProxyStatus] = useState({
-    ip: '',
     asn: '',
+    ip: '',
     valid: false,
   });
   // Local state for immediate proxy test result
@@ -108,7 +96,7 @@ export default function MouseTrapConfigCard({
   // When proxyLabel changes, trigger backend detection for proxy IP/ASN
   useEffect(() => {
     if (!proxyLabel) {
-      setProxyStatus({ ip: '', asn: '', valid: false });
+      setProxyStatus({ asn: '', ip: '', valid: false });
       setLocalProxiedIp('');
       return;
     }
@@ -116,20 +104,20 @@ export default function MouseTrapConfigCard({
     fetch(`/api/proxy_test/${encodeURIComponent(proxyLabel)}`)
       .then((res) => res.json())
       .then((status) => {
-        if (status && status.proxied_ip) {
+        if (status?.proxied_ip) {
           setProxyStatus({
-            ip: status.proxied_ip,
             asn: status.proxied_asn || '',
+            ip: status.proxied_ip,
             valid: true,
           });
           setLocalProxiedIp(status.proxied_ip);
         } else {
-          setProxyStatus({ ip: '', asn: '', valid: false });
+          setProxyStatus({ asn: '', ip: '', valid: false });
           setLocalProxiedIp('');
         }
       })
       .catch(() => {
-        setProxyStatus({ ip: '', asn: '', valid: false });
+        setProxyStatus({ asn: '', ip: '', valid: false });
         setLocalProxiedIp('');
       });
   }, [proxyLabel]);
@@ -141,7 +129,7 @@ export default function MouseTrapConfigCard({
 
   const sessionTypeError = !sessionType || sessionType === '' ? 'Required' : '';
   const freqError =
-    !checkFrequency || checkFrequency === '' || isNaN(checkFrequency) || checkFrequency < 1
+    !checkFrequency || checkFrequency === '' || Number.isNaN(checkFrequency) || checkFrequency < 1
       ? 'Required'
       : '';
   const mamIdError = !mamId || mamId.trim() === '';
@@ -157,22 +145,22 @@ export default function MouseTrapConfigCard({
     // Only update global sessionLabel on save
     setSessionLabel(label);
     const payload = {
+      check_freq: checkFrequency,
       label,
-      old_label: oldLabel,
       mam: {
+        ip_monitoring_mode: ipMonitoringMode,
         mam_id: mamId,
         session_type: sessionType,
-        ip_monitoring_mode: ipMonitoringMode,
       },
       mam_ip: mamIp,
-      check_freq: checkFrequency,
+      old_label: oldLabel,
       proxy: { label: proxyLabel },
     };
     try {
       const res = await fetch('/api/session/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       if (!res.ok) throw new Error('Failed to save session');
       setSaveStatus('Session saved successfully.');
@@ -180,7 +168,7 @@ export default function MouseTrapConfigCard({
       if (onSessionSaved) onSessionSaved(label, oldLabel);
       if (setProxy) setProxy(payload.proxy);
     } catch (err) {
-      setSaveError('Error saving session: ' + err.message);
+      setSaveError(`Error saving session: ${err.message}`);
     }
   };
 
@@ -189,34 +177,34 @@ export default function MouseTrapConfigCard({
     return (
       <Card
         sx={{
-          mb: 3,
+          alignItems: 'center',
           borderRadius: 2,
-          p: 3,
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
           justifyContent: 'center',
+          mb: 3,
           minHeight: 220,
+          p: 3,
         }}
       >
-        <Box sx={{ width: '100%', mb: 2 }}>
-          <Alert severity="info" sx={{ fontSize: 17, py: 2, px: 3, textAlign: 'center' }}>
+        <Box sx={{ mb: 2, width: '100%' }}>
+          <Alert severity="info" sx={{ fontSize: 17, px: 3, py: 2, textAlign: 'center' }}>
             Create a new session to get started.
           </Alert>
         </Box>
         <Button
-          variant="contained"
           color="primary"
+          onClick={onCreateNewSession}
           size="large"
           sx={{
+            borderRadius: 2,
+            fontSize: 18,
+            fontWeight: 600,
             mt: 1,
             px: 4,
             py: 1.5,
-            fontSize: 18,
-            fontWeight: 600,
-            borderRadius: 2,
           }}
-          onClick={onCreateNewSession}
+          variant="contained"
         >
           Create New Session
         </Button>
@@ -226,16 +214,16 @@ export default function MouseTrapConfigCard({
 
   // Restore the full config form rendering
   return (
-    <Card sx={{ mb: 3, borderRadius: 2 }}>
+    <Card sx={{ borderRadius: 2, mb: 3 }}>
       {/* Snackbar for save status */}
       <Snackbar
-        open={!!saveStatus || !!saveError}
+        anchorOrigin={{ horizontal: 'center', vertical: 'top' }}
         autoHideDuration={3000}
         onClose={() => {
           setSaveStatus('');
           setSaveError('');
         }}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        open={!!saveStatus || !!saveError}
       >
         {saveStatus ? (
           <Alert severity="success" sx={{ width: '100%' }}>
@@ -248,18 +236,18 @@ export default function MouseTrapConfigCard({
         ) : null}
       </Snackbar>
       <Box
+        onClick={() => setExpanded((e) => !e)}
         sx={{
-          display: 'flex',
           alignItems: 'center',
           cursor: 'pointer',
-          px: 2,
-          pt: 2,
-          pb: 1.5,
+          display: 'flex',
           minHeight: 56,
+          pb: 1.5,
+          pt: 2,
+          px: 2,
         }}
-        onClick={() => setExpanded((e) => !e)}
       >
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+        <Typography sx={{ flexGrow: 1 }} variant="h6">
           Session Configuration
         </Typography>
         <IconButton size="small">{expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
@@ -268,37 +256,37 @@ export default function MouseTrapConfigCard({
         <CardContent sx={{ pt: 0 }}>
           {/* Padding above first row, only visible when expanded */}
           <Box sx={{ height: 7 }} />
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
-            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
+          <Grid alignItems="flex-end" container spacing={2} sx={{ mb: 2 }}>
+            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
               <TextField
                 label="Session Label"
-                value={label}
                 onChange={(e) => setLabel(e.target.value)}
-                size="small"
                 required
+                size="small"
                 sx={{ width: 145 }}
+                value={label}
               />
             </Grid>
-            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
+            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
               <FormControl
-                size="small"
-                sx={{ minWidth: 130, maxWidth: 175 }}
                 error={!!sessionTypeError}
+                size="small"
+                sx={{ maxWidth: 175, minWidth: 130 }}
               >
                 <InputLabel
-                  required
                   error={!!sessionTypeError}
+                  required
                   sx={{ color: sessionTypeError ? 'error.main' : undefined }}
                 >
                   Session Type
                 </InputLabel>
                 <Select
-                  value={sessionType || ''}
-                  label="Session Type*"
-                  onChange={(e) => setSessionType(e.target.value)}
                   error={!!sessionTypeError}
-                  sx={{ minWidth: 150, maxWidth: 195 }}
+                  label="Session Type*"
                   MenuProps={{ disableScrollLock: true }}
+                  onChange={(e) => setSessionType(e.target.value)}
+                  sx={{ maxWidth: 195, minWidth: 150 }}
+                  value={sessionType || ''}
                 >
                   <MenuItem value="">Select...</MenuItem>
                   <MenuItem value="IP Locked">IP Locked</MenuItem>
@@ -307,16 +295,16 @@ export default function MouseTrapConfigCard({
               </FormControl>
             </Grid>
 
-            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControl size="small" sx={{ minWidth: 130, maxWidth: 175 }}>
+            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
+              <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                <FormControl size="small" sx={{ maxWidth: 175, minWidth: 130 }}>
                   <InputLabel>IP Monitoring</InputLabel>
                   <Select
-                    value={ipMonitoringMode || 'auto'}
                     label="IP Monitoring"
-                    onChange={(e) => setIpMonitoringMode(e.target.value)}
-                    sx={{ minWidth: 130, maxWidth: 175 }}
                     MenuProps={{ disableScrollLock: true }}
+                    onChange={(e) => setIpMonitoringMode(e.target.value)}
+                    sx={{ maxWidth: 175, minWidth: 130 }}
+                    value={ipMonitoringMode || 'auto'}
                   >
                     <MenuItem value="auto">Auto (Full)</MenuItem>
                     <MenuItem value="manual">Manual</MenuItem>
@@ -324,6 +312,7 @@ export default function MouseTrapConfigCard({
                   </Select>
                 </FormControl>
                 <Tooltip
+                  arrow
                   title={
                     <div>
                       <strong>Auto (Full):</strong> Automatic IP detection with multiple fallbacks
@@ -334,7 +323,6 @@ export default function MouseTrapConfigCard({
                       networks)
                     </div>
                   }
-                  arrow
                 >
                   <IconButton size="small" sx={{ ml: 0.5 }}>
                     <InfoOutlinedIcon fontSize="small" />
@@ -343,16 +331,16 @@ export default function MouseTrapConfigCard({
               </Box>
             </Grid>
 
-            <Grid item xs={4} sm={4} md={3} lg={3} xl={2}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControl size="small" sx={{ minWidth: 120, maxWidth: 165 }} error={!!freqError}>
+            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
+              <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                <FormControl error={!!freqError} size="small" sx={{ maxWidth: 165, minWidth: 120 }}>
                   <InputLabel>Interval*</InputLabel>
                   <Select
-                    value={checkFrequency || ''}
                     label="Interval*"
-                    onChange={(e) => setCheckFrequency(Number(e.target.value))}
-                    sx={{ minWidth: 100, maxWidth: 145 }}
                     MenuProps={{ disableScrollLock: true }}
+                    onChange={(e) => setCheckFrequency(Number(e.target.value))}
+                    sx={{ maxWidth: 145, minWidth: 100 }}
+                    value={checkFrequency || ''}
                   >
                     <MenuItem value="">Select...</MenuItem>
                     <MenuItem value={1}>1</MenuItem>
@@ -363,7 +351,7 @@ export default function MouseTrapConfigCard({
                     ))}
                   </Select>
                 </FormControl>
-                <Tooltip title="How often to check the IP/ASN for changes" arrow>
+                <Tooltip arrow title="How often to check the IP/ASN for changes">
                   <IconButton size="small" sx={{ ml: 0.5 }}>
                     <InfoOutlinedIcon fontSize="small" />
                   </IconButton>
@@ -371,129 +359,129 @@ export default function MouseTrapConfigCard({
               </Box>
             </Grid>
           </Grid>
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+          <Grid alignItems="flex-end" container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12}>
               <TextField
-                label="MAM ID"
-                value={showMamId ? mamId : mamId ? `********${mamId.slice(-6)}` : ''}
-                onChange={(e) => setMamId(e.target.value)}
-                size="small"
-                required
                 error={mamIdError}
-                inputProps={{ maxLength: 300 }}
-                multiline
-                minRows={2}
-                maxRows={6}
                 helperText="Paste your full MAM ID here (required)"
-                sx={{ width: { xs: '100%', sm: 400, md: 450 } }}
-                type={showMamId ? 'text' : 'password'}
                 InputProps={{
                   endAdornment: (
                     <IconButton
                       aria-label={showMamId ? 'Hide MAM ID' : 'Show MAM ID'}
-                      onClick={() => setShowMamId((v) => !v)}
                       edge="end"
+                      onClick={() => setShowMamId((v) => !v)}
                     >
                       {showMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
                     </IconButton>
                   ),
                 }}
+                inputProps={{ maxLength: 300 }}
+                label="MAM ID"
+                maxRows={6}
+                minRows={2}
+                multiline
+                onChange={(e) => setMamId(e.target.value)}
+                required
+                size="small"
+                sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
+                type={showMamId ? 'text' : 'password'}
+                value={showMamId ? mamId : mamId ? `********${mamId.slice(-6)}` : ''}
               />
             </Grid>
           </Grid>
-          <Grid container spacing={2} alignItems="flex-end" sx={{ mb: 2 }}>
+          <Grid alignItems="flex-end" container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
                 <TextField
-                  label="IP Address"
-                  value={mamIp}
-                  onChange={(e) => setMamIp(e.target.value)}
-                  size="small"
-                  required
                   error={ipError}
-                  inputProps={{ maxLength: 16 }}
-                  placeholder="e.g. 203.0.113.99"
                   helperText="IP to associate with MAM ID"
+                  inputProps={{ maxLength: 16 }}
+                  label="IP Address"
+                  onChange={(e) => setMamIp(e.target.value)}
+                  placeholder="e.g. 203.0.113.99"
+                  required
+                  size="small"
                   sx={{ width: 205 }}
+                  value={mamIp}
                 />
                 <Box
                   sx={{
+                    alignItems: 'center',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
                     gap: 0.25,
                   }}
                 >
                   <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={() => setMamIp(detectedIp)}
-                    sx={{ height: 40, mb: 0.2, minWidth: 120 }}
                     disabled={!detectedIp}
+                    onClick={() => setMamIp(detectedIp)}
+                    size="small"
+                    sx={{ height: 40, mb: 0.2, minWidth: 120 }}
+                    variant="outlined"
                   >
                     USE DETECTED IP
                   </Button>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2 }}>
+                  <Typography color="text.secondary" sx={{ mt: 0.2 }} variant="caption">
                     {detectedIp || 'No IP detected'}
                   </Typography>
                 </Box>
                 <Box
                   sx={{
+                    alignItems: 'center',
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: 'center',
                     gap: 0.25,
                   }}
                 >
                   <Button
-                    variant="outlined"
-                    size="small"
                     color="primary"
-                    onClick={() => setMamIp(localProxiedIp)}
-                    sx={{ height: 40, mb: 0.2, minWidth: 120 }}
                     disabled={!localProxiedIp}
+                    onClick={() => setMamIp(localProxiedIp)}
+                    size="small"
+                    sx={{ height: 40, mb: 0.2, minWidth: 120 }}
+                    variant="outlined"
                   >
                     USE PROXY IP
                   </Button>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.2 }}>
+                  <Typography color="text.secondary" sx={{ mt: 0.2 }} variant="caption">
                     {localProxiedIp || 'No proxy IP detected'}
                   </Typography>
                 </Box>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
-                <FormControl size="small" sx={{ minWidth: 260, maxWidth: 320 }}>
+              <Box sx={{ alignItems: 'center', display: 'flex', mt: 2 }}>
+                <FormControl size="small" sx={{ maxWidth: 320, minWidth: 260 }}>
                   <InputLabel>Proxy</InputLabel>
                   <Select
-                    value={proxyLabel}
                     label="Proxy"
-                    onChange={(e) => setProxyLabel(e.target.value)}
-                    sx={{ minWidth: 260, maxWidth: 320 }}
                     MenuProps={{
-                      PaperProps: {
-                        style: { minWidth: 260, maxWidth: 320 },
-                      },
                       disableScrollLock: true,
+                      PaperProps: {
+                        style: { maxWidth: 320, minWidth: 260 },
+                      },
                     }}
+                    onChange={(e) => setProxyLabel(e.target.value)}
+                    sx={{ maxWidth: 320, minWidth: 260 }}
+                    value={proxyLabel}
                   >
                     <MenuItem value="">
                       <em>None</em>
                     </MenuItem>
                     {Object.keys(proxies).map((label) => (
-                      <MenuItem key={label} value={label} style={{ whiteSpace: 'normal' }}>
+                      <MenuItem key={label} style={{ whiteSpace: 'normal' }} value={label}>
                         {label} ({proxies[label].host}:{proxies[label].port})
                       </MenuItem>
                     ))}
                   </Select>
                   <Typography
-                    variant="caption"
                     color="text.secondary"
                     sx={{
+                      overflow: 'hidden',
                       pl: 1,
                       pt: 0.5,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
                       textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
                     }}
+                    variant="caption"
                   >
                     Select a proxy to use for this session (optional)
                   </Typography>
@@ -501,12 +489,12 @@ export default function MouseTrapConfigCard({
               </Box>
             </Grid>
           </Grid>
-          <Box sx={{ textAlign: 'right', mt: 2 }}>
+          <Box sx={{ mt: 2, textAlign: 'right' }}>
             <Button
-              variant="contained"
               color="primary"
-              onClick={handleSave}
               disabled={!allValid || !sessionType}
+              onClick={handleSave}
+              variant="contained"
             >
               SAVE
             </Button>
@@ -518,16 +506,16 @@ export default function MouseTrapConfigCard({
 }
 
 MouseTrapConfigCard.propTypes = {
-  onSessionSaved: PropTypes.func,
+  forceExpand: PropTypes.bool,
   hasSessions: PropTypes.bool,
   onCreateNewSession: PropTypes.func,
-  forceExpand: PropTypes.bool,
   onForceExpandHandled: PropTypes.func,
+  onSessionSaved: PropTypes.func,
 };
 
 MouseTrapConfigCard.defaultProps = {
+  forceExpand: false,
   hasSessions: true,
   onCreateNewSession: () => {},
-  forceExpand: false,
   onForceExpandHandled: () => {},
 };

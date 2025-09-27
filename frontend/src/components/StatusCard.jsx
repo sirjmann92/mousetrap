@@ -1,6 +1,5 @@
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
   Alert,
@@ -9,26 +8,21 @@ import {
   Card,
   CardContent,
   Divider,
-  IconButton,
   Snackbar,
   Tooltip,
   Typography,
 } from '@mui/material';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { useSession } from '../context/SessionContext';
-import { renderASN, stringifyMessage } from '../utils/statusUtils';
+import { stringifyMessage } from '../utils/statusUtils';
 import { getStatusMessageColor } from '../utils/utils';
 import AutomationStatusRow from './AutomationStatusRow';
 import MamDetailsAccordion from './MamDetailsAccordion';
 import NetworkProxyDetailsAccordion from './NetworkProxyDetailsAccordion';
-import RateLimitTimer from './RateLimitTimer';
 import TimerDisplay from './TimerDisplay';
 
 const StatusCard = forwardRef(function StatusCard(
-  { autoWedge, autoVIP, autoUpload, onSessionSaved, onSessionDataChanged, onStatusUpdate },
+  { autoWedge, autoVIP, autoUpload, onStatusUpdate },
   ref,
 ) {
   const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus } = useSession();
@@ -37,78 +31,79 @@ const StatusCard = forwardRef(function StatusCard(
   // Timer is now derived from backend only; no local countdown
   const [timer, setTimer] = useState(0);
   const [snackbar, setSnackbar] = useState({
-    open: false,
     message: '',
+    open: false,
     severity: 'info',
   });
   const [seedboxStatus, setSeedboxStatus] = useState(null);
   const [seedboxLoading, setSeedboxLoading] = useState(false);
-  const _pollingRef = useRef();
-  const _lastCheckRef = useRef(null);
 
   // Fetch status from backend
-  const fetchStatus = async (force = false) => {
-    try {
-      let url = sessionLabel
-        ? `/api/status?label=${encodeURIComponent(sessionLabel)}`
-        : '/api/status';
-      if (force) url += (url.includes('?') ? '&' : '?') + 'force=1';
+  const fetchStatus = useCallback(
+    async (force = false) => {
+      try {
+        let url = sessionLabel
+          ? `/api/status?label=${encodeURIComponent(sessionLabel)}`
+          : '/api/status';
+        if (force) url += `${url.includes('?') ? '&' : '?'}force=1`;
 
-      const res = await fetch(url);
-      const data = await res.json();
-      if (data.success === false || data.error) {
-        setStatus({ error: data.error || 'Unknown error from backend.' });
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success === false || data.error) {
+          setStatus({ error: data.error || 'Unknown error from backend.' });
+          setSnackbar({
+            message: stringifyMessage(data.error || 'Unknown error from backend.'),
+            open: true,
+            severity: 'error',
+          });
+          setPoints?.(null);
+          setCheese?.(null);
+          return;
+        }
+        const detectedIp = data.detected_public_ip || '';
+        const newStatus = {
+          asn: data.asn || '',
+          check_freq: data.check_freq || 5, // minutes, from backend
+          cheese: data.cheese || null,
+          current_ip: data.current_ip,
+          current_ip_asn: data.current_ip_asn,
+          details: data.details || {}, // raw backend details
+          detected_public_ip: data.detected_public_ip,
+          detected_public_ip_as: data.detected_public_ip_as,
+          detected_public_ip_asn: data.detected_public_ip_asn,
+          ip: detectedIp,
+          last_check_time: data.last_check_time || null,
+          last_result: data.message || '',
+          last_update_mamid: data.mam_id || '',
+          mam_cookie_exists: data.mam_cookie_exists,
+          mam_session_as: data.mam_session_as,
+          next_check_time: data.next_check_time || null, // <-- NEW
+          points: data.points || null,
+          proxied_public_ip: data.proxied_public_ip,
+          proxied_public_ip_as: data.proxied_public_ip_as,
+          proxied_public_ip_asn: data.proxied_public_ip_asn,
+          ratelimit: data.ratelimit || 0, // seconds, from backend
+          status_message: data.status_message || '', // user-friendly status message
+          vault_automation_enabled: data.vault_automation_enabled || false,
+        };
+        setStatus(newStatus);
+        if (onStatusUpdate) onStatusUpdate(newStatus);
+        setDetectedIp?.(detectedIp);
+        setPoints?.(data.points || null);
+        setCheese?.(data.cheese || null);
+      } catch (e) {
+        setStatus({ error: e.message || 'Failed to fetch status.' });
         setSnackbar({
+          message: stringifyMessage(e.message || 'Failed to fetch status.'),
           open: true,
-          message: stringifyMessage(data.error || 'Unknown error from backend.'),
           severity: 'error',
         });
-        setPoints && setPoints(null);
-        setCheese && setCheese(null);
-        return;
+        setPoints?.(null);
+        setCheese?.(null);
       }
-      const detectedIp = data.detected_public_ip || '';
-      const newStatus = {
-        last_update_mamid: data.mam_id || '',
-        ratelimit: data.ratelimit || 0, // seconds, from backend
-        check_freq: data.check_freq || 5, // minutes, from backend
-        last_result: data.message || '',
-        ip: detectedIp,
-        current_ip: data.current_ip,
-        current_ip_asn: data.current_ip_asn,
-        detected_public_ip: data.detected_public_ip,
-        detected_public_ip_asn: data.detected_public_ip_asn,
-        detected_public_ip_as: data.detected_public_ip_as,
-        proxied_public_ip: data.proxied_public_ip,
-        proxied_public_ip_asn: data.proxied_public_ip_asn,
-        proxied_public_ip_as: data.proxied_public_ip_as,
-        mam_cookie_exists: data.mam_cookie_exists,
-        mam_session_as: data.mam_session_as,
-        asn: data.asn || '',
-        last_check_time: data.last_check_time || null,
-        next_check_time: data.next_check_time || null, // <-- NEW
-        points: data.points || null,
-        cheese: data.cheese || null,
-        status_message: data.status_message || '', // user-friendly status message
-        details: data.details || {}, // raw backend details
-        vault_automation_enabled: data.vault_automation_enabled || false,
-      };
-      setStatus(newStatus);
-      if (onStatusUpdate) onStatusUpdate(newStatus);
-      setDetectedIp && setDetectedIp(detectedIp);
-      setPoints && setPoints(data.points || null);
-      setCheese && setCheese(data.cheese || null);
-    } catch (e) {
-      setStatus({ error: e.message || 'Failed to fetch status.' });
-      setSnackbar({
-        open: true,
-        message: stringifyMessage(e.message || 'Failed to fetch status.'),
-        severity: 'error',
-      });
-      setPoints && setPoints(null);
-      setCheese && setCheese(null);
-    }
-  };
+    },
+    [sessionLabel, setStatus, setDetectedIp, setPoints, setCheese, onStatusUpdate],
+  );
 
   // Poll backend every 5 seconds for status, but only if session is fully configured
   useEffect(() => {
@@ -130,13 +125,13 @@ const StatusCard = forwardRef(function StatusCard(
     return () => {
       if (pollInterval) clearInterval(pollInterval);
     };
-  }, [timer, sessionLabel, status?.next_check_time, status?.configured]);
+  }, [timer, status, fetchStatus]);
 
   // Timer is always derived from backend's next_check_time and current time
   useEffect(() => {
     // Calculate timer immediately when next_check_time changes
     const calculateTimer = () => {
-      if (status && status.next_check_time) {
+      if (status?.next_check_time) {
         const nextCheck = Date.parse(status.next_check_time);
         const now = Date.now();
         const secondsLeft = Math.floor((nextCheck - now) / 1000);
@@ -157,21 +152,17 @@ const StatusCard = forwardRef(function StatusCard(
   // Always perform a force=1 status check on first load/session select
   // On initial load/session select, fetch latest status (do NOT force a backend check)
   useEffect(() => {
-    if (!sessionLabel) return;
-    setStatus(null); // Clear status to show loading/blank until check completes
+    // Clear status and seedbox status to show loading/blank until check completes
+    setStatus(null);
+    setSeedboxStatus(null);
     fetchStatus(false);
     // eslint-disable-next-line
-  }, [sessionLabel]);
-
-  // Clear seedbox status when session changes
-  useEffect(() => {
-    setSeedboxStatus(null);
-  }, [sessionLabel]);
+  }, [fetchStatus, setStatus]);
 
   // Handler for 'Check Now' button
   const handleCheckNow = async () => {
     await fetchStatus(true);
-    setSnackbar({ open: true, message: 'Checked now!', severity: 'success' });
+    setSnackbar({ message: 'Checked now!', open: true, severity: 'success' });
   };
 
   // Handler for 'Update Seedbox' button
@@ -181,23 +172,23 @@ const StatusCard = forwardRef(function StatusCard(
     setSeedboxStatus(null);
     try {
       const res = await fetch('/api/session/update_seedbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: sessionLabel }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       setSeedboxStatus(data);
       setSnackbar({
-        open: true,
         message: data.success ? data.msg || 'Seedbox updated!' : data.error || 'Update failed',
+        open: true,
         severity: data.success ? 'success' : 'warning',
       });
       fetchStatus(); // Refresh status after update
     } catch (e) {
-      setSeedboxStatus({ success: false, error: e.message });
+      setSeedboxStatus({ error: e.message, success: false });
       setSnackbar({
-        open: true,
         message: 'Seedbox update failed',
+        open: true,
         severity: 'error',
       });
     } finally {
@@ -212,34 +203,34 @@ const StatusCard = forwardRef(function StatusCard(
   }));
 
   return (
-    <Card sx={{ mb: 3, borderRadius: 2 }}>
+    <Card sx={{ borderRadius: 2, mb: 3 }}>
       <CardContent>
         {/* Session Status Header: align text and icon vertically with buttons */}
         <Box
           sx={{
-            display: 'flex',
             alignItems: 'center',
+            display: 'flex',
             justifyContent: 'space-between',
           }}
         >
           <Box
             sx={{
-              display: 'flex',
               alignItems: 'center',
-              minHeight: 48,
+              display: 'flex',
               gap: 3,
+              minHeight: 48,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', height: 40 }}>
               <Typography
-                variant="h6"
                 sx={{
-                  display: 'flex',
                   alignItems: 'center',
+                  display: 'flex',
                   height: 40,
                   mb: 0,
                   mr: 1,
                 }}
+                variant="h6"
               >
                 Session Status
               </Typography>
@@ -293,16 +284,16 @@ const StatusCard = forwardRef(function StatusCard(
               })()}
             </Box>
             {/* Connectable Status */}
-            <Box sx={{ display: 'flex', alignItems: 'center', height: 40 }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', height: 40 }}>
               <Typography
-                variant="h6"
                 sx={{
-                  display: 'flex',
                   alignItems: 'center',
+                  display: 'flex',
                   height: 40,
                   mb: 0,
                   mr: 1,
                 }}
+                variant="h6"
               >
                 Connectable
               </Typography>
@@ -345,7 +336,7 @@ const StatusCard = forwardRef(function StatusCard(
           <Box>
             <Tooltip title="Refreshes session status from MAM">
               <span>
-                <Button variant="outlined" size="small" onClick={handleCheckNow} sx={{ ml: 2 }}>
+                <Button onClick={handleCheckNow} size="small" sx={{ ml: 2 }} variant="outlined">
                   Check Now
                 </Button>
               </span>
@@ -354,12 +345,12 @@ const StatusCard = forwardRef(function StatusCard(
             <Tooltip title="Updates your session's IP/ASN with MAM (rate-limited to once per hour)">
               <span>
                 <Button
-                  variant="contained"
-                  size="small"
                   color="secondary"
-                  onClick={handleUpdateSeedbox}
-                  sx={{ ml: 2 }}
                   disabled={seedboxLoading || !sessionLabel}
+                  onClick={handleUpdateSeedbox}
+                  size="small"
+                  sx={{ ml: 2 }}
+                  variant="contained"
                 >
                   {seedboxLoading ? 'Updating...' : 'Update Seedbox'}
                 </Button>
@@ -369,8 +360,8 @@ const StatusCard = forwardRef(function StatusCard(
         </Box>
         {/* MAM Details Accordion (restored, styled to match) */}
         {/* Robust error handling: if status is set and has error, only render the error alert */}
-        {status && status.error ? (
-          <Box sx={{ mt: 2, mb: 2 }}>
+        {status?.error ? (
+          <Box sx={{ mb: 2, mt: 2 }}>
             <Alert severity="error">{status.error}</Alert>
           </Box>
         ) : status ? (
@@ -378,7 +369,7 @@ const StatusCard = forwardRef(function StatusCard(
           (status.status_message &&
             status.status_message ===
               'Session not configured. Please save session details to begin.') ? (
-            <Box sx={{ mt: 2, mb: 2 }}>
+            <Box sx={{ mb: 2, mt: 2 }}>
               <Alert severity="info">
                 {status.status_message ||
                   'Session not configured. Please save session details to begin.'}
@@ -390,17 +381,15 @@ const StatusCard = forwardRef(function StatusCard(
               {status.last_check_time && (
                 <React.Fragment>
                   <TimerDisplay timer={timer} />
-                  <Typography variant="body2" sx={{ mt: 1, textAlign: 'center', fontWeight: 500 }}>
+                  <Typography sx={{ fontWeight: 500, mt: 1, textAlign: 'center' }} variant="body2">
                     {/* Unified, styled status message */}
                     {(() => {
                       // Prefer rate limit message if present
                       let msg = status.status_message || status.last_result || 'unknown';
                       if (
-                        typeof msg === 'string' &&
-                        /rate limit: last change too recent/i.test(msg)
-                      ) {
-                        msg = msg;
-                      } else if (
+                        !(
+                          typeof msg === 'string' && /rate limit: last change too recent/i.test(msg)
+                        ) &&
                         status.details &&
                         typeof status.details === 'object' &&
                         status.details.error &&
@@ -412,9 +401,9 @@ const StatusCard = forwardRef(function StatusCard(
                       return (
                         <Box sx={{ mt: 1, textAlign: 'center' }}>
                           <Typography
-                            variant="subtitle2"
                             color={color}
                             sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                            variant="subtitle2"
                           >
                             {msg}
                           </Typography>
@@ -424,14 +413,14 @@ const StatusCard = forwardRef(function StatusCard(
                   </Typography>
                   {/* Proxy/VPN error warning below timer/status */}
                   {status.proxy_error && (
-                    <Box sx={{ mt: 2, mb: 1 }}>
+                    <Box sx={{ mb: 1, mt: 2 }}>
                       <Alert severity="warning">{status.proxy_error}</Alert>
                     </Box>
                   )}
                   <AutomationStatusRow
-                    autoWedge={autoWedge}
-                    autoVIP={autoVIP}
                     autoUpload={autoUpload}
+                    autoVIP={autoVIP}
+                    autoWedge={autoWedge}
                     vaultAutomation={status.vault_automation_enabled}
                   />
                   <MamDetailsAccordion status={status} />
@@ -440,12 +429,12 @@ const StatusCard = forwardRef(function StatusCard(
                   {/* 1px invisible box for padding/squared corners below Network Details accordion */}
                   <Box
                     sx={{
-                      height: 1,
-                      width: '100%',
-                      border: 0,
                       background: 'none',
-                      p: 0,
+                      border: 0,
+                      height: 1,
                       m: 0,
+                      p: 0,
+                      width: '100%',
                     }}
                   />
                 </React.Fragment>
@@ -456,9 +445,9 @@ const StatusCard = forwardRef(function StatusCard(
           <Typography color="error">Status unavailable</Typography>
         )}
         <Snackbar
-          open={snackbar.open}
           autoHideDuration={2000}
           onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+          open={snackbar.open}
         >
           <Alert
             onClose={() => setSnackbar((s) => ({ ...s, open: false }))}

@@ -1,14 +1,8 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
-  "root": false,
-  "vcs": {
-    "enabled": false,
-    "clientKind": "git",
-    "useIgnoreFile": true
-  },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/build", "!**/public", "!**/node_modules"]
+    "maxSize": 4194304
   },
   "formatter": {
     "enabled": true,
@@ -18,17 +12,7 @@
     "lineWidth": 100
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "correctness": {
-        "noUnusedVariables": {
-          "level": "error",
-          "fix": "safe",
-          "options": {}
-        }
-      }
-    }
+    "enabled": true
   },
   "javascript": {
     "formatter": {
