@@ -1,3 +1,17 @@
+# September 26, 2025
+
+## Bug Fixes & Improvements
+
+### **VIP Automation Saving/Loading Bug Fixed**
+- Fixed an issue where changes to VIP Duration (weeks) in the automation UI were not being saved or loaded correctly
+- Now, the correct VIP duration is persisted and restored for each session
+- Improved state initialization in the frontend to ensure config values are loaded before rendering
+
+### **Other Notable Changes**
+- Updated README and documentation to use `compose.yaml` and `docker compose` commands instead of legacy `docker-compose.yml`/`docker-compose`
+- Removed invalid 50GB upload credit option and added backend validation for allowed values
+- Fixed notification deduplication for Pre-H&R and H&R events (now works for scheduled jobs)
+
 # September 25, 2025
 
 ## Logging & UI Enhancements 🎯
