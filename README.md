@@ -12,7 +12,7 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
 
 ## 🚀 Quick Start
 
-**1. Create a `docker-compose.yml` file:**
+**1. Create a `compose.yaml` file:**
 
 ```yaml
 services:
@@ -32,7 +32,7 @@ services:
 
 **2. Start MouseTrap:**
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **3. Configure:** Visit [http://localhost:39842](http://localhost:39842)
@@ -176,7 +176,7 @@ If your Docker group GID isn't 992:
 getent group docker
 # Output: docker:x:281:
 
-# Set in docker-compose.yml
+# Set in compose.yaml
 environment:
   - DOCKER_GID=281  # Use your actual GID
 ```
@@ -225,8 +225,8 @@ If you want to build your own image:
 ```bash
 git clone https://github.com/sirjmann92/mousetrap.git
 cd mousetrap
-# In your docker-compose.yml, use 'build: .' instead of 'image:...'
-docker-compose up --build -d
+# In your compose.yaml, use 'build: .' instead of 'image:...'
+docker compose up --build -d
 ```
 
 ---
@@ -377,7 +377,7 @@ services:
 ```
 ### 🐭 Unraid Full Docker Compose Example
 
-For Unraid users, here is a full example `docker-compose.yml` configuration:
+For Unraid users, here is a full example `compose.yaml` configuration:
 
 ```yaml
 services:
