@@ -1,5 +1,19 @@
-import React from "react";
-import { Box, Typography, Tooltip, IconButton, FormControlLabel, Checkbox, FormControl, InputLabel, Select, MenuItem, TextField, Button, Grid } from "@mui/material";
+import {
+  Box,
+  Button,
+  Checkbox,
+  FormControl,
+  FormControlLabel,
+  Grid,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import React from 'react';
 
 /**
  * Generic automation section for PerkAutomationCard (Wedge, VIP, Upload, etc)
@@ -43,11 +57,13 @@ export default function AutomationSection({
   triggerPointThreshold,
   onTriggerPointThresholdChange,
   confirmButton = null,
-  tooltip = ""
+  tooltip = '',
 }) {
   return (
     <Box sx={{ mb: 3 }}>
-      <Typography variant="subtitle1" sx={{ mb: 1 }}>{title}</Typography>
+      <Typography variant="subtitle1" sx={{ mb: 1 }}>
+        {title}
+      </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', mb: 2 }}>
         <Tooltip title={tooltip} disableHoverListener={!tooltip} arrow>
           <span>
@@ -67,8 +83,10 @@ export default function AutomationSection({
               onChange={onSelectChange}
               MenuProps={{ disableScrollLock: true }}
             >
-              {selectOptions.map(opt => (
-                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              {selectOptions.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </MenuItem>
               ))}
             </Select>
           </FormControl>

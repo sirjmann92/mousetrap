@@ -1,14 +1,30 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { FormControlLabel, Switch, FormControl, InputLabel, Select, MenuItem } from "@mui/material";
-import { Dialog, DialogTitle, DialogContent, IconButton, Tooltip, Typography, Box, CircularProgress, Alert, useTheme } from "@mui/material";
-import { getStatusMessageColor } from '../utils/utils';
-import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DescriptionIcon from '@mui/icons-material/Description';
+import {
+  Alert,
+  Box,
+  CircularProgress,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  Switch,
+  Tooltip,
+  Typography,
+  useTheme,
+} from '@mui/material';
 import { styled } from '@mui/material/styles';
+import React, { useCallback, useEffect, useState } from 'react';
+import { getStatusMessageColor } from '../utils/utils';
 
 export default function EventLogModalButton({ sessionLabel, allSessionLabels = [] }) {
-  const theme = useTheme();
+  const _theme = useTheme();
   const [open, setOpen] = useState(false);
   const [log, setLog] = useState([]);
   const [showNoChange, setShowNoChange] = useState(true);
@@ -19,33 +35,34 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
   const [labels, setLabels] = useState([]);
   const [eventTypes, setEventTypes] = useState([]);
 
-
   // Fetch log from backend
   const fetchLog = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/ui_event_log?_=" + Date.now());
-      if (!res.ok) throw new Error("Failed to fetch event log");
+      const res = await fetch('/api/ui_event_log?_=' + Date.now());
+      if (!res.ok) throw new Error('Failed to fetch event log');
       const data = await res.json();
       // Collect all unique labels (excluding 'global') and event types
-      const uniqueLabels = Array.from(new Set(data.map(e => e.label).filter(l => l && l !== 'global')));
+      const uniqueLabels = Array.from(
+        new Set(data.map((e) => e.label).filter((l) => l && l !== 'global')),
+      );
       setLabels(uniqueLabels);
-      const uniqueEventTypes = Array.from(new Set(data.map(e => e.event_type).filter(Boolean)));
+      const uniqueEventTypes = Array.from(new Set(data.map((e) => e.event_type).filter(Boolean)));
       setEventTypes(uniqueEventTypes);
       // Filter by session and event type
       let filtered = data;
       if (sessionFilter === 'global') {
-        filtered = filtered.filter(e => e.label === 'global');
+        filtered = filtered.filter((e) => e.label === 'global');
       } else if (sessionFilter !== 'all') {
-        filtered = filtered.filter(e => e.label === sessionFilter);
+        filtered = filtered.filter((e) => e.label === sessionFilter);
       }
       if (eventTypeFilter && eventTypeFilter !== 'all') {
-        filtered = filtered.filter(e => e.event_type === eventTypeFilter);
+        filtered = filtered.filter((e) => e.event_type === eventTypeFilter);
       }
       setLog(filtered.reverse());
     } catch (e) {
-      setError(e.message || "Failed to load event log");
+      setError(e.message || 'Failed to load event log');
     } finally {
       setLoading(false);
     }
@@ -68,7 +85,9 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
   // Helper to get visible log entries based on filter
   const getVisibleLog = () => {
     if (showNoChange) return log;
-    return log.filter(e => !e.status_message || !/no change detected|no change needed/i.test(e.status_message));
+    return log.filter(
+      (e) => !e.status_message || !/no change detected|no change needed/i.test(e.status_message),
+    );
   };
 
   // Clear log handler (session-specific if sessionLabel is set)
@@ -76,16 +95,16 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
     setLoading(true);
     setError(null);
     try {
-      let url = "/api/ui_event_log";
+      let url = '/api/ui_event_log';
       // Use the session filter from the modal dropdown, not the parent page's sessionLabel
       if (sessionFilter && sessionFilter !== 'all') {
         url += `/${encodeURIComponent(sessionFilter)}`;
       }
-      const res = await fetch(url, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to clear event log");
+      const res = await fetch(url, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Failed to clear event log');
       setLog([]);
     } catch (e) {
-      setError(e.message || "Failed to clear event log");
+      setError(e.message || 'Failed to clear event log');
     } finally {
       setLoading(false);
     }
@@ -95,11 +114,14 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
   const sessionDropdownOptions = [
     { value: 'global', label: 'Global' },
     { value: 'all', label: 'All Sessions' },
-    ...labels.map(l => ({ value: l, label: l }))
+    ...labels.map((l) => ({ value: l, label: l })),
   ];
   const eventTypeDropdownOptions = [
     { value: 'all', label: 'All Event Types' },
-    ...eventTypes.map(t => ({ value: t, label: t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }))
+    ...eventTypes.map((t) => ({
+      value: t,
+      label: t.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    })),
   ];
 
   // Color coding by event type
@@ -136,25 +158,68 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
           <DescriptionIcon />
         </IconButton>
       </Tooltip>
-    <Dialog
-  open={open}
-  onClose={() => setOpen(false)}
-  maxWidth="md"
-  fullWidth
-  disableScrollLock={true}
-  PaperProps={{ sx: { borderRadius: 2, bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default } }}
-    >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pl: 3, pr: 1, pt: 2, bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default }}>
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        maxWidth="md"
+        fullWidth
+        disableScrollLock={true}
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default,
+          },
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            pl: 3,
+            pr: 1,
+            pt: 2,
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default,
+          }}
+        >
           <DialogTitle sx={{ p: 0, borderRadius: 0 }}>Event Log</DialogTitle>
           <Box sx={{ borderRadius: 2 }}>
             <Tooltip title="Refresh">
               <IconButton onClick={fetchLog} size="small" sx={{ mr: 1 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0114.13-3.36L23 10"></path><path d="M20.49 15A9 9 0 015.87 18.36L1 14"></path></svg>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0114.13-3.36L23 10"></path>
+                  <path d="M20.49 15A9 9 0 015.87 18.36L1 14"></path>
+                </svg>
               </IconButton>
             </Tooltip>
             <Tooltip title="Clear log">
               <IconButton onClick={handleClear} size="small" sx={{ mr: 1 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path>
+                </svg>
               </IconButton>
             </Tooltip>
             <Tooltip title="Copy log as JSON">
@@ -169,10 +234,29 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
             </Tooltip>
           </Box>
         </Box>
-  <DialogContent dividers sx={{ bgcolor: (theme) => theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, flexDirection: 'row' }}>
+        <DialogContent
+          dividers
+          sx={{
+            bgcolor: (theme) =>
+              theme.palette.mode === 'dark' ? '#1F1F1E' : theme.palette.background.default,
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              mb: 2,
+              flexDirection: 'row',
+            }}
+          >
             <FormControlLabel
-              control={<Switch checked={showNoChange} onChange={e => setShowNoChange(e.target.checked)} color="primary" />}
+              control={
+                <Switch
+                  checked={showNoChange}
+                  onChange={(e) => setShowNoChange(e.target.checked)}
+                  color="primary"
+                />
+              }
               label="Show 'No Change Needed' Entries"
               sx={{ ml: 0, mr: 2 }}
             />
@@ -183,10 +267,12 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                   labelId="eventlog-session-filter-label"
                   value={sessionFilter}
                   label="Session"
-                  onChange={e => setSessionFilter(e.target.value)}
+                  onChange={(e) => setSessionFilter(e.target.value)}
                 >
-                  {sessionDropdownOptions.map(opt => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  {sessionDropdownOptions.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -196,17 +282,26 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                   labelId="eventlog-type-filter-label"
                   value={eventTypeFilter}
                   label="Event Type"
-                  onChange={e => setEventTypeFilter(e.target.value)}
+                  onChange={(e) => setEventTypeFilter(e.target.value)}
                 >
-                  {eventTypeDropdownOptions.map(opt => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                  {eventTypeDropdownOptions.map((opt) => (
+                    <MenuItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Box>
           </Box>
           {loading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 60 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 60,
+              }}
+            >
               <CircularProgress size={28} />
             </Box>
           ) : error ? (
@@ -223,22 +318,25 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                     p: 1.5,
                     border: 'none',
                     borderRadius: 2,
-                    background: (theme) => theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5',
+                    background: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
                     mr: 0.5,
                   }}
                 >
                   <Typography
                     variant="caption"
                     sx={{
-                      color: (theme) => theme.palette.mode === 'dark' ? '#b0b0b0' : 'text.secondary',
+                      color: (theme) =>
+                        theme.palette.mode === 'dark' ? '#b0b0b0' : 'text.secondary',
                     }}
                   >
                     {/* Show a readable date, or placeholder if timestamp is missing/invalid */}
                     {(() => {
-                      let ts = event.timestamp;
-                      if (!ts || ts === 0 || ts === '0' || ts === 'null' || ts === 'undefined') return <span style={{color:'#c00'}}>No Timestamp</span>;
-                      let d = new Date(ts);
-                      if (isNaN(d.getTime())) return <span style={{color:'#c00'}}>Invalid Timestamp</span>;
+                      const ts = event.timestamp;
+                      if (!ts || ts === 0 || ts === '0' || ts === 'null' || ts === 'undefined')
+                        return <span style={{ color: '#c00' }}>No Timestamp</span>;
+                      const d = new Date(ts);
+                      if (isNaN(d.getTime()))
+                        return <span style={{ color: '#c00' }}>Invalid Timestamp</span>;
                       return d.toLocaleString();
                     })()} — <b>{event.label === 'global' ? 'Global' : event.label}</b>
                   </Typography>
@@ -257,11 +355,21 @@ export default function EventLogModalButton({ sessionLabel, allSessionLabels = [
                     {event.status_message}
                   </Typography>
                   {event.details && (
-                    <Box sx={{ mt: 0.5, fontSize: 13, color: (theme) => theme.palette.mode === 'dark' ? '#e0e0e0' : '#555' }}>
+                    <Box
+                      sx={{
+                        mt: 0.5,
+                        fontSize: 13,
+                        color: (theme) => (theme.palette.mode === 'dark' ? '#e0e0e0' : '#555'),
+                      }}
+                    >
                       {event.details.ip_compare && <span>IP: {event.details.ip_compare} </span>}
                       {event.details.asn_compare && <span>ASN: {event.details.asn_compare} </span>}
-                      {event.details.points !== undefined && <span>Points: {event.details.points}</span>}
-                      {event.details.container && <span>Container: {event.details.container} </span>}
+                      {event.details.points !== undefined && (
+                        <span>Points: {event.details.points}</span>
+                      )}
+                      {event.details.container && (
+                        <span>Container: {event.details.container} </span>
+                      )}
                       {event.details.port && <span>Port: {event.details.port}</span>}
                     </Box>
                   )}

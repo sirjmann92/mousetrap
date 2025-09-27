@@ -10,11 +10,11 @@ export function stringifyMessage(msg) {
   }
 }
 
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import IconButton from '@mui/material/IconButton';
+import Tooltip from '@mui/material/Tooltip';
 // Helper to extract ASN number and provide tooltip for full AS string
 import React from 'react';
-import Tooltip from '@mui/material/Tooltip';
-import IconButton from '@mui/material/IconButton';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 export function renderASN(asn, fullAs) {
   let asnNum = asn;
