@@ -95,7 +95,10 @@ export default function NotificationsCard() {
     setConfig((cfg) => ({ ...cfg, [field]: value }));
   };
   const handleSmtpChange = (field, value) => {
-    setConfig((cfg) => ({ ...cfg, smtp: { ...cfg.smtp, [field]: value } }));
+    setConfig((cfg) => ({
+      ...cfg,
+      smtp: { ...(cfg.smtp ?? {}), [field]: value },
+    }));
   };
   const handleAppriseChange = (field, value) => {
     setConfig((cfg) => ({
@@ -106,9 +109,14 @@ export default function NotificationsCard() {
 
   const handleEventRuleChange = (eventKey, channel, checked) => {
     setConfig((cfg) => {
-      const rules = { ...cfg.event_rules };
-      if (!rules[eventKey]) rules[eventKey] = { apprise: false, email: false, webhook: false };
-      rules[eventKey][channel] = checked;
+      const rules = { ...(cfg.event_rules ?? {}) };
+      const current = {
+        apprise: false,
+        email: false,
+        webhook: false,
+        ...(rules[eventKey] ?? {}),
+      };
+      rules[eventKey] = { ...current, [channel]: checked };
       return { ...cfg, event_rules: rules };
     });
   };

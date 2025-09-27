@@ -68,7 +68,6 @@ export default function PerkAutomationCard({
     open: false,
     severity: 'info',
   });
-  const [_wedges, _setWedges] = useState(null);
   // Guardrail state (must be inside the function body)
   const [guardrails, setGuardrails] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
@@ -88,7 +87,6 @@ export default function PerkAutomationCard({
   const [wedgeMethod, setWedgeMethod] = useState('points');
   const [wedgeTriggerType, setWedgeTriggerType] = useState('time');
   const [wedgeTriggerDays, setWedgeTriggerDays] = useState(7);
-  const [_millionairesVaultAmount, _setMillionairesVaultAmount] = useState(2000);
   const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
   const [confirmWedgeOpen, setConfirmWedgeOpen] = useState(false);
@@ -288,7 +286,7 @@ export default function PerkAutomationCard({
   const triggerVIPManual = async () => {
     try {
       const res = await fetch('/api/automation/vip', {
-        body: JSON.stringify({ label: sessionLabel, weeks: vipWeeks }), // Always include label
+        body: JSON.stringify({ label: sessionLabel, weeks: Number(vipWeeks) }), // Always include label
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
       });
@@ -320,7 +318,7 @@ export default function PerkAutomationCard({
   const triggerUploadManual = async () => {
     try {
       const res = await fetch('/api/automation/upload_auto', {
-        body: JSON.stringify({ amount: uploadAmount, label: sessionLabel }), // Always include label
+        body: JSON.stringify({ amount: Number(uploadAmount), label: sessionLabel }), // Always include label
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
       });
@@ -406,7 +404,7 @@ export default function PerkAutomationCard({
         trigger_days: Number(vipTriggerDays),
         trigger_point_threshold: Number(vipTriggerPointThreshold),
         trigger_type: vipTriggerType,
-        weeks: vipWeeks,
+        weeks: Number(vipWeeks),
       },
       wedge_automation: {
         enabled: autoWedge,
@@ -468,7 +466,7 @@ export default function PerkAutomationCard({
               helperText="Automation will never run if points are below this value."
               inputProps={{ min: 0, step: 1000 }}
               label="Minimum Points (Session Guardrail)"
-              onChange={(e) => setMinPoints(e.target.value)}
+              onChange={(e) => setMinPoints(Number(e.target.value))}
               size="small"
               sx={{ maxWidth: 400 }}
               type="number"
@@ -479,13 +477,7 @@ export default function PerkAutomationCard({
           <AutomationSection
             confirmButton={
               <Tooltip title="This will instantly purchase a wedge using the selected method.">
-                <span
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    width: '100%',
-                  }}
-                >
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button
                     onClick={() => setConfirmWedgeOpen(true)}
                     sx={{ minWidth: 180 }}
@@ -493,7 +485,7 @@ export default function PerkAutomationCard({
                   >
                     Purchase Wedge
                   </Button>
-                </span>
+                </Box>
               </Tooltip>
             }
             enabled={autoWedge}
@@ -524,13 +516,7 @@ export default function PerkAutomationCard({
           <AutomationSection
             confirmButton={
               <Tooltip title="This will instantly purchase VIP for the selected duration.">
-                <span
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    width: '100%',
-                  }}
-                >
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button
                     onClick={() => setConfirmVIPOpen(true)}
                     sx={{ minWidth: 180 }}
@@ -538,7 +524,7 @@ export default function PerkAutomationCard({
                   >
                     Purchase VIP
                   </Button>
-                </span>
+                </Box>
               </Tooltip>
             }
             enabled={autoVIP}
@@ -558,7 +544,7 @@ export default function PerkAutomationCard({
                 </IconButton>
               </Tooltip>
             }
-            onSelectChange={(e) => setVipWeeks(e.target.value)}
+            onSelectChange={(e) => setVipWeeks(Number(e.target.value))}
             onToggle={(e) => setAutoVIPCombined(e.target.checked)}
             onTriggerDaysChange={(e) => setVipTriggerDays(Number(e.target.value))}
             onTriggerPointThresholdChange={(e) =>
@@ -595,13 +581,7 @@ export default function PerkAutomationCard({
           <AutomationSection
             confirmButton={
               <Tooltip title="This will instantly purchase upload credit for the selected amount.">
-                <span
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    width: '100%',
-                  }}
-                >
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button
                     onClick={() => setConfirmUploadOpen(true)}
                     sx={{ minWidth: 180 }}
@@ -609,11 +589,11 @@ export default function PerkAutomationCard({
                   >
                     Purchase Upload
                   </Button>
-                </span>
+                </Box>
               </Tooltip>
             }
             enabled={autoUpload}
-            onSelectChange={(e) => setUploadAmount(e.target.value)}
+            onSelectChange={(e) => setUploadAmount(Number(e.target.value))}
             onToggle={(e) => setAutoUploadCombined(e.target.checked)}
             onTriggerDaysChange={(e) => setTriggerDays(Number(e.target.value))}
             onTriggerPointThresholdChange={(e) => setTriggerPointThreshold(Number(e.target.value))}

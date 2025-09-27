@@ -282,9 +282,10 @@ export default function MouseTrapConfigCard({
                 </InputLabel>
                 <Select
                   error={!!sessionTypeError}
-                  label="Session Type*"
+                  label="Session Type"
                   MenuProps={{ disableScrollLock: true }}
                   onChange={(e) => setSessionType(e.target.value)}
+                  required
                   sx={{ maxWidth: 195, minWidth: 150 }}
                   value={sessionType || ''}
                 >
@@ -336,9 +337,10 @@ export default function MouseTrapConfigCard({
                 <FormControl error={!!freqError} size="small" sx={{ maxWidth: 165, minWidth: 120 }}>
                   <InputLabel>Interval*</InputLabel>
                   <Select
-                    label="Interval*"
+                    label="Interval"
                     MenuProps={{ disableScrollLock: true }}
                     onChange={(e) => setCheckFrequency(Number(e.target.value))}
+                    required
                     sx={{ maxWidth: 145, minWidth: 100 }}
                     value={checkFrequency || ''}
                   >
@@ -385,7 +387,7 @@ export default function MouseTrapConfigCard({
                 size="small"
                 sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
                 type={showMamId ? 'text' : 'password'}
-                value={showMamId ? mamId : mamId ? `********${mamId.slice(-6)}` : ''}
+                value={mamId}
               />
             </Grid>
           </Grid>

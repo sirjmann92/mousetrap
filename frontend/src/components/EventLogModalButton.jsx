@@ -60,7 +60,7 @@ export default function EventLogModalButton({ sessionLabel }) {
       if (eventTypeFilter && eventTypeFilter !== 'all') {
         filtered = filtered.filter((e) => e.event_type === eventTypeFilter);
       }
-      setLog(filtered.reverse());
+      setLog([...filtered].reverse());
     } catch (e) {
       setError(e.message || 'Failed to load event log');
     } finally {

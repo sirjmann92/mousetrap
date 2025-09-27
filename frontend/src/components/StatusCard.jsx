@@ -14,8 +14,7 @@ import {
 } from '@mui/material';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
-import { stringifyMessage } from '../utils/statusUtils.jsx';
-import { getStatusMessageColor } from '../utils/utils.jsx';
+import { getStatusMessageColor, stringifyMessage } from '../utils/utils.jsx';
 import AutomationStatusRow from './AutomationStatusRow';
 import MamDetailsAccordion from './MamDetailsAccordion';
 import NetworkProxyDetailsAccordion from './NetworkProxyDetailsAccordion';
@@ -26,7 +25,6 @@ const StatusCard = forwardRef(function StatusCard(
   ref,
 ) {
   const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus } = useSession();
-  const [_wedges, _setWedges] = useState(null);
   // Removed local status/setStatus, use context only
   // Timer is now derived from backend only; no local countdown
   const [timer, setTimer] = useState(0);
@@ -38,6 +36,13 @@ const StatusCard = forwardRef(function StatusCard(
   const [seedboxStatus, setSeedboxStatus] = useState(null);
   const [seedboxLoading, setSeedboxLoading] = useState(false);
 
+  // Keep a stable ref to onStatusUpdate so fetchStatus doesn't need to include
+  // the callback in its dependency array (which can change identity each render).
+  const onStatusUpdateRef = React.useRef(onStatusUpdate);
+  useEffect(() => {
+    onStatusUpdateRef.current = onStatusUpdate;
+  }, [onStatusUpdate]);
+
   // Fetch status from backend
   const fetchStatus = useCallback(
     async (force = false) => {
@@ -48,7 +53,27 @@ const StatusCard = forwardRef(function StatusCard(
         if (force) url += `${url.includes('?') ? '&' : '?'}force=1`;
 
         const res = await fetch(url);
-        const data = await res.json();
+        // Handle non-OK HTTP responses explicitly so we don't rely on json() throwing
+        let data;
+        try {
+          if (!res.ok) {
+            // Try to parse JSON error payload when available, otherwise fall back to text
+            try {
+              data = await res.json();
+            } catch (_) {
+              const text = await res.text();
+              data = { error: `HTTP ${res.status}: ${text}` };
+            }
+          } else {
+            data = await res.json();
+          }
+        } catch (err) {
+          // Defensive fallback
+          console.debug('[StatusCard] Failed to parse response from', url, err);
+          throw err;
+        }
+        // Helpful debug for development: show the raw backend response
+        console.debug('[StatusCard] fetchStatus response:', url, data);
         if (data.success === false || data.error) {
           setStatus({ error: data.error || 'Unknown error from backend.' });
           setSnackbar({
@@ -65,6 +90,7 @@ const StatusCard = forwardRef(function StatusCard(
           asn: data.asn || '',
           check_freq: data.check_freq || 5, // minutes, from backend
           cheese: data.cheese || null,
+          configured: data.configured ?? null,
           current_ip: data.current_ip,
           current_ip_asn: data.current_ip_asn,
           details: data.details || {}, // raw backend details
@@ -82,12 +108,13 @@ const StatusCard = forwardRef(function StatusCard(
           proxied_public_ip: data.proxied_public_ip,
           proxied_public_ip_as: data.proxied_public_ip_as,
           proxied_public_ip_asn: data.proxied_public_ip_asn,
+          proxy_error: data.proxy_error ?? null,
           ratelimit: data.ratelimit || 0, // seconds, from backend
           status_message: data.status_message || '', // user-friendly status message
           vault_automation_enabled: data.vault_automation_enabled || false,
         };
         setStatus(newStatus);
-        if (onStatusUpdate) onStatusUpdate(newStatus);
+        if (onStatusUpdateRef.current) onStatusUpdateRef.current(newStatus);
         setDetectedIp?.(detectedIp);
         setPoints?.(data.points || null);
         setCheese?.(data.cheese || null);
@@ -102,7 +129,7 @@ const StatusCard = forwardRef(function StatusCard(
         setCheese?.(null);
       }
     },
-    [sessionLabel, setStatus, setDetectedIp, setPoints, setCheese, onStatusUpdate],
+    [sessionLabel, setStatus, setDetectedIp, setPoints, setCheese],
   );
 
   // Poll backend every 5 seconds for status, but only if session is fully configured
@@ -147,14 +174,15 @@ const StatusCard = forwardRef(function StatusCard(
     return () => clearInterval(interval);
   }, [status?.next_check_time]); // Use optional chaining and the actual string value
 
-  // Always perform a force=1 status check on first load/session select
   // On initial load/session select, fetch latest status (do NOT force a backend check)
   useEffect(() => {
     // Clear status and seedbox status to show loading/blank until check completes
     setStatus(null);
     setSeedboxStatus(null);
     fetchStatus(false);
-    // eslint-disable-next-line
+    // Only run this on mount and when fetchStatus identity changes (which will
+    // happen when sessionLabel or stable setters change). This avoids re-running
+    // the effect every render when parent callbacks are unstable.
   }, [fetchStatus, setStatus]);
 
   // Handler for 'Check Now' button
@@ -440,7 +468,7 @@ const StatusCard = forwardRef(function StatusCard(
             </Box>
           )
         ) : (
-          <Typography color="error">Status unavailable</Typography>
+          <Typography color="text.secondary">Loading status...</Typography>
         )}
         <Snackbar
           autoHideDuration={2000}

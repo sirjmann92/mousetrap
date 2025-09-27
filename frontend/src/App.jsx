@@ -155,7 +155,6 @@ export default function App() {
   // On mount, fetch sessions and set state
   React.useEffect(() => {
     refreshSessions();
-    // eslint-disable-next-line
   }, [refreshSessions]);
 
   const theme = React.useMemo(

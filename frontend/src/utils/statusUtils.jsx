@@ -1,15 +1,3 @@
-// Utility to robustly stringify any message for snackbars
-export function stringifyMessage(msg) {
-  if (typeof msg === 'string') return msg;
-  if (msg instanceof Error) return msg.message;
-  if (msg === undefined || msg === null) return '';
-  try {
-    return JSON.stringify(msg);
-  } catch {
-    return String(msg);
-  }
-}
-
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
