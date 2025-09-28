@@ -61,10 +61,10 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
             _last_resolve_log_time[lookup_key] = now
         return resolved
     # fallback: legacy inline proxy config
-    if proxy.get("host"):
+    if isinstance(proxy, dict) and proxy.get("host"):
         # Inline proxy use - rate-limit the log similarly
         now = time.monotonic()
-        inline_key = f"inline:{proxy.get('host')}"
+        inline_key = f"inline_use:{proxy.get('host')}"
         last_inline = _last_resolve_log_time.get(inline_key, 0)
         if now - last_inline >= _resolve_log_min_interval:
             _logger.debug("[resolve_proxy_from_session_cfg] Using inline proxy config: %s", proxy)
@@ -72,10 +72,11 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
         return proxy
     # No proxy configured - rate-limit the log
     now = time.monotonic()
-    last_no = _last_resolve_log_time.get("no_proxy", 0.0)
+    no_proxy_key = "no_proxy_result"
+    last_no = _last_resolve_log_time.get(no_proxy_key, 0.0)
     if now - last_no >= _resolve_log_min_interval:
         _logger.debug("[resolve_proxy_from_session_cfg] No proxy config found.")
-        _last_resolve_log_time["no_proxy"] = now
+        _last_resolve_log_time[no_proxy_key] = now
     return None
 
 

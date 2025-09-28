@@ -333,7 +333,10 @@ export default function PortMonitorCard() {
                 labelId={secondaryContainersId}
                 MenuProps={{ disableScrollLock: true }}
                 multiple
-                onChange={(e) => setSecondaryContainers(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setSecondaryContainers(Array.isArray(v) ? v : [v]);
+                }}
                 renderValue={(selected) => selected.join(', ')}
                 value={secondaryContainers}
               >

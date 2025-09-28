@@ -414,10 +414,6 @@ export default function VaultConfigCard({ proxies, sessions }) {
     }
   };
 
-  const _handleDeleteClick = () => {
-    setDeleteDialogOpen(true);
-  };
-
   const handleDeleteConfirm = async () => {
     if (!selectedConfigId || isCreatingNew) return;
 
@@ -770,22 +766,6 @@ export default function VaultConfigCard({ proxies, sessions }) {
                   <TextField
                     error={!currentConfig.browser_mam_id}
                     helperText="Required browser cookies for vault access"
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label={
-                              showBrowserMamId ? 'Hide Browser MAM ID' : 'Show Browser MAM ID'
-                            }
-                            edge="end"
-                            onClick={() => setShowBrowserMamId((v) => !v)}
-                          >
-                            {showBrowserMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    inputProps={{ maxLength: 1000 }}
                     label="Browser MAM ID + UID"
                     maxRows={6}
                     minRows={2}
@@ -799,15 +779,29 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     placeholder="mam_id=...; uid=..."
                     required
                     size="small"
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label={
+                                showBrowserMamId ? 'Hide Browser MAM ID' : 'Show Browser MAM ID'
+                              }
+                              edge="end"
+                              onClick={() => setShowBrowserMamId((v) => !v)}
+                            >
+                              {showBrowserMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                      htmlInput: {
+                        maxLength: 1000,
+                      },
+                    }}
                     sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
                     type={showBrowserMamId ? 'text' : 'password'}
-                    value={
-                      showBrowserMamId
-                        ? currentConfig.browser_mam_id || ''
-                        : currentConfig.browser_mam_id || ''
-                          ? `mam_id=********...${(currentConfig.browser_mam_id || '').toString().slice(-20)}; uid=***...`
-                          : ''
-                    }
+                    value={currentConfig.browser_mam_id || ''}
                   />
                 </Box>
 
@@ -923,7 +917,11 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       <Select
                         label="Donation Amount"
                         MenuProps={{ disableScrollLock: true }}
-                        onChange={(e) => setManualDonationAmount(parseInt(e.target.value, 10))}
+                        onChange={(e) =>
+                          setManualDonationAmount(
+                            /** @type {any} */ (Number(/** @type {any} */ (e.target.value))),
+                          )
+                        }
                         value={manualDonationAmount}
                       >
                         {[
@@ -993,7 +991,6 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       >
                         <Tooltip arrow title="How often to check points (1-168 hours)">
                           <TextField
-                            inputProps={{ max: 168, min: 1 }}
                             label="Frequency (hours)"
                             onChange={(e) =>
                               setCurrentConfig({
@@ -1005,6 +1002,12 @@ export default function VaultConfigCard({ proxies, sessions }) {
                               })
                             }
                             size="small"
+                            slotProps={{
+                              htmlInput: {
+                                min: 1,
+                                max: 168,
+                              },
+                            }}
                             sx={{ width: 130 }}
                             type="number"
                             value={currentConfig.automation?.frequency_hours || 24}
@@ -1013,7 +1016,6 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
                         <Tooltip arrow title="Minimum points before donating">
                           <TextField
-                            inputProps={{ min: 0 }}
                             label="Points Threshold"
                             onChange={(e) =>
                               setCurrentConfig({
@@ -1025,6 +1027,11 @@ export default function VaultConfigCard({ proxies, sessions }) {
                               })
                             }
                             size="small"
+                            slotProps={{
+                              htmlInput: {
+                                min: 0,
+                              },
+                            }}
                             sx={{ width: 130 }}
                             type="number"
                             value={currentConfig.automation?.min_points_threshold || 2000}
@@ -1230,10 +1237,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
           </Typography>
           <TextField
             fullWidth
-            inputProps={{ readOnly: true }}
             multiline
             rows={4}
             size="small"
+            slotProps={{ htmlInput: { readOnly: true } }}
             sx={{ mt: 1 }}
             value={bookmarkletCode}
             variant="outlined"

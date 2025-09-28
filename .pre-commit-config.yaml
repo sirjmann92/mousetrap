@@ -14,10 +14,12 @@ repos:
       - id: check-merge-conflict
       - id: check-json
       - id: detect-private-key
+
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7
     hooks:
       - id: actionlint
+
     # Note: shellcheck cannot directly parse YAML; actionlint extracts workflow
     # shell blocks and calls shellcheck when available.
   - repo: https://github.com/shellcheck-py/shellcheck-py
@@ -27,12 +29,14 @@ repos:
         # Match by detected shell file type (extensions or shebang)
         types: [shell]
         args: ['-x']
+
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
     hooks:
       - id: codespell
         additional_dependencies:
           - tomli
+
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.13.2
     hooks:
@@ -42,12 +46,22 @@ repos:
       # Run the formatter.
       - id: ruff-format
 
+  - repo: local
+    hooks:
+      - id: tsc
+        name: tsc check
+        entry: bash -c "cd frontend && npx tsc --noEmit"
+        language: system
+        types_or: [ts, tsx, javascript, jsx]
+        pass_filenames: false
+
   - repo: https://github.com/biomejs/pre-commit
     rev: 'v2.2.4'
     hooks:
       - id: biome-check
         files: ^frontend/
-        additional_dependencies: ['@biomejs/biome@2.2.4']
+        additional_dependencies:
+          - '@biomejs/biome'
 
 ci:
   autofix_commit_msg: |
@@ -55,5 +69,5 @@ ci:
   autofix_prs: true
   autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
   autoupdate_schedule: weekly
-  skip: []
+  skip: [tsc]
   submodules: false

@@ -38,7 +38,7 @@ export default function ConfirmDialog({
       <DialogActions>
         <Button onClick={onClose}>{cancelLabel}</Button>
         <Button
-          color={confirmColor}
+          color={/** @type {import('@mui/material').ButtonProps['color']} */ (confirmColor)}
           onClick={() => {
             onClose();
             onConfirm();

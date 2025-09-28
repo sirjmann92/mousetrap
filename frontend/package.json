@@ -19,6 +19,7 @@
     "serve": "vite preview",
     "lint": "biome check . --config-path=./biome.json",
     "lint:fix": "biome check . --write --config-path=./biome.json",
+    "tsc": "tsc --noEmit",
     "backend": "cd .. && ./scripts/start-backend.sh",
     "dev": "concurrently \"npm:backend\" \"npm:start\" -k --names \"backend,frontend\" --prefix \"[{name}]\""
   },
@@ -39,6 +40,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^9.2.1",
     "vite": "^7.1.7",
-    "vite-plugin-svgr": "^4.5.0"
+    "vite-plugin-svgr": "^4.5.0",
+    "typescript": "^5.9.2"
   }
 }

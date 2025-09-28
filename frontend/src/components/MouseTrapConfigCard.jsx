@@ -11,8 +11,8 @@ import {
   CardContent,
   Collapse,
   FormControl,
-  Grid,
   IconButton,
+  InputAdornment,
   InputLabel,
   MenuItem,
   Select,
@@ -128,8 +128,9 @@ export default function MouseTrapConfigCard({
   }, [label]);
 
   const sessionTypeError = !sessionType || sessionType === '' ? 'Required' : '';
+  const freqNumeric = Number(checkFrequency);
   const freqError =
-    !checkFrequency || checkFrequency === '' || Number.isNaN(checkFrequency) || checkFrequency < 1
+    !checkFrequency || String(checkFrequency) === '' || Number.isNaN(freqNumeric) || freqNumeric < 1
       ? 'Required'
       : '';
   const mamIdError = !mamId || mamId.trim() === '';
@@ -145,7 +146,7 @@ export default function MouseTrapConfigCard({
     // Only update global sessionLabel on save
     setSessionLabel(label);
     const payload = {
-      check_freq: checkFrequency,
+      check_freq: typeof checkFrequency === 'number' ? checkFrequency : 0,
       label,
       mam: {
         ip_monitoring_mode: ipMonitoringMode,
@@ -256,8 +257,8 @@ export default function MouseTrapConfigCard({
         <CardContent sx={{ pt: 0 }}>
           {/* Padding above first row, only visible when expanded */}
           <Box sx={{ height: 7 }} />
-          <Grid alignItems="flex-end" container spacing={2} sx={{ mb: 2 }}>
-            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: 2, mb: 2 }}>
+            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
               <TextField
                 label="Session Label"
                 onChange={(e) => setLabel(e.target.value)}
@@ -266,8 +267,8 @@ export default function MouseTrapConfigCard({
                 sx={{ width: 145 }}
                 value={label}
               />
-            </Grid>
-            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
+            </Box>
+            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
               <FormControl
                 error={!!sessionTypeError}
                 size="small"
@@ -294,16 +295,16 @@ export default function MouseTrapConfigCard({
                   <MenuItem value="ASN Locked">ASN Locked</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
+            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
                 <FormControl size="small" sx={{ maxWidth: 175, minWidth: 130 }}>
                   <InputLabel>IP Monitoring</InputLabel>
                   <Select
                     label="IP Monitoring"
                     MenuProps={{ disableScrollLock: true }}
-                    onChange={(e) => setIpMonitoringMode(e.target.value)}
+                    onChange={(e) => setIpMonitoringMode(/** @type {any} */ (e.target.value))}
                     sx={{ maxWidth: 175, minWidth: 130 }}
                     value={ipMonitoringMode || 'auto'}
                   >
@@ -330,19 +331,26 @@ export default function MouseTrapConfigCard({
                   </IconButton>
                 </Tooltip>
               </Box>
-            </Grid>
+            </Box>
 
-            <Grid item lg={3} md={3} sm={4} xl={2} xs={4}>
+            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
                 <FormControl error={!!freqError} size="small" sx={{ maxWidth: 165, minWidth: 120 }}>
                   <InputLabel>Interval*</InputLabel>
                   <Select
                     label="Interval"
                     MenuProps={{ disableScrollLock: true }}
-                    onChange={(e) => setCheckFrequency(Number(e.target.value))}
+                    onChange={(e) => {
+                      const v = /** @type {any} */ (e.target.value);
+                      if (v === '' || v === null) {
+                        setCheckFrequency('');
+                      } else {
+                        setCheckFrequency(Number(v));
+                      }
+                    }}
                     required
                     sx={{ maxWidth: 145, minWidth: 100 }}
-                    value={checkFrequency || ''}
+                    value={checkFrequency === '' ? '' : checkFrequency}
                   >
                     <MenuItem value="">Select...</MenuItem>
                     <MenuItem value={1}>1</MenuItem>
@@ -359,50 +367,59 @@ export default function MouseTrapConfigCard({
                   </IconButton>
                 </Tooltip>
               </Box>
-            </Grid>
-          </Grid>
-          <Grid alignItems="flex-end" container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12}>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 2 }}>
+            <Box sx={{ width: '100%' }}>
               <TextField
                 error={mamIdError}
                 helperText="Paste your full MAM ID here (required)"
-                InputProps={{
-                  endAdornment: (
-                    <IconButton
-                      aria-label={showMamId ? 'Hide MAM ID' : 'Show MAM ID'}
-                      edge="end"
-                      onClick={() => setShowMamId((v) => !v)}
-                    >
-                      {showMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  ),
-                }}
-                inputProps={{ maxLength: 300 }}
                 label="MAM ID"
-                maxRows={6}
-                minRows={2}
-                multiline
+                minRows={showMamId ? 2 : undefined}
+                multiline={showMamId}
                 onChange={(e) => setMamId(e.target.value)}
                 required
                 size="small"
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label={showMamId ? 'Hide MAM ID' : 'Show MAM ID'}
+                          edge="end"
+                          onClick={() => setShowMamId((v) => !v)}
+                        >
+                          {showMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                  htmlInput: {
+                    maxLength: 300,
+                  },
+                }}
                 sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
                 type={showMamId ? 'text' : 'password'}
                 value={mamId}
               />
-            </Grid>
-          </Grid>
-          <Grid alignItems="flex-end" container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12}>
+            </Box>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 2 }}>
+            <Box sx={{ width: '100%' }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
                 <TextField
                   error={ipError}
                   helperText="IP to associate with MAM ID"
-                  inputProps={{ maxLength: 16 }}
                   label="IP Address"
                   onChange={(e) => setMamIp(e.target.value)}
                   placeholder="e.g. 203.0.113.99"
                   required
                   size="small"
+                  slotProps={{
+                    htmlInput: {
+                      maxLength: 16,
+                    },
+                  }}
                   sx={{ width: 205 }}
                   value={mamIp}
                 />
@@ -489,8 +506,8 @@ export default function MouseTrapConfigCard({
                   </Typography>
                 </FormControl>
               </Box>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
           <Box sx={{ mt: 2, textAlign: 'right' }}>
             <Button
               color="primary"

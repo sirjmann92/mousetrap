@@ -12,7 +12,11 @@ import { stringifyMessage } from '../utils/utils';
 export default function FeedbackSnackbar({ open, message, severity = 'info', onClose }) {
   return (
     <Snackbar autoHideDuration={6000} onClose={onClose} open={open}>
-      <Alert onClose={onClose} severity={severity} sx={{ width: '100%' }}>
+      <Alert
+        onClose={onClose}
+        severity={/** @type {import('@mui/material').AlertColor} */ (severity)}
+        sx={{ width: '100%' }}
+      >
         {stringifyMessage(message)}
       </Alert>
     </Snackbar>

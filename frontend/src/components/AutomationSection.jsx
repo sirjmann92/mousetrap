@@ -3,10 +3,10 @@ import {
   Checkbox,
   FormControl,
   FormControlLabel,
-  Grid,
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
   Tooltip,
   Typography,
@@ -92,8 +92,8 @@ export default function AutomationSection({
         {confirmButton}
       </Box>
       {/* Trigger options row */}
-      <Grid alignItems="center" container spacing={2} sx={{ mb: 2, mt: 1 }}>
-        <Grid item>
+      <Stack alignItems="center" direction="row" spacing={2} sx={{ mb: 2, mt: 1 }}>
+        <Box>
           <FormControl size="small" sx={{ minWidth: 160 }}>
             <InputLabel>Trigger Type</InputLabel>
             <Select
@@ -107,9 +107,9 @@ export default function AutomationSection({
               <MenuItem value="both">Both</MenuItem>
             </Select>
           </FormControl>
-        </Grid>
+        </Box>
         {(triggerTypeValue === 'time' || triggerTypeValue === 'both') && (
-          <Grid item>
+          <Box>
             <TextField
               label="Every X Days"
               onChange={onTriggerDaysChange}
@@ -118,10 +118,10 @@ export default function AutomationSection({
               type="number"
               value={triggerDays}
             />
-          </Grid>
+          </Box>
         )}
         {(triggerTypeValue === 'points' || triggerTypeValue === 'both') && (
-          <Grid item>
+          <Box>
             <TextField
               label="Point Threshold"
               onChange={onTriggerPointThresholdChange}
@@ -130,9 +130,9 @@ export default function AutomationSection({
               type="number"
               value={triggerPointThreshold}
             />
-          </Grid>
+          </Box>
         )}
-      </Grid>
+      </Stack>
     </Box>
   );
 }

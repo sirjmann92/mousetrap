@@ -219,12 +219,12 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
               >
                 <TextField
                   disabled={isEditing}
-                  InputProps={{ style: { background: 'inherit' } }}
                   label="Label"
                   name="label"
                   onChange={handleInputChange}
                   required
                   size="small"
+                  slotProps={{ root: { style: { background: 'inherit' } } }}
                   sx={{ width: 220 }}
                   value={form.label}
                   variant="outlined"

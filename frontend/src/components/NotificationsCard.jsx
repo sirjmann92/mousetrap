@@ -15,6 +15,7 @@ import {
   FormControlLabel,
   FormGroup,
   IconButton,
+  InputAdornment,
   Switch,
   TextField,
   Tooltip,
@@ -50,6 +51,7 @@ export default function NotificationsCard() {
     event_rules: {},
     smtp: {},
     webhook_url: '',
+    discord_webhook: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -103,7 +105,12 @@ export default function NotificationsCard() {
   const handleAppriseChange = (field, value) => {
     setConfig((cfg) => ({
       ...cfg,
-      apprise: { ...(cfg.apprise || {}), [field]: value },
+      apprise: {
+        include_prefix: cfg.apprise?.include_prefix ?? false,
+        notify_url_string: cfg.apprise?.notify_url_string ?? '',
+        url: cfg.apprise?.url ?? '',
+        [field]: value,
+      },
     }));
   };
 
@@ -328,20 +335,24 @@ export default function NotificationsCard() {
             }}
           >
             <TextField
-              InputProps={{
-                endAdornment: (
-                  <IconButton
-                    aria-label={showWebhook ? 'Hide webhook URL' : 'Show webhook URL'}
-                    edge="end"
-                    onClick={() => setShowWebhook((v) => !v)}
-                  >
-                    {showWebhook ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                ),
-              }}
               label="Webhook URL"
               onChange={(e) => handleChange('webhook_url', e.target.value)}
               size="small"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showWebhook ? 'Hide webhook URL' : 'Show webhook URL'}
+                        edge="end"
+                        onClick={() => setShowWebhook((v) => !v)}
+                      >
+                        {showWebhook ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
               sx={{ flex: 1, maxWidth: 600, minWidth: 350 }}
               type={showWebhook ? 'text' : 'password'}
               value={config.webhook_url || ''}
@@ -551,24 +562,28 @@ export default function NotificationsCard() {
                   .
                 </>
               }
-              InputProps={{
-                endAdornment: (
-                  <IconButton
-                    aria-label={
-                      showNotifyString ? 'Hide notify URL string' : 'Show notify URL string'
-                    }
-                    edge="end"
-                    onClick={() => setShowNotifyString((v) => !v)}
-                  >
-                    {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                  </IconButton>
-                ),
-              }}
               label="Notify URL String"
               minRows={showNotifyString ? 2 : undefined}
               multiline={showNotifyString}
               onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
               size="small"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={
+                          showNotifyString ? 'Hide notify URL string' : 'Show notify URL string'
+                        }
+                        edge="end"
+                        onClick={() => setShowNotifyString((v) => !v)}
+                      >
+                        {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
               sx={{ maxWidth: 600, minWidth: 350 }}
               type={showNotifyString ? 'text' : 'password'}
               value={config.apprise?.notify_url_string || ''}

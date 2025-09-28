@@ -58,7 +58,7 @@ export default function App() {
   const [proxies, setProxies] = React.useState({});
   const [sessions, setSessions] = React.useState([]);
   const [selectedLabel, setSelectedLabel] = React.useState('');
-  const statusCardRef = React.useRef();
+  const statusCardRef = React.useRef(null);
 
   // Fetch all sessions and update state, restoring last session if available
   // (defined after loadSession)
@@ -161,7 +161,7 @@ export default function App() {
     () =>
       createTheme({
         palette: {
-          mode: mode,
+          mode: /** @type {'light'|'dark'} */ (mode),
           primary: {
             main: '#1976d2', // MUI default blue
           },
@@ -257,8 +257,8 @@ export default function App() {
           <Switch
             checked={mode === 'dark'}
             color="default"
-            inputProps={{ 'aria-label': 'toggle dark mode' }}
             onChange={() => setMode(mode === 'light' ? 'dark' : 'light')}
+            slotProps={{ input: { 'aria-label': 'toggle dark mode' } }}
             sx={{ ml: 1 }}
           />
         </Toolbar>
@@ -316,11 +316,7 @@ export default function App() {
         {/* 6. Docker Port Monitor */}
         <PortMonitorCard />
         {/* 7. Proxy Configuration */}
-        <ProxyConfigCard
-          proxies={proxies}
-          refreshProxies={refreshProxies}
-          setProxies={setProxies}
-        />
+        <ProxyConfigCard proxies={proxies} refreshProxies={refreshProxies} />
       </Container>
     </ThemeProvider>
   );

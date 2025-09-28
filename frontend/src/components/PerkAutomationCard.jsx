@@ -20,20 +20,38 @@ import AutomationSection from './AutomationSection';
 import ConfirmDialog from './ConfirmDialog';
 import FeedbackSnackbar from './FeedbackSnackbar';
 
-export default function PerkAutomationCard({
-  _autoWedge,
-  setAutoWedge,
-  _autoVIP,
-  setAutoVIP,
-  _autoUpload,
-  setAutoUpload,
-  onActionComplete = () => {},
-}) {
+/**
+ * @typedef {Object} PerkAutomationCardProps
+ * @property {function} setAutoWedge
+ * @property {function} setAutoVIP
+ * @property {function} setAutoUpload
+ * @property {function} setUploadAmount
+ * @property {function} setVipWeeks
+ * @property {function} setWedgeMethod
+ * @property {boolean} [autoWedge]
+ * @property {boolean} [autoVIP]
+ * @property {boolean} [autoUpload]
+ * @property {function} [onActionComplete]
+ * @property {number} [uploadAmount]
+ * @property {number} [vipWeeks]
+ * @property {string} [wedgeMethod]
+ */
+/** @param {PerkAutomationCardProps} props */
+export default function PerkAutomationCard(props) {
+  const {
+    autoWedge,
+    setAutoWedge,
+    autoVIP,
+    setAutoVIP,
+    autoUpload,
+    setAutoUpload,
+    onActionComplete = () => {},
+  } = props;
   const { sessionLabel, points, setPoints } = useSession();
   // Local state for automation toggles, initialized from props if provided
-  const [autoWedge, setAutoWedgeLocal] = useState(_autoWedge ?? false);
-  const [autoVIP, setAutoVIPLocal] = useState(_autoVIP ?? false);
-  const [autoUpload, setAutoUploadLocal] = useState(_autoUpload ?? false);
+  const [, setAutoWedgeLocal] = useState(autoWedge ?? false);
+  const [, setAutoVIPLocal] = useState(autoVIP ?? false);
+  const [, setAutoUploadLocal] = useState(autoUpload ?? false);
   const [minPoints, setMinPoints] = useState(0);
 
   // Ensure prop setters update both local and parent state. Memoize so
@@ -464,10 +482,15 @@ export default function PerkAutomationCard({
           <Box sx={{ maxWidth: 400, mb: 2 }}>
             <TextField
               helperText="Automation will never run if points are below this value."
-              inputProps={{ min: 0, step: 1000 }}
               label="Minimum Points (Session Guardrail)"
-              onChange={(e) => setMinPoints(Number(e.target.value))}
+              onChange={(e) => setMinPoints(parseInt(e.target.value, 10) || 0)}
               size="small"
+              slotProps={{
+                htmlInput: {
+                  min: 0,
+                  step: 1000,
+                },
+              }}
               sx={{ maxWidth: 400 }}
               type="number"
               value={minPoints}
@@ -491,9 +514,9 @@ export default function PerkAutomationCard({
             enabled={autoWedge}
             onSelectChange={(e) => setWedgeMethod(e.target.value)}
             onToggle={(e) => setAutoWedgeCombined(e.target.checked)}
-            onTriggerDaysChange={(e) => setWedgeTriggerDays(Number(e.target.value))}
+            onTriggerDaysChange={(e) => setWedgeTriggerDays(parseInt(e.target.value, 10) || 0)}
             onTriggerPointThresholdChange={(e) =>
-              setWedgeTriggerPointThreshold(Number(e.target.value))
+              setWedgeTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
             }
             onTriggerTypeChange={(e) => setWedgeTriggerType(e.target.value)}
             selectLabel="Method"
@@ -544,11 +567,11 @@ export default function PerkAutomationCard({
                 </IconButton>
               </Tooltip>
             }
-            onSelectChange={(e) => setVipWeeks(Number(e.target.value))}
+            onSelectChange={(e) => setVipWeeks(parseInt(e.target.value, 10) || 0)}
             onToggle={(e) => setAutoVIPCombined(e.target.checked)}
-            onTriggerDaysChange={(e) => setVipTriggerDays(Number(e.target.value))}
+            onTriggerDaysChange={(e) => setVipTriggerDays(parseInt(e.target.value, 10) || 0)}
             onTriggerPointThresholdChange={(e) =>
-              setVipTriggerPointThreshold(Number(e.target.value))
+              setVipTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
             }
             onTriggerTypeChange={(e) => setVipTriggerType(e.target.value)}
             selectLabel="VIP Duration"
@@ -593,10 +616,12 @@ export default function PerkAutomationCard({
               </Tooltip>
             }
             enabled={autoUpload}
-            onSelectChange={(e) => setUploadAmount(Number(e.target.value))}
+            onSelectChange={(e) => setUploadAmount(parseFloat(e.target.value) || 0)}
             onToggle={(e) => setAutoUploadCombined(e.target.checked)}
-            onTriggerDaysChange={(e) => setTriggerDays(Number(e.target.value))}
-            onTriggerPointThresholdChange={(e) => setTriggerPointThreshold(Number(e.target.value))}
+            onTriggerDaysChange={(e) => setTriggerDays(parseInt(e.target.value, 10) || 0)}
+            onTriggerPointThresholdChange={(e) =>
+              setTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
+            }
             onTriggerTypeChange={(e) => setTriggerType(e.target.value)}
             selectLabel="Amount"
             selectOptions={[
