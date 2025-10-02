@@ -29,6 +29,11 @@ _logger: logging.Logger = logging.getLogger(__name__)
 # Simple cache to prevent duplicate rapid requests (reduce 403 errors)
 _ip_cache: dict[str, Any] = {}
 _cache_timeout = 300  # Cache for 5 minutes to reduce rate limiting
+# Track last time we emitted a cache-hit debug log for a given cache key so
+# we don't flood logs when the frontend polls frequently.
+_last_cache_log_time: dict[str, float] = {}
+# Minimum seconds between identical cache-hit debug logs per cache key
+_cache_log_min_interval = 60
 
 
 async def get_ipinfo_with_fallback(
@@ -42,7 +47,12 @@ async def get_ipinfo_with_fallback(
     if cache_key in _ip_cache:
         cached_data, cached_time = _ip_cache[cache_key]
         if current_time - cached_time < _cache_timeout:
-            _logger.debug("[IP Lookup] Using cached result for %s", ip or "self")
+            # Rate-limit identical cache-hit debug logs to avoid flooding.
+            now_log = time.monotonic()
+            last_log = _last_cache_log_time.get(cache_key, 0.0)
+            if now_log - last_log >= _cache_log_min_interval:
+                _logger.debug("[IP Lookup] Using cached result for %s", ip or "self")
+                _last_cache_log_time[cache_key] = now_log
             return cached_data
 
     providers = []

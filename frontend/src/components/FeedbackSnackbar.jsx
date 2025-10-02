@@ -1,5 +1,4 @@
-import React from "react";
-import { Snackbar, Alert } from "@mui/material";
+import { Alert, Snackbar } from '@mui/material';
 import { stringifyMessage } from '../utils/utils';
 
 /**
@@ -12,12 +11,12 @@ import { stringifyMessage } from '../utils/utils';
  */
 export default function FeedbackSnackbar({ open, message, severity = 'info', onClose }) {
   return (
-    <Snackbar
-      open={open}
-      autoHideDuration={6000}
-      onClose={onClose}
-    >
-      <Alert onClose={onClose} severity={severity} sx={{ width: '100%' }}>
+    <Snackbar autoHideDuration={6000} onClose={onClose} open={open}>
+      <Alert
+        onClose={onClose}
+        severity={/** @type {import('@mui/material').AlertColor} */ (severity)}
+        sx={{ width: '100%' }}
+      >
         {stringifyMessage(message)}
       </Alert>
     </Snackbar>

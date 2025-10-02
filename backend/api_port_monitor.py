@@ -9,6 +9,7 @@ import asyncio
 from datetime import UTC, datetime
 import logging
 import threading
+import time
 from typing import Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
@@ -18,6 +19,8 @@ from backend.event_log import append_ui_event_log
 from backend.port_monitor import port_monitor_manager
 
 _logger: logging.Logger = logging.getLogger(__name__)
+_CONTAINER_WARN_INTERVAL = 60
+_last_container_warn = 0.0
 router = APIRouter()
 
 
@@ -27,13 +30,23 @@ def list_containers() -> list[str]:
     """Returns a list of running Docker container names."""
     client = port_monitor_manager.get_docker_client()
     if not client:
-        raise HTTPException(status_code=500, detail="Docker client not available")
+        # Docker client unavailable (SDK missing or unable to connect)
+        # Return an empty list for graceful degradation in environments
+        # where Docker is not present (e.g., dev without docker socket).
+        global _last_container_warn  # noqa: PLW0603
+        now = time.monotonic()
+        if now - _last_container_warn >= _CONTAINER_WARN_INTERVAL:
+            _logger.warning(
+                "[PortMonitorAPI] Docker client not available when listing containers; returning empty list"
+            )
+            _last_container_warn = now
+        return []
     try:
         containers = client.containers.list()
         return [c.name for c in containers]
     except Exception as e:
-        _logger.error("[PortMonitorAPI] Error listing containers: %s", e)
-        raise HTTPException(status_code=500, detail="Error listing containers") from e
+        _logger.exception("[PortMonitorAPI] Error listing containers")
+        raise HTTPException(status_code=500, detail=f"Error listing containers: {e}") from e
 
 
 class UpdatePortMonitorStackRequest(BaseModel):

@@ -71,12 +71,14 @@ from backend.vault_uid_manager import (
     sync_browser_mam_id_across_uid_sessions,
 )
 
-# FAVICON ROUTES: must be registered before static/catch-all routes
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_BUILD_DIR = (Path(BASE_DIR) / "../frontend/build").resolve()
-FRONTEND_PUBLIC_DIR = "/app/frontend/public"  # Force correct path for Docker
-# If running in Docker, BASE_DIR is /app/backend, so ../frontend/public is /app/frontend/public
-STATIC_DIR = Path(FRONTEND_BUILD_DIR) / "static"
+FRONTEND_PUBLIC_DIR = os.environ.get(
+    "FRONTEND_PUBLIC_DIR", str((Path(BASE_DIR) / "../frontend/public").resolve())
+)
+
+# Build output directories (Vite puts hashed assets under build/assets)
+ASSETS_DIR = Path(FRONTEND_BUILD_DIR) / "assets"
 
 # Set up global logging configuration
 setup_logging()
@@ -91,8 +93,13 @@ logs_dir = Path(__file__).resolve().parent.parent / "logs"
 if logs_dir.is_dir():
     app.mount("/logs", StaticFiles(directory=str(logs_dir)), name="logs")
 
-# Mount frontend static files
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+if ASSETS_DIR.is_dir():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
+else:
+    _logger.warning(
+        "Frontend assets directory %s does not exist; skipping /assets mount (dev mode?)",
+        ASSETS_DIR,
+    )
 
 # Mount API routers
 app.include_router(automation_router, prefix="/api")
@@ -2175,9 +2182,14 @@ def favicon_ico() -> FileResponse:
 
     Returns a FileResponse when the file exists, otherwise raises 404.
     """
-    path = Path(FRONTEND_PUBLIC_DIR) / "favicon.ico"
-    if path.exists():
-        return FileResponse(str(path), media_type="image/x-icon")
+    # Try Docker-friendly public dir first, then local repo frontend/public
+    candidates = [
+        Path(FRONTEND_PUBLIC_DIR) / "favicon.ico",
+        Path(BASE_DIR) / "../frontend/public/favicon.ico",
+    ]
+    for path in candidates:
+        if path.exists():
+            return FileResponse(str(path), media_type="image/x-icon")
     raise HTTPException(status_code=404, detail="favicon.ico not found")
 
 
@@ -2187,9 +2199,13 @@ def favicon_svg() -> FileResponse:
 
     Returns a FileResponse when the file exists, otherwise raises 404.
     """
-    path = Path(FRONTEND_PUBLIC_DIR) / "favicon.svg"
-    if path.exists():
-        return FileResponse(str(path), media_type="image/svg+xml")
+    candidates = [
+        Path(FRONTEND_PUBLIC_DIR) / "favicon.svg",
+        Path(BASE_DIR) / "../frontend/public/favicon.svg",
+    ]
+    for path in candidates:
+        if path.exists():
+            return FileResponse(str(path), media_type="image/svg+xml")
     raise HTTPException(status_code=404, detail="favicon.svg not found")
 
 
@@ -2200,7 +2216,9 @@ def serve_react_index() -> FileResponse:
     This endpoint is used by the frontend catch-all route.
     """
     index_path = Path(FRONTEND_BUILD_DIR) / "index.html"
-    return FileResponse(str(index_path))
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    raise HTTPException(status_code=404, detail="Frontend index.html not found")
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
