@@ -127,7 +127,7 @@ fi
 
 # Start Uvicorn with dynamic log config if present
 if [ -f /app/logconfig.yaml ]; then
-	exec su-exec "$USERNAME" uvicorn app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-config /app/logconfig.yaml
+	exec su-exec "$USERNAME" uvicorn backend.app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-config /app/logconfig.yaml
 else
-	exec su-exec "$USERNAME" uvicorn app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-level "$uvicorn_loglevel"
+	exec su-exec "$USERNAME" uvicorn backend.app:app --host 0.0.0.0 --port "${PORT:-39842}" --no-access-log --log-level "$uvicorn_loglevel"
 fi
