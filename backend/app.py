@@ -734,7 +734,10 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
 
     cfg = load_session(label) if label else None
     if cfg is None:
-        _logger.warning("Session '%s' not found or not configured.", label)
+        if label is None:
+            _logger.debug("No session label provided to status endpoint.")
+        else:
+            _logger.warning("Session '%s' not found or not configured.", label)
         return {
             "configured": False,
             "status_message": "Session not configured. Please save session details to begin.",
