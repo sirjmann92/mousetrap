@@ -15,7 +15,11 @@ export function getStatusMessageColor(msg) {
     return 'success.main';
   } else if (/FAILED/i.test(msg)) {
     return 'error.main';
-  } else if (/FAILED\. Container restart attempted|FAILED\. Restart not attempted|Notification sent|Notification not sent|Cooldown active|Waiting between retries|Not enough points|Below point threshold/i.test(msg)) {
+  } else if (
+    /FAILED\. Container restart attempted|FAILED\. Restart not attempted|Notification sent|Notification not sent|Cooldown active|Waiting between retries|Not enough points|Below point threshold/i.test(
+      msg,
+    )
+  ) {
     return 'warning.main';
   } else if (/update failed|error|forbidden|failed/i.test(msg)) {
     return 'error.main';

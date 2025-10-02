@@ -1,9 +1,11 @@
-html, body {
-  margin: 0;
+html,
+body {
   padding: 0;
+  margin: 0;
 }
 /* Always reserve space for the main browser scrollbar and always show vertical scrollbar */
-html, body {
+html,
+body {
   scrollbar-gutter: stable;
 }
 
@@ -21,6 +23,6 @@ body::-webkit-scrollbar-track {
 
 /* Make scrollbar thinner in Firefox */
 html {
-  scrollbar-width: thin;
   scrollbar-color: #bbb transparent;
+  scrollbar-width: thin;
 }

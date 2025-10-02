@@ -1,69 +1,100 @@
-import React, { useState, useEffect } from "react";
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
-  Card,
-  CardContent,
-  Typography,
-  Grid,
-  TextField,
   Box,
   Button,
-  Tooltip,
-  IconButton,
+  Card,
+  CardContent,
   Collapse,
-  Stack,
-  Divider
-} from "@mui/material";
-import FeedbackSnackbar from "./FeedbackSnackbar";
-import ConfirmDialog from "./ConfirmDialog";
-import AutomationSection from "./AutomationSection";
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-
-
-
+  Divider,
+  IconButton,
+  TextField,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { useCallback, useEffect, useState } from 'react';
+import { useSession } from '../context/SessionContext.jsx';
 import { stringifyMessage } from '../utils/utils';
+import AutomationSection from './AutomationSection';
+import ConfirmDialog from './ConfirmDialog';
+import FeedbackSnackbar from './FeedbackSnackbar';
 
-import { useSession } from '../context/SessionContext';
-
-export default function PerkAutomationCard({
-  _autoWedge, setAutoWedge,
-  _autoVIP, setAutoVIP,
-  _autoUpload, setAutoUpload,
-  onActionComplete = () => {},
-}) {
+/**
+ * @typedef {Object} PerkAutomationCardProps
+ * @property {function} setAutoWedge
+ * @property {function} setAutoVIP
+ * @property {function} setAutoUpload
+ * @property {function} setUploadAmount
+ * @property {function} setVipWeeks
+ * @property {function} setWedgeMethod
+ * @property {boolean} [autoWedge]
+ * @property {boolean} [autoVIP]
+ * @property {boolean} [autoUpload]
+ * @property {function} [onActionComplete]
+ * @property {number} [uploadAmount]
+ * @property {number} [vipWeeks]
+ * @property {string} [wedgeMethod]
+ */
+/** @param {PerkAutomationCardProps} props */
+export default function PerkAutomationCard(props) {
+  const {
+    autoWedge,
+    setAutoWedge,
+    autoVIP,
+    setAutoVIP,
+    autoUpload,
+    setAutoUpload,
+    onActionComplete = () => {},
+  } = props;
   const { sessionLabel, points, setPoints } = useSession();
   // Local state for automation toggles, initialized from props if provided
-  const [autoWedge, setAutoWedgeLocal] = useState(_autoWedge ?? false);
-  const [autoVIP, setAutoVIPLocal] = useState(_autoVIP ?? false);
-  const [autoUpload, setAutoUploadLocal] = useState(_autoUpload ?? false);
+  const [, setAutoWedgeLocal] = useState(autoWedge ?? false);
+  const [, setAutoVIPLocal] = useState(autoVIP ?? false);
+  const [, setAutoUploadLocal] = useState(autoUpload ?? false);
   const [minPoints, setMinPoints] = useState(0);
 
-  // Ensure prop setters update both local and parent state
-  const setAutoWedgeCombined = (val) => {
-    setAutoWedgeLocal(val);
-    if (typeof setAutoWedge === 'function') setAutoWedge(val);
-  };
-  const setAutoVIPCombined = (val) => {
-    setAutoVIPLocal(val);
-    if (typeof setAutoVIP === 'function') setAutoVIP(val);
-  };
-  const setAutoUploadCombined = (val) => {
-    setAutoUploadLocal(val);
-    if (typeof setAutoUpload === 'function') setAutoUpload(val);
-  };
+  // Ensure prop setters update both local and parent state. Memoize so
+  // they can safely be used in effect dependency arrays without
+  // triggering Biome/react-hooks warnings.
+  const setAutoWedgeCombined = useCallback(
+    (val) => {
+      setAutoWedgeLocal(val);
+      if (typeof setAutoWedge === 'function') setAutoWedge(val);
+    },
+    [setAutoWedge],
+  );
+
+  const setAutoVIPCombined = useCallback(
+    (val) => {
+      setAutoVIPLocal(val);
+      if (typeof setAutoVIP === 'function') setAutoVIP(val);
+    },
+    [setAutoVIP],
+  );
+
+  const setAutoUploadCombined = useCallback(
+    (val) => {
+      setAutoUploadLocal(val);
+      if (typeof setAutoUpload === 'function') setAutoUpload(val);
+    },
+    [setAutoUpload],
+  );
   // Snackbar state for notifications
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [wedges, setWedges] = useState(null);
+  const [snackbar, setSnackbar] = useState({
+    message: '',
+    open: false,
+    severity: 'info',
+  });
   // Guardrail state (must be inside the function body)
   const [guardrails, setGuardrails] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(null);
   const [uploadDisabled, setUploadDisabled] = useState(false);
   const [wedgeDisabled, setWedgeDisabled] = useState(false);
   const [vipDisabled, setVIPDisabled] = useState(false);
-  const [uploadGuardMsg, setUploadGuardMsg] = useState("");
-  const [wedgeGuardMsg, setWedgeGuardMsg] = useState("");
-  const [vipGuardMsg, setVIPGuardMsg] = useState("");
+  const [uploadGuardMsg, setUploadGuardMsg] = useState('');
+  const [wedgeGuardMsg, setWedgeGuardMsg] = useState('');
+  const [vipGuardMsg, setVIPGuardMsg] = useState('');
   // Upload automation options state
   const [triggerType, setTriggerType] = useState('time');
   const [triggerDays, setTriggerDays] = useState(7);
@@ -71,10 +102,9 @@ export default function PerkAutomationCard({
   const [expanded, setExpanded] = useState(false);
   const [uploadAmount, setUploadAmount] = useState(1);
   const [vipWeeks, setVipWeeks] = useState(4);
-  const [wedgeMethod, setWedgeMethod] = useState("points");
+  const [wedgeMethod, setWedgeMethod] = useState('points');
   const [wedgeTriggerType, setWedgeTriggerType] = useState('time');
   const [wedgeTriggerDays, setWedgeTriggerDays] = useState(7);
-  const [millionairesVaultAmount, setMillionairesVaultAmount] = useState(2000);
   const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
   const [confirmWedgeOpen, setConfirmWedgeOpen] = useState(false);
@@ -89,26 +119,26 @@ export default function PerkAutomationCard({
   useEffect(() => {
     if (!sessionLabel) return;
     fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
-      .then(res => res.json())
-      .then(cfg => {
+      .then((res) => res.json())
+      .then((cfg) => {
         const pa = cfg.perk_automation || {};
         setMinPoints(pa.min_points ?? 0);
         // --- Upload Credit Automation fields ---
-        const upload = (pa.upload_credit || {});
+        const upload = pa.upload_credit || {};
         setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
         setUploadAmount(upload.gb ?? 1);
-        setPoints && setPoints(cfg.points ?? null);
+        setPoints?.(cfg.points ?? null);
         setTriggerType(upload.trigger_type ?? 'time');
         setTriggerDays(upload.trigger_days ?? 7);
         setTriggerPointThreshold(upload.trigger_point_threshold ?? 50000);
         // --- Wedge Automation fields ---
-        const wedge = (pa.wedge_automation || {});
+        const wedge = pa.wedge_automation || {};
         setAutoWedgeCombined(wedge.enabled ?? pa.autoWedge ?? false);
         setWedgeTriggerType(wedge.trigger_type ?? 'time');
         setWedgeTriggerDays(wedge.trigger_days ?? 7);
         setWedgeTriggerPointThreshold(wedge.trigger_point_threshold ?? 50000);
         // --- VIP Automation fields ---
-        const vip = (pa.vip_automation || {});
+        const vip = pa.vip_automation || {};
         setAutoVIPCombined(vip.enabled ?? pa.autoVIP ?? false);
         setVipTriggerType(vip.trigger_type ?? 'time');
         setVipTriggerDays(vip.trigger_days ?? 7);
@@ -116,23 +146,27 @@ export default function PerkAutomationCard({
         setVipWeeks(vip.weeks ?? 4);
         // Save username for guardrails
         let username = null;
-        if (cfg.last_status && cfg.last_status.raw && cfg.last_status.raw.username) {
+        if (cfg.last_status?.raw?.username) {
           username = cfg.last_status.raw.username;
         }
         setCurrentUsername(username);
       });
     fetch('/api/automation/guardrails')
-      .then(res => res.json())
-      .then(data => setGuardrails(data));
-  }, [sessionLabel]);
+      .then((res) => res.json())
+      .then((data) => setGuardrails(data));
+  }, [sessionLabel, setAutoUploadCombined, setAutoVIPCombined, setAutoWedgeCombined, setPoints]);
 
   // Guardrail logic: check if another session with same username has automation enabled
   useEffect(() => {
-  if (!guardrails || !currentUsername || !sessionLabel) return;
-    let upload = false, wedge = false, vip = false;
-    let uploadMsg = '', wedgeMsg = '', vipMsg = '';
+    if (!guardrails || !currentUsername || !sessionLabel) return;
+    let upload = false,
+      wedge = false,
+      vip = false;
+    let uploadMsg = '',
+      wedgeMsg = '',
+      vipMsg = '';
     for (const [label, info] of Object.entries(guardrails)) {
-  if (label === sessionLabel) continue;
+      if (label === sessionLabel) continue;
       if (info.username && info.username === currentUsername) {
         if (info.autoUpload) {
           upload = true;
@@ -157,106 +191,192 @@ export default function PerkAutomationCard({
   }, [guardrails, currentUsername, sessionLabel]);
 
   // API call helpers
-  const triggerWedge = async () => {
+  const _triggerWedge = async () => {
     try {
-      const res = await fetch("/api/automation/wedge", { method: "POST" });
+      const res = await fetch('/api/automation/wedge', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setSnackbar({ open: true, message: "Wedge automation triggered!", severity: 'success' });
+        setSnackbar({
+          message: 'Wedge automation triggered!',
+          open: true,
+          severity: 'success',
+        });
         onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Wedge automation failed"), severity: 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: "Wedge automation failed", severity: 'error' });
+      } else
+        setSnackbar({
+          message: stringifyMessage(data.error || 'Wedge automation failed'),
+          open: true,
+          severity: 'error',
+        });
+    } catch (_e) {
+      setSnackbar({
+        message: 'Wedge automation failed',
+        open: true,
+        severity: 'error',
+      });
     }
   };
-  const triggerVIP = async () => {
+  const _triggerVIP = async () => {
     try {
-      const res = await fetch("/api/automation/vip", { method: "POST" });
+      const res = await fetch('/api/automation/vip', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setSnackbar({ open: true, message: "VIP automation triggered!", severity: 'success' });
+        setSnackbar({
+          message: 'VIP automation triggered!',
+          open: true,
+          severity: 'success',
+        });
         onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "VIP automation failed"), severity: 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: "VIP automation failed", severity: 'error' });
+      } else
+        setSnackbar({
+          message: stringifyMessage(data.error || 'VIP automation failed'),
+          open: true,
+          severity: 'error',
+        });
+    } catch (_e) {
+      setSnackbar({
+        message: 'VIP automation failed',
+        open: true,
+        severity: 'error',
+      });
     }
   };
   // Use new endpoint for upload automation
-  const triggerUpload = async () => {
+  const _triggerUpload = async () => {
     try {
-      const res = await fetch("/api/automation/upload_auto", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: sessionLabel, amount: 1 }) // Always include label
+      const res = await fetch('/api/automation/upload_auto', {
+        body: JSON.stringify({ amount: 1, label: sessionLabel }), // Always include label
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       if (data.success) {
-        setSnackbar({ open: true, message: "Upload automation triggered!", severity: 'success' });
+        setSnackbar({
+          message: 'Upload automation triggered!',
+          open: true,
+          severity: 'success',
+        });
         onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Upload automation failed"), severity: 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: "Upload automation failed", severity: 'error' });
+      } else
+        setSnackbar({
+          message: stringifyMessage(data.error || 'Upload automation failed'),
+          open: true,
+          severity: 'error',
+        });
+    } catch (_e) {
+      setSnackbar({
+        message: 'Upload automation failed',
+        open: true,
+        severity: 'error',
+      });
     }
   };
   // Manual wedge purchase handler
   const triggerManualWedge = async (method) => {
     try {
-      const res = await fetch("/api/automation/wedge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: sessionLabel, method }) // Always include label
+      const res = await fetch('/api/automation/wedge', {
+        body: JSON.stringify({ label: sessionLabel, method }), // Always include label
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       if (data.success) {
-        setSnackbar({ open: true, message: `Wedge purchased with ${method}!`, severity: 'success' });
+        setSnackbar({
+          message: `Wedge purchased with ${method}!`,
+          open: true,
+          severity: 'success',
+        });
         onActionComplete();
-      } else setSnackbar({ open: true, message: stringifyMessage(data.error || `Wedge purchase with ${method} failed`), severity: 'error' });
-    } catch (e) {
-      setSnackbar({ open: true, message: `Wedge purchase with ${method} failed`, severity: 'error' });
+      } else
+        setSnackbar({
+          message: stringifyMessage(data.error || `Wedge purchase with ${method} failed`),
+          open: true,
+          severity: 'error',
+        });
+    } catch (_e) {
+      setSnackbar({
+        message: `Wedge purchase with ${method} failed`,
+        open: true,
+        severity: 'error',
+      });
     }
   };
   const triggerVIPManual = async () => {
     try {
-      const res = await fetch("/api/automation/vip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: sessionLabel, weeks: vipWeeks }) // Always include label
+      const res = await fetch('/api/automation/vip', {
+        body: JSON.stringify({ label: sessionLabel, weeks: Number(vipWeeks) }), // Always include label
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       if (data.success) {
-  setSnackbar({ open: true, message: `VIP purchased for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}!`, severity: 'success' });
+        setSnackbar({
+          message: `VIP purchased for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}!`,
+          open: true,
+          severity: 'success',
+        });
         onActionComplete();
-  } else setSnackbar({ open: true, message: stringifyMessage(data.error || `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`), severity: 'error' });
-    } catch (e) {
-  setSnackbar({ open: true, message: `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`, severity: 'error' });
+      } else
+        setSnackbar({
+          message: stringifyMessage(
+            data.error ||
+              `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`,
+          ),
+          open: true,
+          severity: 'error',
+        });
+    } catch (_e) {
+      setSnackbar({
+        message: `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`,
+        open: true,
+        severity: 'error',
+      });
     }
   };
   const triggerUploadManual = async () => {
     try {
-      const res = await fetch("/api/automation/upload_auto", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: sessionLabel, amount: uploadAmount }) // Always include label
+      const res = await fetch('/api/automation/upload_auto', {
+        body: JSON.stringify({ amount: Number(uploadAmount), label: sessionLabel }), // Always include label
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
       });
       const data = await res.json();
       if (data.success) {
-        setSnackbar({ open: true, message: `Upload credit purchased: ${uploadAmount}GB!`, severity: 'success' });
+        setSnackbar({
+          message: `Upload credit purchased: ${uploadAmount}GB!`,
+          open: true,
+          severity: 'success',
+        });
         onActionComplete();
       } else {
-        setSnackbar({ open: true, message: stringifyMessage(data.error || `Upload credit purchase failed`), severity: 'error' });
+        setSnackbar({
+          message: stringifyMessage(data.error || `Upload credit purchase failed`),
+          open: true,
+          severity: 'error',
+        });
       }
-    } catch (e) {
-      setSnackbar({ open: true, message: `Upload credit purchase failed`, severity: 'error' });
+    } catch (_e) {
+      setSnackbar({
+        message: `Upload credit purchase failed`,
+        open: true,
+        severity: 'error',
+      });
     }
   };
   // Save handler
   const handleSave = async () => {
     if (!sessionLabel) {
-      setSnackbar({ open: true, message: "Session label missing!", severity: "error" });
+      setSnackbar({
+        message: 'Session label missing!',
+        open: true,
+        severity: 'error',
+      });
       return;
     }
     // Load previous automation config if available (to preserve timestamps)
-    let prevWedgeTime = null, prevVIPTime = null, prevUploadTime = null;
+    let prevWedgeTime = null,
+      prevVIPTime = null,
+      prevUploadTime = null;
     try {
       const res = await fetch(`/api/session/${encodeURIComponent(sessionLabel)}`);
       if (res.ok) {
@@ -284,222 +404,271 @@ export default function PerkAutomationCard({
     const newUploadTime = getNewTimestamp(autoUpload, triggerType, prevUploadTime);
 
     const perk_automation = {
-  autoWedge,
-  autoVIP,
-  autoUpload,
-  min_points: Number(minPoints),
+      autoUpload,
+      autoVIP,
+      autoWedge,
+      min_points: Number(minPoints),
       upload_credit: {
         enabled: autoUpload,
         gb: Number(uploadAmount),
-        trigger_type: triggerType,
+        last_upload_time: newUploadTime,
         trigger_days: Number(triggerDays),
         trigger_point_threshold: Number(triggerPointThreshold),
-        last_upload_time: newUploadTime,
-      },
-      wedge_automation: {
-        enabled: autoWedge,
-        trigger_type: wedgeTriggerType,
-        trigger_days: Number(wedgeTriggerDays),
-        trigger_point_threshold: Number(wedgeTriggerPointThreshold),
-        last_wedge_time: newWedgeTime,
+        trigger_type: triggerType,
       },
       vip_automation: {
         enabled: autoVIP,
-        trigger_type: vipTriggerType,
+        last_vip_time: newVIPTime,
         trigger_days: Number(vipTriggerDays),
         trigger_point_threshold: Number(vipTriggerPointThreshold),
-        weeks: vipWeeks,
-        last_vip_time: newVIPTime,
+        trigger_type: vipTriggerType,
+        weeks: Number(vipWeeks),
+      },
+      wedge_automation: {
+        enabled: autoWedge,
+        last_wedge_time: newWedgeTime,
+        trigger_days: Number(wedgeTriggerDays),
+        trigger_point_threshold: Number(wedgeTriggerPointThreshold),
+        trigger_type: wedgeTriggerType,
       },
     };
-    const res = await fetch("/api/session/perkautomation/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: sessionLabel, perk_automation })
+    const res = await fetch('/api/session/perkautomation/save', {
+      body: JSON.stringify({ label: sessionLabel, perk_automation }),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
     });
     const data = await res.json();
     if (data.success) {
-      setSnackbar({ open: true, message: "Automation settings saved!", severity: "success" });
+      setSnackbar({
+        message: 'Automation settings saved!',
+        open: true,
+        severity: 'success',
+      });
       onActionComplete();
-    } else setSnackbar({ open: true, message: stringifyMessage(data.error || "Save failed"), severity: "error" });
+    } else
+      setSnackbar({
+        message: stringifyMessage(data.error || 'Save failed'),
+        open: true,
+        severity: 'error',
+      });
   };
 
   return (
-  <Card sx={{ mb: 3, borderRadius: 2 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', px: 2, pt: 2, pb: 1.5, minHeight: 56 }} onClick={() => setExpanded(e => !e)}>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+    <Card sx={{ borderRadius: 2, mb: 3 }}>
+      <Box
+        onClick={() => setExpanded((e) => !e)}
+        sx={{
+          alignItems: 'center',
+          cursor: 'pointer',
+          display: 'flex',
+          minHeight: 56,
+          pb: 1.5,
+          pt: 2,
+          px: 2,
+        }}
+      >
+        <Typography sx={{ flexGrow: 1 }} variant="h6">
           Perk Purchase & Automation
         </Typography>
-        <Typography variant="body1" sx={{ mr: 2, color: 'text.secondary' }}>
-          Points: <b>{points !== null ? points : "N/A"}</b>
+        <Typography sx={{ color: 'text.secondary', mr: 2 }} variant="body1">
+          Points: <b>{points !== null ? points : 'N/A'}</b>
         </Typography>
-        <IconButton size="small">
-          {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-        </IconButton>
+        <IconButton size="small">{expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
       </Box>
       <Collapse in={expanded} timeout="auto" unmountOnExit>
         <CardContent sx={{ pt: 0 }}>
           {/* Padding above first row, only visible when expanded */}
           <Box sx={{ height: 7 }} />
-          <Box sx={{ mb: 2, maxWidth: 400 }}>
+          <Box sx={{ maxWidth: 400, mb: 2 }}>
             <TextField
+              helperText="Automation will never run if points are below this value."
               label="Minimum Points (Session Guardrail)"
+              onChange={(e) => setMinPoints(parseInt(e.target.value, 10) || 0)}
+              size="small"
+              slotProps={{
+                htmlInput: {
+                  min: 0,
+                  step: 1000,
+                },
+              }}
+              sx={{ maxWidth: 400 }}
               type="number"
               value={minPoints}
-              onChange={e => setMinPoints(e.target.value)}
-              inputProps={{ min: 0, step: 1000 }}
-              size="small"
-              helperText="Automation will never run if points are below this value."
-              sx={{ maxWidth: 400 }}
             />
           </Box>
           {/* Wedge Section (modularized) */}
           <AutomationSection
-            title="Wedge Purchase"
-            enabled={autoWedge}
-            onToggle={e => setAutoWedgeCombined(e.target.checked)}
-            toggleLabel="Enable Wedge Automation"
-            toggleDisabled={wedgeDisabled}
-            selectLabel="Method"
-            selectValue={wedgeMethod}
-            selectOptions={[
-              { value: "points", label: "Points (50,000)" },
-              { value: "cheese", label: "Cheese (5)" }
-            ]}
-            onSelectChange={e => setWedgeMethod(e.target.value)}
             confirmButton={
               <Tooltip title="This will instantly purchase a wedge using the selected method.">
-                <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmWedgeOpen(true)}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <Button
+                    onClick={() => setConfirmWedgeOpen(true)}
+                    sx={{ minWidth: 180 }}
+                    variant="contained"
+                  >
                     Purchase Wedge
                   </Button>
-                </span>
+                </Box>
               </Tooltip>
             }
+            enabled={autoWedge}
+            onSelectChange={(e) => setWedgeMethod(e.target.value)}
+            onToggle={(e) => setAutoWedgeCombined(e.target.checked)}
+            onTriggerDaysChange={(e) => setWedgeTriggerDays(parseInt(e.target.value, 10) || 0)}
+            onTriggerPointThresholdChange={(e) =>
+              setWedgeTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
+            }
+            onTriggerTypeChange={(e) => setWedgeTriggerType(e.target.value)}
+            selectLabel="Method"
+            selectOptions={[
+              { label: 'Points (50,000)', value: 'points' },
+              { label: 'Cheese (5)', value: 'cheese' },
+            ]}
+            selectValue={wedgeMethod}
+            title="Wedge Purchase"
+            toggleDisabled={wedgeDisabled}
+            toggleLabel="Enable Wedge Automation"
             tooltip={wedgeDisabled ? wedgeGuardMsg : ''}
-            triggerTypeValue={wedgeTriggerType}
-            onTriggerTypeChange={e => setWedgeTriggerType(e.target.value)}
             triggerDays={wedgeTriggerDays}
-            onTriggerDaysChange={e => setWedgeTriggerDays(Number(e.target.value))}
             triggerPointThreshold={wedgeTriggerPointThreshold}
-            onTriggerPointThresholdChange={e => setWedgeTriggerPointThreshold(Number(e.target.value))}
+            triggerTypeValue={wedgeTriggerType}
           />
           <Divider sx={{ mb: 3 }} />
 
           {/* VIP Section (modularized) */}
           <AutomationSection
-            title={<span>VIP Purchase
-              <Tooltip title="You must be rank Power User or VIP with Power User requirements met in order to purchase VIP">
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </span>}
-            enabled={autoVIP}
-            onToggle={e => setAutoVIPCombined(e.target.checked)}
-            toggleLabel="Enable VIP Automation"
-            toggleDisabled={vipDisabled}
-            selectLabel="VIP Duration"
-            selectValue={vipWeeks}
-            selectOptions={[
-              { value: 4, label: "4 Weeks" },
-              { value: 8, label: "8 Weeks" },
-              { value: 90, label: "Max me out!" }
-            ]}
-            onSelectChange={e => setVipWeeks(e.target.value)}
-            extraControls={
-              <Tooltip title={<span>
-                4 +weeks = 5,000 points<br/>
-                8 weeks = 10,000 points<br/>
-                Max me out! = Top up to 90 days (variable points)
-              </span>}>
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            }
             confirmButton={
               <Tooltip title="This will instantly purchase VIP for the selected duration.">
-                <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmVIPOpen(true)}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <Button
+                    onClick={() => setConfirmVIPOpen(true)}
+                    sx={{ minWidth: 180 }}
+                    variant="contained"
+                  >
                     Purchase VIP
                   </Button>
-                </span>
+                </Box>
               </Tooltip>
             }
+            enabled={autoVIP}
+            extraControls={
+              <Tooltip
+                title={
+                  <span>
+                    4 +weeks = 5,000 points
+                    <br />8 weeks = 10,000 points
+                    <br />
+                    Max me out! = Top up to 90 days (variable points)
+                  </span>
+                }
+              >
+                <IconButton size="small" sx={{ ml: 1 }}>
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            }
+            onSelectChange={(e) => setVipWeeks(parseInt(e.target.value, 10) || 0)}
+            onToggle={(e) => setAutoVIPCombined(e.target.checked)}
+            onTriggerDaysChange={(e) => setVipTriggerDays(parseInt(e.target.value, 10) || 0)}
+            onTriggerPointThresholdChange={(e) =>
+              setVipTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
+            }
+            onTriggerTypeChange={(e) => setVipTriggerType(e.target.value)}
+            selectLabel="VIP Duration"
+            selectOptions={[
+              { label: '4 Weeks', value: 4 },
+              { label: '8 Weeks', value: 8 },
+              { label: 'Max me out!', value: 90 },
+            ]}
+            selectValue={vipWeeks}
+            title={
+              <span>
+                VIP Purchase
+                <Tooltip title="You must be rank Power User or VIP with Power User requirements met in order to purchase VIP">
+                  <IconButton size="small" sx={{ ml: 1 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </span>
+            }
+            toggleDisabled={vipDisabled}
+            toggleLabel="Enable VIP Automation"
             tooltip={vipDisabled ? vipGuardMsg : ''}
-            triggerTypeValue={vipTriggerType}
-            onTriggerTypeChange={e => setVipTriggerType(e.target.value)}
             triggerDays={vipTriggerDays}
-            onTriggerDaysChange={e => setVipTriggerDays(Number(e.target.value))}
             triggerPointThreshold={vipTriggerPointThreshold}
-            onTriggerPointThresholdChange={e => setVipTriggerPointThreshold(Number(e.target.value))}
+            triggerTypeValue={vipTriggerType}
           />
           <Divider sx={{ mb: 3 }} />
 
           {/* Upload Credit Purchase Section (modularized) */}
           <AutomationSection
-            title="Upload Credit Purchase"
-            enabled={autoUpload}
-            onToggle={e => setAutoUploadCombined(e.target.checked)}
-            toggleLabel="Enable Upload Credit Automation"
-            toggleDisabled={uploadDisabled}
-            selectLabel="Amount"
-            selectValue={uploadAmount}
-            selectOptions={[
-              { value: 1, label: "1GB" },
-              { value: 2.5, label: "2.5GB" },
-              { value: 5, label: "5GB" },
-              { value: 20, label: "20GB" },
-              { value: 100, label: "100GB" }
-            ]}
-            onSelectChange={e => setUploadAmount(e.target.value)}
             confirmButton={
               <Tooltip title="This will instantly purchase upload credit for the selected amount.">
-                <span style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button variant="contained" sx={{ minWidth: 180 }} onClick={() => setConfirmUploadOpen(true)}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                  <Button
+                    onClick={() => setConfirmUploadOpen(true)}
+                    sx={{ minWidth: 180 }}
+                    variant="contained"
+                  >
                     Purchase Upload
                   </Button>
-                </span>
+                </Box>
               </Tooltip>
             }
+            enabled={autoUpload}
+            onSelectChange={(e) => setUploadAmount(parseFloat(e.target.value) || 0)}
+            onToggle={(e) => setAutoUploadCombined(e.target.checked)}
+            onTriggerDaysChange={(e) => setTriggerDays(parseInt(e.target.value, 10) || 0)}
+            onTriggerPointThresholdChange={(e) =>
+              setTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
+            }
+            onTriggerTypeChange={(e) => setTriggerType(e.target.value)}
+            selectLabel="Amount"
+            selectOptions={[
+              { label: '1GB', value: 1 },
+              { label: '2.5GB', value: 2.5 },
+              { label: '5GB', value: 5 },
+              { label: '20GB', value: 20 },
+              { label: '100GB', value: 100 },
+            ]}
+            selectValue={uploadAmount}
+            title="Upload Credit Purchase"
+            toggleDisabled={uploadDisabled}
+            toggleLabel="Enable Upload Credit Automation"
             tooltip={uploadDisabled ? uploadGuardMsg : ''}
-            triggerTypeValue={triggerType}
-            onTriggerTypeChange={e => setTriggerType(e.target.value)}
             triggerDays={triggerDays}
-            onTriggerDaysChange={e => setTriggerDays(Number(e.target.value))}
             triggerPointThreshold={triggerPointThreshold}
-            onTriggerPointThresholdChange={e => setTriggerPointThreshold(Number(e.target.value))}
+            triggerTypeValue={triggerType}
           />
 
           {/* Confirmation Dialogs (modularized) */}
           <ConfirmDialog
-            open={confirmWedgeOpen}
+            message={`Are you sure you want to instantly purchase a wedge using ${wedgeMethod === 'points' ? 'Points (50,000)' : 'Cheese (5)'}?`}
             onClose={() => setConfirmWedgeOpen(false)}
             onConfirm={() => triggerManualWedge(wedgeMethod)}
+            open={confirmWedgeOpen}
             title="Confirm Wedge Purchase"
-            message={`Are you sure you want to instantly purchase a wedge using ${wedgeMethod === 'points' ? 'Points (50,000)' : 'Cheese (5)'}?`}
           />
           <ConfirmDialog
-            open={confirmVIPOpen}
+            message={`Are you sure you want to instantly purchase VIP for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}?`}
             onClose={() => setConfirmVIPOpen(false)}
             onConfirm={triggerVIPManual}
+            open={confirmVIPOpen}
             title="Confirm VIP Purchase"
-            message={`Are you sure you want to instantly purchase VIP for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}?`}
           />
           <ConfirmDialog
-            open={confirmUploadOpen}
+            message={`Are you sure you want to instantly purchase ${uploadAmount}GB of upload credit?`}
             onClose={() => setConfirmUploadOpen(false)}
             onConfirm={triggerUploadManual}
+            open={confirmUploadOpen}
             title="Confirm Upload Credit Purchase"
-            message={`Are you sure you want to instantly purchase ${uploadAmount}GB of upload credit?`}
           />
 
           <Divider sx={{ mb: 1 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <Tooltip title="Save automation settings for this MAM ID session">
               <span>
-                <Button variant="contained" color="primary" onClick={handleSave}>
+                <Button color="primary" onClick={handleSave} variant="contained">
                   Save
                 </Button>
               </span>
@@ -507,10 +676,10 @@ export default function PerkAutomationCard({
           </Box>
 
           <FeedbackSnackbar
-            open={snackbar.open}
             message={snackbar.message}
-            severity={snackbar.severity}
             onClose={() => setSnackbar({ ...snackbar, open: false })}
+            open={snackbar.open}
+            severity={snackbar.severity}
           />
         </CardContent>
       </Collapse>

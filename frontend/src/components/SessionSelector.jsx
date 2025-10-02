@@ -1,20 +1,44 @@
-import React, { useEffect, useState } from "react";
-import { FormControl, InputLabel, Select, MenuItem, IconButton, Box, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from "@mui/material";
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import { useCallback, useEffect, useState } from 'react';
 
-import { useSession } from '../context/SessionContext';
+import { useSession } from '../context/SessionContext.jsx';
 
 export default function SessionSelector({ onLoadSession, onCreateSession, onDeleteSession, sx }) {
   const { sessionLabel: selectedLabel, setSessionLabel: setSelectedLabel } = useSession();
   const [sessions, setSessions] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // fetch sessions from backend; callable so we can refresh after create/delete
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sessions');
+      const data = await res.json();
+      setSessions(data.sessions || []);
+    } catch (err) {
+      // keep existing sessions on error
+      console.error('failed to fetch sessions', err);
+    }
+  }, []);
+
   useEffect(() => {
-    fetch("/api/sessions")
-      .then(res => res.json())
-      .then(data => setSessions(data.sessions || []));
-  }, [selectedLabel]);
+    fetchSessions();
+  }, [fetchSessions]);
 
   const handleChange = (e) => {
     setSelectedLabel(e.target.value);
@@ -22,9 +46,9 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
     // Only persist to backend if the label exists in the sessions list
     if (sessions.includes(e.target.value)) {
       fetch('/api/last_session', {
-        method: 'POST',
+        body: JSON.stringify({ label: e.target.value }),
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label: e.target.value })
+        method: 'POST',
       });
     }
   };
@@ -35,7 +59,13 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
 
   const handleDeleteConfirm = () => {
     setDeleteDialogOpen(false);
-    onDeleteSession(selectedLabel);
+    // call the prop and then refresh the sessions list; support promise returns
+    const maybePromise = onDeleteSession?.(selectedLabel);
+    if (maybePromise && typeof maybePromise.then === 'function') {
+      maybePromise.then(() => fetchSessions()).catch(() => fetchSessions());
+    } else {
+      fetchSessions();
+    }
   };
 
   const handleDeleteCancel = () => {
@@ -43,35 +73,65 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', ...sx }}>
-      <FormControl size="small" sx={{ minWidth: 160, maxWidth: 240 }}>
+    <Box sx={{ alignItems: 'center', display: 'flex', ...sx }}>
+      <FormControl size="small" sx={{ maxWidth: 240, minWidth: 160 }}>
         <InputLabel>Session</InputLabel>
-  <Select value={selectedLabel} label="Session" onChange={handleChange} sx={{ width: 180 }} MenuProps={{ disableScrollLock: true }}>
-          {sessions.map(label => (
-            <MenuItem key={label} value={label}>{label}</MenuItem>
+        <Select
+          label="Session"
+          MenuProps={{ disableScrollLock: true }}
+          onChange={handleChange}
+          sx={{ width: 180 }}
+          value={selectedLabel}
+        >
+          {sessions.map((label) => (
+            <MenuItem key={label} value={label}>
+              {label}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
       <Tooltip title="Create New Session">
-        <IconButton color="success" sx={{ ml: 1 }} onClick={onCreateSession}>
+        <IconButton
+          color="success"
+          onClick={() => {
+            const maybePromise = onCreateSession?.();
+            if (maybePromise && typeof maybePromise.then === 'function') {
+              maybePromise.then(() => fetchSessions()).catch(() => fetchSessions());
+            } else {
+              fetchSessions();
+            }
+          }}
+          sx={{ ml: 1 }}
+        >
           <AddCircleOutlineIcon />
         </IconButton>
       </Tooltip>
       <Tooltip title="Delete Session">
         <span>
-          <IconButton color="error" sx={{ ml: 1 }} onClick={handleDeleteClick} disabled={sessions.length === 0}>
+          <IconButton
+            color="error"
+            disabled={sessions.length === 0}
+            onClick={handleDeleteClick}
+            sx={{ ml: 1 }}
+          >
             <DeleteOutlineIcon />
           </IconButton>
         </span>
       </Tooltip>
-  <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel} disableScrollLock={true}>
+      <Dialog disableScrollLock={true} onClose={handleDeleteCancel} open={deleteDialogOpen}>
         <DialogTitle>Delete Session</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to delete session <b>{selectedLabel}</b>? This cannot be undone.</Typography>
+          <Typography>
+            Are you sure you want to delete session <b>{selectedLabel}</b>? This cannot be undone.
+          </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteCancel} color="primary" variant="outlined">Cancel</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">Delete</Button>
+          <Button color="primary" onClick={handleDeleteCancel} variant="outlined">
+            Cancel
+          </Button>
+          <Button color="error" onClick={handleDeleteConfirm} variant="contained">
+            Delete
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

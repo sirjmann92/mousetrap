@@ -8,6 +8,7 @@ resolve inline proxy configs from session configuration structures.
 import logging
 from pathlib import Path
 import threading
+import time
 from typing import Any
 
 import yaml
@@ -15,6 +16,9 @@ import yaml
 PROXIES_PATH = "/config/proxies.yaml"
 _LOCK = threading.Lock()
 _logger: logging.Logger = logging.getLogger(__name__)
+_last_resolve_log_time: dict[str, float] = {}
+# Minimum seconds between identical resolve debug logs per proxy label/key
+_resolve_log_min_interval = 60
 
 
 def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None:
@@ -24,22 +28,55 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
     """
 
     proxy = cfg.get("proxy", {})
-    _logger.debug("[resolve_proxy_from_session_cfg] Input cfg proxy: %s", proxy)
+    # Rate-limit debug logs to avoid flooding when this resolver is called frequently
+    log_key = None
+    try:
+        if isinstance(proxy, dict) and proxy.get("label"):
+            log_key = f"label:{proxy.get('label')}"
+        elif isinstance(proxy, dict) and proxy.get("host"):
+            log_key = f"inline:{proxy.get('host')}"
+        else:
+            log_key = "no_proxy"
+    except Exception:
+        log_key = "resolve_unknown"
+    now = time.monotonic()
+    last = _last_resolve_log_time.get(log_key, 0.0)
+    if now - last >= _resolve_log_min_interval:
+        _logger.debug("[resolve_proxy_from_session_cfg] Input cfg proxy: %s", proxy)
+        _last_resolve_log_time[log_key] = now
     if isinstance(proxy, dict) and "label" in proxy:
         proxies = load_proxies()
         label = proxy["label"]
         resolved = proxies.get(label)
-        _logger.debug(
-            "[resolve_proxy_from_session_cfg] Looking up label '%s' in proxies.yaml. Resolved: %s",
-            label,
-            resolved,
-        )
+        # Rate-limit the resolved-label debug message using the same log key
+        now = time.monotonic()
+        lookup_key = f"label_lookup:{label}"
+        last_lookup = _last_resolve_log_time.get(lookup_key, 0)
+        if now - last_lookup >= _resolve_log_min_interval:
+            _logger.debug(
+                "[resolve_proxy_from_session_cfg] Looking up label '%s' in proxies.yaml. Resolved: %s",
+                label,
+                resolved,
+            )
+            _last_resolve_log_time[lookup_key] = now
         return resolved
     # fallback: legacy inline proxy config
-    if proxy.get("host"):
-        _logger.debug("[resolve_proxy_from_session_cfg] Using inline proxy config: %s", proxy)
+    if isinstance(proxy, dict) and proxy.get("host"):
+        # Inline proxy use - rate-limit the log similarly
+        now = time.monotonic()
+        inline_key = f"inline_use:{proxy.get('host')}"
+        last_inline = _last_resolve_log_time.get(inline_key, 0)
+        if now - last_inline >= _resolve_log_min_interval:
+            _logger.debug("[resolve_proxy_from_session_cfg] Using inline proxy config: %s", proxy)
+            _last_resolve_log_time[inline_key] = now
         return proxy
-    _logger.debug("[resolve_proxy_from_session_cfg] No proxy config found.")
+    # No proxy configured - rate-limit the log
+    now = time.monotonic()
+    no_proxy_key = "no_proxy_result"
+    last_no = _last_resolve_log_time.get(no_proxy_key, 0.0)
+    if now - last_no >= _resolve_log_min_interval:
+        _logger.debug("[resolve_proxy_from_session_cfg] No proxy config found.")
+        _last_resolve_log_time[no_proxy_key] = now
     return None
 
 
