@@ -797,10 +797,10 @@ export default function VaultConfigCard({ proxies, sessions }) {
                       },
                       htmlInput: {
                         maxLength: 1000,
+                        style: showBrowserMamId ? {} : { WebkitTextSecurity: 'disc' },
                       },
                     }}
                     sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
-                    type={showBrowserMamId ? 'text' : 'password'}
                     value={currentConfig.browser_mam_id || ''}
                   />
                 </Box>

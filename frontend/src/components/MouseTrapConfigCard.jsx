@@ -257,126 +257,120 @@ export default function MouseTrapConfigCard({
         <CardContent sx={{ pt: 0 }}>
           {/* Padding above first row, only visible when expanded */}
           <Box sx={{ height: 7 }} />
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
-              <TextField
-                label="Session Label"
-                onChange={(e) => setLabel(e.target.value)}
-                required
-                size="small"
-                sx={{ width: 145 }}
-                value={label}
-              />
-            </Box>
-            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
-              <FormControl
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+            <TextField
+              label="Session Label"
+              onChange={(e) => setLabel(e.target.value)}
+              required
+              size="small"
+              sx={{ width: 145 }}
+              value={label}
+            />
+
+            <FormControl
+              error={!!sessionTypeError}
+              size="small"
+              sx={{ maxWidth: 175, minWidth: 150 }}
+            >
+              <InputLabel
                 error={!!sessionTypeError}
-                size="small"
-                sx={{ maxWidth: 175, minWidth: 130 }}
+                required
+                sx={{ color: sessionTypeError ? 'error.main' : undefined }}
               >
-                <InputLabel
-                  error={!!sessionTypeError}
-                  required
-                  sx={{ color: sessionTypeError ? 'error.main' : undefined }}
-                >
-                  Session Type
-                </InputLabel>
+                Session Type
+              </InputLabel>
+              <Select
+                error={!!sessionTypeError}
+                label="Session Type"
+                MenuProps={{ disableScrollLock: true }}
+                onChange={(e) => setSessionType(e.target.value)}
+                required
+                sx={{ maxWidth: 195, minWidth: 150 }}
+                value={sessionType || ''}
+              >
+                <MenuItem value="">Select...</MenuItem>
+                <MenuItem value="IP Locked">IP Locked</MenuItem>
+                <MenuItem value="ASN Locked">ASN Locked</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+              <FormControl size="small" sx={{ maxWidth: 175, minWidth: 130 }}>
+                <InputLabel>IP Monitoring</InputLabel>
                 <Select
-                  error={!!sessionTypeError}
-                  label="Session Type"
+                  label="IP Monitoring"
                   MenuProps={{ disableScrollLock: true }}
-                  onChange={(e) => setSessionType(e.target.value)}
-                  required
-                  sx={{ maxWidth: 195, minWidth: 150 }}
-                  value={sessionType || ''}
+                  onChange={(e) => setIpMonitoringMode(/** @type {any} */ (e.target.value))}
+                  sx={{ maxWidth: 175, minWidth: 130 }}
+                  value={ipMonitoringMode || 'auto'}
                 >
-                  <MenuItem value="">Select...</MenuItem>
-                  <MenuItem value="IP Locked">IP Locked</MenuItem>
-                  <MenuItem value="ASN Locked">ASN Locked</MenuItem>
+                  <MenuItem value="auto">Auto (Full)</MenuItem>
+                  <MenuItem value="manual">Manual</MenuItem>
+                  <MenuItem value="static">Static (No Monitoring)</MenuItem>
                 </Select>
               </FormControl>
+              <Tooltip
+                arrow
+                title={
+                  <div>
+                    <strong>Auto (Full):</strong> Automatic IP detection with multiple fallbacks
+                    <br />
+                    <strong>Manual:</strong> User-controlled IP updates only
+                    <br />
+                    <strong>Static:</strong> No IP monitoring (for static IPs or restricted
+                    networks)
+                  </div>
+                }
+              >
+                <IconButton size="small">
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
 
-            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
-              <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                <FormControl size="small" sx={{ maxWidth: 175, minWidth: 130 }}>
-                  <InputLabel>IP Monitoring</InputLabel>
-                  <Select
-                    label="IP Monitoring"
-                    MenuProps={{ disableScrollLock: true }}
-                    onChange={(e) => setIpMonitoringMode(/** @type {any} */ (e.target.value))}
-                    sx={{ maxWidth: 175, minWidth: 130 }}
-                    value={ipMonitoringMode || 'auto'}
-                  >
-                    <MenuItem value="auto">Auto (Full)</MenuItem>
-                    <MenuItem value="manual">Manual</MenuItem>
-                    <MenuItem value="static">Static (No Monitoring)</MenuItem>
-                  </Select>
-                </FormControl>
-                <Tooltip
-                  arrow
-                  title={
-                    <div>
-                      <strong>Auto (Full):</strong> Automatic IP detection with multiple fallbacks
-                      <br />
-                      <strong>Manual:</strong> User-controlled IP updates only
-                      <br />
-                      <strong>Static:</strong> No IP monitoring (for static IPs or restricted
-                      networks)
-                    </div>
-                  }
+            <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+              <FormControl error={!!freqError} size="small" sx={{ maxWidth: 145, minWidth: 100 }}>
+                <InputLabel>Interval*</InputLabel>
+                <Select
+                  label="Interval"
+                  MenuProps={{ disableScrollLock: true }}
+                  onChange={(e) => {
+                    const v = /** @type {any} */ (e.target.value);
+                    if (v === '' || v === null) {
+                      setCheckFrequency('');
+                    } else {
+                      setCheckFrequency(Number(v));
+                    }
+                  }}
+                  required
+                  sx={{ maxWidth: 145, minWidth: 100 }}
+                  value={checkFrequency === '' ? '' : checkFrequency}
                 >
-                  <IconButton size="small" sx={{ ml: 0.5 }}>
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
-            </Box>
-
-            <Box sx={{ width: { xs: '100%', sm: '33.333%', md: '25%', lg: '25%', xl: '16.666%' } }}>
-              <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                <FormControl error={!!freqError} size="small" sx={{ maxWidth: 165, minWidth: 120 }}>
-                  <InputLabel>Interval*</InputLabel>
-                  <Select
-                    label="Interval"
-                    MenuProps={{ disableScrollLock: true }}
-                    onChange={(e) => {
-                      const v = /** @type {any} */ (e.target.value);
-                      if (v === '' || v === null) {
-                        setCheckFrequency('');
-                      } else {
-                        setCheckFrequency(Number(v));
-                      }
-                    }}
-                    required
-                    sx={{ maxWidth: 145, minWidth: 100 }}
-                    value={checkFrequency === '' ? '' : checkFrequency}
-                  >
-                    <MenuItem value="">Select...</MenuItem>
-                    <MenuItem value={1}>1</MenuItem>
-                    {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((val) => (
-                      <MenuItem key={val} value={val}>
-                        {val}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Tooltip arrow title="How often to check the IP/ASN for changes">
-                  <IconButton size="small" sx={{ ml: 0.5 }}>
-                    <InfoOutlinedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </Box>
+                  <MenuItem value="">Select...</MenuItem>
+                  <MenuItem value={1}>1</MenuItem>
+                  {[5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60].map((val) => (
+                    <MenuItem key={val} value={val}>
+                      {val}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Tooltip arrow title="How often to check the IP/ASN for changes">
+                <IconButton size="small">
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 3 }}>
             <Box sx={{ width: '100%' }}>
               <TextField
                 error={mamIdError}
                 helperText="Paste your full MAM ID here (required)"
                 label="MAM ID"
-                minRows={showMamId ? 2 : undefined}
-                multiline={showMamId}
+                maxRows={6}
+                minRows={2}
+                multiline
                 onChange={(e) => setMamId(e.target.value)}
                 required
                 size="small"
@@ -396,15 +390,15 @@ export default function MouseTrapConfigCard({
                   },
                   htmlInput: {
                     maxLength: 300,
+                    style: showMamId ? {} : { WebkitTextSecurity: 'disc' },
                   },
                 }}
                 sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
-                type={showMamId ? 'text' : 'password'}
                 value={mamId}
               />
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 3 }}>
             <Box sx={{ width: '100%' }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
                 <TextField
