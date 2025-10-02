@@ -1,3 +1,38 @@
+# October 1-2, 2025
+
+## Infrastructure Modernization & Bug Fixes 🚀
+
+### **PR #24: Major Frontend Build System Upgrade**
+- **Vite migration:** Replaced Create React App with Vite for 10x faster builds and instant HMR
+- **Modern linting:** Migrated from ESLint + Prettier to Biome for unified, faster code quality checks
+- **Node.js 22 LTS:** Upgraded from Node 20 to Node 22.20.0 for latest performance improvements
+- **Python 3.13:** Backend upgraded to Python 3.13-alpine for enhanced performance and features
+- **Build optimization:** Improved Docker multi-stage build with better layer caching
+
+### **Post-Migration UI Fixes**
+- **TextField masking restored:** Fixed password masking for multiline MAM ID fields using `WebkitTextSecurity`
+- **Auto-expand behavior:** Restored `minRows={2}` `maxRows={6}` for MAM ID fields (auto-expands on content)
+- **Form spacing consistency:** Standardized component spacing with `gap: 2, mb: 3` throughout
+- **Tooltip positioning:** Fixed info icon overlap issues by adjusting spacing
+- **Applied globally:** Fixes applied to both MouseTrapConfigCard and VaultConfigCard components
+
+### **Infrastructure Issues Resolved**
+- **Favicon 404 fixed:** Corrected `BASE_DIR` resolution after Docker file structure changes in PR #24
+- **Proper uvicorn import:** Changed startup to use `backend.app:app` instead of `app:app`
+- **Static file mounting:** Fixed asset serving path to `/app/frontend/build`
+
+### **Logging Improvements**
+- **Reduced log noise:** Changed `/api/status` endpoint to use DEBUG level when no session label provided
+- **Cleaner production logs:** Eliminated excessive "Session 'None' not found" warnings during normal operation
+- **Better debugging:** Maintained WARNING level for actual configuration issues
+
+### **Developer Experience**
+- **Pre-commit TypeScript checks:** Added TypeScript validation to prevent type errors
+- **Biome integration:** Fast, unified linting and formatting with zero-config defaults
+- **GitHub Actions:** Updated CI workflows for new build system and linting tools
+
+---
+
 # September 26, 2025
 
 ## Bug Fixes & Improvements
