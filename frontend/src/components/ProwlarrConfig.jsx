@@ -1,5 +1,3 @@
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import {
@@ -203,18 +201,12 @@ export default function ProwlarrConfig({
               {testResult && (
                 <Alert severity={testResult.success ? 'success' : 'error'} sx={{ mt: -0.5 }}>
                   {testResult.success ? (
-                    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                      <CheckCircleIcon fontSize="small" />
-                      <Typography variant="body2">
-                        Connection successful! MyAnonamouse indexer found with ID:{' '}
-                        {testResult.indexer_id || 'N/A'}
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2">
+                      Connection successful! MyAnonamouse indexer found with ID:{' '}
+                      {testResult.indexer_id || 'N/A'}
+                    </Typography>
                   ) : (
-                    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                      <ErrorIcon fontSize="small" />
-                      <Typography variant="body2">{testResult.message}</Typography>
-                    </Box>
+                    <Typography variant="body2">{testResult.message}</Typography>
                   )}
                 </Alert>
               )}
@@ -258,17 +250,7 @@ export default function ProwlarrConfig({
 
               {updateResult && (
                 <Alert severity={updateResult.success ? 'success' : 'error'}>
-                  {updateResult.success ? (
-                    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                      <CheckCircleIcon fontSize="small" />
-                      <Typography variant="body2">{updateResult.message}</Typography>
-                    </Box>
-                  ) : (
-                    <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                      <ErrorIcon fontSize="small" />
-                      <Typography variant="body2">{updateResult.message}</Typography>
-                    </Box>
-                  )}
+                  <Typography variant="body2">{updateResult.message}</Typography>
                 </Alert>
               )}
             </>
