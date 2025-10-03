@@ -1876,7 +1876,29 @@ async def api_prowlarr_test(request: Request) -> dict[str, Any]:
         if not host or port is None or not api_key:
             return {"success": False, "message": "Missing required fields"}
 
-        return await test_prowlarr_connection(host, port, api_key)
+        # Test connection and find MAM indexer
+        conn_result = await test_prowlarr_connection(host, port, api_key)
+        if not conn_result["success"]:
+            return conn_result
+
+        # If connection successful, try to find MAM indexer
+        indexer_result = await find_mam_indexer_id(host, port, api_key)
+        if indexer_result["success"]:
+            # Merge results: keep connection success, add indexer_id
+            return {
+                "success": True,
+                "message": conn_result["message"],
+                "indexer_count": conn_result.get("indexer_count"),
+                "indexer_id": indexer_result.get("indexer_id"),
+            }
+
+        # MAM indexer not found, but connection was successful
+        return {
+            "success": True,
+            "message": f"{conn_result['message']} However, MyAnonamouse indexer not found.",
+            "indexer_count": conn_result.get("indexer_count"),
+            "warning": indexer_result.get("message"),
+        }
     except Exception as e:
         _logger.exception("Prowlarr test failed")
         return {"success": False, "message": f"Error: {e!s}"}
