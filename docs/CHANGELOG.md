@@ -1,3 +1,48 @@
+# October 2, 2025
+
+## Prowlarr Integration & Session Expiry Tracking 🎯
+
+### **Prowlarr Integration Features**
+- **Automatic MAM ID sync:** MouseTrap can now automatically update Prowlarr's MyAnonamouse indexer with your current MAM session ID
+- **Smart change detection:** Auto-update only triggers when MAM ID actually changes (not on every save)
+- **Manual update button:** Force update Prowlarr with "UPDATE PROWLARR" button for manual control
+- **Session creation tracking:** Track when MAM sessions are created with datetime picker (NOW button uses server timezone)
+- **90-day expiry monitoring:** Daily automated checks for MAM session expiry with configurable notification threshold
+- **Secure notifications:** MAM IDs redacted in notifications (shows only last 8 characters, like credit cards)
+- **Test endpoint:** `/api/prowlarr/test_expiry_notification` for validating notification workflow
+- **Event logging:** All Prowlarr operations logged to UI event log for audit trail
+
+### **UI/UX Improvements**
+- **Redesigned Notifications Card:** Consolidated success/failure notification pairs into single rows with checkboxes (automation, manual_purchase, seedbox_update, vault_donation) for space efficiency
+- **Configuration Accordion:** Moved Webhook, SMTP, and Apprise configuration sections into collapsible accordion within Notifications card
+- **Prowlarr Accordion:** Converted Prowlarr Integration to proper MUI Accordion pattern matching Notifications styling with consistent borders and spacing
+- **Dynamic MAM ID fields:** MAM ID and Browser MAM ID + UID fields now auto-resize (2 rows hidden, 6 rows visible) for better space utilization
+- **Refined spacing:** Reduced gaps between form sections throughout UI (Configuration accordion, Prowlarr sections, MAM Session Created)
+- **Button layout optimization:** Moved UPDATE PROWLARR button to same row as "Notify Before Expiry" field, aligned right
+- **Info tooltips:** Replaced long helper text with info icon tooltips for cleaner appearance (Notify Before Expiry, Prowlarr Integration header)
+- **Required field indicators:** Added asterisks to all required fields in Prowlarr configuration (Host, Port, API Key)
+- **Fixed duplicate asterisks:** Removed manual asterisk from Vault Config "Connection Method" label (MUI adds it automatically)
+- **Dark mode datetime picker:** Native browser datetime-local input now respects dark theme with `colorScheme` CSS
+- **Server timezone handling:** NOW button fetches server time via `/api/server_time` endpoint for consistent timestamps
+- **Vault session auto-update:** Vault configurations automatically update when associated session is renamed
+- **Prowlarr config persistence:** Fixed bug where Prowlarr settings weren't loading after container restart
+- **Vault points refresh:** Points display auto-refreshes when changing associated session (no browser refresh needed)
+
+### **Backend Enhancements**
+- **Daily scheduler job:** APScheduler runs `check_mam_session_expiry()` at 8:00 AM daily
+- **Multi-channel notifications:** Expiry warnings sent via configured channels (SMTP/Webhook/Apprise)
+- **Configurable threshold:** Set notification warning days before expiry (default: 7 days)
+- **Auto-update logic:** `update_prowlarr_mam_id()` function handles Prowlarr API interactions
+- **Session label tracking:** `update_session_label_references()` prevents orphaned vault configurations
+
+### **Documentation & Testing**
+- **Prowlarr setup guide:** Comprehensive documentation in `docs/prowlarr-integration.md`
+- **Test script:** `tests/test_expiry_notification.py` for validating notification delivery
+- **API reference updates:** New Prowlarr endpoints documented
+- **Security helper:** `redact_mam_id()` function for safe credential handling in logs/notifications
+
+---
+
 # October 1-2, 2025
 
 ## Infrastructure Modernization & Bug Fixes 🚀

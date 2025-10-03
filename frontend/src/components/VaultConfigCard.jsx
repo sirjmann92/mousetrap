@@ -220,6 +220,11 @@ export default function VaultConfigCard({ proxies, sessions }) {
         }
 
         await loadVaultConfigurations();
+
+        // Fetch updated points after save (especially if session changed)
+        if (currentConfig) {
+          await fetchVaultPoints(currentConfig);
+        }
       } else {
         // Handle validation errors or save failures
         const errorMessage = data.errors
@@ -767,8 +772,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     error={!currentConfig.browser_mam_id}
                     helperText="Required browser cookies for vault access"
                     label="Browser MAM ID + UID"
-                    maxRows={6}
-                    minRows={2}
+                    maxRows={showBrowserMamId ? 6 : 2}
+                    minRows={showBrowserMamId ? 6 : 2}
                     multiline
                     onChange={(e) =>
                       setCurrentConfig({
@@ -808,7 +813,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 {/* Connection Method - required field */}
                 <Box sx={{ mb: 2 }}>
                   <FormControl required size="small" sx={{ width: 300 }}>
-                    <InputLabel>Connection Method *</InputLabel>
+                    <InputLabel>Connection Method</InputLabel>
                     <Select
                       label="Connection Method"
                       MenuProps={{ disableScrollLock: true }}

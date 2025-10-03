@@ -416,3 +416,44 @@ def update_pot_tracking(vault_config_id: str, pot_id: str) -> bool:
         return False
     else:
         return success
+
+
+def update_session_label_references(old_label: str, new_label: str) -> bool:
+    """Update vault configurations that reference a renamed session.
+
+    When a session is renamed, update all vault configurations that
+    have associated_session_label pointing to the old label.
+
+    Args:
+        old_label: The old session label
+        new_label: The new session label
+
+    Returns:
+        True if any configurations were updated, False otherwise
+    """
+    if not old_label or not new_label or old_label == new_label:
+        return False
+
+    try:
+        full_config = load_vault_config()
+        vault_configs = full_config.get("vault_configurations", {})
+
+        updated = False
+        for config_id, vault_config in vault_configs.items():
+            if vault_config.get("associated_session_label") == old_label:
+                vault_config["associated_session_label"] = new_label
+                updated = True
+                _logger.info(
+                    "[VaultConfig] Updated vault config '%s': session label %s -> %s",
+                    config_id,
+                    old_label,
+                    new_label,
+                )
+
+        if updated:
+            return save_vault_config(full_config)
+
+        return False  # noqa: TRY300
+    except Exception as e:
+        _logger.error("[VaultConfig] Error updating session label references: %s", e)
+        return False

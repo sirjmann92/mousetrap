@@ -37,8 +37,10 @@ mam_id=your_browser_mam_id_value; uid=your_uid_value
    - `uid`
 5. Format as: `mam_id=yourvalue; uid=yourvalue`
 
-**Method 2: Bookmarklet (Future Feature)**
+**Method 2: Bookmarklet**
 - Use the provided JavaScript bookmarklet for easy extraction
+  - Click "GET BROWSER COOKIES"
+  - Follow the instructions in the UI!
 - Available at `/api/vault/bookmarklet`
 
 ### 2. Configure Session
