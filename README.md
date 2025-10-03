@@ -45,6 +45,7 @@ docker compose up -d
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
 - **Millionaire's Vault**: Advanced browser-cookie-based vault donation automation
+- **Prowlarr Integration**: Automatic MAM session ID sync with 90-day expiry tracking
 - **Notifications**: Email (SMTP), Webhook (incl. Discord), and Apprise with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
@@ -186,6 +187,7 @@ environment:
 ## 📚 Documentation
 
 - **[Features Guide](docs/features-guide.md)**: Comprehensive feature overview and usage
+- **[Prowlarr Integration](docs/prowlarr-integration.md)**: Automatic MAM ID sync and expiry tracking
 - **[Millionaire's Vault Automation](docs/millionaires-vault-automation.md)**: Advanced vault donation setup
 - **[API Reference](docs/api-reference.md)**: Complete REST API documentation  
 - **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions

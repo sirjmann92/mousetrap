@@ -25,6 +25,7 @@ import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
 
 import { useSession } from '../context/SessionContext.jsx';
+import ProwlarrConfig from './ProwlarrConfig.jsx';
 
 export default function MouseTrapConfigCard({
   proxies = {},
@@ -51,6 +52,10 @@ export default function MouseTrapConfigCard({
     oldLabel,
     proxy,
     setProxy,
+    prowlarr,
+    setProwlarr,
+    mamSessionCreatedDate,
+    setMamSessionCreatedDate,
   } = useSession();
 
   // Local state for editing label
@@ -154,7 +159,9 @@ export default function MouseTrapConfigCard({
         session_type: sessionType,
       },
       mam_ip: mamIp,
+      mam_session_created_date: mamSessionCreatedDate,
       old_label: oldLabel,
+      prowlarr,
       proxy: { label: proxyLabel },
     };
     try {
@@ -368,8 +375,8 @@ export default function MouseTrapConfigCard({
                 error={mamIdError}
                 helperText="Paste your full MAM ID here (required)"
                 label="MAM ID"
-                maxRows={6}
-                minRows={2}
+                maxRows={showMamId ? 6 : 2}
+                minRows={showMamId ? 6 : 2}
                 multiline
                 onChange={(e) => setMamId(e.target.value)}
                 required
@@ -398,6 +405,71 @@ export default function MouseTrapConfigCard({
               />
             </Box>
           </Box>
+
+          {/* MAM Session Created Date */}
+          <Box sx={{ mb: 2 }}>
+            <Typography sx={{ mb: 1 }} variant="body2">
+              MAM Session Created Date
+            </Typography>
+            <Box sx={{ alignItems: 'flex-start', display: 'flex', gap: 2 }}>
+              <TextField
+                helperText="When did you create this MAM session? (For 90-day expiry tracking)"
+                onChange={(e) => setMamSessionCreatedDate(e.target.value || null)}
+                size="small"
+                slotProps={{
+                  inputLabel: {
+                    shrink: true,
+                  },
+                }}
+                sx={{
+                  width: 320,
+                  // Tell browser to use dark mode for the native picker popup
+                  '& input[type="datetime-local"]': {
+                    colorScheme: (theme) => theme.palette.mode,
+                  },
+                  // Make the calendar icon more visible in dark mode
+                  '& input[type="datetime-local"]::-webkit-calendar-picker-indicator': {
+                    filter: (theme) =>
+                      theme.palette.mode === 'dark' ? 'brightness(0) invert(0.7)' : 'none',
+                    cursor: 'pointer',
+                  },
+                }}
+                type="datetime-local"
+                value={mamSessionCreatedDate || ''}
+              />
+              <Button
+                onClick={async () => {
+                  // Get current server time in server's timezone
+                  try {
+                    const response = await fetch('/api/server_time');
+                    const data = await response.json();
+                    // server_time is in ISO format with timezone (e.g., "2025-10-02T19:27:35.151188-05:00")
+                    // We need to extract just the date and time portion for datetime-local
+                    // which expects format: YYYY-MM-DDTHH:MM
+                    const isoString = data.server_time;
+                    const dateTimeLocal = isoString.substring(0, 16); // Extract YYYY-MM-DDTHH:MM
+                    setMamSessionCreatedDate(dateTimeLocal);
+                  } catch (error) {
+                    console.error('Failed to get server time:', error);
+                    // Fallback to local time if server request fails
+                    const now = new Date();
+                    const year = now.getFullYear();
+                    const month = String(now.getMonth() + 1).padStart(2, '0');
+                    const day = String(now.getDate()).padStart(2, '0');
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    setMamSessionCreatedDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+                  }
+                }}
+                size="small"
+                sx={{ height: 40, mt: 0 }}
+                variant="outlined"
+              >
+                Now
+              </Button>
+            </Box>
+          </Box>
+
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 3 }}>
             <Box sx={{ width: '100%' }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
@@ -502,6 +574,16 @@ export default function MouseTrapConfigCard({
               </Box>
             </Box>
           </Box>
+
+          {/* Prowlarr Integration */}
+          <ProwlarrConfig
+            mamSessionCreatedDate={mamSessionCreatedDate}
+            prowlarrConfig={prowlarr}
+            sessionLabel={sessionLabel}
+            setMamSessionCreatedDate={setMamSessionCreatedDate}
+            setProwlarrConfig={setProwlarr}
+          />
+
           <Box sx={{ mt: 2, textAlign: 'right' }}>
             <Button
               color="primary"

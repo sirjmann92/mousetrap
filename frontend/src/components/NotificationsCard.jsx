@@ -3,6 +3,9 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -27,24 +30,52 @@ export default function NotificationsCard() {
   const [showWebhook, setShowWebhook] = useState(false);
   const [showNotifyString, setShowNotifyString] = useState(false);
   const [expanded, setExpanded] = useState(false);
-  const defaultEvents = [
-    { key: 'port_monitor_failure', label: 'Docker Port Monitor Failure' },
-    { key: 'automation_success', label: 'Purchase Automation Success' },
-    { key: 'automation_failure', label: 'Purchase Automation Failure' },
-    { key: 'manual_purchase_success', label: 'Manual Purchase Success' },
-    { key: 'manual_purchase_failure', label: 'Manual Purchase Failure' },
-    { key: 'seedbox_update_success', label: 'Seedbox Update Success' },
-    { key: 'seedbox_update_failure', label: 'Seedbox Update Failure' },
+  const [configExpanded, setConfigExpanded] = useState(false);
+
+  // Event groups with success/failure pairs
+  const pairedEvents = [
     {
-      key: 'seedbox_update_rate_limited',
-      label: 'Seedbox Update Rate Limited',
+      baseKey: 'automation',
+      label: 'Purchase Automation',
+      successKey: 'automation_success',
+      failureKey: 'automation_failure',
     },
+    {
+      baseKey: 'manual_purchase',
+      label: 'Manual Purchase',
+      successKey: 'manual_purchase_success',
+      failureKey: 'manual_purchase_failure',
+    },
+    {
+      baseKey: 'seedbox_update',
+      label: 'Seedbox Update',
+      successKey: 'seedbox_update_success',
+      failureKey: 'seedbox_update_failure',
+    },
+    {
+      baseKey: 'vault_donation',
+      label: 'Vault Donation',
+      successKey: 'vault_donation_success',
+      failureKey: 'vault_donation_failure',
+    },
+  ];
+
+  // Unique events (no success/failure pair)
+  const uniqueEvents = [
+    { key: 'port_monitor_failure', label: 'Docker Port Monitor Failure' },
+    { key: 'seedbox_update_rate_limited', label: 'Seedbox Update Rate Limited' },
     { key: 'asn_changed', label: 'ASN Changed' },
-    { key: 'inactive_hit_and_run', label: 'Inactive Hit & Run (Not Seeding)' },
-    { key: 'inactive_unsatisfied', label: 'Inactive Unsatisfied (Pre-H&R)' },
-    { key: 'vault_donation_success', label: 'Vault Donation Success' },
-    { key: 'vault_donation_failure', label: 'Vault Donation Failure' },
-    // Add more as needed
+    {
+      key: 'inactive_hit_and_run',
+      label: 'Inactive Hit & Run',
+      tooltip: 'Not Seeding',
+    },
+    {
+      key: 'inactive_unsatisfied',
+      label: 'Inactive Unsatisfied',
+      tooltip: 'Pre-H&R',
+    },
+    { key: 'mam_session_expiry', label: 'MAM Session Expiry Warning' },
   ];
   const [config, setConfig] = useState({
     apprise: { include_prefix: false, notify_url_string: '', url: '' },
@@ -269,8 +300,141 @@ export default function NotificationsCard() {
             </Alert>
           )}
           <FormGroup sx={{ mb: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {defaultEvents.map((ev) => (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {/* Paired Events (Success/Failure) */}
+              {pairedEvents.map((group) => (
+                <Box
+                  key={group.baseKey}
+                  sx={{
+                    alignItems: 'center',
+                    display: 'flex',
+                    gap: 2,
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Typography sx={{ minWidth: 180 }}>{group.label}</Typography>
+
+                  {/* Success/Failure Checkboxes */}
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={!!config.event_rules?.[group.successKey]?.enabled}
+                          onChange={(e) =>
+                            handleEventRuleChange(group.successKey, 'enabled', e.target.checked)
+                          }
+                        />
+                      }
+                      label="Success"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={!!config.event_rules?.[group.failureKey]?.enabled}
+                          onChange={(e) =>
+                            handleEventRuleChange(group.failureKey, 'enabled', e.target.checked)
+                          }
+                        />
+                      }
+                      label="Failure"
+                    />
+                  </Box>
+
+                  {/* Notification Method Checkboxes */}
+                  <Box sx={{ display: 'flex', gap: 2, ml: 'auto' }}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={
+                            (!!config.event_rules?.[group.successKey]?.email &&
+                              !!config.event_rules?.[group.successKey]?.enabled) ||
+                            (!!config.event_rules?.[group.failureKey]?.email &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          indeterminate={
+                            (!!config.event_rules?.[group.successKey]?.email &&
+                              !!config.event_rules?.[group.successKey]?.enabled) !==
+                            (!!config.event_rules?.[group.failureKey]?.email &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          onChange={(e) => {
+                            if (config.event_rules?.[group.successKey]?.enabled) {
+                              handleEventRuleChange(group.successKey, 'email', e.target.checked);
+                            }
+                            if (config.event_rules?.[group.failureKey]?.enabled) {
+                              handleEventRuleChange(group.failureKey, 'email', e.target.checked);
+                            }
+                          }}
+                        />
+                      }
+                      disabled={!config.smtp?.host || !config.smtp?.to_email}
+                      label="Email"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={
+                            (!!config.event_rules?.[group.successKey]?.webhook &&
+                              !!config.event_rules?.[group.successKey]?.enabled) ||
+                            (!!config.event_rules?.[group.failureKey]?.webhook &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          indeterminate={
+                            (!!config.event_rules?.[group.successKey]?.webhook &&
+                              !!config.event_rules?.[group.successKey]?.enabled) !==
+                            (!!config.event_rules?.[group.failureKey]?.webhook &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          onChange={(e) => {
+                            if (config.event_rules?.[group.successKey]?.enabled) {
+                              handleEventRuleChange(group.successKey, 'webhook', e.target.checked);
+                            }
+                            if (config.event_rules?.[group.failureKey]?.enabled) {
+                              handleEventRuleChange(group.failureKey, 'webhook', e.target.checked);
+                            }
+                          }}
+                        />
+                      }
+                      disabled={!config.webhook_url}
+                      label="Webhook"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={
+                            (!!config.event_rules?.[group.successKey]?.apprise &&
+                              !!config.event_rules?.[group.successKey]?.enabled) ||
+                            (!!config.event_rules?.[group.failureKey]?.apprise &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          indeterminate={
+                            (!!config.event_rules?.[group.successKey]?.apprise &&
+                              !!config.event_rules?.[group.successKey]?.enabled) !==
+                            (!!config.event_rules?.[group.failureKey]?.apprise &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          onChange={(e) => {
+                            if (config.event_rules?.[group.successKey]?.enabled) {
+                              handleEventRuleChange(group.successKey, 'apprise', e.target.checked);
+                            }
+                            if (config.event_rules?.[group.failureKey]?.enabled) {
+                              handleEventRuleChange(group.failureKey, 'apprise', e.target.checked);
+                            }
+                          }}
+                        />
+                      }
+                      disabled={!config.apprise?.url || !config.apprise?.notify_url_string}
+                      label="Apprise"
+                    />
+                  </Box>
+                </Box>
+              ))}
+
+              {/* Divider between paired and unique events */}
+              <Divider sx={{ my: 1 }} />
+
+              {/* Unique Events */}
+              {uniqueEvents.map((ev) => (
                 <Box
                   key={ev.key}
                   sx={{
@@ -280,7 +444,21 @@ export default function NotificationsCard() {
                     justifyContent: 'space-between',
                   }}
                 >
-                  <Typography sx={{ minWidth: 220 }}>{ev.label}</Typography>
+                  <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, minWidth: 180 }}>
+                    <Typography>{ev.label}</Typography>
+                    {ev.tooltip && (
+                      <Tooltip arrow placement="top" title={ev.tooltip}>
+                        <IconButton size="small" sx={{ ml: 0.5, p: 0.25 }}>
+                          <InfoOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+
+                  {/* No Success/Failure checkboxes for unique events - just spacing */}
+                  <Box sx={{ display: 'flex', gap: 1, width: 180 }} />
+
+                  {/* Notification Method Checkboxes */}
                   <Box sx={{ display: 'flex', gap: 2, ml: 'auto' }}>
                     <FormControlLabel
                       control={
@@ -321,292 +499,308 @@ export default function NotificationsCard() {
               ))}
             </Box>
           </FormGroup>
-          <Divider sx={{ my: 3 }} />
-          <Typography sx={{ mt: 2 }} variant="subtitle1">
-            Webhook
-          </Typography>
-          <Box
-            sx={{
-              alignItems: 'center',
-              display: 'flex',
-              gap: 2,
-              mb: 2,
-              width: '100%',
-            }}
+
+          <Accordion
+            expanded={configExpanded}
+            onChange={(e, isExpanded) => setConfigExpanded(isExpanded)}
+            sx={{ mb: 3 }}
           >
-            <TextField
-              label="Webhook URL"
-              onChange={(e) => handleChange('webhook_url', e.target.value)}
-              size="small"
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label={showWebhook ? 'Hide webhook URL' : 'Show webhook URL'}
-                        edge="end"
-                        onClick={() => setShowWebhook((v) => !v)}
-                      >
-                        {showWebhook ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ flex: 1, maxWidth: 600, minWidth: 350 }}
-              type={showWebhook ? 'text' : 'password'}
-              value={config.webhook_url || ''}
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={!!config.discord_webhook}
-                  onChange={(e) =>
-                    setConfig((cfg) => ({
-                      ...cfg,
-                      discord_webhook: e.target.checked,
-                    }))
+            <AccordionSummary
+              aria-controls="config-content"
+              expandIcon={<ExpandMoreIcon />}
+              id="config-header"
+            >
+              <Typography variant="h6">Configuration</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="subtitle1">Webhook</Typography>
+              <Box
+                sx={{
+                  alignItems: 'center',
+                  display: 'flex',
+                  gap: 2,
+                  mb: 2,
+                  width: '100%',
+                }}
+              >
+                <TextField
+                  label="Webhook URL"
+                  onChange={(e) => handleChange('webhook_url', e.target.value)}
+                  size="small"
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={showWebhook ? 'Hide webhook URL' : 'Show webhook URL'}
+                            edge="end"
+                            onClick={() => setShowWebhook((v) => !v)}
+                          >
+                            {showWebhook ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{ flex: 1, maxWidth: 600, minWidth: 350 }}
+                  type={showWebhook ? 'text' : 'password'}
+                  value={config.webhook_url || ''}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={!!config.discord_webhook}
+                      onChange={(e) =>
+                        setConfig((cfg) => ({
+                          ...cfg,
+                          discord_webhook: e.target.checked,
+                        }))
+                      }
+                    />
                   }
+                  label="Discord"
+                  sx={{ ml: 1, mr: 1 }}
                 />
-              }
-              label="Discord"
-              sx={{ ml: 1, mr: 1 }}
-            />
-            <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
-              <Button
-                disabled={testLoading || !config.webhook_url}
-                onClick={handleTestWebhook}
-                sx={{ minWidth: 80 }}
-                variant="outlined"
-              >
-                TEST
-              </Button>
-            </Box>
-          </Box>
-          <Divider sx={{ my: 3 }} />
-          <Box sx={{ alignItems: 'center', display: 'flex', mb: 1 }}>
-            <Typography variant="subtitle1">SMTP Email</Typography>
-            <Tooltip
-              arrow
-              title={
-                <div style={{ maxWidth: 320 }}>
-                  <b>Gmail SMTP Setup:</b>
-                  <br />
-                  Use <b>smtp.gmail.com</b> as host.
-                  <br />
-                  Port <b>587</b> for TLS, <b>465</b> for SSL.
-                  <br />
-                  You must create an <b>App Password</b> (not your main password).
-                  <br />
-                  <a
-                    href="https://support.google.com/mail/answer/185833?hl=en"
-                    rel="noopener noreferrer"
-                    target="_blank"
+                <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={testLoading || !config.webhook_url}
+                    onClick={handleTestWebhook}
+                    sx={{ minWidth: 80 }}
+                    variant="outlined"
                   >
-                    Create App Password
-                  </a>
-                  <br />
-                  <a
-                    href="https://support.google.com/a/answer/176600?hl=en"
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    SMTP Setup Instructions
-                  </a>
-                </div>
-              }
-            >
-              <IconButton size="small" sx={{ ml: 1 }}>
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <TextField
-              label="SMTP Host"
-              onChange={(e) => handleSmtpChange('host', e.target.value)}
-              size="small"
-              sx={{ maxWidth: 600, width: 350 }}
-              value={config.smtp?.host || ''}
-            />
-            <TextField
-              label="SMTP Port"
-              onChange={(e) => handleSmtpChange('port', e.target.value)}
-              size="small"
-              sx={{ width: 120 }}
-              type="number"
-              value={config.smtp?.port || ''}
-            />
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-            <TextField
-              label="Username"
-              onChange={(e) => handleSmtpChange('username', e.target.value)}
-              size="small"
-              sx={{ maxWidth: 600, width: 350 }}
-              value={config.smtp?.username || ''}
-            />
-            <TextField
-              label="Password"
-              onChange={(e) => handleSmtpChange('password', e.target.value)}
-              size="small"
-              sx={{ width: 220 }}
-              type="password"
-              value={config.smtp?.password || ''}
-            />
-          </Box>
-          <Box
-            sx={{
-              alignItems: 'center',
-              display: 'flex',
-              gap: 2,
-              mb: 2,
-              width: '100%',
-            }}
-          >
-            <TextField
-              label="To Email"
-              onChange={(e) => handleSmtpChange('to_email', e.target.value)}
-              size="small"
-              sx={{ maxWidth: 600, width: 350 }}
-              value={config.smtp?.to_email || ''}
-            />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={!!config.smtp?.use_tls}
-                  onChange={(e) => handleSmtpChange('use_tls', e.target.checked)}
-                />
-              }
-              label="Use TLS"
-              sx={{ ml: 1, mr: 1 }}
-            />
-            <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
-              <Button
-                disabled={testLoading}
-                onClick={handleTestSmtp}
-                sx={{ minWidth: 80 }}
-                variant="outlined"
-              >
-                TEST
-              </Button>
-            </Box>
-          </Box>
-          <Divider sx={{ my: 3 }} />
-          <Typography sx={{ mt: 2 }} variant="subtitle1">
-            Apprise
-          </Typography>
-          <Box
-            sx={{
-              alignItems: 'flex-start',
-              display: 'flex',
-              gap: 2,
-              mb: 2,
-              width: '100%',
-            }}
-          >
-            <TextField
-              helperText="Apprise location (e.g., http://localhost:8000)."
-              label="Apprise URL"
-              onChange={(e) => handleAppriseChange('url', e.target.value)}
-              size="small"
-              sx={{ maxWidth: 600, minWidth: 350 }}
-              value={config.apprise?.url || ''}
-            />
-            <Box
-              sx={{
-                alignItems: 'center',
-                display: 'flex',
-                height: 40,
-                ml: 1,
-                mr: 1,
-              }}
-            >
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={!!config.apprise?.include_prefix}
-                    onChange={(e) => handleAppriseChange('include_prefix', e.target.checked)}
-                  />
-                }
-                label={`Include MouseTrap prefix in title`}
-                sx={{ m: 0 }}
-              />
-            </Box>
-          </Box>
-          <Box
-            sx={{
-              alignItems: 'flex-start',
-              display: 'flex',
-              gap: 2,
-              mb: 2,
-              width: '100%',
-            }}
-          >
-            <TextField
-              helperText={
-                <>
-                  Comma-separated Apprise URLs. See the &nbsp;
-                  <a
-                    href="https://github.com/caronc/apprise/wiki#notification-services"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: '#1976d2',
-                      fontWeight: 500,
-                      textDecoration: 'underline',
-                    }}
-                    target="_blank"
-                  >
-                    Apprise docs
-                  </a>
-                  .
-                </>
-              }
-              label="Notify URL String"
-              minRows={showNotifyString ? 2 : undefined}
-              multiline={showNotifyString}
-              onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
-              size="small"
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        aria-label={
-                          showNotifyString ? 'Hide notify URL string' : 'Show notify URL string'
-                        }
-                        edge="end"
-                        onClick={() => setShowNotifyString((v) => !v)}
+                    TEST
+                  </Button>
+                </Box>
+              </Box>
+              <Divider sx={{ my: 3 }} />
+              <Box sx={{ alignItems: 'center', display: 'flex', mb: 1 }}>
+                <Typography variant="subtitle1">SMTP Email</Typography>
+                <Tooltip
+                  arrow
+                  title={
+                    <div style={{ maxWidth: 320 }}>
+                      <b>Gmail SMTP Setup:</b>
+                      <br />
+                      Use <b>smtp.gmail.com</b> as host.
+                      <br />
+                      Port <b>587</b> for TLS, <b>465</b> for SSL.
+                      <br />
+                      You must create an <b>App Password</b> (not your main password).
+                      <br />
+                      <a
+                        href="https://support.google.com/mail/answer/185833?hl=en"
+                        rel="noopener noreferrer"
+                        target="_blank"
                       >
-                        {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-              sx={{ maxWidth: 600, minWidth: 350 }}
-              type={showNotifyString ? 'text' : 'password'}
-              value={config.apprise?.notify_url_string || ''}
-            />
-            <Box
-              sx={{
-                alignItems: 'center',
-                display: 'flex',
-                flex: 1,
-                height: 40,
-                justifyContent: 'flex-end',
-              }}
-            >
-              <Button
-                disabled={testLoading || !config.apprise?.url || !config.apprise?.notify_url_string}
-                onClick={handleTestApprise}
-                sx={{ minWidth: 80 }}
-                variant="outlined"
+                        Create App Password
+                      </a>
+                      <br />
+                      <a
+                        href="https://support.google.com/a/answer/176600?hl=en"
+                        rel="noopener noreferrer"
+                        target="_blank"
+                      >
+                        SMTP Setup Instructions
+                      </a>
+                    </div>
+                  }
+                >
+                  <IconButton size="small" sx={{ ml: 1 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <TextField
+                  label="SMTP Host"
+                  onChange={(e) => handleSmtpChange('host', e.target.value)}
+                  size="small"
+                  sx={{ maxWidth: 600, width: 350 }}
+                  value={config.smtp?.host || ''}
+                />
+                <TextField
+                  label="SMTP Port"
+                  onChange={(e) => handleSmtpChange('port', e.target.value)}
+                  size="small"
+                  sx={{ width: 120 }}
+                  type="number"
+                  value={config.smtp?.port || ''}
+                />
+              </Box>
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                <TextField
+                  label="Username"
+                  onChange={(e) => handleSmtpChange('username', e.target.value)}
+                  size="small"
+                  sx={{ maxWidth: 600, width: 350 }}
+                  value={config.smtp?.username || ''}
+                />
+                <TextField
+                  label="Password"
+                  onChange={(e) => handleSmtpChange('password', e.target.value)}
+                  size="small"
+                  sx={{ width: 220 }}
+                  type="password"
+                  value={config.smtp?.password || ''}
+                />
+              </Box>
+              <Box
+                sx={{
+                  alignItems: 'center',
+                  display: 'flex',
+                  gap: 2,
+                  mb: 2,
+                  width: '100%',
+                }}
               >
-                TEST
-              </Button>
-            </Box>
-          </Box>
+                <TextField
+                  label="To Email"
+                  onChange={(e) => handleSmtpChange('to_email', e.target.value)}
+                  size="small"
+                  sx={{ maxWidth: 600, width: 350 }}
+                  value={config.smtp?.to_email || ''}
+                />
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={!!config.smtp?.use_tls}
+                      onChange={(e) => handleSmtpChange('use_tls', e.target.checked)}
+                    />
+                  }
+                  label="Use TLS"
+                  sx={{ ml: 1, mr: 1 }}
+                />
+                <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={testLoading}
+                    onClick={handleTestSmtp}
+                    sx={{ minWidth: 80 }}
+                    variant="outlined"
+                  >
+                    TEST
+                  </Button>
+                </Box>
+              </Box>
+              <Divider sx={{ my: 3 }} />
+              <Typography sx={{ mt: 2 }} variant="subtitle1">
+                Apprise
+              </Typography>
+              <Box
+                sx={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  gap: 2,
+                  mb: 2,
+                  width: '100%',
+                }}
+              >
+                <TextField
+                  helperText="Apprise location (e.g., http://localhost:8000)."
+                  label="Apprise URL"
+                  onChange={(e) => handleAppriseChange('url', e.target.value)}
+                  size="small"
+                  sx={{ maxWidth: 600, minWidth: 350 }}
+                  value={config.apprise?.url || ''}
+                />
+                <Box
+                  sx={{
+                    alignItems: 'center',
+                    display: 'flex',
+                    height: 40,
+                    ml: 1,
+                    mr: 1,
+                  }}
+                >
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={!!config.apprise?.include_prefix}
+                        onChange={(e) => handleAppriseChange('include_prefix', e.target.checked)}
+                      />
+                    }
+                    label={`Include MouseTrap prefix in title`}
+                    sx={{ m: 0 }}
+                  />
+                </Box>
+              </Box>
+              <Box
+                sx={{
+                  alignItems: 'flex-start',
+                  display: 'flex',
+                  gap: 2,
+                  mb: 2,
+                  width: '100%',
+                }}
+              >
+                <TextField
+                  helperText={
+                    <>
+                      Comma-separated Apprise URLs. See the &nbsp;
+                      <a
+                        href="https://github.com/caronc/apprise/wiki#notification-services"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: '#1976d2',
+                          fontWeight: 500,
+                          textDecoration: 'underline',
+                        }}
+                        target="_blank"
+                      >
+                        Apprise docs
+                      </a>
+                      .
+                    </>
+                  }
+                  label="Notify URL String"
+                  minRows={showNotifyString ? 2 : undefined}
+                  multiline={showNotifyString}
+                  onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
+                  size="small"
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={
+                              showNotifyString ? 'Hide notify URL string' : 'Show notify URL string'
+                            }
+                            edge="end"
+                            onClick={() => setShowNotifyString((v) => !v)}
+                          >
+                            {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{ maxWidth: 600, minWidth: 350 }}
+                  type={showNotifyString ? 'text' : 'password'}
+                  value={config.apprise?.notify_url_string || ''}
+                />
+                <Box
+                  sx={{
+                    alignItems: 'center',
+                    display: 'flex',
+                    flex: 1,
+                    height: 40,
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  <Button
+                    disabled={
+                      testLoading || !config.apprise?.url || !config.apprise?.notify_url_string
+                    }
+                    onClick={handleTestApprise}
+                    sx={{ minWidth: 80 }}
+                    variant="outlined"
+                  >
+                    TEST
+                  </Button>
+                </Box>
+              </Box>
+            </AccordionDetails>
+          </Accordion>
+
           <Divider sx={{ my: 3 }} />
           <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Button disabled={saving} onClick={handleSave} variant="contained">

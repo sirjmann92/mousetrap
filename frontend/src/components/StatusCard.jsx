@@ -32,7 +32,8 @@ import TimerDisplay from './TimerDisplay';
 const StatusCard = forwardRef(
   /** @param {StatusCardProps} props */
   function StatusCard({ autoWedge, autoVIP, autoUpload, onStatusUpdate }, ref) {
-    const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus } = useSession();
+    const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus, prowlarr } =
+      useSession();
     // Removed local status/setStatus, use context only
     // Timer is now derived from backend only; no local countdown
     const [timer, setTimer] = useState(0);
@@ -230,6 +231,36 @@ const StatusCard = forwardRef(
       }
     };
 
+    // Handler for 'Update Prowlarr' button
+    const [prowlarrLoading, setProwlarrLoading] = useState(false);
+    const handleUpdateProwlarr = async () => {
+      if (!sessionLabel) return;
+      setProwlarrLoading(true);
+      try {
+        const res = await fetch('/api/prowlarr/update', {
+          body: JSON.stringify({ label: sessionLabel }),
+          headers: { 'Content-Type': 'application/json' },
+          method: 'POST',
+        });
+        const data = await res.json();
+        setSnackbar({
+          message: data.success
+            ? data.message || 'Prowlarr updated!'
+            : data.message || 'Update failed',
+          open: true,
+          severity: data.success ? 'success' : 'warning',
+        });
+      } catch (e) {
+        setSnackbar({
+          message: `Prowlarr update failed: ${e.message}`,
+          open: true,
+          severity: 'error',
+        });
+      } finally {
+        setProwlarrLoading(false);
+      }
+    };
+
     // Expose a method for parent to force a status refresh (e.g., after session save)
     useImperativeHandle(ref, () => ({
       fetchStatus,
@@ -387,6 +418,27 @@ const StatusCard = forwardRef(
                     variant="contained"
                   >
                     {seedboxLoading ? 'Updating...' : 'Update Seedbox'}
+                  </Button>
+                </span>
+              </Tooltip>
+              <Tooltip title="Updates MAM ID in Prowlarr">
+                <span>
+                  <Button
+                    color="info"
+                    disabled={
+                      prowlarrLoading ||
+                      !sessionLabel ||
+                      !prowlarr?.enabled ||
+                      !prowlarr?.host?.trim() ||
+                      !(prowlarr?.port || 9696) ||
+                      !prowlarr?.api_key?.trim()
+                    }
+                    onClick={handleUpdateProwlarr}
+                    size="small"
+                    sx={{ ml: 2 }}
+                    variant="contained"
+                  >
+                    {prowlarrLoading ? 'Updating...' : 'Update Prowlarr'}
                   </Button>
                 </span>
               </Tooltip>

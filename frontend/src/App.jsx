@@ -46,6 +46,8 @@ export default function App() {
     setProxy,
     setProxiedIp,
     setProxiedAsn,
+    setProwlarr,
+    setMamSessionCreatedDate,
   } = useSession();
   // State for automation and perks
   const [autoWedge, setAutoWedge] = React.useState(false);
@@ -97,6 +99,8 @@ export default function App() {
         setProxy(cfg?.proxy ?? {});
         setProxiedIp(cfg?.proxied_public_ip ?? '');
         setProxiedAsn(cfg?.proxied_public_ip_asn ?? '');
+        setProwlarr(cfg?.prowlarr ?? {});
+        setMamSessionCreatedDate(cfg?.mam_session_created_date ?? null);
       } catch (_e) {
         // handle error
       }
@@ -112,6 +116,8 @@ export default function App() {
       setProxy,
       setProxiedIp,
       setProxiedAsn,
+      setProwlarr,
+      setMamSessionCreatedDate,
     ],
   );
 

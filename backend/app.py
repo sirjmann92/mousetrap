@@ -51,6 +51,11 @@ from backend.millionaires_vault_cookies import (
 )
 from backend.notifications_backend import notify_event
 from backend.port_monitor import port_monitor_manager
+from backend.prowlarr_integration import (
+    find_mam_indexer_id,
+    sync_mam_id_to_prowlarr,
+    test_prowlarr_connection,
+)
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils import build_proxy_dict, build_status_message, extract_asn_number, setup_logging
 from backend.vault_config import (
@@ -119,6 +124,22 @@ session_status_cache: dict[str, Any] = {}
 # Global cache for notification deduplication by MAM ID
 # Format: {mam_id: {event_type: {count_change_key: timestamp}}}
 notification_dedup_cache: dict[str, dict[str, dict[str, float]]] = {}
+
+
+def redact_mam_id(mam_id: str, show_last: int = 8) -> str:
+    """Redact MAM ID for security, showing only the last N characters.
+
+    Args:
+        mam_id: The full MAM ID
+        show_last: Number of characters to show at the end (default 8)
+
+    Returns:
+        Redacted string like "MAM ID ending in ...abcd1234"
+    """
+    if not mam_id or len(mam_id) <= show_last:
+        return "MAM ID ending in " + ("*" * show_last)
+
+    return f"MAM ID ending in ...{mam_id[-show_last:]}"
 
 
 def should_send_notification(
@@ -311,6 +332,112 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
             )
 
 
+def check_mam_session_expiry() -> None:
+    """Check all sessions for approaching MAM session expiry and send notifications.
+
+    This runs daily to check if any sessions with Prowlarr integration have
+    MAM sessions that are approaching the 90-day expiry limit.
+    """
+    _logger.info("[ExpiryCheck] Checking MAM session expiry for all sessions")
+
+    try:
+        sessions = list_sessions()
+        for label in sessions:
+            try:
+                cfg = load_session(label)
+                prowlarr_cfg = cfg.get("prowlarr", {})
+
+                # Skip if Prowlarr not enabled or no created date
+                if not prowlarr_cfg.get("enabled"):
+                    continue
+
+                created_date_str = cfg.get("mam_session_created_date")
+                if not created_date_str:
+                    continue
+
+                # Parse the created date
+                try:
+                    # Handle both ISO format with timezone and datetime-local format
+                    if "T" in created_date_str and len(created_date_str) == 16:
+                        # datetime-local format: YYYY-MM-DDTHH:MM
+                        created_date = datetime.fromisoformat(created_date_str)
+                    else:
+                        # ISO format with timezone
+                        created_date = datetime.fromisoformat(created_date_str)
+                except (ValueError, AttributeError) as e:
+                    _logger.warning(
+                        "[ExpiryCheck] Invalid date format for session '%s': %s", label, e
+                    )
+                    continue
+
+                # Calculate expiry (90 days from creation)
+                expiry_date = created_date + timedelta(days=90)
+                days_until_expiry = (expiry_date - datetime.now()).days
+
+                # Check if we should notify
+                notify_days = prowlarr_cfg.get("notify_before_expiry_days", 7)
+
+                if days_until_expiry <= notify_days and days_until_expiry >= 0:
+                    _logger.info(
+                        "[ExpiryCheck] Session '%s' expires in %d days - sending notification",
+                        label,
+                        days_until_expiry,
+                    )
+
+                    # Get MAM ID and redact for security
+                    mam_id = cfg.get("mam", {}).get("mam_id", "N/A")
+                    redacted_mam_id = redact_mam_id(mam_id) if mam_id != "N/A" else "N/A"
+
+                    # Prepare notification message
+                    message = (
+                        f"⚠️ MAM Session Expiring Soon!\n\n"
+                        f"Session: {label}\n"
+                        f"{redacted_mam_id}\n"
+                        f"Created: {created_date.strftime('%Y-%m-%d %H:%M')}\n"
+                        f"Expires: {expiry_date.strftime('%Y-%m-%d %H:%M')}\n"
+                        f"Days Remaining: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''}\n\n"
+                        f"You will need to refresh your MAM session and update Prowlarr.\n"
+                    )
+
+                    if prowlarr_cfg.get("host"):
+                        message += (
+                            f"Prowlarr: {prowlarr_cfg['host']}:{prowlarr_cfg.get('port', 9696)}"
+                        )
+
+                    details = {
+                        "session_label": label,
+                        "mam_id": redacted_mam_id,  # Use redacted version in details too
+                        "created_date": created_date.isoformat(),
+                        "expiry_date": expiry_date.isoformat(),
+                        "days_remaining": days_until_expiry,
+                        "prowlarr_host": prowlarr_cfg.get("host", "N/A"),
+                    }
+
+                    # Send notification asynchronously
+                    asyncio.run(
+                        notify_event(
+                            event_type="mam_session_expiry",
+                            label=label,
+                            status="WARNING",
+                            message=message,
+                            details=details,
+                        )
+                    )
+
+                elif days_until_expiry < 0:
+                    _logger.warning(
+                        "[ExpiryCheck] Session '%s' expired %d days ago!",
+                        label,
+                        abs(days_until_expiry),
+                    )
+
+            except Exception as e:
+                _logger.error("[ExpiryCheck] Error checking session '%s': %s", label, e)
+
+    except Exception as e:
+        _logger.error("[ExpiryCheck] Error in MAM expiry check: %s", e)
+
+
 # Start PortMonitorStackManager monitor loop on FastAPI startup
 @app.on_event("startup")  # type: ignore[deprecated]
 def start_port_monitor_manager() -> None:
@@ -357,6 +484,20 @@ async def initialize_scheduler() -> None:
         _logger.info("[APScheduler] Registered automation jobs to run every 10 min")
     except Exception as e:
         _logger.error("[APScheduler] Failed to register automation jobs: %s", e)
+
+    # Register MAM session expiry check to run daily
+    try:
+        scheduler.add_job(
+            check_mam_session_expiry,
+            trigger=IntervalTrigger(hours=24),
+            id="check_mam_expiry",
+            replace_existing=True,
+            coalesce=True,
+            max_instances=1,
+        )
+        _logger.info("[APScheduler] Registered MAM session expiry check to run daily")
+    except Exception as e:
+        _logger.error("[APScheduler] Failed to register MAM expiry check: %s", e)
 
     # Start scheduler AFTER all jobs are registered
     scheduler.start()
@@ -1307,6 +1448,7 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                     "old_label": old_label,
                     "timestamp": datetime.now(UTC).isoformat(),
                     "user_action": True,
+                    "status_message": f"Session '{label}' saved.",
                 }
             )
 
@@ -1319,12 +1461,75 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                     scheduler.remove_job(old_job_id)
                     _logger.info("[APScheduler] Removed job for renamed session '%s'", old_label)
 
+                # Update vault configurations that reference the old session label
+                try:
+                    from backend.vault_config import (  # noqa: PLC0415
+                        update_session_label_references,
+                    )
+
+                    if update_session_label_references(old_label, label):
+                        _logger.info(
+                            "[Session] Updated vault config references: %s -> %s", old_label, label
+                        )
+                except Exception as vault_err:
+                    _logger.error(
+                        "[Session] Failed to update vault config references: %s", vault_err
+                    )
+
             # Register/update the job for the current session
             register_session_job(label)
         except Exception as e:
             _logger.error(
                 "[APScheduler] Failed to manage session job for '%s' after save: %s", label, e
             )
+
+        # Auto-update Prowlarr if enabled and MAM ID changed
+        prowlarr_cfg = cfg.get("prowlarr", {})
+        if prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save"):
+            # Check if MAM ID actually changed
+            new_mam_id = cfg.get("mam", {}).get("mam_id")
+            prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
+
+            if new_mam_id and new_mam_id != prev_mam_id:
+                try:
+                    from backend.prowlarr_integration import (  # noqa: PLC0415
+                        sync_mam_id_to_prowlarr,
+                    )
+
+                    _logger.info(
+                        "[Prowlarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                        label,
+                        prev_mam_id,
+                        new_mam_id,
+                    )
+                    result = await sync_mam_id_to_prowlarr(cfg, new_mam_id)
+                    if result.get("success"):
+                        _logger.info("[Prowlarr] Auto-update successful: %s", result.get("message"))
+                        append_ui_event_log(
+                            {
+                                "event": "prowlarr_auto_updated",
+                                "label": label,
+                                "timestamp": datetime.now(UTC).isoformat(),
+                                "user_action": False,
+                                "status_message": result.get(
+                                    "message", "MAM ID synced to Prowlarr"
+                                ),
+                            }
+                        )
+                    else:
+                        _logger.warning("[Prowlarr] Auto-update failed: %s", result.get("message"))
+                except Exception as e:
+                    _logger.error("[Prowlarr] Auto-update error for session '%s': %s", label, e)
+            elif new_mam_id == prev_mam_id:
+                _logger.debug(
+                    "[Prowlarr] Auto-update skipped for session '%s' (MAM ID unchanged: %s)",
+                    label,
+                    new_mam_id,
+                )
+            else:
+                _logger.debug(
+                    "[Prowlarr] Auto-update skipped for session '%s' (no MAM ID provided)", label
+                )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
@@ -1549,6 +1754,214 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
     except Exception as e:
         _logger.error("[SeedboxUpdate] Failed: %s", e)
         return {"success": False, "error": str(e)}
+
+
+# PROWLARR INTEGRATION ENDPOINTS
+
+
+@app.post("/api/prowlarr/test_expiry_notification")
+async def api_test_expiry_notification(request: Request) -> dict[str, Any]:
+    """Manually trigger a test MAM session expiry notification.
+
+    Expects JSON with: label (session label)
+    This is for testing the notification system without waiting for actual expiry.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label", "").strip()
+
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        # Load session
+        cfg = load_session(label)
+        if not cfg:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        prowlarr_cfg = cfg.get("prowlarr", {})
+        if not prowlarr_cfg.get("enabled"):
+            return {"success": False, "message": "Prowlarr not enabled for this session"}
+
+        # Get created date or simulate one
+        created_date_str = cfg.get("mam_session_created_date")
+        if created_date_str:
+            try:
+                if "T" in created_date_str and len(created_date_str) == 16:
+                    created_date = datetime.fromisoformat(created_date_str)
+                else:
+                    created_date = datetime.fromisoformat(created_date_str)
+            except Exception:
+                created_date = datetime.now() - timedelta(days=85)
+        else:
+            # Simulate a session expiring in 5 days
+            created_date = datetime.now() - timedelta(days=85)
+
+        expiry_date = created_date + timedelta(days=90)
+        days_until_expiry = (expiry_date - datetime.now()).days
+
+        # Get MAM ID and redact for security
+        mam_id = cfg.get("mam", {}).get("mam_id", "N/A")
+        redacted_mam_id = redact_mam_id(mam_id) if mam_id != "N/A" else "N/A"
+
+        # Prepare test notification message
+        message = (
+            f"⚠️ MAM Session Expiring Soon! [TEST NOTIFICATION]\n\n"
+            f"Session: {label}\n"
+            f"{redacted_mam_id}\n"
+            f"Created: {created_date.strftime('%Y-%m-%d %H:%M')}\n"
+            f"Expires: {expiry_date.strftime('%Y-%m-%d %H:%M')}\n"
+            f"Days Remaining: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''}\n\n"
+            f"You will need to refresh your MAM session and update Prowlarr.\n"
+        )
+
+        if prowlarr_cfg.get("host"):
+            message += f"Prowlarr: {prowlarr_cfg['host']}:{prowlarr_cfg.get('port', 9696)}"
+
+        details = {
+            "session_label": label,
+            "mam_id": redacted_mam_id,  # Use redacted version in details too
+            "created_date": created_date.isoformat(),
+            "expiry_date": expiry_date.isoformat(),
+            "days_remaining": days_until_expiry,
+            "prowlarr_host": prowlarr_cfg.get("host", "N/A"),
+            "test_notification": True,
+        }
+
+        _logger.info("[Prowlarr] Sending test expiry notification for session '%s'", label)
+
+        # Send test notification
+        await notify_event(
+            event_type="mam_session_expiry",
+            label=label,
+            status="WARNING",
+            message=message,
+            details=details,
+        )
+
+        return {
+            "success": True,
+            "message": f"Test notification sent for session '{label}'",
+            "details": {
+                "created": created_date.strftime("%Y-%m-%d %H:%M"),
+                "expires": expiry_date.strftime("%Y-%m-%d %H:%M"),
+                "days_remaining": days_until_expiry,
+            },
+        }
+
+    except Exception as e:
+        _logger.exception("[Prowlarr] Failed to send test expiry notification")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/prowlarr/test")
+async def api_prowlarr_test(request: Request) -> dict[str, Any]:
+    """Test Prowlarr API connectivity.
+
+    Expects JSON with: host, port, api_key
+    """
+    try:
+        data = await request.json()
+        host = data.get("host", "").strip()
+        port = data.get("port")
+        api_key = data.get("api_key", "").strip()
+
+        _logger.debug(
+            "[Prowlarr] Test connection request - host: %s, port: %s (type: %s), api_key: %s",
+            host,
+            port,
+            type(port).__name__,
+            "***" + api_key[-4:] if api_key and len(api_key) > 4 else "***",
+        )
+
+        if not host or port is None or not api_key:
+            return {"success": False, "message": "Missing required fields"}
+
+        return await test_prowlarr_connection(host, port, api_key)
+    except Exception as e:
+        _logger.exception("Prowlarr test failed")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/prowlarr/find_indexer")
+async def api_prowlarr_find_indexer(request: Request) -> dict[str, Any]:
+    """Find MyAnonamouse indexer ID in Prowlarr.
+
+    Expects JSON with: host, port, api_key
+    """
+    try:
+        data = await request.json()
+        host = data.get("host", "").strip()
+        port = data.get("port")
+        api_key = data.get("api_key", "").strip()
+
+        if not all([host, port, api_key]):
+            return {"success": False, "message": "Missing required fields"}
+
+        return await find_mam_indexer_id(host, port, api_key)
+    except Exception as e:
+        _logger.exception("Failed to find MAM indexer")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/prowlarr/update")
+async def api_prowlarr_update(request: Request) -> dict[str, Any]:
+    """Update MAM ID in Prowlarr for a session.
+
+    Expects JSON with:
+    - label: session label
+    - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        cfg = load_session(label)
+        if cfg is None:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        # Use provided mam_id or fall back to session config
+        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        if not mam_id:
+            return {
+                "success": False,
+                "message": "MAM ID not configured in session and not provided",
+            }
+
+        result = await sync_mam_id_to_prowlarr(cfg, mam_id)
+        if result["success"]:
+            # Log success event
+            append_ui_event_log(
+                {
+                    "event": "prowlarr_manual_update",
+                    "label": label,
+                    "event_type": "prowlarr_update",
+                    "status_message": f"Updated Prowlarr MAM ID to {mam_id}",
+                    "user_action": True,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+        return result  # noqa: TRY300
+    except Exception as e:
+        _logger.exception("Failed to update Prowlarr")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.get("/api/server_time")
+def api_server_time() -> dict[str, Any]:
+    """Return current server time in local timezone (ISO format)."""
+    from zoneinfo import ZoneInfo  # noqa: PLC0415
+
+    # Get timezone from environment variable or default to UTC
+    tz_name = os.environ.get("TZ", "UTC")
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = ZoneInfo("UTC")
+
+    now = datetime.now(tz)
+    return {"server_time": now.isoformat()}
 
 
 # MILLIONAIRE'S VAULT COOKIE ENDPOINTS

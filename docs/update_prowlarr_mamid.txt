@@ -1,0 +1,1189 @@
+curl -X PUT "http://localhost:9696/api/v1/indexer/160" -H "X-Api-Key: REDACTED" -H "Content-Type: application/json" -d @mam_indexer_updated.json
+
+# One-liner
+curl -s -H "X-Api-Key: API_KEY" "http://localhost:9696/api/v1/indexer/160" \
+| jq '.fields |= map(if .name == "mamId" then .value = "NEW_MAM_ID" else . end)' \
+| curl -X PUT "http://localhost:9696/api/v1/indexer/160" \
+   -H "X-Api-Key: API_KEY" -H "Content-Type: application/json" -d @-
+
+{
+  "indexerUrls": [
+    "https://www.myanonamouse.net/"
+  ],
+  "legacyUrls": [],
+  "definitionName": "MyAnonamouse",
+  "description": "MyAnonaMouse (MAM) is a large ebook and audiobook tracker.",
+  "language": "en-US",
+  "encoding": "Unicode (UTF-8)",
+  "enable": true,
+  "redirect": false,
+  "supportsRss": true,
+  "supportsSearch": true,
+  "supportsRedirect": false,
+  "supportsPagination": true,
+  "appProfileId": 1,
+  "protocol": "torrent",
+  "privacy": "private",
+  "capabilities": {
+    "limitsMax": 100,
+    "limitsDefault": 100,
+    "categories": [
+      {
+        "id": 3000,
+        "name": "Audio",
+        "subCategories": [
+          {
+            "id": 3030,
+            "name": "Audio/Audiobook",
+            "subCategories": []
+          }
+        ]
+      },
+      {
+        "id": 100013,
+        "name": "AudioBooks",
+        "subCategories": []
+      },
+      {
+        "id": 7000,
+        "name": "Books",
+        "subCategories": [
+          {
+            "id": 7020,
+            "name": "Books/EBook",
+            "subCategories": []
+          },
+          {
+            "id": 7030,
+            "name": "Books/Comics",
+            "subCategories": []
+          },
+          {
+            "id": 7010,
+            "name": "Books/Mags",
+            "subCategories": []
+          },
+          {
+            "id": 7040,
+            "name": "Books/Technical",
+            "subCategories": []
+          }
+        ]
+      },
+      {
+        "id": 100014,
+        "name": "E-Books",
+        "subCategories": []
+      },
+      {
+        "id": 100015,
+        "name": "Musicology",
+        "subCategories": []
+      },
+      {
+        "id": 100016,
+        "name": "Radio",
+        "subCategories": []
+      },
+      {
+        "id": 100039,
+        "name": "Audiobooks - Action/Adventure",
+        "subCategories": []
+      },
+      {
+        "id": 100049,
+        "name": "Audiobooks - Art",
+        "subCategories": []
+      },
+      {
+        "id": 100050,
+        "name": "Audiobooks - Biographical",
+        "subCategories": []
+      },
+      {
+        "id": 100083,
+        "name": "Audiobooks - Business",
+        "subCategories": []
+      },
+      {
+        "id": 100051,
+        "name": "Audiobooks - Computer/Internet",
+        "subCategories": []
+      },
+      {
+        "id": 100097,
+        "name": "Audiobooks - Crafts",
+        "subCategories": []
+      },
+      {
+        "id": 100040,
+        "name": "Audiobooks - Crime/Thriller",
+        "subCategories": []
+      },
+      {
+        "id": 100041,
+        "name": "Audiobooks - Fantasy",
+        "subCategories": []
+      },
+      {
+        "id": 100106,
+        "name": "Audiobooks - Food",
+        "subCategories": []
+      },
+      {
+        "id": 100042,
+        "name": "Audiobooks - General Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100052,
+        "name": "Audiobooks - General Non-Fic",
+        "subCategories": []
+      },
+      {
+        "id": 100098,
+        "name": "Audiobooks - Historical Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100054,
+        "name": "Audiobooks - History",
+        "subCategories": []
+      },
+      {
+        "id": 100055,
+        "name": "Audiobooks - Home/Garden",
+        "subCategories": []
+      },
+      {
+        "id": 100043,
+        "name": "Audiobooks - Horror",
+        "subCategories": []
+      },
+      {
+        "id": 100099,
+        "name": "Audiobooks - Humor",
+        "subCategories": []
+      },
+      {
+        "id": 100084,
+        "name": "Audiobooks - Instructional",
+        "subCategories": []
+      },
+      {
+        "id": 100044,
+        "name": "Audiobooks - Juvenile",
+        "subCategories": []
+      },
+      {
+        "id": 100056,
+        "name": "Audiobooks - Language",
+        "subCategories": []
+      },
+      {
+        "id": 100045,
+        "name": "Audiobooks - Literary Classics",
+        "subCategories": []
+      },
+      {
+        "id": 100057,
+        "name": "Audiobooks - Math/Science/Tech",
+        "subCategories": []
+      },
+      {
+        "id": 100085,
+        "name": "Audiobooks - Medical",
+        "subCategories": []
+      },
+      {
+        "id": 100087,
+        "name": "Audiobooks - Mystery",
+        "subCategories": []
+      },
+      {
+        "id": 100119,
+        "name": "Audiobooks - Nature",
+        "subCategories": []
+      },
+      {
+        "id": 100088,
+        "name": "Audiobooks - Philosophy",
+        "subCategories": []
+      },
+      {
+        "id": 100058,
+        "name": "Audiobooks - Pol/Soc/Relig",
+        "subCategories": []
+      },
+      {
+        "id": 100059,
+        "name": "Audiobooks - Recreation",
+        "subCategories": []
+      },
+      {
+        "id": 100046,
+        "name": "Audiobooks - Romance",
+        "subCategories": []
+      },
+      {
+        "id": 100047,
+        "name": "Audiobooks - Science Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100053,
+        "name": "Audiobooks - Self-Help",
+        "subCategories": []
+      },
+      {
+        "id": 100089,
+        "name": "Audiobooks - Travel/Adventure",
+        "subCategories": []
+      },
+      {
+        "id": 100100,
+        "name": "Audiobooks - True Crime",
+        "subCategories": []
+      },
+      {
+        "id": 100108,
+        "name": "Audiobooks - Urban Fantasy",
+        "subCategories": []
+      },
+      {
+        "id": 100048,
+        "name": "Audiobooks - Western",
+        "subCategories": []
+      },
+      {
+        "id": 100111,
+        "name": "Audiobooks - Young Adult",
+        "subCategories": []
+      },
+      {
+        "id": 100060,
+        "name": "Ebooks - Action/Adventure",
+        "subCategories": []
+      },
+      {
+        "id": 100071,
+        "name": "Ebooks - Art",
+        "subCategories": []
+      },
+      {
+        "id": 100072,
+        "name": "Ebooks - Biographical",
+        "subCategories": []
+      },
+      {
+        "id": 100090,
+        "name": "Ebooks - Business",
+        "subCategories": []
+      },
+      {
+        "id": 100061,
+        "name": "Ebooks - Comics/Graphic novels",
+        "subCategories": []
+      },
+      {
+        "id": 100073,
+        "name": "Ebooks - Computer/Internet",
+        "subCategories": []
+      },
+      {
+        "id": 100101,
+        "name": "Ebooks - Crafts",
+        "subCategories": []
+      },
+      {
+        "id": 100062,
+        "name": "Ebooks - Crime/Thriller",
+        "subCategories": []
+      },
+      {
+        "id": 100063,
+        "name": "Ebooks - Fantasy",
+        "subCategories": []
+      },
+      {
+        "id": 100107,
+        "name": "Ebooks - Food",
+        "subCategories": []
+      },
+      {
+        "id": 100064,
+        "name": "Ebooks - General Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100074,
+        "name": "Ebooks - General Non-Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100102,
+        "name": "Ebooks - Historical Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100076,
+        "name": "Ebooks - History",
+        "subCategories": []
+      },
+      {
+        "id": 100077,
+        "name": "Ebooks - Home/Garden",
+        "subCategories": []
+      },
+      {
+        "id": 100065,
+        "name": "Ebooks - Horror",
+        "subCategories": []
+      },
+      {
+        "id": 100103,
+        "name": "Ebooks - Humor",
+        "subCategories": []
+      },
+      {
+        "id": 100115,
+        "name": "Ebooks - Illusion/Magic",
+        "subCategories": []
+      },
+      {
+        "id": 100091,
+        "name": "Ebooks - Instructional",
+        "subCategories": []
+      },
+      {
+        "id": 100066,
+        "name": "Ebooks - Juvenile",
+        "subCategories": []
+      },
+      {
+        "id": 100078,
+        "name": "Ebooks - Language",
+        "subCategories": []
+      },
+      {
+        "id": 100067,
+        "name": "Ebooks - Literary Classics",
+        "subCategories": []
+      },
+      {
+        "id": 100079,
+        "name": "Ebooks - Magazines/Newspapers",
+        "subCategories": []
+      },
+      {
+        "id": 100080,
+        "name": "Ebooks - Math/Science/Tech",
+        "subCategories": []
+      },
+      {
+        "id": 100092,
+        "name": "Ebooks - Medical",
+        "subCategories": []
+      },
+      {
+        "id": 100118,
+        "name": "Ebooks - Mixed Collections",
+        "subCategories": []
+      },
+      {
+        "id": 100094,
+        "name": "Ebooks - Mystery",
+        "subCategories": []
+      },
+      {
+        "id": 100120,
+        "name": "Ebooks - Nature",
+        "subCategories": []
+      },
+      {
+        "id": 100095,
+        "name": "Ebooks - Philosophy",
+        "subCategories": []
+      },
+      {
+        "id": 100081,
+        "name": "Ebooks - Pol/Soc/Relig",
+        "subCategories": []
+      },
+      {
+        "id": 100082,
+        "name": "Ebooks - Recreation",
+        "subCategories": []
+      },
+      {
+        "id": 100068,
+        "name": "Ebooks - Romance",
+        "subCategories": []
+      },
+      {
+        "id": 100069,
+        "name": "Ebooks - Science Fiction",
+        "subCategories": []
+      },
+      {
+        "id": 100075,
+        "name": "Ebooks - Self-Help",
+        "subCategories": []
+      },
+      {
+        "id": 100096,
+        "name": "Ebooks - Travel/Adventure",
+        "subCategories": []
+      },
+      {
+        "id": 100104,
+        "name": "Ebooks - True Crime",
+        "subCategories": []
+      },
+      {
+        "id": 100109,
+        "name": "Ebooks - Urban Fantasy",
+        "subCategories": []
+      },
+      {
+        "id": 100070,
+        "name": "Ebooks - Western",
+        "subCategories": []
+      },
+      {
+        "id": 100112,
+        "name": "Ebooks - Young Adult",
+        "subCategories": []
+      },
+      {
+        "id": 100019,
+        "name": "Guitar/Bass Tabs",
+        "subCategories": []
+      },
+      {
+        "id": 100020,
+        "name": "Individual Sheet",
+        "subCategories": []
+      },
+      {
+        "id": 100024,
+        "name": "Individual Sheet MP3",
+        "subCategories": []
+      },
+      {
+        "id": 100126,
+        "name": "Instructional Book with Video",
+        "subCategories": []
+      },
+      {
+        "id": 100022,
+        "name": "Instructional Media - Music",
+        "subCategories": []
+      },
+      {
+        "id": 100113,
+        "name": "Lick Library - LTP/Jam With",
+        "subCategories": []
+      },
+      {
+        "id": 100114,
+        "name": "Lick Library - Techniques/QL",
+        "subCategories": []
+      },
+      {
+        "id": 100017,
+        "name": "Music - Complete Editions",
+        "subCategories": []
+      },
+      {
+        "id": 100026,
+        "name": "Music Book",
+        "subCategories": []
+      },
+      {
+        "id": 100027,
+        "name": "Music Book MP3",
+        "subCategories": []
+      },
+      {
+        "id": 100030,
+        "name": "Sheet Collection",
+        "subCategories": []
+      },
+      {
+        "id": 100031,
+        "name": "Sheet Collection MP3",
+        "subCategories": []
+      },
+      {
+        "id": 100127,
+        "name": "Radio -  Comedy",
+        "subCategories": []
+      },
+      {
+        "id": 100130,
+        "name": "Radio - Drama",
+        "subCategories": []
+      },
+      {
+        "id": 100128,
+        "name": "Radio - Factual/Documentary",
+        "subCategories": []
+      },
+      {
+        "id": 100132,
+        "name": "Radio - Reading",
+        "subCategories": []
+      }
+    ],
+    "supportsRawSearch": false,
+    "searchParams": [
+      "q"
+    ],
+    "tvSearchParams": [],
+    "movieSearchParams": [],
+    "musicSearchParams": [],
+    "bookSearchParams": [
+      "q"
+    ]
+  },
+  "priority": 5,
+  "downloadClientId": 0,
+  "added": "2025-04-20T00:51:59Z",
+  "sortName": "myanonamouse",
+  "name": "MyAnonamouse",
+  "fields": [
+    {
+      "order": 0,
+      "name": "baseUrl",
+      "label": "Base Url",
+      "helpText": "Select which base url Prowlarr will use for requests to the site",
+      "value": "https://www.myanonamouse.net/",
+      "type": "select",
+      "advanced": false,
+      "selectOptionsProviderAction": "getUrls",
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 1,
+      "name": "mamId",
+      "label": "Mam Id",
+      "helpText": "Mam Session Id (Created Under Preferences -> Security)",
+      "value": "REDACTED",
+      "type": "textbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 2,
+      "name": "searchType",
+      "label": "Search Type",
+      "helpText": "Specify the desired search type",
+      "value": 1,
+      "type": "select",
+      "advanced": false,
+      "selectOptions": [
+        {
+          "value": 0,
+          "name": "All torrents",
+          "order": 658,
+          "hint": "Search everything"
+        },
+        {
+          "value": 1,
+          "name": "Only active",
+          "order": 661,
+          "hint": "Last update had 1+ seeders"
+        },
+        {
+          "value": 2,
+          "name": "Freeleech",
+          "order": 664,
+          "hint": "Freeleech torrents"
+        },
+        {
+          "value": 3,
+          "name": "Freeleech or VIP",
+          "order": 667,
+          "hint": "Freeleech or VIP torrents"
+        },
+        {
+          "value": 4,
+          "name": "VIP",
+          "order": 670,
+          "hint": "VIP torrents"
+        },
+        {
+          "value": 5,
+          "name": "Not VIP",
+          "order": 673,
+          "hint": "Torrents not VIP"
+        }
+      ],
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 3,
+      "name": "searchInDescription",
+      "label": "Search in description",
+      "helpText": "Search text in the description",
+      "value": true,
+      "type": "checkbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 4,
+      "name": "searchInSeries",
+      "label": "Search in series",
+      "helpText": "Search text in the series",
+      "value": true,
+      "type": "checkbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 5,
+      "name": "searchInFilenames",
+      "label": "Search in filenames",
+      "helpText": "Search text in the filenames",
+      "value": true,
+      "type": "checkbox",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 6,
+      "name": "searchLanguages",
+      "label": "Search Languages",
+      "helpText": "Specify the desired languages. If unspecified, all options are used.",
+      "value": [
+        1
+      ],
+      "type": "select",
+      "advanced": false,
+      "selectOptions": [
+        {
+          "value": 1,
+          "name": "English",
+          "order": 679,
+          "hint": "(1)"
+        },
+        {
+          "value": 17,
+          "name": "Afrikaans",
+          "order": 682,
+          "hint": "(17)"
+        },
+        {
+          "value": 32,
+          "name": "Arabic",
+          "order": 685,
+          "hint": "(32)"
+        },
+        {
+          "value": 35,
+          "name": "Bengali",
+          "order": 688,
+          "hint": "(35)"
+        },
+        {
+          "value": 51,
+          "name": "Bosnian",
+          "order": 691,
+          "hint": "(51)"
+        },
+        {
+          "value": 18,
+          "name": "Bulgarian",
+          "order": 694,
+          "hint": "(18)"
+        },
+        {
+          "value": 6,
+          "name": "Burmese",
+          "order": 697,
+          "hint": "(6)"
+        },
+        {
+          "value": 44,
+          "name": "Cantonese",
+          "order": 700,
+          "hint": "(44)"
+        },
+        {
+          "value": 19,
+          "name": "Catalan",
+          "order": 703,
+          "hint": "(19)"
+        },
+        {
+          "value": 2,
+          "name": "Chinese",
+          "order": 706,
+          "hint": "(2)"
+        },
+        {
+          "value": 49,
+          "name": "Croatian",
+          "order": 709,
+          "hint": "(49)"
+        },
+        {
+          "value": 20,
+          "name": "Czech",
+          "order": 712,
+          "hint": "(20)"
+        },
+        {
+          "value": 21,
+          "name": "Danish",
+          "order": 715,
+          "hint": "(21)"
+        },
+        {
+          "value": 22,
+          "name": "Dutch",
+          "order": 718,
+          "hint": "(22)"
+        },
+        {
+          "value": 61,
+          "name": "Estonian",
+          "order": 721,
+          "hint": "(61)"
+        },
+        {
+          "value": 39,
+          "name": "Farsi",
+          "order": 724,
+          "hint": "(39)"
+        },
+        {
+          "value": 23,
+          "name": "Finnish",
+          "order": 727,
+          "hint": "(23)"
+        },
+        {
+          "value": 36,
+          "name": "French",
+          "order": 730,
+          "hint": "(36)"
+        },
+        {
+          "value": 37,
+          "name": "German",
+          "order": 733,
+          "hint": "(37)"
+        },
+        {
+          "value": 26,
+          "name": "Greek",
+          "order": 736,
+          "hint": "(26)"
+        },
+        {
+          "value": 59,
+          "name": "Greek, Ancient",
+          "order": 739,
+          "hint": "(59)"
+        },
+        {
+          "value": 3,
+          "name": "Gujarati",
+          "order": 742,
+          "hint": "(3)"
+        },
+        {
+          "value": 27,
+          "name": "Hebrew",
+          "order": 745,
+          "hint": "(27)"
+        },
+        {
+          "value": 8,
+          "name": "Hindi",
+          "order": 748,
+          "hint": "(8)"
+        },
+        {
+          "value": 28,
+          "name": "Hungarian",
+          "order": 751,
+          "hint": "(28)"
+        },
+        {
+          "value": 63,
+          "name": "Icelandic",
+          "order": 754,
+          "hint": "(63)"
+        },
+        {
+          "value": 53,
+          "name": "Indonesian",
+          "order": 757,
+          "hint": "(53)"
+        },
+        {
+          "value": 56,
+          "name": "Irish",
+          "order": 760,
+          "hint": "(56)"
+        },
+        {
+          "value": 43,
+          "name": "Italian",
+          "order": 763,
+          "hint": "(43)"
+        },
+        {
+          "value": 38,
+          "name": "Japanese",
+          "order": 766,
+          "hint": "(38)"
+        },
+        {
+          "value": 12,
+          "name": "Javanese",
+          "order": 769,
+          "hint": "(12)"
+        },
+        {
+          "value": 5,
+          "name": "Kannada",
+          "order": 772,
+          "hint": "(5)"
+        },
+        {
+          "value": 41,
+          "name": "Korean",
+          "order": 775,
+          "hint": "(41)"
+        },
+        {
+          "value": 50,
+          "name": "Lithuanian",
+          "order": 778,
+          "hint": "(50)"
+        },
+        {
+          "value": 46,
+          "name": "Latin",
+          "order": 781,
+          "hint": "(46)"
+        },
+        {
+          "value": 62,
+          "name": "Latvian",
+          "order": 784,
+          "hint": "(62)"
+        },
+        {
+          "value": 33,
+          "name": "Malay",
+          "order": 787,
+          "hint": "(33)"
+        },
+        {
+          "value": 58,
+          "name": "Malayalam",
+          "order": 790,
+          "hint": "(58)"
+        },
+        {
+          "value": 57,
+          "name": "Manx",
+          "order": 793,
+          "hint": "(57)"
+        },
+        {
+          "value": 9,
+          "name": "Marathi",
+          "order": 796,
+          "hint": "(9)"
+        },
+        {
+          "value": 48,
+          "name": "Norwegian",
+          "order": 799,
+          "hint": "(48)"
+        },
+        {
+          "value": 45,
+          "name": "Polish",
+          "order": 802,
+          "hint": "(45)"
+        },
+        {
+          "value": 34,
+          "name": "Portuguese",
+          "order": 805,
+          "hint": "(34)"
+        },
+        {
+          "value": 52,
+          "name": "Brazilian Portuguese (BP)",
+          "order": 808,
+          "hint": "(52)"
+        },
+        {
+          "value": 14,
+          "name": "Punjabi",
+          "order": 811,
+          "hint": "(14)"
+        },
+        {
+          "value": 30,
+          "name": "Romanian",
+          "order": 814,
+          "hint": "(30)"
+        },
+        {
+          "value": 16,
+          "name": "Russian",
+          "order": 817,
+          "hint": "(16)"
+        },
+        {
+          "value": 24,
+          "name": "Scottish Gaelic",
+          "order": 820,
+          "hint": "(24)"
+        },
+        {
+          "value": 60,
+          "name": "Sanskrit",
+          "order": 823,
+          "hint": "(60)"
+        },
+        {
+          "value": 31,
+          "name": "Serbian",
+          "order": 826,
+          "hint": "(31)"
+        },
+        {
+          "value": 54,
+          "name": "Slovenian",
+          "order": 829,
+          "hint": "(54)"
+        },
+        {
+          "value": 4,
+          "name": "Spanish",
+          "order": 832,
+          "hint": "(4)"
+        },
+        {
+          "value": 55,
+          "name": "Castilian Spanish",
+          "order": 835,
+          "hint": "(55)"
+        },
+        {
+          "value": 40,
+          "name": "Swedish",
+          "order": 838,
+          "hint": "(40)"
+        },
+        {
+          "value": 29,
+          "name": "Tagalog",
+          "order": 841,
+          "hint": "(29)"
+        },
+        {
+          "value": 11,
+          "name": "Tamil",
+          "order": 844,
+          "hint": "(11)"
+        },
+        {
+          "value": 10,
+          "name": "Telugu",
+          "order": 847,
+          "hint": "(10)"
+        },
+        {
+          "value": 7,
+          "name": "Thai",
+          "order": 850,
+          "hint": "(7)"
+        },
+        {
+          "value": 42,
+          "name": "Turkish",
+          "order": 853,
+          "hint": "(42)"
+        },
+        {
+          "value": 25,
+          "name": "Ukrainian",
+          "order": 856,
+          "hint": "(25)"
+        },
+        {
+          "value": 15,
+          "name": "Urdu",
+          "order": 859,
+          "hint": "(15)"
+        },
+        {
+          "value": 13,
+          "name": "Vietnamese",
+          "order": 862,
+          "hint": "(13)"
+        },
+        {
+          "value": 47,
+          "name": "Other",
+          "order": 865,
+          "hint": "(47)"
+        }
+      ],
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 7,
+      "name": "useFreeleechWedge",
+      "label": "Use Freeleech Wedges",
+      "helpText": "Use freeleech wedges to make grabbed torrents personal freeleech",
+      "value": 0,
+      "type": "select",
+      "advanced": false,
+      "selectOptions": [
+        {
+          "value": 0,
+          "name": "Never",
+          "order": 871,
+          "hint": "Do not buy as freeleech"
+        },
+        {
+          "value": 1,
+          "name": "Preferred",
+          "order": 874,
+          "hint": "Buy and use wedge if possible"
+        },
+        {
+          "value": 2,
+          "name": "Required",
+          "order": 877,
+          "hint": "Abort download if unable to buy wedge"
+        }
+      ],
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 8,
+      "name": "baseSettings.queryLimit",
+      "label": "Query Limit",
+      "helpText": "The number of max queries as specified by the respective unit that Prowlarr will allow to the site",
+      "type": "number",
+      "advanced": true,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 9,
+      "name": "baseSettings.grabLimit",
+      "label": "Grab Limit",
+      "helpText": "The number of max grabs as specified by the respective unit that Prowlarr will allow to the site",
+      "type": "number",
+      "advanced": true,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 10,
+      "name": "baseSettings.limitsUnit",
+      "label": "Limits Unit",
+      "helpText": "The unit of time for counting limits per indexer",
+      "value": 0,
+      "type": "select",
+      "advanced": true,
+      "selectOptions": [
+        {
+          "value": 0,
+          "name": "Day",
+          "order": 0,
+          "hint": "(0)"
+        },
+        {
+          "value": 1,
+          "name": "Hour",
+          "order": 1,
+          "hint": "(1)"
+        }
+      ],
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 11,
+      "name": "torrentBaseSettings.appMinimumSeeders",
+      "label": "Apps Minimum Seeders",
+      "helpText": "Minimum seeders required by the Applications for the indexer to grab, empty is Sync profile's default",
+      "type": "number",
+      "advanced": true,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 12,
+      "name": "torrentBaseSettings.seedRatio",
+      "label": "Seed Ratio",
+      "helpText": "The ratio a torrent should reach before stopping, empty uses the download client's default. Ratio should be at least 1.0 and follow the indexers rules",
+      "type": "number",
+      "advanced": false,
+      "privacy": "normal",
+      "isFloat": true
+    },
+    {
+      "order": 13,
+      "name": "torrentBaseSettings.seedTime",
+      "label": "Seed Time",
+      "unit": "minutes",
+      "helpText": "The time a torrent should be seeded before stopping, empty uses the download client's default",
+      "type": "number",
+      "advanced": true,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 14,
+      "name": "torrentBaseSettings.packSeedTime",
+      "label": "Pack Seed Time",
+      "unit": "minutes",
+      "helpText": "The time a pack (season or discography) torrent should be seeded before stopping, empty is app's default",
+      "type": "number",
+      "advanced": true,
+      "privacy": "normal",
+      "isFloat": false
+    },
+    {
+      "order": 15,
+      "name": "torrentBaseSettings.preferMagnetUrl",
+      "label": "Prefer Magnet URL",
+      "helpText": "When enabled, this indexer will prefer the use of magnet URLs for grabs with fallback to torrent links",
+      "value": false,
+      "type": "checkbox",
+      "advanced": true,
+      "privacy": "normal",
+      "isFloat": false
+    }
+  ],
+  "implementationName": "MyAnonamouse",
+  "implementation": "MyAnonamouse",
+  "configContract": "MyAnonamouseSettings",
+  "infoLink": "https://wiki.servarr.com/prowlarr/supported-indexers#myanonamouse",
+  "tags": [],
+  "id": 160
