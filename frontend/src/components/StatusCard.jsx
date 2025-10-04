@@ -243,12 +243,25 @@ const StatusCard = forwardRef(
           method: 'POST',
         });
         const data = await res.json();
+
+        // Extract detailed error message if available
+        let errorMessage = data.message || 'Update failed';
+        if (!data.success && data.detail) {
+          // Handle Prowlarr API error responses with detailed messages
+          if (typeof data.detail === 'string') {
+            errorMessage = data.detail;
+          } else if (Array.isArray(data.detail)) {
+            // Format array of error objects from Prowlarr
+            errorMessage = data.detail
+              .map((err) => err.errorMessage || JSON.stringify(err))
+              .join('; ');
+          }
+        }
+
         setSnackbar({
-          message: data.success
-            ? data.message || 'Prowlarr updated!'
-            : data.message || 'Update failed',
+          message: data.success ? data.message || 'Prowlarr updated!' : errorMessage,
           open: true,
-          severity: data.success ? 'success' : 'warning',
+          severity: data.success ? 'success' : 'error',
         });
       } catch (e) {
         setSnackbar({

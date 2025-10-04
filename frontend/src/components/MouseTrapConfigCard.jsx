@@ -603,7 +603,7 @@ export default function MouseTrapConfigCard({
 
           {/* Prowlarr Integration */}
           <ProwlarrConfig
-            mamSessionCreatedDate={mamSessionCreatedDate}
+            _mamSessionCreatedDate={mamSessionCreatedDate}
             prowlarrConfig={prowlarr}
             sessionLabel={sessionLabel}
             setMamSessionCreatedDate={setMamSessionCreatedDate}
