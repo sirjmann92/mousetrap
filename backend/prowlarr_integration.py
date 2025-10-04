@@ -6,6 +6,7 @@ This module provides functionality to:
 - Update MAM ID in Prowlarr when session changes
 """
 
+import json
 import logging
 from typing import Any
 
@@ -206,11 +207,22 @@ async def update_mam_id_in_prowlarr(
                     "message": f"MAM ID updated successfully in Prowlarr (indexer {indexer_id})",
                     "old_mam_id": old_mam_id,
                 }
+
+            # Try to parse error response as JSON for better error messages
             error_text = await response.text()
-            return {
-                "success": False,
-                "message": f"Failed to update: HTTP {response.status} - {error_text}",
-            }
+            try:
+                error_data = json.loads(error_text)
+            except json.JSONDecodeError:
+                return {
+                    "success": False,
+                    "message": f"Failed to update: HTTP {response.status} - {error_text}",
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Failed to update: HTTP {response.status}",
+                    "detail": error_data,  # Pass the full error structure to frontend
+                }
     except Exception as e:
         _logger.exception("Failed to update MAM ID in Prowlarr")
         return {"success": False, "message": f"Error: {e!s}"}

@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react';
 export default function ProwlarrConfig({
   prowlarrConfig,
   setProwlarrConfig,
-  mamSessionCreatedDate,
+  _mamSessionCreatedDate,
   setMamSessionCreatedDate,
   sessionLabel,
 }) {
@@ -82,19 +82,27 @@ export default function ProwlarrConfig({
   const handleUpdate = async () => {
     setUpdateLoading(true);
     try {
-      const response = await fetch('/api/prowlarr/update_mam_id', {
+      const response = await fetch('/api/prowlarr/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           label: sessionLabel,
-          force: true,
         }),
       });
 
       const result = await response.json();
-      setUpdateResult(result);
-    } catch (_error) {
-      setUpdateResult({ success: false, message: 'Network error' });
+
+      // Handle detailed error messages from Prowlarr
+      if (!result.success && result.detail) {
+        setUpdateResult({
+          success: false,
+          message: result.detail || result.message || 'Update failed',
+        });
+      } else {
+        setUpdateResult(result);
+      }
+    } catch (error) {
+      setUpdateResult({ success: false, message: `Network error: ${error.message}` });
     } finally {
       setUpdateLoading(false);
     }
@@ -115,7 +123,7 @@ export default function ProwlarrConfig({
   return (
     <Accordion
       expanded={expanded}
-      onChange={(e, isExpanded) => setExpanded(isExpanded)}
+      onChange={(_e, isExpanded) => setExpanded(isExpanded)}
       sx={{
         bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
         borderRadius: 2,
@@ -261,6 +269,16 @@ export default function ProwlarrConfig({
                   {updateLoading ? 'Updating...' : 'UPDATE PROWLARR'}
                 </Button>
               </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={prowlarrConfig.auto_update_on_save || false}
+                    onChange={(e) => handleChange('auto_update_on_save', e.target.checked)}
+                  />
+                }
+                label="Auto-update Prowlarr on Save"
+              />
 
               {updateResult && (
                 <Alert severity={updateResult.success ? 'success' : 'error'}>

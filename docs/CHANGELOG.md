@@ -1,5 +1,35 @@
 # October 4, 2025
 
+## Prowlarr Integration Fixes 🔧
+
+### **Bug Fixes**
+- **Fixed bottom UPDATE PROWLARR button in Session Configuration:**
+  - Corrected API endpoint from `/api/prowlarr/update_mam_id` (non-existent) to `/api/prowlarr/update`
+  - Button now properly updates MAM ID in Prowlarr
+  - Previously showed empty error snackbar due to network error from wrong endpoint
+- **Improved Prowlarr error handling and display:**
+  - Enhanced error message parsing to show detailed Prowlarr API errors
+  - Backend now parses JSON error responses from Prowlarr (e.g., expired mam_id errors)
+  - Frontend extracts and displays specific error messages from Prowlarr validation failures
+  - Changed error severity from 'warning' to 'error' for better visibility
+  - Example: Shows "mam_id expired or invalid" instead of generic "Update failed"
+
+### **Feature Restoration**
+- **Restored missing "Auto-update on Save" checkbox:**
+  - Re-added checkbox to Prowlarr Integration accordion
+  - Label: "Auto-update Prowlarr on Save"
+  - When enabled, automatically updates Prowlarr whenever MAM ID is changed and session is saved
+  - Backend support (`auto_update_on_save` field) was present but UI checkbox was missing
+  - Positioned below "Notify Before Expiry (days)" field and UPDATE PROWLARR button
+
+### **Technical Details**
+- Added `json` import to `prowlarr_integration.py` for error response parsing
+- Both StatusCard and ProwlarrConfig components now handle detailed error structures
+- Backend returns `detail` field with full error object array from Prowlarr API
+- Frontend formats error arrays into human-readable messages
+
+---
+
 ## Browser Cookie Setup Card & UI Improvements ✨
 
 ### **New Browser Cookie Setup Card**
