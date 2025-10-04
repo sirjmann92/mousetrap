@@ -45,6 +45,7 @@ from backend.mam_api import get_mam_seen_ip_info, get_proxied_public_ip, get_sta
 from backend.millionaires_vault_automation import VaultAutomationManager
 from backend.millionaires_vault_cookies import (
     generate_cookie_extraction_bookmarklet,
+    get_cheese_and_wedges,
     get_vault_total_points,
     perform_vault_donation,
     validate_browser_mam_id_with_config,
@@ -68,6 +69,7 @@ from backend.vault_config import (
     list_vault_configurations,
     load_vault_config,
     save_vault_configuration,
+    update_pot_tracking,
     validate_vault_configuration,
 )
 from backend.vault_uid_manager import (
@@ -1018,7 +1020,6 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         return {
             "mam_cookie_exists": status.get("mam_cookie_exists"),
             "points": status.get("points"),
-            "cheese": status.get("cheese"),
             "wedge_active": status.get("wedge_active"),
             "vip_active": status.get("vip_active"),
             "current_ip": ip_to_use,
@@ -1273,7 +1274,6 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     return {
         "mam_cookie_exists": status.get("mam_cookie_exists"),
         "points": status.get("points"),
-        "cheese": status.get("cheese"),
         "wedge_active": status.get("wedge_active"),
         "vip_active": status.get("vip_active"),
         "current_ip": ip_to_use,
@@ -1392,8 +1392,6 @@ async def api_save_session(request: Request) -> dict[str, Any]:
             "proxied_public_ip",
             "proxied_public_ip_asn",
             "points",
-            "cheese",
-            "wedge_active",
             "vip_active",
         ]
         # If prev_cfg not set above, try to load it now
@@ -2126,8 +2124,8 @@ def api_list_vault_configurations() -> dict[str, Any]:
 
 
 @app.get("/api/vault/configuration/{config_id}")
-def api_get_vault_configuration(config_id: str) -> dict[str, Any]:
-    """Get a specific vault configuration."""
+async def api_get_vault_configuration(config_id: str) -> dict[str, Any]:
+    """Get a specific vault configuration with enriched donation data."""
 
     try:
         vault_config = get_vault_configuration(config_id)
@@ -2135,6 +2133,85 @@ def api_get_vault_configuration(config_id: str) -> dict[str, Any]:
             raise HTTPException(
                 status_code=404, detail=f"Vault configuration '{config_id}' not found"
             )
+
+        # Enrich with MAM donation history if browser cookies are available
+        browser_mam_id = vault_config.get("browser_mam_id", "").strip()
+        if browser_mam_id:
+            try:
+                extracted_mam_id = await extract_mam_id_from_browser_cookies(browser_mam_id)
+                effective_uid = get_effective_uid(vault_config)
+                effective_proxy = get_effective_proxy_config(vault_config)
+
+                if extracted_mam_id and effective_uid:
+                    # Fetch vault total and MAM donation history
+                    mam_result = await get_vault_total_points(
+                        extracted_mam_id, effective_uid, effective_proxy
+                    )
+
+                    if mam_result.get("success") and mam_result.get("donation_history"):
+                        # Get MouseTrap's last donation info from pot_tracking (not automation.last_run)
+                        pot_tracking = vault_config.get("pot_tracking", {})
+                        mousetrap_last_time = pot_tracking.get("last_donation_time")
+                        mousetrap_type = pot_tracking.get("last_donation_type", "automated")
+
+                        # Get MAM's most recent donation (first in list)
+                        mam_donations = mam_result["donation_history"]
+                        mam_last = mam_donations[0] if mam_donations else None
+
+                        # Determine which donation to display
+                        if mam_last and mousetrap_last_time:
+                            mam_date = datetime.fromisoformat(mam_last["date"])
+                            # Make mousetrap_date timezone-aware (UTC)
+                            mousetrap_date = datetime.fromtimestamp(mousetrap_last_time, tz=UTC)
+
+                            # If dates are close (within 5 seconds), treat as same donation
+                            time_diff = abs((mam_date - mousetrap_date).total_seconds())
+
+                            if time_diff <= 5:
+                                # Same donation - use MouseTrap source but MAM amount (actual)
+                                vault_config["last_donation_display"] = {
+                                    "timestamp": mousetrap_date.isoformat(),
+                                    "amount": mam_last["amount"],  # Use actual amount from MAM
+                                    "type": (
+                                        "Manual" if mousetrap_type == "manual" else "Automated"
+                                    ),
+                                    "source": "MouseTrap",
+                                }
+                            else:
+                                # MAM donation is more recent - likely manual on website
+                                vault_config["last_donation_display"] = {
+                                    "timestamp": mam_last["date"],
+                                    "amount": mam_last["amount"],
+                                    "type": None,  # Don't show type for website donations
+                                    "source": "MyAnonamouse",
+                                }
+                        elif mam_last:
+                            # Only MAM donation exists (no MouseTrap tracking yet)
+                            vault_config["last_donation_display"] = {
+                                "timestamp": mam_last["date"],
+                                "amount": mam_last["amount"],
+                                "type": None,
+                                "source": "MyAnonamouse",
+                            }
+                        elif mousetrap_last_time:
+                            # Only MouseTrap donation exists (fallback - shouldn't happen if MAM is working)
+                            mousetrap_date = datetime.fromtimestamp(mousetrap_last_time, tz=UTC)
+                            mousetrap_amount = pot_tracking.get("last_donation_amount", 0)
+                            vault_config["last_donation_display"] = {
+                                "timestamp": mousetrap_date.isoformat(),
+                                "amount": mousetrap_amount,
+                                "type": "Manual" if mousetrap_type == "manual" else "Automated",
+                                "source": "MouseTrap",
+                            }
+
+                        # Also include full MAM donation history
+                        vault_config["mam_donation_history"] = mam_donations
+
+            except Exception as e:
+                _logger.warning(
+                    "[VaultConfigAPI] Failed to enrich with MAM donation history: %s", e
+                )
+                # Non-fatal - continue without enrichment
 
     except HTTPException:
         raise
@@ -2371,6 +2448,23 @@ async def api_vault_configuration_donate(config_id: str, request: Request) -> di
         )
 
         if donation_result.get("success"):
+            # Update pot tracking for manual donation
+            try:
+                # Use a generic pot ID for manual donations (we don't track the actual pot ID for manual)
+                pot_id = f"manual_{int(time.time())}"
+                update_pot_tracking(
+                    config_id,
+                    pot_id,
+                    donation_result.get("amount_donated", amount),
+                    "manual",  # This is a manual donation
+                )
+                _logger.info(
+                    "[VaultDonation] Updated pot tracking for manual donation: %s points",
+                    donation_result.get("amount_donated", amount),
+                )
+            except Exception as e:
+                _logger.warning("[VaultDonation] Failed to update pot tracking: %s", e)
+
             # Log the successful manual donation
             append_ui_event_log(
                 {
@@ -2590,13 +2684,61 @@ async def api_vault_get_points(request: Request) -> dict[str, Any]:
 
         points = status_result.get("points")
         if points is not None:
+            # Scrape cheese and wedges from browser MAM ID (not session mam_id)
+            # Cheese/wedges are tied to the browser account, not seedbox
+            browser_mam_id_raw = config.get("browser_mam_id", "").strip()
+            cheese = None
+            wedges = None
+
+            if browser_mam_id_raw:
+                # Parse browser_mam_id and uid from the cookie string
+                browser_mam_id_match = re.search(r"mam_id=([^;]+)", browser_mam_id_raw)
+                browser_uid_match = re.search(r"uid=([^;]+)", browser_mam_id_raw)
+
+                if browser_mam_id_match and browser_uid_match:
+                    browser_mam_id = browser_mam_id_match.group(1).strip()
+                    browser_uid = browser_uid_match.group(1).strip()
+
+                    # Use browser proxy if configured, otherwise use vault proxy
+                    # Browser connections may use different proxy than seedbox
+                    browser_proxy_cfg = get_effective_proxy_config(config)
+
+                    # Scrape cheese and wedges from MAM page using browser credentials
+                    cheese_wedges_result = await get_cheese_and_wedges(
+                        mam_id=browser_mam_id, uid=browser_uid, proxy_cfg=browser_proxy_cfg
+                    )
+
+                    cheese = cheese_wedges_result.get("cheese")
+                    wedges = cheese_wedges_result.get("wedges")
+
+                    if not cheese_wedges_result.get("success"):
+                        _logger.warning(
+                            "[VaultPoints] Failed to scrape cheese/wedges: %s",
+                            cheese_wedges_result.get("error"),
+                        )
+                else:
+                    _logger.warning(
+                        "[VaultPoints] Could not parse mam_id and uid from browser_mam_id"
+                    )
+            else:
+                _logger.warning(
+                    "[VaultPoints] No browser MAM ID available for cheese/wedges scraping"
+                )
+
             _logger.info(
-                "[VaultPoints] Successfully fetched points for config '%s' via session '%s': %s",
+                "[VaultPoints] Successfully fetched points for config '%s' via session '%s': %s (Cheese: %s, Wedges: %s)",
                 config_id,
                 session_label,
                 points,
+                cheese,
+                wedges,
             )
-            return {"success": True, "points": points}
+            return {
+                "success": True,
+                "points": points,
+                "cheese": cheese,
+                "wedges": wedges,
+            }
         error_msg = status_result.get("message", "Unable to fetch points")
         _logger.warning(
             "[VaultPoints] Failed to fetch points for config '%s' via session '%s': %s",
