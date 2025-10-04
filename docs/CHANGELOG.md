@@ -1,3 +1,55 @@
+# October 3, 2025
+
+## UI/UX Polish & Consistency Improvements ✨
+
+### **Session Configuration Enhancements**
+- **Manage MAM ID button:** Added quick-access button next to MAM ID field linking to MyAnonamouse Security page for easy session renewal
+- **MAM Session Date label fix:** Changed from custom Typography to standard MUI TextField label with proper shrink behavior
+- **Required field validation:** Improved consistency - red borders only appear after save attempt (not when empty initially)
+  - Session Label, Session Type, Interval, MAM ID, and IP Address now follow same validation pattern
+  - Asterisks (*) indicate required fields, red borders indicate validation errors
+- **Button alignment:** Fine-tuned "Manage MAM ID" button positioning for perfect alignment with MAM ID field
+
+### **Vault Configuration Improvements**
+- **Last Donation display:** Prominent celebration-themed section showing timestamp, amount, and type (Automated/Manual) of last donation
+  - Uses existing `automation.last_run` data - no need to wait for new donations!
+  - Green celebration icons (🎉) flanking header for visual appeal
+  - Conditionally displays: shown when viewing existing configs, hidden when creating new
+  - Replaces redundant Configuration Name field (already shown in dropdown)
+- **Pot tracking backend:** Enhanced to track donation amount and type for future donations
+  - Backward compatible: automatically merges old configs with new fields
+  - `update_pot_tracking()` now accepts amount and donation_type parameters
+- **Configuration dropdown spacing:** Reduced excessive spacing when no configuration selected
+- **Browser MAM ID validation:** Red border only shows after save attempt (consistent with other cards)
+- **Button heights standardized:** Get Browser Cookies, Test Vault Access, and Donate Now buttons now match input field height (40px)
+
+### **Visual Consistency & Theme Updates**
+- **Accordion styling:** Prowlarr Integration and Notifications Configuration accordions now match MAM Details/Network Details style
+  - Subtle gray background (`#272626` dark / `#f5f5f5` light)
+  - Rounded corners with proper overflow handling
+  - Bold subtitle2 headers (instead of h6)
+- **Light mode improvements:** Added softer background color (`#f0f2f5`) instead of pure white
+  - Better contrast between page and white cards
+  - Easier on the eyes, clearer visual boundaries
+- **Dark mode cards:** Lightened from `#1e1e1e` to `#242424` for improved button visibility
+  - Outlined buttons and disabled states now more readable
+- **Status card buttons:** Changed CHECK NOW from outlined to contained variant for consistency with UPDATE SEEDBOX and UPDATE PROWLARR
+
+### **Proxy Configuration Validation**
+- **Smart button states:** CLEAR and SAVE PROXY buttons now intelligently enable/disable based on form state
+  - All empty: Both buttons disabled
+  - Partial input: CLEAR enabled, SAVE PROXY disabled
+  - All required fields filled (label, host, port): Both buttons enabled
+  - Prevents invalid proxy saves and improves UX clarity
+
+### **Backend Data Structure Updates**
+- **vault_config.py:** 
+  - Added `get_vault_configuration()` field merging for backward compatibility
+  - Default pot_tracking schema includes `last_donation_amount` and `last_donation_type`
+- **millionaires_vault_automation.py:** Updated to pass donation details to `update_pot_tracking()`
+
+---
+
 # October 2, 2025
 
 ## Prowlarr Integration & Session Expiry Tracking 🎯

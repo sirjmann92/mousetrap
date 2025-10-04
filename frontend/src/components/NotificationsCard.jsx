@@ -503,16 +503,30 @@ export default function NotificationsCard() {
           <Accordion
             expanded={configExpanded}
             onChange={(e, isExpanded) => setConfigExpanded(isExpanded)}
-            sx={{ mb: 3 }}
+            sx={{
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
+              borderRadius: 2,
+              mb: 3,
+              overflow: 'hidden',
+            }}
           >
             <AccordionSummary
               aria-controls="config-content"
               expandIcon={<ExpandMoreIcon />}
               id="config-header"
+              sx={{
+                bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
+              }}
             >
-              <Typography variant="h6">Configuration</Typography>
+              <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
+                Configuration
+              </Typography>
             </AccordionSummary>
-            <AccordionDetails>
+            <AccordionDetails
+              sx={{
+                bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
+              }}
+            >
               <Typography variant="subtitle1">Webhook</Typography>
               <Box
                 sx={{

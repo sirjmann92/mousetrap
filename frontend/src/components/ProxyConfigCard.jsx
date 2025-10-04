@@ -170,6 +170,12 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
     }
   };
 
+  // Validation logic for buttons
+  const hasAnyFieldFilled = form.label || form.host || form.port || form.username || form.password;
+  const hasAllRequiredFields = form.label && form.host && form.port;
+  const canClear = hasAnyFieldFilled;
+  const canSave = hasAllRequiredFields;
+
   return (
     <>
       <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
@@ -284,13 +290,19 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
               >
                 <Button
                   color="secondary"
+                  disabled={!canClear}
                   onClick={handleAddNew}
                   sx={{ minWidth: 100, mr: 2 }}
                   variant="outlined"
                 >
                   Clear
                 </Button>
-                <Button onClick={handleSave} sx={{ minWidth: 140 }} variant="contained">
+                <Button
+                  disabled={!canSave}
+                  onClick={handleSave}
+                  sx={{ minWidth: 140 }}
+                  variant="contained"
+                >
                   {isEditing ? 'Update Proxy' : 'Save Proxy'}
                 </Button>
               </Box>
