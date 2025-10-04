@@ -1,5 +1,63 @@
 # October 4, 2025
 
+## Browser Cookie Setup Card & UI Improvements ✨
+
+### **New Browser Cookie Setup Card**
+- **Separated browser cookie management from Vault Configuration:**
+  - Created dedicated `MAMBrowserSetupCard.jsx` component for browser cookie extraction and validation
+  - Renamed from "MAM Browser Cookie Setup" to "Browser Cookie Setup" for clarity
+  - Moved bookmarklet, browser cookie input, connection method, and vault access testing to new card
+  - Vault Configuration card now focuses solely on donation settings and automation
+- **React 19 bookmarklet compatibility fix:**
+  - Fixed bookmarklet drag-to-bookmark functionality broken by React 19 security changes
+  - Implemented callback ref pattern: `ref={(node) => { if (node) node.setAttribute('href', code); }}`
+  - Sets `href` immediately when element is created, bypassing React's security blocking of `javascript:` URLs
+  - Works with React 19's stricter security model without compromising functionality
+
+### **Notification Card Enhancements**
+- **Visual notification method indicators:**
+  - Added icon-based indicators showing which notification methods are configured
+  - Icons displayed on far right of card header, clickable to expand card and Configuration accordion
+  - Uses official brand logos from Wikimedia Commons for Gmail and Discord (proper licensing and consistency)
+- **Icon implementations:**
+  - **Gmail:** Multicolor "M" logo SVG from Wikimedia Commons (automatically detected when SMTP host contains "gmail")
+  - **Discord:** Official blurple game controller logo SVG from Wikimedia Commons (for Discord webhooks)
+  - **Email:** Material-UI EmailIcon in blue (#4285F4) for non-Gmail SMTP
+  - **Webhook:** Material-UI WebhookIcon in red (#FF6B6B) for generic webhooks
+  - **Apprise:** Font Awesome bullhorn icon in orange (#FFA726) - no official logo available
+- **Removed info tooltip:** Cleaned up card header by removing redundant info icon tooltip
+- **Smart detection:** Checks actual configuration fields (smtp.host, webhook_url, apprise.url) not event rules
+
+### **Perk Automation Card Improvements**
+- **Vault currency display:**
+  - Added Wedges and Cheese counters next to Points display in card header
+  - Fetches from associated vault configuration (prefers matching session, falls back to first available)
+  - Displays as: `Points: 12,345 | Wedges: 678 | Cheese: 901` with green success color
+  - Currency values shown only when available and not loading
+
+### **Component Organization**
+- **Card reordering for better workflow:**
+  1. Session Status
+  2. Session Configuration
+  3. Perk Purchase & Automation
+  4. Millionaire's Vault Configuration
+  5. **Notifications** (moved up from position 8)
+  6. **Browser Cookie Setup** (new card, position 6)
+  7. Docker Port Monitor
+  8. Proxy Configuration
+- **Parent state management:**
+  - `vaultConfigurations` now managed in `App.jsx` and passed to child components
+  - Added `onConfigUpdate` callback for child components to trigger parent refresh
+  - Prevents stale data and unnecessary API calls
+
+### **Technical Details**
+- Added Font Awesome 6.5.1 CDN to `index.html` for Apprise bullhorn icon
+- Inline SVG components for Gmail and Discord logos (no external dependencies)
+- Callback ref pattern bypasses React 19's `href` security: sets attribute after render but before React's security check
+- Bookmarklet extracts `mam_id`, `uid`, and browser type in one click
+
+---
+
 ## Vault Donation Success Detection Fix 🔧
 
 ### **Bug Fixes**
