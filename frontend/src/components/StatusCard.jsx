@@ -401,7 +401,7 @@ const StatusCard = forwardRef(
             <Box>
               <Tooltip title="Refreshes session status from MAM">
                 <span>
-                  <Button onClick={handleCheckNow} size="small" sx={{ ml: 2 }} variant="outlined">
+                  <Button onClick={handleCheckNow} size="small" sx={{ ml: 2 }} variant="contained">
                     Check Now
                   </Button>
                 </span>

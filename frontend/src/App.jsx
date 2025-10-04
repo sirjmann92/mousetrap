@@ -2,6 +2,7 @@ import Brightness4Icon from '@mui/icons-material/Brightness4';
 import Brightness7Icon from '@mui/icons-material/Brightness7';
 import {
   AppBar,
+  Box,
   Container,
   CssBaseline,
   IconButton,
@@ -171,6 +172,10 @@ export default function App() {
           primary: {
             main: '#1976d2', // MUI default blue
           },
+          background: {
+            default: mode === 'light' ? '#f0f2f5' : '#121212', // Softer light gray for light mode
+            paper: mode === 'light' ? '#ffffff' : '#242424', // Lighter dark mode cards for better contrast
+          },
         },
       }),
     [mode],
@@ -272,58 +277,67 @@ export default function App() {
 
       {/* Add top padding to prevent content from being hidden behind fixed AppBar */}
       <Toolbar />
-      <Container maxWidth="md">
-        {/* 1. Session Status */}
-        {sessions.length > 0 && (
-          <StatusCard
-            autoUpload={autoUpload}
-            autoVIP={autoVIP}
-            autoWedge={autoWedge}
-            onSessionDataChanged={() => loadSession(selectedLabel)}
-            onStatusUpdate={handleStatusUpdate}
-            ref={statusCardRef}
+      <Box
+        sx={{
+          bgcolor: 'background.default',
+          minHeight: 'calc(100vh - 64px)', // Full height minus AppBar
+          pb: 4,
+          pt: 2,
+        }}
+      >
+        <Container maxWidth="md">
+          {/* 1. Session Status */}
+          {sessions.length > 0 && (
+            <StatusCard
+              autoUpload={autoUpload}
+              autoVIP={autoVIP}
+              autoWedge={autoWedge}
+              onSessionDataChanged={() => loadSession(selectedLabel)}
+              onStatusUpdate={handleStatusUpdate}
+              ref={statusCardRef}
+            />
+          )}
+          {/* 2. Session Configuration */}
+          <MouseTrapConfigCard
+            forceExpand={forceExpandConfig}
+            hasSessions={sessions.length > 0}
+            onCreateNewSession={handleCreateSession}
+            onForceExpandHandled={() => setForceExpandConfig(false)}
+            onSessionSaved={handleSessionSaved}
+            proxies={proxies}
           />
-        )}
-        {/* 2. Session Configuration */}
-        <MouseTrapConfigCard
-          forceExpand={forceExpandConfig}
-          hasSessions={sessions.length > 0}
-          onCreateNewSession={handleCreateSession}
-          onForceExpandHandled={() => setForceExpandConfig(false)}
-          onSessionSaved={handleSessionSaved}
-          proxies={proxies}
-        />
-        {/* 3. Perk Purchase & Automation */}
-        {sessions.length > 0 && (
-          <PerkAutomationCard
-            autoUpload={autoUpload}
-            autoVIP={autoVIP}
-            autoWedge={autoWedge}
-            onActionComplete={() => {
-              if (statusCardRef.current?.fetchStatus) {
-                statusCardRef.current.fetchStatus();
-              }
-            }}
-            setAutoUpload={setAutoUpload}
-            setAutoVIP={setAutoVIP}
-            setAutoWedge={setAutoWedge}
-            setUploadAmount={setUploadAmount}
-            setVipWeeks={setVipWeeks}
-            setWedgeMethod={setWedgeMethod}
-            uploadAmount={uploadAmount}
-            vipWeeks={vipWeeks}
-            wedgeMethod={wedgeMethod}
-          />
-        )}
-        {/* 4. Millionaire's Vault Configuration */}
-        <VaultConfigCard proxies={proxies} sessions={sessions} />
-        {/* 5. Notifications */}
-        <NotificationsCard />
-        {/* 6. Docker Port Monitor */}
-        <PortMonitorCard />
-        {/* 7. Proxy Configuration */}
-        <ProxyConfigCard proxies={proxies} refreshProxies={refreshProxies} />
-      </Container>
+          {/* 3. Perk Purchase & Automation */}
+          {sessions.length > 0 && (
+            <PerkAutomationCard
+              autoUpload={autoUpload}
+              autoVIP={autoVIP}
+              autoWedge={autoWedge}
+              onActionComplete={() => {
+                if (statusCardRef.current?.fetchStatus) {
+                  statusCardRef.current.fetchStatus();
+                }
+              }}
+              setAutoUpload={setAutoUpload}
+              setAutoVIP={setAutoVIP}
+              setAutoWedge={setAutoWedge}
+              setUploadAmount={setUploadAmount}
+              setVipWeeks={setVipWeeks}
+              setWedgeMethod={setWedgeMethod}
+              uploadAmount={uploadAmount}
+              vipWeeks={vipWeeks}
+              wedgeMethod={wedgeMethod}
+            />
+          )}
+          {/* 4. Millionaire's Vault Configuration */}
+          <VaultConfigCard proxies={proxies} sessions={sessions} />
+          {/* 5. Notifications */}
+          <NotificationsCard />
+          {/* 6. Docker Port Monitor */}
+          <PortMonitorCard />
+          {/* 7. Proxy Configuration */}
+          <ProxyConfigCard proxies={proxies} refreshProxies={refreshProxies} />
+        </Container>
+      </Box>
     </ThemeProvider>
   );
 }

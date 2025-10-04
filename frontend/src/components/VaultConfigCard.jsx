@@ -1,4 +1,5 @@
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import CelebrationIcon from '@mui/icons-material/Celebration';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -65,6 +66,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
   const [vaultPoints, setVaultPoints] = useState(null);
   const [vaultTotalPoints, setVaultTotalPoints] = useState(null);
   const [pointsLoading, setPointsLoading] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
 
   // Bookmarklet code - extract both mam_id and uid cookies from browser
   const bookmarkletCode = `javascript:(function(){try{if(!window.location.href.includes('myanonamouse.net')){alert('Please use this bookmarklet on MyAnonamouse.net');return;}var cookies=document.cookie.split(';');var mamId=null;var uid=null;for(var i=0;i<cookies.length;i++){var cookie=cookies[i].trim();if(cookie.startsWith('mam_id=')){mamId=cookie.substring(7);}else if(cookie.startsWith('uid=')){uid=cookie.substring(4);}}if(mamId&&uid){var browser='unknown';var ua=navigator.userAgent;if(ua.includes('Firefox')){browser='firefox';}else if(ua.includes('Chrome')&&!ua.includes('Edg')){browser='chrome';}else if(ua.includes('Edg')){browser='edge';}else if(ua.includes('Safari')&&!ua.includes('Chrome')){browser='safari';}else if(ua.includes('Opera')||ua.includes('OPR')){browser='opera';}var cookieString='mam_id='+mamId+'; uid='+uid+'; browser='+browser;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cookieString).then(function(){alert('Browser MAM ID copied to clipboard!\\n\\nThis includes both mam_id and uid cookies, plus browser type ('+browser+') for proper headers.');}).catch(function(){prompt('Browser MAM ID (copy this):',cookieString);});}else{prompt('Browser MAM ID (copy this):',cookieString);}}else{var missing=[];if(!mamId)missing.push('mam_id');if(!uid)missing.push('uid');alert('Missing required cookies: '+missing.join(', ')+'\\n\\nMake sure you are logged in to MyAnonamouse and try again.');}}catch(e){alert('Bookmarklet error: '+e.message);console.error('MAM Cookie Extractor Error:',e);}})();`;
@@ -176,6 +178,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
   const handleSaveConfiguration = async () => {
     if (!currentConfig) return;
+
+    setShowValidation(true); // Show validation errors on save attempt
 
     // Use the working name for new configs, or selected ID for existing
     const configIdToSave = isCreatingNew ? workingConfigName : selectedConfigId;
@@ -608,7 +612,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
             {/* Padding above first row, only visible when expanded */}
             <Box sx={{ height: 7 }} />
             {/* Configuration selector with CRUD controls */}
-            <Box sx={{ alignItems: 'center', display: 'flex', mb: 3 }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', mb: currentConfig ? 3 : 1 }}>
               <FormControl size="small" sx={{ maxWidth: 300, minWidth: 200 }}>
                 <InputLabel>Configuration</InputLabel>
                 <Select
@@ -689,24 +693,59 @@ export default function VaultConfigCard({ proxies, sessions }) {
               <>
                 <Divider sx={{ mb: 3 }} />
 
-                {/* Configuration Name - editable during creation, display only after saved */}
-                <Box sx={{ mb: 3 }}>
-                  <TextField
-                    disabled={!isCreatingNew}
-                    error={isCreatingNew && !workingConfigName}
-                    label="Configuration Name"
-                    onChange={(e) => {
-                      if (isCreatingNew) {
+                {/* First row: Configuration Name (when creating) OR Last Donation (when viewing) */}
+                {isCreatingNew ? (
+                  // Show Configuration Name field when creating new
+                  <Box sx={{ mb: 3 }}>
+                    <TextField
+                      error={isCreatingNew && !workingConfigName}
+                      helperText={isCreatingNew ? 'Required for new configurations' : ''}
+                      label="Configuration Name"
+                      onChange={(e) => {
                         setWorkingConfigName(e.target.value);
-                      }
-                    }}
-                    placeholder="Enter configuration name"
-                    required
-                    size="small"
-                    sx={{ width: 300 }}
-                    value={isCreatingNew ? workingConfigName : selectedConfigId}
-                  />
-                </Box>
+                      }}
+                      placeholder="Enter configuration name"
+                      required
+                      size="small"
+                      sx={{ width: 300 }}
+                      value={workingConfigName}
+                    />
+                  </Box>
+                ) : (
+                  // Show Last Donation when viewing existing config
+                  currentConfig.automation?.last_run && (
+                    <Box sx={{ mb: 3 }}>
+                      <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, mb: 0.5 }}>
+                        <CelebrationIcon sx={{ color: 'success.main', fontSize: 20 }} />
+                        <Typography
+                          sx={{ color: 'success.main', fontWeight: 'bold' }}
+                          variant="body2"
+                        >
+                          Last Donation
+                        </Typography>
+                        <CelebrationIcon sx={{ color: 'success.main', fontSize: 20 }} />
+                      </Box>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                        <Typography variant="body2">
+                          <strong>Time:</strong>{' '}
+                          {new Date(currentConfig.automation.last_run * 1000).toLocaleString()}
+                        </Typography>
+                        {currentConfig.automation.donation_amount && (
+                          <Typography variant="body2">
+                            <strong>Amount:</strong> {currentConfig.automation.donation_amount}{' '}
+                            points
+                          </Typography>
+                        )}
+                        <Typography variant="body2">
+                          <strong>Type:</strong>{' '}
+                          {currentConfig.pot_tracking?.last_donation_type === 'manual'
+                            ? 'Manual'
+                            : 'Automated'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )
+                )}
 
                 {/* Associated Session - for UID and points source */}
                 <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, mb: 3 }}>
@@ -769,8 +808,12 @@ export default function VaultConfigCard({ proxies, sessions }) {
                 {/* Browser MAM ID - simplified for cookie extraction */}
                 <Box sx={{ mb: 2 }}>
                   <TextField
-                    error={!currentConfig.browser_mam_id}
-                    helperText="Required browser cookies for vault access"
+                    error={showValidation && !currentConfig.browser_mam_id}
+                    helperText={
+                      showValidation && !currentConfig.browser_mam_id
+                        ? 'Browser MAM ID is required'
+                        : 'Required browser cookies for vault access'
+                    }
                     label="Browser MAM ID + UID"
                     maxRows={showBrowserMamId ? 6 : 2}
                     minRows={showBrowserMamId ? 6 : 2}
@@ -873,7 +916,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     <Button
                       disabled={isLoading}
                       onClick={generateBookmarklet}
-                      sx={{ minWidth: 140 }}
+                      sx={{ height: 40, minWidth: 140 }}
                       variant="outlined"
                     >
                       Get Browser Cookies
@@ -881,7 +924,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     <Button
                       disabled={isLoading || !currentConfig.browser_mam_id}
                       onClick={handleValidateConfiguration}
-                      sx={{ minWidth: 140 }}
+                      sx={{ height: 40, minWidth: 140 }}
                       variant="outlined"
                     >
                       Test Vault Access
@@ -942,7 +985,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     <Button
                       disabled={isLoading || !currentConfig.browser_mam_id || !manualDonationAmount}
                       onClick={handleManualDonation}
-                      sx={{ minWidth: 140 }}
+                      sx={{ height: 40, minWidth: 140 }}
                       variant="outlined"
                     >
                       Donate Now

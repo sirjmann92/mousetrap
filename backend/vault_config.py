@@ -73,7 +73,33 @@ def save_vault_config(config: dict[str, Any]) -> bool:
 def get_vault_configuration(config_id: str) -> dict[str, Any] | None:
     """Get a specific vault configuration by ID."""
     config = load_vault_config()
-    return config.get("vault_configurations", {}).get(config_id)
+    vault_config = config.get("vault_configurations", {}).get(config_id)
+
+    if vault_config is None:
+        return None
+
+    # Merge with default structure to ensure all fields exist (for backward compatibility)
+    default = get_default_vault_configuration()
+
+    # Deep merge pot_tracking to ensure new fields are present
+    if "pot_tracking" in vault_config:
+        vault_config["pot_tracking"] = {**default["pot_tracking"], **vault_config["pot_tracking"]}
+    else:
+        vault_config["pot_tracking"] = default["pot_tracking"]
+
+    # Ensure automation fields exist
+    if "automation" in vault_config:
+        vault_config["automation"] = {**default["automation"], **vault_config["automation"]}
+    else:
+        vault_config["automation"] = default["automation"]
+
+    # Ensure validation fields exist
+    if "validation" in vault_config:
+        vault_config["validation"] = {**default["validation"], **vault_config["validation"]}
+    else:
+        vault_config["validation"] = default["validation"]
+
+    return vault_config
 
 
 def save_vault_configuration(config_id: str, vault_config: dict[str, Any]) -> bool:
@@ -114,7 +140,12 @@ def get_default_vault_configuration() -> dict[str, Any]:
             "once_per_pot": False,
             "last_run": None,
         },
-        "pot_tracking": {"last_donation_pot": None, "last_donation_time": None},
+        "pot_tracking": {
+            "last_donation_pot": None,
+            "last_donation_time": None,
+            "last_donation_amount": None,
+            "last_donation_type": None,  # "manual" or "automated"
+        },
         "validation": {
             "last_validated": None,
             "last_validation_result": None,
@@ -384,8 +415,17 @@ async def check_should_donate_to_pot(vault_config: dict[str, Any]) -> dict[str, 
         }
 
 
-def update_pot_tracking(vault_config_id: str, pot_id: str) -> bool:
-    """Update pot tracking after a successful donation."""
+def update_pot_tracking(
+    vault_config_id: str, pot_id: str, amount: int = 0, donation_type: str = "manual"
+) -> bool:
+    """Update pot tracking after a successful donation.
+
+    Args:
+        vault_config_id: ID of the vault configuration
+        pot_id: ID of the pot that was donated to
+        amount: Amount of points donated
+        donation_type: Type of donation ("manual" or "automated")
+    """
     try:
         # Load current vault config
         full_config = load_vault_config()
@@ -401,14 +441,18 @@ def update_pot_tracking(vault_config_id: str, pot_id: str) -> bool:
 
         vault_config["pot_tracking"]["last_donation_pot"] = pot_id
         vault_config["pot_tracking"]["last_donation_time"] = int(time.time())
+        vault_config["pot_tracking"]["last_donation_amount"] = amount
+        vault_config["pot_tracking"]["last_donation_type"] = donation_type
 
         # Save configuration
         success = save_vault_config(full_config)
 
         if success:
             _logger.info(
-                "[VaultConfig] Updated pot tracking for config '%s': donated to pot %s",
+                "[VaultConfig] Updated pot tracking for config '%s': %s donation of %d points to pot %s",
                 vault_config_id,
+                donation_type,
+                amount,
                 pot_id,
             )
     except Exception as e:

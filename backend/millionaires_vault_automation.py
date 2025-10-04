@@ -269,7 +269,9 @@ class VaultAutomationManager:
                 # Update pot tracking if once_per_pot is enabled
                 current_pot_id = pot_check.get("current_pot_id")
                 if current_pot_id and config.get("automation", {}).get("once_per_pot", False):
-                    pot_update_success = update_pot_tracking(config_id, current_pot_id)
+                    pot_update_success = update_pot_tracking(
+                        config_id, current_pot_id, donation_amount, "automated"
+                    )
                     if pot_update_success:
                         _logger.info(
                             "[VaultAutomation] Updated pot tracking for config '%s': pot %s",

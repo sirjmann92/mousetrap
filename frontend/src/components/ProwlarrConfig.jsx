@@ -116,15 +116,25 @@ export default function ProwlarrConfig({
     <Accordion
       expanded={expanded}
       onChange={(e, isExpanded) => setExpanded(isExpanded)}
-      sx={{ mb: 3 }}
+      sx={{
+        bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
+        borderRadius: 2,
+        mb: 3,
+        overflow: 'hidden',
+      }}
     >
       <AccordionSummary
         aria-controls="prowlarr-content"
         expandIcon={<ExpandMoreIcon />}
         id="prowlarr-header"
+        sx={{
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
+        }}
       >
         <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-          <Typography variant="h6">Prowlarr Integration</Typography>
+          <Typography sx={{ fontWeight: 600 }} variant="subtitle2">
+            Prowlarr Integration
+          </Typography>
           <Tooltip
             placement="right"
             title="Auto-update your MAM ID in Prowlarr when it changes. You'll be notified before your 90-day MAM session expires so you can update it."
@@ -136,7 +146,11 @@ export default function ProwlarrConfig({
         </Box>
       </AccordionSummary>
 
-      <AccordionDetails>
+      <AccordionDetails
+        sx={{
+          bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
+        }}
+      >
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <FormControlLabel
             control={

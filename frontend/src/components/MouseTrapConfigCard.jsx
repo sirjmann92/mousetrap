@@ -132,6 +132,9 @@ export default function MouseTrapConfigCard({
     setLabelError(!label || label.trim() === '' ? 'Session label is required.' : '');
   }, [label]);
 
+  // Track if user has attempted to save (for validation display)
+  const [showValidation, setShowValidation] = useState(false);
+
   const sessionTypeError = !sessionType || sessionType === '' ? 'Required' : '';
   const freqNumeric = Number(checkFrequency);
   const freqError =
@@ -147,6 +150,7 @@ export default function MouseTrapConfigCard({
   const handleSave = async () => {
     setSaveStatus('');
     setSaveError('');
+    setShowValidation(true); // Show validation errors on save attempt
     if (!allValid) return;
     // Only update global sessionLabel on save
     setSessionLabel(label);
@@ -266,6 +270,8 @@ export default function MouseTrapConfigCard({
           <Box sx={{ height: 7 }} />
           <Box sx={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: 2, mb: 3 }}>
             <TextField
+              error={showValidation && !!labelError}
+              helperText={showValidation && labelError}
               label="Session Label"
               onChange={(e) => setLabel(e.target.value)}
               required
@@ -275,19 +281,19 @@ export default function MouseTrapConfigCard({
             />
 
             <FormControl
-              error={!!sessionTypeError}
+              error={showValidation && !!sessionTypeError}
               size="small"
               sx={{ maxWidth: 175, minWidth: 150 }}
             >
               <InputLabel
-                error={!!sessionTypeError}
+                error={showValidation && !!sessionTypeError}
                 required
-                sx={{ color: sessionTypeError ? 'error.main' : undefined }}
+                sx={{ color: showValidation && sessionTypeError ? 'error.main' : undefined }}
               >
                 Session Type
               </InputLabel>
               <Select
-                error={!!sessionTypeError}
+                error={showValidation && !!sessionTypeError}
                 label="Session Type"
                 MenuProps={{ disableScrollLock: true }}
                 onChange={(e) => setSessionType(e.target.value)}
@@ -336,7 +342,11 @@ export default function MouseTrapConfigCard({
             </Box>
 
             <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
-              <FormControl error={!!freqError} size="small" sx={{ maxWidth: 145, minWidth: 100 }}>
+              <FormControl
+                error={showValidation && !!freqError}
+                size="small"
+                sx={{ maxWidth: 145, minWidth: 100 }}
+              >
                 <InputLabel>Interval*</InputLabel>
                 <Select
                   label="Interval"
@@ -370,50 +380,62 @@ export default function MouseTrapConfigCard({
             </Box>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 3 }}>
-            <Box sx={{ width: '100%' }}>
-              <TextField
-                error={mamIdError}
-                helperText="Paste your full MAM ID here (required)"
-                label="MAM ID"
-                maxRows={showMamId ? 6 : 2}
-                minRows={showMamId ? 6 : 2}
-                multiline
-                onChange={(e) => setMamId(e.target.value)}
-                required
+            <TextField
+              error={showValidation && mamIdError}
+              helperText={
+                showValidation && mamIdError
+                  ? 'MAM ID is required'
+                  : 'Paste your full MAM ID here (required)'
+              }
+              label="MAM ID"
+              maxRows={showMamId ? 6 : 2}
+              minRows={showMamId ? 6 : 2}
+              multiline
+              onChange={(e) => setMamId(e.target.value)}
+              required
+              size="small"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showMamId ? 'Hide MAM ID' : 'Show MAM ID'}
+                        edge="end"
+                        onClick={() => setShowMamId((v) => !v)}
+                      >
+                        {showMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+                htmlInput: {
+                  maxLength: 300,
+                  style: showMamId ? {} : { WebkitTextSecurity: 'disc' },
+                },
+              }}
+              sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
+              value={mamId}
+            />
+            <Tooltip arrow title="Open MyAnonamouse Security page to create or update your MAM ID">
+              <Button
+                href="https://www.myanonamouse.net/preferences/index.php?view=security"
+                rel="noopener noreferrer"
                 size="small"
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label={showMamId ? 'Hide MAM ID' : 'Show MAM ID'}
-                          edge="end"
-                          onClick={() => setShowMamId((v) => !v)}
-                        >
-                          {showMamId ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                  htmlInput: {
-                    maxLength: 300,
-                    style: showMamId ? {} : { WebkitTextSecurity: 'disc' },
-                  },
-                }}
-                sx={{ width: { md: 450, sm: 400, xs: '100%' } }}
-                value={mamId}
-              />
-            </Box>
+                sx={{ height: 40, mb: 3.2, minWidth: 160, whiteSpace: 'nowrap' }}
+                target="_blank"
+                variant="outlined"
+              >
+                Manage MAM ID
+              </Button>
+            </Tooltip>
           </Box>
 
           {/* MAM Session Created Date */}
           <Box sx={{ mb: 2 }}>
-            <Typography sx={{ mb: 1 }} variant="body2">
-              MAM Session Created Date
-            </Typography>
             <Box sx={{ alignItems: 'flex-start', display: 'flex', gap: 2 }}>
               <TextField
-                helperText="When did you create this MAM session? (For 90-day expiry tracking)"
+                helperText="Necessary for expiry tracking"
+                label="MAM Session Created Date"
                 onChange={(e) => setMamSessionCreatedDate(e.target.value || null)}
                 size="small"
                 slotProps={{
@@ -474,8 +496,12 @@ export default function MouseTrapConfigCard({
             <Box sx={{ width: '100%' }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
                 <TextField
-                  error={ipError}
-                  helperText="IP to associate with MAM ID"
+                  error={showValidation && ipError}
+                  helperText={
+                    showValidation && ipError
+                      ? 'IP Address is required'
+                      : 'IP to associate with MAM ID'
+                  }
                   label="IP Address"
                   onChange={(e) => setMamIp(e.target.value)}
                   placeholder="e.g. 203.0.113.99"
