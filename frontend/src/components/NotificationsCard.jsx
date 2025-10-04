@@ -1,7 +1,9 @@
+import EmailIcon from '@mui/icons-material/Email';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import WebhookIcon from '@mui/icons-material/Webhook';
 import {
   Accordion,
   AccordionDetails,
@@ -25,6 +27,56 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+
+// Font Awesome icon wrapper component (keeping for Apprise since it doesn't have an official logo)
+const FontAwesomeIcon = ({ icon, color, fontSize = 20 }) => (
+  <i className={icon} style={{ color, fontSize }} />
+);
+
+// Gmail icon SVG from Wikimedia Commons
+const GmailIcon = ({ size = 20 }) => (
+  <svg
+    aria-label="Gmail"
+    height={size}
+    role="img"
+    style={{ display: 'block' }}
+    viewBox="0 0 24 24"
+    width={size}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L12 9.366l8.073-5.873C21.69 2.28 24 3.434 24 5.457z"
+      fill="#4285F4"
+    />
+    <path
+      d="M0 5.457v.727l12 8.727 12-8.727v-.727c0-2.023-2.309-3.178-3.927-1.964L12 9.366 3.927 3.493C2.309 2.28 0 3.434 0 5.457z"
+      fill="#34A853"
+    />
+    <path d="M0 6.182v13.184c0 .904.732 1.636 1.636 1.636h3.819V11.729L0 6.182z" fill="#EA4335" />
+    <path
+      d="M24 6.182v13.184c0 .904-.732 1.636-1.636 1.636h-3.819V11.729L24 6.182z"
+      fill="#FBBC04"
+    />
+  </svg>
+);
+
+// Discord icon SVG from Wikimedia Commons
+const DiscordIcon = ({ size = 20 }) => (
+  <svg
+    aria-label="Discord"
+    height={size}
+    role="img"
+    style={{ display: 'block' }}
+    viewBox="0 0 127.14 96.36"
+    width={size}
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.12,53,91.08,65.69,84.69,65.69Z"
+      fill="#5865F2"
+    />
+  </svg>
+);
 
 export default function NotificationsCard() {
   const [showWebhook, setShowWebhook] = useState(false);
@@ -110,6 +162,24 @@ export default function NotificationsCard() {
     }
   }, [testResult]);
   const [testLoading, setTestLoading] = useState(false);
+
+  // Helper to get configured notification methods
+  const getConfiguredMethods = () => {
+    const methods = [];
+    // Check if webhook is configured
+    if (config.webhook_url) {
+      methods.push(config.discord_webhook ? 'Discord' : 'Webhook');
+    }
+    // Check if SMTP is configured (needs host and to_email at minimum)
+    if (config.smtp?.host && config.smtp?.to_email) {
+      methods.push('Email');
+    }
+    // Check if Apprise is configured
+    if (config.apprise?.url) {
+      methods.push('Apprise');
+    }
+    return methods;
+  };
 
   useEffect(() => {
     fetch('/api/notify/config')
@@ -261,28 +331,65 @@ export default function NotificationsCard() {
   return (
     <Card sx={{ borderRadius: 2, boxShadow: 2, mb: 3 }}>
       <Box
-        onClick={() => setExpanded((e) => !e)}
+        onClick={() => setExpanded(!expanded)}
         sx={{
           alignItems: 'center',
           cursor: 'pointer',
           display: 'flex',
-          minHeight: 56,
           pb: 1.5,
           pt: 2,
           px: 2,
         }}
       >
-        <Typography sx={{ alignItems: 'center', display: 'flex', flexGrow: 1 }} variant="h6">
+        <Typography sx={{ flexGrow: 1 }} variant="h6">
           Notifications
-          <Tooltip
-            arrow
-            title="Choose which events trigger notifications and which channels to use"
-          >
-            <IconButton size="small" sx={{ ml: 1, p: 0.5 }}>
-              <InfoOutlinedIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
         </Typography>
+        {getConfiguredMethods().length > 0 && (
+          <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, mr: 1 }}>
+            {getConfiguredMethods().map((method) => {
+              let icon = null;
+              let tooltip = '';
+
+              if (method === 'Discord') {
+                icon = <DiscordIcon size={20} />;
+                tooltip = 'Discord Webhook Configured';
+              } else if (method === 'Webhook') {
+                icon = <WebhookIcon sx={{ color: '#FF6B6B', fontSize: 20 }} />;
+                tooltip = 'Webhook Configured';
+              } else if (method === 'Email') {
+                // Check if it's Gmail - use official Gmail icon with colors
+                const isGmail = config.smtp?.host?.toLowerCase().includes('gmail');
+                if (isGmail) {
+                  icon = <GmailIcon size={20} />;
+                  tooltip = 'Gmail SMTP Configured';
+                } else {
+                  icon = <EmailIcon sx={{ color: '#4285F4', fontSize: 20 }} />;
+                  tooltip = 'SMTP Email Configured';
+                }
+              } else if (method === 'Apprise') {
+                // Apprise doesn't have an official logo, use Font Awesome bullhorn
+                icon = <FontAwesomeIcon color="#FFA726" icon="fa-solid fa-bullhorn" />;
+                tooltip = 'Apprise Configured';
+              }
+
+              return (
+                <Tooltip arrow key={method} title={tooltip}>
+                  <IconButton
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfigExpanded(true);
+                      setExpanded(true);
+                    }}
+                    size="small"
+                    sx={{ p: 0.5 }}
+                  >
+                    {icon}
+                  </IconButton>
+                </Tooltip>
+              );
+            })}
+          </Box>
+        )}
         <IconButton size="small">
           {expanded ? <ExpandMoreIcon sx={{ transform: 'rotate(180deg)' }} /> : <ExpandMoreIcon />}
         </IconButton>
@@ -502,7 +609,7 @@ export default function NotificationsCard() {
 
           <Accordion
             expanded={configExpanded}
-            onChange={(e, isExpanded) => setConfigExpanded(isExpanded)}
+            onChange={(_e, isExpanded) => setConfigExpanded(isExpanded)}
             sx={{
               bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#272626' : '#f5f5f5'),
               borderRadius: 2,

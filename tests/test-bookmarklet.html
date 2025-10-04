@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Bookmarklet</title>
+</head>
+<body>
+    <h1>Bookmarklet Test</h1>
+    <p>Drag this button to your bookmarks bar:</p>
+    <a href="javascript:(function(){try{if(!window.location.href.includes('myanonamouse.net')){alert('Please use this bookmarklet on MyAnonamouse.net');return;}var cookies=document.cookie.split(';');var mamId=null;var uid=null;for(var i=0;i<cookies.length;i++){var cookie=cookies[i].trim();if(cookie.startsWith('mam_id=')){mamId=cookie.substring(7);}else if(cookie.startsWith('uid=')){uid=cookie.substring(4);}}if(mamId&&uid){var browser='unknown';var ua=navigator.userAgent;if(ua.includes('Firefox')){browser='firefox';}else if(ua.includes('Chrome')&&!ua.includes('Edg')){browser='chrome';}else if(ua.includes('Edg')){browser='edge';}else if(ua.includes('Safari')&&!ua.includes('Chrome')){browser='safari';}else if(ua.includes('Opera')||ua.includes('OPR')){browser='opera';}var cookieString='mam_id='+mamId+'; uid='+uid+'; browser='+browser;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cookieString).then(function(){alert('Browser MAM ID copied to clipboard!\n\nThis includes both mam_id and uid cookies, plus browser type ('+browser+') for proper headers.');}).catch(function(){prompt('Browser MAM ID (copy this):',cookieString);});}else{prompt('Browser MAM ID (copy this):',cookieString);}}else{var missing=[];if(!mamId)missing.push('mam_id');if(!uid)missing.push('uid');alert('Missing required cookies: '+missing.join(', ')+'\n\nMake sure you are logged in to MyAnonamouse and try again.');}}catch(e){alert('Bookmarklet error: '+e.message);console.error('MAM Cookie Extractor Error:',e);}})();" style="display: inline-block; padding: 10px 20px; background: #1976d2; color: white; text-decoration: none; border-radius: 4px;">Get Vault Cookies (Test)</a>
+
+    <h2>Alternate: Click to test on this page</h2>
+    <button onclick="testBookmarklet()">Test Bookmarklet Code</button>
+
+    <script>
+        function testBookmarklet() {
+            // This should alert saying you need to be on myanonamouse.net
+            try{if(!window.location.href.includes('myanonamouse.net')){alert('Please use this bookmarklet on MyAnonamouse.net');return;}var cookies=document.cookie.split(';');var mamId=null;var uid=null;for(var i=0;i<cookies.length;i++){var cookie=cookies[i].trim();if(cookie.startsWith('mam_id=')){mamId=cookie.substring(7);}else if(cookie.startsWith('uid=')){uid=cookie.substring(4);}}if(mamId&&uid){var browser='unknown';var ua=navigator.userAgent;if(ua.includes('Firefox')){browser='firefox';}else if(ua.includes('Chrome')&&!ua.includes('Edg')){browser='chrome';}else if(ua.includes('Edg')){browser='edge';}else if(ua.includes('Safari')&&!ua.includes('Chrome')){browser='safari';}else if(ua.includes('Opera')||ua.includes('OPR')){browser='opera';}var cookieString='mam_id='+mamId+'; uid='+uid+'; browser='+browser;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(cookieString).then(function(){alert('Browser MAM ID copied to clipboard!\n\nThis includes both mam_id and uid cookies, plus browser type ('+browser+') for proper headers.');}).catch(function(){prompt('Browser MAM ID (copy this):',cookieString);});}else{prompt('Browser MAM ID (copy this):',cookieString);}}else{var missing=[];if(!mamId)missing.push('mam_id');if(!uid)missing.push('uid');alert('Missing required cookies: '+missing.join(', ')+'\n\nMake sure you are logged in to MyAnonamouse and try again.');}}catch(e){alert('Bookmarklet error: '+e.message);console.error('MAM Cookie Extractor Error:',e);}
+        }
+    </script>
+
+    <h2>Expected behavior:</h2>
+    <ul>
+        <li>On this test page: Should alert "Please use this bookmarklet on MyAnonamouse.net"</li>
+        <li>On myanonamouse.net (logged in): Should copy your mam_id and uid cookies to clipboard</li>
+        <li>On myanonamouse.net (logged out): Should alert about missing cookies</li>
+    </ul>
+</body>
+</html>
