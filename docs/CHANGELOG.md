@@ -1,3 +1,32 @@
+# October 4, 2025
+
+## Vault Donation Success Detection Fix 🔧
+
+### **Bug Fixes**
+- **Fixed vault donation success detection race condition:**
+  - Added 2-second delay after donation POST before checking points balance
+  - Prevents false "no success confirmation" errors when MAM backend processes donation slowly
+  - Affects both direct and proxy donation methods
+  - Race condition occurred when points verification happened before MAM's database updated
+
+### **Improved Vault Donation Logging**
+- **Enhanced points verification logging:**
+  - Changed verification logs from DEBUG to INFO level for better visibility
+  - Added actual delta calculation: shows exact point change vs expected change
+  - Improved error messages with detailed point comparison data
+  - Format: `Points before: X, Current: Y, Expected: Z, Actual delta: W`
+- **Better failure diagnostics:**
+  - Error messages now include point deltas when verification fails
+  - Shows tolerance threshold (100 points) in warning messages
+  - Helps identify whether donation actually succeeded but verification had timing issues
+
+### **Technical Details**
+- Added `await asyncio.sleep(2)` after donation POST in both `_perform_vault_donation_direct()` and `_perform_vault_donation_proxy()`
+- Improved error message from generic "Donation not processed - no success confirmation received" to more detailed "Donation may have failed - no success confirmation in response and points verification inconclusive (points before: X, after: Y, expected: Z)"
+- All three verification paths updated: session-based, browser-based, and proxy-based
+
+---
+
 # October 3, 2025
 
 ## UI/UX Polish & Consistency Improvements ✨

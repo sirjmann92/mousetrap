@@ -1061,6 +1061,13 @@ async def _perform_vault_donation_direct(
                         "[perform_vault_donation] No clear success indicator found, verifying by checking points balance"
                     )
 
+                    # Add a small delay to allow MAM's backend to process the donation
+                    # This prevents a race condition where we check points before they're updated
+                    _logger.debug(
+                        "[perform_vault_donation] Waiting 2 seconds for MAM backend to process donation..."
+                    )
+                    await asyncio.sleep(2)
+
                     if verification_mam_id:
                         # Using session mam_id for verification - get session config and its proxy
                         try:
@@ -1083,26 +1090,30 @@ async def _perform_vault_donation_direct(
 
                                 if current_points is not None:
                                     expected_points = result["points_before"] - amount
+                                    actual_delta = result["points_before"] - current_points
 
-                                    _logger.debug(
-                                        "[perform_vault_donation] Points verification (session) - Before: %s, Current: %s, Expected: %s",
+                                    _logger.info(
+                                        "[perform_vault_donation] Points verification (session) - Before: %s, Current: %s, Expected: %s, Actual delta: %s",
                                         result["points_before"],
                                         current_points,
                                         expected_points,
+                                        actual_delta,
                                     )
 
                                     # Check if points decreased by approximately the donation amount
                                     if (
                                         abs(current_points - expected_points) <= 100
                                     ):  # Allow 100 point discrepancy for rounding/timing
-                                        _logger.debug(
-                                            "[perform_vault_donation] Points verification successful - donation appears to have worked"
+                                        _logger.info(
+                                            "[perform_vault_donation] Points verification successful - donation appears to have worked (delta within 100 points)"
                                         )
                                         has_success_indicator = True
                                         result["points_after"] = current_points
                                     else:
                                         _logger.warning(
-                                            "[perform_vault_donation] Points verification failed - points did not decrease as expected"
+                                            "[perform_vault_donation] Points verification failed - points did not decrease as expected (delta: %s, expected: %s, tolerance: 100)",
+                                            actual_delta,
+                                            amount,
                                         )
                                 else:
                                     _logger.warning(
@@ -1131,26 +1142,30 @@ async def _perform_vault_donation_direct(
 
                         if current_points is not None:
                             expected_points = result["points_before"] - amount
+                            actual_delta = result["points_before"] - current_points
 
-                            _logger.debug(
-                                "[perform_vault_donation] Points verification (browser) - Before: %s, Current: %s, Expected: %s",
+                            _logger.info(
+                                "[perform_vault_donation] Points verification (browser) - Before: %s, Current: %s, Expected: %s, Actual delta: %s",
                                 result["points_before"],
                                 current_points,
                                 expected_points,
+                                actual_delta,
                             )
 
                             # Check if points decreased by approximately the donation amount
                             if (
                                 abs(current_points - expected_points) <= 100
                             ):  # Allow 100 point discrepancy for rounding/timing
-                                _logger.debug(
-                                    "[perform_vault_donation] Points verification successful - donation appears to have worked"
+                                _logger.info(
+                                    "[perform_vault_donation] Points verification successful - donation appears to have worked (delta within 100 points)"
                                 )
                                 has_success_indicator = True
                                 result["points_after"] = current_points
                             else:
                                 _logger.warning(
-                                    "[perform_vault_donation] Points verification failed - points did not decrease as expected"
+                                    "[perform_vault_donation] Points verification failed - points did not decrease as expected (delta: %s, expected: %s, tolerance: 100)",
+                                    actual_delta,
+                                    amount,
                                 )
                         else:
                             _logger.warning(
@@ -1186,9 +1201,20 @@ async def _perform_vault_donation_direct(
                 elif "login" in donation_html or "password" in donation_html:
                     result["error"] = "Authentication failed - cookies may be expired"
                 else:
-                    result["error"] = "Donation not processed - no success confirmation received"
+                    # Provide more detailed error message about what was checked
+                    points_info = ""
+                    if result.get("points_before") and result.get("points_after"):
+                        points_info = f" (points before: {result['points_before']}, after: {result['points_after']}, expected: {result['points_before'] - amount})"
+                    result["error"] = (
+                        f"Donation may have failed - no success confirmation in response and points verification inconclusive{points_info}"
+                    )
                     _logger.warning(
-                        "[perform_vault_donation] No success indicators found in response"
+                        "[perform_vault_donation] No success indicators found in response. Points before: %s, after: %s, expected: %s",
+                        result.get("points_before"),
+                        result.get("points_after"),
+                        result.get("points_before", 0) - amount
+                        if result.get("points_before")
+                        else "unknown",
                     )
             else:
                 result["error"] = f"Donation request failed: HTTP {donation_resp.status}"
@@ -1297,6 +1323,13 @@ async def _perform_vault_donation_proxy(
                     "[perform_vault_donation] No clear success indicator found, verifying by checking points balance via proxy"
                 )
 
+                # Add a small delay to allow MAM's backend to process the donation
+                # This prevents a race condition where we check points before they're updated
+                _logger.debug(
+                    "[perform_vault_donation] Waiting 2 seconds for MAM backend to process donation..."
+                )
+                await asyncio.sleep(2)
+
                 # Build proper proxy config for get_status (best-effort)
                 proxy_cfg_for_status = None
                 if proxies:
@@ -1321,23 +1354,27 @@ async def _perform_vault_donation_proxy(
 
                 if current_points is not None:
                     expected_points = result["points_before"] - amount
+                    actual_delta = result["points_before"] - current_points
 
                     _logger.info(
-                        "[perform_vault_donation] Points verification via proxy - Before: %s, Current: %s, Expected: %s",
+                        "[perform_vault_donation] Points verification via proxy - Before: %s, Current: %s, Expected: %s, Actual delta: %s",
                         result["points_before"],
                         current_points,
                         expected_points,
+                        actual_delta,
                     )
 
                     if abs(current_points - expected_points) <= 100:
                         _logger.info(
-                            "[perform_vault_donation] Points verification successful via proxy - donation appears to have worked"
+                            "[perform_vault_donation] Points verification successful via proxy - donation appears to have worked (delta within 100 points)"
                         )
                         has_success_indicator = True
                         result["points_after"] = current_points
                     else:
                         _logger.warning(
-                            "[perform_vault_donation] Points verification failed via proxy - points did not decrease as expected"
+                            "[perform_vault_donation] Points verification failed via proxy - points did not decrease as expected (delta: %s, expected: %s, tolerance: 100)",
+                            actual_delta,
+                            amount,
                         )
                 else:
                     _logger.warning(
@@ -1370,9 +1407,20 @@ async def _perform_vault_donation_proxy(
             elif "login" in donation_html or "password" in donation_html:
                 result["error"] = "Authentication failed - cookies may be expired"
             else:
-                result["error"] = "Donation not processed - no success confirmation received"
+                # Provide more detailed error message about what was checked
+                points_info = ""
+                if result.get("points_before") and result.get("points_after"):
+                    points_info = f" (points before: {result['points_before']}, after: {result['points_after']}, expected: {result['points_before'] - amount})"
+                result["error"] = (
+                    f"Donation may have failed - no success confirmation in response and points verification inconclusive{points_info}"
+                )
                 _logger.warning(
-                    "[perform_vault_donation] No success indicators found in proxy response"
+                    "[perform_vault_donation] No success indicators found in proxy response. Points before: %s, after: %s, expected: %s",
+                    result.get("points_before"),
+                    result.get("points_after"),
+                    result.get("points_before", 0) - amount
+                    if result.get("points_before")
+                    else "unknown",
                 )
 
     except Exception as e:
