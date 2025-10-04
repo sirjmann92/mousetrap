@@ -64,6 +64,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
   // MAM ID visibility state - like session card
   const [showBrowserMamId, setShowBrowserMamId] = useState(false);
   const [vaultPoints, setVaultPoints] = useState(null);
+  const [vaultCheese, setVaultCheese] = useState(null);
+  const [vaultWedges, setVaultWedges] = useState(null);
   const [vaultTotalPoints, setVaultTotalPoints] = useState(null);
   const [pointsLoading, setPointsLoading] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
@@ -386,6 +388,14 @@ export default function VaultConfigCard({ proxies, sessions }) {
           );
         }
 
+        // Refresh vault configuration to update Last Donation display
+        if (!isCreatingNew && selectedConfigId) {
+          console.debug('[VaultDonation] Refreshing vault configuration for Last Donation update');
+          setTimeout(() => {
+            loadVaultConfiguration(selectedConfigId);
+          }, 500);
+        }
+
         // Always refresh vault total after donation to ensure persistence
         // Use multiple refresh attempts to handle any timing issues
         // Preserve existing value on error to prevent disappearing
@@ -403,6 +413,14 @@ export default function VaultConfigCard({ proxies, sessions }) {
           console.debug('Final vault total refresh after donation');
           fetchVaultTotal(true);
         }, 5000);
+
+        // Also refresh points display to ensure it's up to date
+        if (currentConfig) {
+          setTimeout(() => {
+            console.debug('Refreshing points display after donation');
+            fetchVaultPoints(currentConfig);
+          }, 1500);
+        }
       } else {
         console.error('[VaultDonation] Donation failed:', data);
         setSnackbar({
@@ -473,12 +491,16 @@ export default function VaultConfigCard({ proxies, sessions }) {
     async (config) => {
       if (!config || !selectedConfigId || !config.associated_session_label) {
         setVaultPoints(null);
+        setVaultCheese(null);
+        setVaultWedges(null);
         return;
       }
 
       // Don't fetch points for unsaved configurations
       if (isCreatingNew) {
         setVaultPoints(null);
+        setVaultCheese(null);
+        setVaultWedges(null);
         return;
       }
 
@@ -496,13 +518,19 @@ export default function VaultConfigCard({ proxies, sessions }) {
 
         if (data.success && typeof data.points === 'number') {
           setVaultPoints(data.points);
+          setVaultCheese(data.cheese);
+          setVaultWedges(data.wedges);
         } else {
           console.error('Failed to fetch vault points:', data.error || 'Unknown error');
           setVaultPoints(null);
+          setVaultCheese(null);
+          setVaultWedges(null);
         }
       } catch (error) {
         console.error('Error fetching vault points:', error);
         setVaultPoints(null);
+        setVaultCheese(null);
+        setVaultWedges(null);
       } finally {
         setPointsLoading(false);
       }
@@ -563,6 +591,8 @@ export default function VaultConfigCard({ proxies, sessions }) {
       return () => clearTimeout(timeoutId);
     } else {
       setVaultPoints(null);
+      setVaultCheese(null);
+      setVaultWedges(null);
     }
   }, [
     selectedConfigId,
@@ -713,7 +743,7 @@ export default function VaultConfigCard({ proxies, sessions }) {
                   </Box>
                 ) : (
                   // Show Last Donation when viewing existing config
-                  currentConfig.automation?.last_run && (
+                  (currentConfig.last_donation_display || currentConfig.automation?.last_run) && (
                     <Box sx={{ mb: 3 }}>
                       <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, mb: 0.5 }}>
                         <CelebrationIcon sx={{ color: 'success.main', fontSize: 20 }} />
@@ -726,26 +756,60 @@ export default function VaultConfigCard({ proxies, sessions }) {
                         <CelebrationIcon sx={{ color: 'success.main', fontSize: 20 }} />
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                        <Typography variant="body2">
-                          <strong>Time:</strong>{' '}
-                          {new Date(currentConfig.automation.last_run * 1000).toLocaleString()}
-                        </Typography>
-                        {currentConfig.automation.donation_amount && (
-                          <Typography variant="body2">
-                            <strong>Amount:</strong> {currentConfig.automation.donation_amount}{' '}
-                            points
-                          </Typography>
+                        {currentConfig.last_donation_display ? (
+                          <>
+                            <Typography variant="body2">
+                              <strong>Time:</strong>{' '}
+                              {new Date(
+                                currentConfig.last_donation_display.timestamp,
+                              ).toLocaleString()}
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Amount:</strong> {currentConfig.last_donation_display.amount}{' '}
+                              points
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Source:</strong> {currentConfig.last_donation_display.source}
+                            </Typography>
+                            {currentConfig.last_donation_display.type && (
+                              <Typography variant="body2">
+                                <strong>Type:</strong> {currentConfig.last_donation_display.type}
+                              </Typography>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Typography variant="body2">
+                              <strong>Time:</strong>{' '}
+                              {new Date(currentConfig.automation.last_run * 1000).toLocaleString()}
+                            </Typography>
+                            {currentConfig.automation.donation_amount && (
+                              <Typography variant="body2">
+                                <strong>Amount:</strong> {currentConfig.automation.donation_amount}{' '}
+                                points
+                              </Typography>
+                            )}
+                            <Typography variant="body2">
+                              <strong>Source:</strong> MouseTrap
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Type:</strong>{' '}
+                              {currentConfig.pot_tracking?.last_donation_type === 'manual'
+                                ? 'Manual'
+                                : 'Automated'}
+                            </Typography>
+                          </>
                         )}
-                        <Typography variant="body2">
-                          <strong>Type:</strong>{' '}
-                          {currentConfig.pot_tracking?.last_donation_type === 'manual'
-                            ? 'Manual'
-                            : 'Automated'}
-                        </Typography>
                       </Box>
                     </Box>
                   )
                 )}
+
+                {/* Divider - only show if Last Donation was displayed */}
+                {!isCreatingNew &&
+                  (currentConfig.last_donation_display || currentConfig.automation?.last_run) && (
+                    <Divider sx={{ mb: 3, mt: 1 }} />
+                  )}
 
                 {/* Associated Session - for UID and points source */}
                 <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, mb: 3 }}>
@@ -792,12 +856,30 @@ export default function VaultConfigCard({ proxies, sessions }) {
                     ) : vaultPoints !== null &&
                       vaultPoints !== undefined &&
                       typeof vaultPoints === 'number' ? (
-                      <Typography
-                        sx={{ color: 'success.main', fontWeight: 600 }}
-                        variant="subtitle1"
-                      >
-                        Points: {vaultPoints.toLocaleString()}
-                      </Typography>
+                      <>
+                        <Typography
+                          sx={{ color: 'success.main', fontWeight: 600 }}
+                          variant="subtitle1"
+                        >
+                          Points: {vaultPoints.toLocaleString()}
+                        </Typography>
+                        {vaultWedges !== null && vaultWedges !== undefined && (
+                          <Typography
+                            sx={{ color: 'success.main', fontWeight: 600, ml: 2 }}
+                            variant="subtitle1"
+                          >
+                            Wedges: {vaultWedges.toLocaleString()}
+                          </Typography>
+                        )}
+                        {vaultCheese !== null && vaultCheese !== undefined && (
+                          <Typography
+                            sx={{ color: 'success.main', fontWeight: 600, ml: 2 }}
+                            variant="subtitle1"
+                          >
+                            Cheese: {vaultCheese.toLocaleString()}
+                          </Typography>
+                        )}
+                      </>
                     ) : (
                       <Typography color="error.main" sx={{ fontWeight: 500 }} variant="subtitle1">
                         Points: Error

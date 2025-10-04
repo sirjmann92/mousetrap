@@ -50,3 +50,7 @@ session-*.yaml*
 Thumbs.db
 venv.bak/
 venv/
+
+# Test outputs - pot.php HTML files (contain sensitive data)
+tests/pot_page_*.html
+pot_page_*.html

@@ -1,6 +1,7 @@
 """Millionaire's Vault cookie validation and management utilities."""
 
 import asyncio
+from datetime import datetime
 import logging
 import re
 import time
@@ -644,15 +645,22 @@ async def get_vault_total_points(
 ) -> dict[str, Any]:
     """Get the current total points in the Millionaire's Vault (community total).
 
+    Also parses user's donation history from the page.
+
     Args:
         mam_id: Extracted mam_id value (not full browser cookie string)
         uid: User ID
         proxy_cfg: Optional proxy configuration
 
     Returns:
-        Dict with vault_total_points and status
+        Dict with vault_total_points, donation_history, and status
     """
-    result: dict[str, Any] = {"success": False, "vault_total_points": None, "error": None}
+    result: dict[str, Any] = {
+        "success": False,
+        "vault_total_points": None,
+        "donation_history": [],
+        "error": None,
+    }
 
     try:
         # Prepare cookies and headers
@@ -697,9 +705,138 @@ async def get_vault_total_points(
         else:
             result["error"] = "Could not parse vault total points from page"
 
+        # Parse user's donation history from the table
+        # Format: <tr><td>Fri, 03 Oct 2025 01:57:27 +0000</td><td>2,000</td></tr>
+        donation_rows = re.findall(
+            r"<tr><td>([^<]+)</td><td>([\d,]+)</td></tr>", html, re.IGNORECASE
+        )
+
+        if donation_rows:
+            for date_str, amount_str in donation_rows:
+                try:
+                    # Parse RFC 2822 date format: "Fri, 03 Oct 2025 01:57:27 +0000"
+                    donation_date = datetime.strptime(date_str.strip(), "%a, %d %b %Y %H:%M:%S %z")
+                    amount = int(amount_str.replace(",", ""))
+
+                    result["donation_history"].append(
+                        {
+                            "date": donation_date.isoformat(),
+                            "amount": amount,
+                            "source": "MyAnonamouse",  # From MAM website
+                        }
+                    )
+                except ValueError as e:
+                    _logger.warning("[get_vault_total_points] Failed to parse donation row: %s", e)
+                    continue
+
+            _logger.info(
+                "[get_vault_total_points] Found %d donation(s) in history",
+                len(result["donation_history"]),
+            )
+
     except Exception as e:
         result["error"] = f"Error fetching vault total: {e!s}"
         _logger.error("[get_vault_total_points] Exception: %s", e)
+
+    return result
+
+
+async def get_cheese_and_wedges(
+    mam_id: str, uid: str, proxy_cfg: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Scrape cheese and wedges count from MAM page.
+
+    Cheese and wedges are displayed in the navigation header on MAM pages.
+
+    Args:
+        mam_id: Extracted mam_id value (not full browser cookie string)
+        uid: User ID
+        proxy_cfg: Optional proxy configuration
+
+    Returns:
+        Dict with cheese and wedges counts: {"cheese": int, "wedges": int, "success": bool, "error": str}
+    """
+    result: dict[str, Any] = {
+        "success": False,
+        "cheese": None,
+        "wedges": None,
+        "error": None,
+    }
+
+    try:
+        # Prepare cookies and headers
+        cookies = {"mam_id": mam_id, "uid": uid}
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        # Use homepage or any authenticated page
+        # The cheese/wedges are in the navigation header on every page
+        url = "https://www.myanonamouse.net/index.php"
+
+        # Get the page
+        timeout = aiohttp.ClientTimeout(total=15 if proxy_cfg else 10)
+        proxy_url = None
+        if proxy_cfg:
+            proxies = build_proxy_dict(proxy_cfg)
+            proxy_url = proxies.get("https") or proxies.get("http") if proxies else None
+
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(url, cookies=cookies, headers=headers, proxy=proxy_url) as resp,
+        ):
+            if resp.status != 200:
+                result["error"] = f"Failed to access MAM page: HTTP {resp.status}"
+                return result
+
+            html = await resp.text()
+
+        # Check if logged in
+        if 'type="password"' in html.lower() or 'name="password"' in html.lower():
+            result["error"] = "Not logged in - MAM ID may be expired"
+            return result
+
+        # Parse cheese count
+        # Look for patterns like: "Cheese: 10", "Cheese</span> 10", etc.
+        # MAM shows in navigation, could be various formats
+        cheese_match = re.search(r"Cheese[:\s</span>]*(\d+)", html, re.IGNORECASE)
+        if cheese_match:
+            result["cheese"] = int(cheese_match.group(1))
+            _logger.debug("[get_cheese_and_wedges] Found cheese: %s", result["cheese"])
+        else:
+            _logger.warning("[get_cheese_and_wedges] Could not find cheese in HTML")
+
+        # Parse wedges count
+        # Look for patterns like: "Wedges: 5", "FL Wedges: 5", "Wedge</span> 5"
+        # MAM may show as "FL Wedges" or just "Wedges"
+        wedges_match = re.search(r"(?:FL\s+)?Wedges?[:\s</span>]*(\d+)", html, re.IGNORECASE)
+        if wedges_match:
+            result["wedges"] = int(wedges_match.group(1))
+            _logger.debug("[get_cheese_and_wedges] Found wedges: %s", result["wedges"])
+        else:
+            _logger.warning("[get_cheese_and_wedges] Could not find wedges in HTML")
+
+        # Success if we found at least one value
+        if result["cheese"] is not None or result["wedges"] is not None:
+            result["success"] = True
+        else:
+            result["error"] = "Could not parse cheese or wedges from page"
+            # Log a snippet of HTML for debugging
+            _logger.warning(
+                "[get_cheese_and_wedges] HTML snippet (first 500 chars): %s",
+                html[:500] if len(html) > 500 else html,
+            )
+
+        _logger.info(
+            "[get_cheese_and_wedges] Cheese: %s, Wedges: %s",
+            result["cheese"],
+            result["wedges"],
+        )
+
+    except Exception as e:
+        result["error"] = f"Error fetching cheese/wedges: {e!s}"
+        _logger.error("[get_cheese_and_wedges] Exception: %s", e)
 
     return result
 

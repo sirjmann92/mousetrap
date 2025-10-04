@@ -106,7 +106,6 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
         return {
             "mam_cookie_exists": False,
             "points": None,
-            "cheese": None,
             "wedge_active": None,
             "vip_active": None,
             "message": "No MaM ID provided.",
@@ -164,12 +163,11 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
                 return {
                     "mam_cookie_exists": False,
                     "points": None,
-                    "cheese": None,
                     "wedge_active": None,
                     "vip_active": None,
                     "message": f"MaM API did not return valid JSON: {json_e}. Response: {text[:200]}",
                 }
-        # Parse points, cheese, wedge, VIP status from response
+        # Parse points, wedge, VIP status from response
         points = data.get("seedbonus")
         wedge_active = data.get("wedge_active")
         vip_active = data.get("vip_active")
@@ -183,7 +181,6 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
         return {
             "mam_cookie_exists": False,
             "points": None,
-            "cheese": None,
             "wedge_active": None,
             "vip_active": None,
             "message": f"Failed to fetch status: {e}",
