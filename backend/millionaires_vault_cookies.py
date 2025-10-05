@@ -741,6 +741,101 @@ async def get_vault_total_points(
     return result
 
 
+async def get_last_donation_from_donate_page(
+    mam_id: str, uid: str, proxy_cfg: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    """Get the last donation from donate.php page.
+
+    This page shows the last donation even after hitting donation limits,
+    unlike pot.php which stops showing history.
+
+    Args:
+        mam_id: Extracted mam_id value
+        uid: User ID
+        proxy_cfg: Optional proxy configuration
+
+    Returns:
+        Dict with last_donation info or None if no donation found
+    """
+    result: dict[str, Any] = {
+        "success": False,
+        "last_donation": None,
+        "error": None,
+    }
+
+    try:
+        cookies = {"mam_id": mam_id, "uid": uid}
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+
+        donate_url = "https://www.myanonamouse.net/millionaires/donate.php"
+
+        timeout = aiohttp.ClientTimeout(total=15 if proxy_cfg else 10)
+        proxy_url = None
+        if proxy_cfg:
+            proxies = build_proxy_dict(proxy_cfg)
+            proxy_url = proxies.get("https") or proxies.get("http") if proxies else None
+
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(donate_url, cookies=cookies, headers=headers, proxy=proxy_url) as resp,
+        ):
+            if resp.status != 200:
+                result["error"] = f"Failed to access donate page: HTTP {resp.status}"
+                return result
+
+            html = await resp.text()
+
+        # Check if logged in
+        if 'type="password"' in html.lower() or 'name="password"' in html.lower():
+            result["error"] = "Not logged in - browser MAM ID may be expired"
+            return result
+
+        # Parse last donation from donate.php
+        # Look for table row with date and amount: <tr><td>Sun, 05 Oct 2025 02:00:30 +0000</td><td>2,000</td></tr>
+        last_donation_match = re.search(
+            r"<tr><td>([^<]+)</td><td>([\d,]+)</td></tr>",
+            html,
+            re.IGNORECASE,
+        )
+
+        if last_donation_match:
+            date_str = last_donation_match.group(1).strip()
+            amount_str = last_donation_match.group(2).replace(",", "")
+
+            try:
+                # Parse RFC 2822 date format
+                donation_date = datetime.strptime(date_str, "%a, %d %b %Y %H:%M:%S %z")
+                amount = int(amount_str)
+
+                result["last_donation"] = {
+                    "date": donation_date.isoformat(),
+                    "amount": amount,
+                    "source": "MyAnonamouse",
+                }
+                result["success"] = True
+                _logger.info(
+                    "[get_last_donation_from_donate_page] Found last donation: %d points on %s",
+                    amount,
+                    date_str,
+                )
+            except ValueError as e:
+                _logger.warning(
+                    "[get_last_donation_from_donate_page] Failed to parse donation: %s", e
+                )
+                result["error"] = f"Failed to parse donation date: {e}"
+        else:
+            _logger.info("[get_last_donation_from_donate_page] No last donation found on page")
+            result["success"] = True  # Not an error, just no donation yet
+
+    except Exception as e:
+        result["error"] = f"Error fetching last donation: {e!s}"
+        _logger.error("[get_last_donation_from_donate_page] Exception: %s", e)
+
+    return result
+
+
 async def get_cheese_and_wedges(
     mam_id: str, uid: str, proxy_cfg: dict[str, Any] | None = None
 ) -> dict[str, Any]:
