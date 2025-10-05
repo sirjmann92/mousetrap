@@ -46,6 +46,7 @@ from backend.millionaires_vault_automation import VaultAutomationManager
 from backend.millionaires_vault_cookies import (
     generate_cookie_extraction_bookmarklet,
     get_cheese_and_wedges,
+    get_last_donation_from_donate_page,
     get_vault_total_points,
     perform_vault_donation,
     validate_browser_mam_id_with_config,
@@ -2143,60 +2144,58 @@ async def api_get_vault_configuration(config_id: str) -> dict[str, Any]:
                 effective_proxy = get_effective_proxy_config(vault_config)
 
                 if extracted_mam_id and effective_uid:
-                    # Fetch vault total and MAM donation history
+                    # Get MouseTrap's last donation info from pot_tracking (PRIMARY SOURCE)
+                    pot_tracking = vault_config.get("pot_tracking", {})
+                    mousetrap_last_time = pot_tracking.get("last_donation_time")
+                    mousetrap_amount = pot_tracking.get("last_donation_amount", 0)
+                    mousetrap_type = pot_tracking.get("last_donation_type", "automated")
+
+                    # Fetch vault total and MAM donation history (SUPPLEMENTARY)
                     mam_result = await get_vault_total_points(
                         extracted_mam_id, effective_uid, effective_proxy
                     )
 
+                    # Fetch MAM donation history (try pot.php first, fallback to donate.php)
+                    mam_donations = []
                     if mam_result.get("success") and mam_result.get("donation_history"):
-                        # Get MouseTrap's last donation info from pot_tracking (not automation.last_run)
-                        pot_tracking = vault_config.get("pot_tracking", {})
-                        mousetrap_last_time = pot_tracking.get("last_donation_time")
-                        mousetrap_type = pot_tracking.get("last_donation_type", "automated")
-
-                        # Get MAM's most recent donation (first in list)
                         mam_donations = mam_result["donation_history"]
-                        mam_last = mam_donations[0] if mam_donations else None
 
-                        # Determine which donation to display
-                        if mam_last and mousetrap_last_time:
-                            mam_date = datetime.fromisoformat(mam_last["date"])
-                            # Make mousetrap_date timezone-aware (UTC)
-                            mousetrap_date = datetime.fromtimestamp(mousetrap_last_time, tz=UTC)
+                    # If pot.php has no history (hit donation limit), try donate.php
+                    if not mam_donations:
+                        donate_result = await get_last_donation_from_donate_page(
+                            extracted_mam_id, effective_uid, effective_proxy
+                        )
+                        if donate_result.get("success") and donate_result.get("last_donation"):
+                            mam_donations = [donate_result["last_donation"]]
 
-                            # If dates are close (within 5 seconds), treat as same donation
-                            time_diff = abs((mam_date - mousetrap_date).total_seconds())
+                    # Now determine what to display
+                    if mousetrap_last_time and mam_donations:
+                        # Both have data - compare timestamps
+                        mousetrap_date = datetime.fromtimestamp(mousetrap_last_time, tz=UTC)
+                        mam_last = mam_donations[0]
+                        mam_date = datetime.fromisoformat(mam_last["date"])
 
-                            if time_diff <= 5:
-                                # Same donation - use MouseTrap source but MAM amount (actual)
-                                vault_config["last_donation_display"] = {
-                                    "timestamp": mousetrap_date.isoformat(),
-                                    "amount": mam_last["amount"],  # Use actual amount from MAM
-                                    "type": (
-                                        "Manual" if mousetrap_type == "manual" else "Automated"
-                                    ),
-                                    "source": "MouseTrap",
-                                }
-                            else:
-                                # MAM donation is more recent - likely manual on website
-                                vault_config["last_donation_display"] = {
-                                    "timestamp": mam_last["date"],
-                                    "amount": mam_last["amount"],
-                                    "type": None,  # Don't show type for website donations
-                                    "source": "MyAnonamouse",
-                                }
-                        elif mam_last:
-                            # Only MAM donation exists (no MouseTrap tracking yet)
+                        # Check if they're the same donation (within 10 seconds tolerance)
+                        time_diff = abs((mam_date - mousetrap_date).total_seconds())
+
+                        if time_diff <= 10:
+                            # Same donation - use MouseTrap data (has type info)
+                            vault_config["last_donation_display"] = {
+                                "timestamp": mousetrap_date.isoformat(),
+                                "amount": mousetrap_amount,
+                                "type": "Manual" if mousetrap_type == "manual" else "Automated",
+                                "source": "MouseTrap",
+                            }
+                        elif mam_date > mousetrap_date:
+                            # MAM donation is NEWER (user donated via website after MouseTrap)
                             vault_config["last_donation_display"] = {
                                 "timestamp": mam_last["date"],
                                 "amount": mam_last["amount"],
-                                "type": None,
+                                "type": None,  # Don't show type for website donations
                                 "source": "MyAnonamouse",
                             }
-                        elif mousetrap_last_time:
-                            # Only MouseTrap donation exists (fallback - shouldn't happen if MAM is working)
-                            mousetrap_date = datetime.fromtimestamp(mousetrap_last_time, tz=UTC)
-                            mousetrap_amount = pot_tracking.get("last_donation_amount", 0)
+                        else:
+                            # MouseTrap donation is newer (shouldn't happen, but use MouseTrap)
                             vault_config["last_donation_display"] = {
                                 "timestamp": mousetrap_date.isoformat(),
                                 "amount": mousetrap_amount,
@@ -2204,13 +2203,26 @@ async def api_get_vault_configuration(config_id: str) -> dict[str, Any]:
                                 "source": "MouseTrap",
                             }
 
-                        # Also include full MAM donation history
+                        # Include full MAM donation history
                         vault_config["mam_donation_history"] = mam_donations
 
+                    elif mam_donations:
+                        # Only MAM has data (MouseTrap hasn't tracked yet)
+                        mam_last = mam_donations[0]
+                        vault_config["last_donation_display"] = {
+                            "timestamp": mam_last["date"],
+                            "amount": mam_last["amount"],
+                            "type": None,
+                            "source": "MyAnonamouse",
+                        }
+                        vault_config["mam_donation_history"] = mam_donations
+
+                    # Note: If MouseTrap has data but MAM doesn't, something is wrong
+                    # (should never happen - all MouseTrap donations go through MAM)
+                    # In this case, we simply don't set last_donation_display
+
             except Exception as e:
-                _logger.warning(
-                    "[VaultConfigAPI] Failed to enrich with MAM donation history: %s", e
-                )
+                _logger.warning("[VaultConfigAPI] Failed to enrich with donation history: %s", e)
                 # Non-fatal - continue without enrichment
 
     except HTTPException:
