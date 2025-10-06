@@ -2217,9 +2217,23 @@ async def api_get_vault_configuration(config_id: str) -> dict[str, Any]:
                         }
                         vault_config["mam_donation_history"] = mam_donations
 
-                    # Note: If MouseTrap has data but MAM doesn't, something is wrong
-                    # (should never happen - all MouseTrap donations go through MAM)
-                    # In this case, we simply don't set last_donation_display
+                    elif mousetrap_last_time:
+                        # Only MouseTrap has data (MAM history not available - new pot/new day)
+                        # This is EXPECTED - pot.php resets with each pot, donate.php resets daily
+                        mousetrap_date = datetime.fromtimestamp(mousetrap_last_time, tz=UTC)
+                        vault_config["last_donation_display"] = {
+                            "timestamp": mousetrap_date.isoformat(),
+                            "amount": mousetrap_amount,
+                            "type": "Manual" if mousetrap_type == "manual" else "Automated",
+                            "source": "MouseTrap",
+                        }
+                        _logger.debug(
+                            "[VaultConfigAPI] Using MouseTrap tracking (MAM history unavailable): %s points on %s",
+                            mousetrap_amount,
+                            mousetrap_date.isoformat(),
+                        )
+
+                    # If neither has data, don't set last_donation_display
 
             except Exception as e:
                 _logger.warning("[VaultConfigAPI] Failed to enrich with donation history: %s", e)
