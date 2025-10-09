@@ -124,8 +124,9 @@ vault_automation_manager = VaultAutomationManager()
 scheduler = BackgroundScheduler()
 
 session_status_cache: dict[str, Any] = {}
-# Global cache for notification deduplication by MAM ID
-# Format: {mam_id: {event_type: {count_change_key: timestamp}}}
+# Global cache for notification deduplication by UID (MAM account ID)
+# Format: {uid: {event_type: {count_change_key: timestamp}}}
+# Note: Uses UID not mam_id, since multiple sessions can share the same MAM account
 notification_dedup_cache: dict[str, dict[str, dict[str, float]]] = {}
 
 
@@ -146,12 +147,12 @@ def redact_mam_id(mam_id: str, show_last: int = 8) -> str:
 
 
 def should_send_notification(
-    mam_id: str, event_type: str, old_count: int, new_count: int, dedup_window_minutes: int = 60
+    dedup_key: str, event_type: str, old_count: int, new_count: int, dedup_window_minutes: int = 60
 ) -> bool:
     """Check if we should send a notification based on deduplication cache.
 
     Args:
-        mam_id: The MAM account ID
+        dedup_key: The deduplication key (typically UID for MAM account)
         event_type: Type of event (e.g., 'inactive_hit_and_run', 'inactive_unsatisfied')
         old_count: Previous count value
         new_count: New count value
@@ -160,8 +161,8 @@ def should_send_notification(
     Returns:
         True if notification should be sent, False if it's a duplicate
     """
-    if not mam_id:
-        return True  # Always allow if no MAM ID
+    if not dedup_key:
+        return True  # Always allow if no dedup key
 
     # Create a unique key for this specific count change
     count_change_key = f"{old_count}→{new_count}"
@@ -169,26 +170,26 @@ def should_send_notification(
     dedup_window_seconds = dedup_window_minutes * 60
 
     # Initialize nested dict structure if needed
-    if mam_id not in notification_dedup_cache:
-        notification_dedup_cache[mam_id] = {}
-    if event_type not in notification_dedup_cache[mam_id]:
-        notification_dedup_cache[mam_id][event_type] = {}
+    if dedup_key not in notification_dedup_cache:
+        notification_dedup_cache[dedup_key] = {}
+    if event_type not in notification_dedup_cache[dedup_key]:
+        notification_dedup_cache[dedup_key][event_type] = {}
 
     # Check if we've recently notified about this exact change
-    last_notification_time = notification_dedup_cache[mam_id][event_type].get(count_change_key)
+    last_notification_time = notification_dedup_cache[dedup_key][event_type].get(count_change_key)
 
     if last_notification_time and (now - last_notification_time) < dedup_window_seconds:
         # Duplicate notification within window - skip it
         return False
 
     # Record this notification and clean up old entries
-    notification_dedup_cache[mam_id][event_type][count_change_key] = now
+    notification_dedup_cache[dedup_key][event_type][count_change_key] = now
 
     # Clean up old entries to prevent memory growth
     cutoff_time = now - dedup_window_seconds
-    for key in list(notification_dedup_cache[mam_id][event_type].keys()):
-        if notification_dedup_cache[mam_id][event_type][key] < cutoff_time:
-            del notification_dedup_cache[mam_id][event_type][key]
+    for key in list(notification_dedup_cache[dedup_key][event_type].keys()):
+        if notification_dedup_cache[dedup_key][event_type][key] < cutoff_time:
+            del notification_dedup_cache[dedup_key][event_type][key]
 
     return True
 
@@ -244,11 +245,17 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
     if not isinstance(old_status, dict) or not isinstance(new_status, dict):
         return
 
-    # Get MAM ID for deduplication
-    mam_id = cfg.get("mam", {}).get("mam_id", "")
-
+    # Get UID for deduplication (same account across different sessions)
+    # UID is the actual MAM account identifier, mam_id is just a session cookie
     old_raw = old_status.get("raw", {})
     new_raw = new_status.get("raw", {})
+    uid = new_raw.get("uid") or old_raw.get("uid")
+
+    # Get username for notification display
+    username = new_raw.get("username") or old_raw.get("username") or f"UID {uid}"
+
+    # Fall back to mam_id if uid not available (shouldn't happen)
+    dedup_key = str(uid) if uid else cfg.get("mam", {}).get("mam_id", "")
 
     # Check inactive hit & run increment
     old_inact_hnr_raw = (
@@ -276,18 +283,21 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
     if new_inact_hnr > old_inact_hnr:
         increment = new_inact_hnr - old_inact_hnr
 
-        # Check deduplication - only notify if this change hasn't been reported recently for this MAM ID
-        if should_send_notification(mam_id, "inactive_hit_and_run", old_inact_hnr, new_inact_hnr):
+        # Check deduplication - only notify if this change hasn't been reported recently for this account
+        if should_send_notification(
+            dedup_key, "inactive_hit_and_run", old_inact_hnr, new_inact_hnr
+        ):
             await notify_event(
                 event_type="inactive_hit_and_run",
-                label=label,
+                label=None,  # Don't include session - this is account-based
                 status="INCREMENT",
-                message=f"Inactive Hit & Run count increased by {increment} (from {old_inact_hnr} to {new_inact_hnr})",
+                message=f"{username} (UID {uid}): Inactive Hit & Run count increased by {increment} (from {old_inact_hnr} to {new_inact_hnr})",
                 details={
                     "old_count": old_inact_hnr,
                     "new_count": new_inact_hnr,
                     "increment": increment,
-                    "mam_id": mam_id,
+                    "uid": uid,
+                    "username": username,
                 },
             )
 
@@ -317,20 +327,21 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
     if new_inact_unsat > old_inact_unsat:
         increment = new_inact_unsat - old_inact_unsat
 
-        # Check deduplication - only notify if this change hasn't been reported recently for this MAM ID
+        # Check deduplication - only notify if this change hasn't been reported recently for this account
         if should_send_notification(
-            mam_id, "inactive_unsatisfied", old_inact_unsat, new_inact_unsat
+            dedup_key, "inactive_unsatisfied", old_inact_unsat, new_inact_unsat
         ):
             await notify_event(
                 event_type="inactive_unsatisfied",
-                label=label,
+                label=None,  # Don't include session - this is account-based
                 status="INCREMENT",
-                message=f"Inactive Unsatisfied (Pre-H&R) count increased by {increment} (from {old_inact_unsat} to {new_inact_unsat})",
+                message=f"{username} (UID {uid}): Inactive Unsatisfied (Pre-H&R) count increased by {increment} (from {old_inact_unsat} to {new_inact_unsat})",
                 details={
                     "old_count": old_inact_unsat,
                     "new_count": new_inact_unsat,
                     "increment": increment,
-                    "mam_id": mam_id,
+                    "uid": uid,
+                    "username": username,
                 },
             )
 
