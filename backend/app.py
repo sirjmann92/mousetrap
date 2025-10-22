@@ -885,7 +885,7 @@ async def auto_update_seedbox_if_needed(
             )
 
             await notify_event(
-                event_type="seedbox_update_exception",
+                event_type="seedbox_update_failure",
                 label=label,
                 status="EXCEPTION",
                 message=str(e),
