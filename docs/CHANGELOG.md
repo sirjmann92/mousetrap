@@ -1,3 +1,36 @@
+# October 21, 2025
+
+## ASN Notification Improvements & Session Management 🔔
+
+### **ASN Mismatch Detection for ASN Locked Sessions**
+- **Smart ASN change handling:**
+  - ASN changes are now tracked silently without triggering preventive notifications
+  - For **ASN Locked** sessions: Only notifies when 403 errors occur due to ASN mismatch
+  - For **IP Locked** sessions: ASN changes are tracked but ignored (not relevant to IP-locked sessions)
+- **Enhanced 403 error notifications:**
+  - Detects when MAM invalidates cookies due to ASN mismatch on ASN Locked sessions
+  - Provides step-by-step instructions for adding new ASN via MAM's Manage Session UI
+  - Notification includes: old ASN → new ASN comparison, exact workflow steps, no guesswork
+- **Actionable messaging:**
+  - Guides users through: Login → Preferences → Security → Manage Session → Add IP from new ASN
+  - MAM auto-detects ASN when IP is added (users don't manually enter ASN numbers)
+  - Clear explanation that existing mam_id cookie remains valid once ASN is registered
+
+### **Session Configuration Improvements**
+- **MAM Session Created Date persistence:**
+  - Fixed datetime-local input compatibility issue (empty string vs null handling)
+  - Date now properly persists across page refreshes and session saves
+  - Frontend converts between empty strings (input requirement) and null (storage format)
+
+### **Session Type Context**
+MouseTrap supports two MAM session types:
+- **ASN Locked**: Session locked to specific ASN numbers (recommended for VPNs that switch servers)
+- **IP Locked**: Session locked to specific IP addresses (for static IPs or non-switching proxies)
+
+The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP Locked sessions don't validate ASN.
+
+---
+
 # October 4, 2025
 
 ## Prowlarr Integration Fixes 🔧

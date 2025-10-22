@@ -30,6 +30,25 @@ MouseTrap provides automated management for MyAnonamouse (MaM) seedbox sessions 
 - **Manual Sessions**: Use fixed IP address, no automatic updates
 - **VPN/Proxy Sessions**: Route traffic through configured proxies
 
+### MAM Session Types (Security Settings)
+MouseTrap also works with MAM's two session security types:
+
+- **ASN Locked Sessions**: Session locked to specific ASN (Autonomous System Number) values
+  - Recommended for VPNs that switch between servers (ASN changes frequently)
+  - MAM validates that your connection ASN matches registered ASNs
+  - If ASN mismatch occurs, MAM invalidates your session cookie until new ASN is added
+  - MouseTrap detects ASN mismatches on 403 errors and provides step-by-step recovery instructions
+  
+- **IP Locked Sessions**: Session locked to specific IP addresses
+  - Recommended for static IPs or proxies that don't switch servers
+  - MAM validates your connection IP matches registered IPs
+  - ASN changes are tracked but not relevant for IP-locked sessions
+
+**ASN Mismatch Notifications:**
+- For **ASN Locked** sessions: MouseTrap notifies only when 403 errors occur due to ASN mismatch
+- For **IP Locked** sessions: ASN changes are silently tracked (not relevant to IP validation)
+- Notifications include actionable instructions for adding new ASN via MAM's Preferences → Security → Manage Session
+
 ---
 
 ## 🔄 Automation Engine
@@ -225,7 +244,7 @@ services:
 - `automation_guardian_block`: Blocked by guardrails (insufficient points, etc.)
 
 **System Events:**
-- `asn_changed`: IP/ASN change detection and updates
+- `seedbox_update_failure`: Failed to update MAM with new IP/ASN (includes ASN mismatch detection for ASN Locked sessions)
 - `detection_failure`: Unable to detect IP/ASN
 - `rate_limited`: MaM API rate limiting encountered
 
