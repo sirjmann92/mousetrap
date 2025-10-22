@@ -1,3 +1,33 @@
+# October 22, 2025
+
+## Notification System Consolidation 🔔
+
+### **Consolidated Notification Event Types**
+- **Vault automation failures now trigger notifications:**
+  - Fixed: Changed `vault_automation_error` to `vault_donation_failure`
+  - Automated vault donation failures now respect the "Vault Donation → Failure" checkbox in UI
+  - Previously, automation failures were logged but notifications were silently skipped
+  
+- **Port monitor events consolidated:**
+  - All port monitoring failures now use `port_monitor_failure` event type
+  - Consolidated: `port_monitor_port_timeout`, `port_monitor_container_not_running`, `port_monitor_manual_ip_paused`
+  - Single "Docker Port Monitor Failure" checkbox controls all port monitoring notifications
+  - Different failure scenarios still have distinct messages for clarity
+  
+- **Seedbox exception handling improved:**
+  - Changed `seedbox_update_exception` to `seedbox_update_failure`
+  - Unexpected seedbox update errors now respect "Seedbox Update → Failure" checkbox
+  - Consistent failure handling across all seedbox update issues
+
+- **Removed unused UI elements:**
+  - Removed non-functional "ASN Changed" notification checkbox
+  - ASN mismatch notifications properly handled via "Seedbox Update → Failure"
+
+### **Impact**
+All notification checkboxes in the UI now properly control their related backend events. No more orphaned notifications or missed alerts due to event type mismatches.
+
+---
+
 # October 21, 2025
 
 ## ASN Notification Improvements & Session Management 🔔

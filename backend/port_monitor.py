@@ -100,7 +100,7 @@ class PortMonitorStackManager:
         self.stacks: list[PortMonitorStack] = []
         self.running: bool = False
         self.thread: threading.Thread | None = None
-        self._docker_client: docker.DockerClient | None = None
+        self._docker_client: Any = None  # docker.DockerClient when available
         self._last_warning_times: dict[str, Any] = {}  # Rate limiting for warnings
         self.load_stacks()
 
@@ -182,11 +182,11 @@ class PortMonitorStackManager:
         except Exception as e:
             _logger.error("[PortMonitorStack] Failed to save stacks: %s", e)
 
-    def get_docker_client(self) -> docker.DockerClient | None:
+    def get_docker_client(self) -> Any:
         """Return a cached Docker client or create one from the environment.
 
         Returns None if the docker SDK is unavailable or client creation
-        fails.
+        fails. Returns docker.DockerClient when available.
         """
         if self._docker_client is not None:
             return self._docker_client
@@ -402,7 +402,7 @@ class PortMonitorStackManager:
                     }
                 )
                 await notify_event(
-                    event_type="port_monitor_port_timeout",
+                    event_type="port_monitor_failure",
                     label=stack.name,
                     status="WARNING",
                     message=f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
@@ -426,7 +426,7 @@ class PortMonitorStackManager:
                     }
                 )
                 await notify_event(
-                    event_type="port_monitor_container_not_running",
+                    event_type="port_monitor_failure",
                     label=stack.name,
                     status="ERROR",
                     message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
@@ -604,7 +604,7 @@ class PortMonitorStackManager:
                                     }
                                 )
                                 await notify_event(
-                                    event_type="port_monitor_manual_ip_paused",
+                                    event_type="port_monitor_failure",
                                     label=stack.name,
                                     status="ERROR",
                                     message=f"Manual IP {manual_ip} unreachable for 3+ cycles. Auto-restart paused until user updates or disables manual IP.",

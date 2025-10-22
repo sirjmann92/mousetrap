@@ -116,7 +116,6 @@ export default function NotificationsCard() {
   const uniqueEvents = [
     { key: 'port_monitor_failure', label: 'Docker Port Monitor Failure' },
     { key: 'seedbox_update_rate_limited', label: 'Seedbox Update Rate Limited' },
-    { key: 'asn_changed', label: 'ASN Changed' },
     {
       key: 'inactive_hit_and_run',
       label: 'Inactive Hit & Run',

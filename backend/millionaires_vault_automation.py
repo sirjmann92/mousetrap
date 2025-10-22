@@ -411,7 +411,7 @@ class VaultAutomationManager:
         append_ui_event_log(
             {
                 "timestamp": datetime.now(UTC).isoformat(),
-                "event_type": "vault_automation_error",
+                "event_type": "vault_donation_failure",
                 "label": "Global",
                 "config_id": config_id,
                 "error": error_message,
@@ -423,7 +423,7 @@ class VaultAutomationManager:
 
         # Send error notification
         await notify_event(
-            event_type="vault_automation_error",
+            event_type="vault_donation_failure",
             label=config_id,
             status="error",
             message=f"Vault automation failed: {full_error}. "

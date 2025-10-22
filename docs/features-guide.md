@@ -249,9 +249,8 @@ services:
 - `rate_limited`: MaM API rate limiting encountered
 
 **Port Monitoring Events:**
-- `port_monitor_failure`: Container port unreachable
+- `port_monitor_failure`: Container port unreachable, container stopped/crashed, or manual IP paused
 - `port_monitor_restart`: Container restart triggered
-- `port_monitor_container_not_running`: Container stopped/crashed
 
 **Count Increment Events:**
 - `inactive_hit_and_run`: Hit & Run count increased
