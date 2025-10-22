@@ -2,7 +2,7 @@ This document contains a list of planned enhancements
 
 # Planned
 
-- Wedge/Cheese - Display the current browser session's cheese and wedge counts (requires scraping)
+- COMPLETED: Wedge/Cheese - Display the current browser session's cheese and wedge counts (requires scraping)
 - Lottery automation
 - COMPLETED: Simplify notification options (reduce rows with success/failure options)
 - COMPLETED: Vault integration w/ automation
