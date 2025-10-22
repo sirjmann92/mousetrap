@@ -163,7 +163,7 @@ export default function MouseTrapConfigCard({
         session_type: sessionType,
       },
       mam_ip: mamIp,
-      mam_session_created_date: mamSessionCreatedDate,
+      mam_session_created_date: mamSessionCreatedDate || null,
       old_label: oldLabel,
       prowlarr,
       proxy: { label: proxyLabel },

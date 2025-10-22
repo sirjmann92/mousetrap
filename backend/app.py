@@ -611,38 +611,24 @@ async def auto_update_seedbox_if_needed(
             if norm_check is not None:
                 cfg["last_seedbox_asn"] = norm_check
                 save_session(cfg, old_label=label)
-            # Log ASN compare and result at INFO level, but only once per check
+            # Log ASN compare and result at INFO level
             if norm_last != norm_check:
                 reason = f"ASN changed: {norm_last} -> {norm_check}"
                 _logger.info(
-                    "[AutoUpdate] label=%s ASN changed, no seedbox API call. reason=%s",
+                    "[AutoUpdate] label=%s ASN changed. Will check for errors when updating IP. reason=%s",
                     label,
                     reason,
                 )
-                _logger.debug(
-                    "[AutoUpdate][RETURN] label=%s Returning after ASN change, no seedbox update performed. reason=%s",
+                # For ASN Locked sessions, don't send notification here
+                # Instead, let the IP update proceed and send enhanced notification if it fails
+                # Continue to IP check...
+            else:
+                _logger.info(
+                    "[AutoUpdate] label=%s ASN check: %s -> %s | No change needed",
                     label,
-                    reason,
+                    norm_last,
+                    norm_check,
                 )
-
-                await notify_event(
-                    event_type="asn_changed",
-                    label=label,
-                    status="CHANGED",
-                    message=reason,
-                    details={"old_asn": norm_last, "new_asn": norm_check},
-                )
-                return False, {
-                    "success": True,
-                    "msg": "ASN changed, no seedbox update performed.",
-                    "reason": reason,
-                }
-            _logger.info(
-                "[AutoUpdate] label=%s ASN check: %s -> %s | No change needed",
-                label,
-                norm_last,
-                norm_check,
-            )
     # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
     proxied_ip = cfg.get("proxied_public_ip")
     if proxied_ip:
@@ -827,6 +813,52 @@ async def auto_update_seedbox_if_needed(
                     label,
                     reason,
                 )
+
+                # Check if this is an ASN mismatch issue for ASN Locked sessions
+                error_msg = result.get("msg", "Unknown error")
+                if session_type == "asn locked" and (
+                    "Invalid session" in error_msg or resp.status == 403
+                ):
+                    # Check if ASN has changed recently
+                    current_asn = asn or cfg.get("proxied_public_ip_asn")
+                    if current_asn and last_seedbox_asn and current_asn != last_seedbox_asn:
+                        enhanced_msg = (
+                            f"{error_msg}\n\n"
+                            f"⚠️ ASN Mismatch Detected!\n"
+                            f"Your session is ASN Locked but the ASN has changed: {last_seedbox_asn} → {current_asn}\n\n"
+                            f"Action Required:\n"
+                            f"1. Log into MyAnonamouse.net → Preferences → Security\n"
+                            f"2. Find your seedbox session and click 'Manage Session'\n"
+                            f"3. Under 'Add additional ASN via IP address', enter an IP from ASN {current_asn}\n"
+                            f"4. MAM will detect and add the ASN to your session automatically\n"
+                            f"5. Your existing mam_id cookie will work once the ASN is added\n\n"
+                            f"Note: If the cookie was already invalidated, you may need to generate a new one after updating"
+                        )
+                        _logger.warning(
+                            "[AutoUpdate] label=%s ASN Locked session with ASN change detected: %s -> %s",
+                            label,
+                            last_seedbox_asn,
+                            current_asn,
+                        )
+                        await notify_event(
+                            event_type="seedbox_update_failure",
+                            label=label,
+                            status="FAILED",
+                            message=enhanced_msg,
+                            details={
+                                "reason": reason,
+                                "old_asn": last_seedbox_asn,
+                                "new_asn": current_asn,
+                                "session_type": "ASN Locked",
+                                "action_required": "Update MAM session and refresh mam_id cookie",
+                            },
+                        )
+                        return True, {
+                            "success": False,
+                            "error": enhanced_msg,
+                            "reason": reason,
+                        }
+
                 await notify_event(
                     event_type="seedbox_update_failure",
                     label=label,
@@ -1861,6 +1893,81 @@ async def api_test_expiry_notification(request: Request) -> dict[str, Any]:
     except Exception as e:
         _logger.exception("[Prowlarr] Failed to send test expiry notification")
         return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/session/test_asn_notifications")
+async def api_test_asn_notifications(request: Request) -> dict[str, Any]:
+    """Manually trigger test ASN mismatch notification for ASN Locked sessions.
+
+    Expects JSON with: label (session label)
+    Note: Only sends ASN mismatch (403 error) notification, as ASN change
+    notifications are suppressed for ASN Locked sessions.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label", "").strip()
+
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        # Load session
+        cfg = load_session(label)
+        if not cfg:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        session_type = cfg.get("mam", {}).get("session_type", "").lower()
+
+        if session_type != "asn locked":
+            return {
+                "success": False,
+                "message": f"Session '{label}' is not ASN Locked (current type: {session_type}). ASN notifications only apply to ASN Locked sessions.",
+            }
+
+        # Simulate ASN values
+        old_asn = "11878"
+        new_asn = "63018"
+
+        # Test ASN Mismatch on 403 Error notification
+        enhanced_msg = (
+            f"[TEST NOTIFICATION]\n\n"
+            f"Invalid session - Other\n\n"
+            f"⚠️ ASN Mismatch Detected!\n"
+            f"Your session is ASN Locked but the ASN has changed: {old_asn} → {new_asn}\n\n"
+            f"Action Required:\n"
+            f"1. Log into MyAnonamouse.net → Preferences → Security\n"
+            f"2. Find your seedbox session and click 'Manage Session'\n"
+            f"3. Under 'Add additional ASN via IP address', enter an IP from ASN {new_asn}\n"
+            f"4. MAM will detect and add the ASN to your session automatically\n"
+            f"5. Your existing mam_id cookie will work once the ASN is added\n\n"
+            f"Note: If the cookie was already invalidated, you may need to generate a new one after updating"
+        )
+
+        await notify_event(
+            event_type="seedbox_update_failure",
+            label=label,
+            status="FAILED",
+            message=enhanced_msg,
+            details={
+                "reason": "IP changed: test -> test",
+                "old_asn": old_asn,
+                "new_asn": new_asn,
+                "session_type": "ASN Locked",
+                "action_required": "Update MAM session and refresh mam_id cookie",
+                "test_notification": True,
+            },
+        )
+    except Exception as e:
+        _logger.error(
+            "Failed to send test ASN mismatch notification for session '%s': %s",
+            label,
+            e,
+        )
+        return {"success": False, "error": str(e)}
+    else:
+        return {
+            "success": True,
+            "message": f"Test ASN mismatch notification sent for session '{label}'",
+        }
 
 
 @app.post("/api/prowlarr/test")

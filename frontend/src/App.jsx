@@ -120,7 +120,7 @@ export default function App() {
         setProxiedIp(cfg?.proxied_public_ip ?? '');
         setProxiedAsn(cfg?.proxied_public_ip_asn ?? '');
         setProwlarr(cfg?.prowlarr ?? {});
-        setMamSessionCreatedDate(cfg?.mam_session_created_date ?? null);
+        setMamSessionCreatedDate(cfg?.mam_session_created_date || '');
       } catch (_e) {
         // handle error
       }

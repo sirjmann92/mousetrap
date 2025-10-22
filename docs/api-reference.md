@@ -133,6 +133,32 @@ Manually trigger seedbox update for a session.
 
 ---
 
+### POST `/api/session/test_asn_notifications`
+Test ASN mismatch notification for a session (debugging/testing only).
+
+**Request Body:**
+```json
+{
+  "label": "session-name"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Test ASN mismatch notification sent for session 'session-name'"
+}
+```
+
+**Notes:**
+- Only works for ASN Locked sessions
+- Sends test notification via configured notification channels
+- Simulates ASN mismatch detection scenario (403 error due to ASN change)
+- Use for testing notification delivery without waiting for actual ASN changes
+
+---
+
 ## Automation & Purchases
 
 ### POST `/api/automation/{label}`
