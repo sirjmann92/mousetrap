@@ -68,11 +68,6 @@ MouseTrap also works with MAM's two session security types:
 - **Same trigger options** as upload credit
 - **Duration optimization**: Buy longer durations for better point efficiency
 
-**Wedge Automation:**
-- **Methods**: Points (10,000) or Cheese (5 pieces)
-- **Trigger types**: Time-based, point-based, or both
-- **Method selection**: Choose points or cheese for purchases
-
 ### Automation Rules & Guardrails
 
 **Session-Level Minimum Points:**
@@ -372,7 +367,7 @@ services:
 
 ### Real-Time Status Display
 - **Current session info**: MAM ID, IP address, ASN details
-- **Account statistics**: Points, cheese, H&R counts, inactive torrents
+- **Account statistics**: Points, H&R counts, inactive torrents
 - **Connectivity status**: Visual connectable indicator (green checkmark/red X)
 - **Session status**: Current session state alongside connectivity information
 - **Rate limiting**: Visual indication of MaM API rate limiting

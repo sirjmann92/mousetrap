@@ -28,8 +28,6 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * @property {(s:any)=>void} setStatus
  * @property {number|null} points
  * @property {(p:number|null)=>void} setPoints
- * @property {string|null} cheese
- * @property {(c:string|null)=>void} setCheese
  * @property {string} detectedIp
  * @property {(ip:string)=>void} setDetectedIp
  * @property {Object} prowlarr
@@ -66,8 +64,6 @@ const defaultSessionContext = {
   setStatus: () => {},
   points: null,
   setPoints: () => {},
-  cheese: null,
-  setCheese: () => {},
   detectedIp: '',
   setDetectedIp: () => {},
   prowlarr: {},
@@ -115,7 +111,6 @@ export function SessionProvider({ children }) {
   const [sessionInfo, setSessionInfo] = useState({});
   const [status, setStatus] = useState(null);
   const [points, setPoints] = useState(null);
-  const [cheese, setCheese] = useState(/** @type {string|null} */ (null));
   const [detectedIp, setDetectedIp] = useState('');
   const [prowlarr, setProwlarr] = useState({});
   const [mamSessionCreatedDate, setMamSessionCreatedDate] = useState(
@@ -124,7 +119,6 @@ export function SessionProvider({ children }) {
 
   const value = {
     checkFrequency,
-    cheese,
     detectedIp,
     ipMonitoringMode,
     mamId,
@@ -138,7 +132,6 @@ export function SessionProvider({ children }) {
     sessionLabel,
     sessionType,
     setCheckFrequency,
-    setCheese,
     setDetectedIp,
     setIpMonitoringMode,
     setMamId,

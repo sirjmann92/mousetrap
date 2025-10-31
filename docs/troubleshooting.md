@@ -92,7 +92,7 @@ volumes:
 
 **Invalid MAM ID:**
 - **Check format**: MAM ID should be numeric (e.g., `123456`)
-- **Copy from browser**: Get from browser cookies or seedbox config
+- **Copy from config**: Get from seedbox configuration
 - **No quotes**: Don't wrap MAM ID in quotes in YAML files
 
 **IP Address Issues:**
@@ -124,7 +124,7 @@ volumes:
 **Insufficient Points:**
 - **Check minimum points**: Session-level minimum points setting blocks purchases
 - **Wait for points**: Automation waits until both trigger conditions AND sufficient points
-- **Verify costs**: Upload credit (500/GB), VIP (1250/week), Wedge (10000 points)
+- **Verify costs**: Upload credit (500/GB), VIP (1250/week)
 
 **Trigger Conditions Not Met:**
 - **Time trigger**: Check "days since last purchase" requirement

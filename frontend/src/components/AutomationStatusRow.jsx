@@ -2,7 +2,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Box, Typography } from '@mui/material';
 
-export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload, vaultAutomation }) {
+export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload }) {
   return (
     <Box sx={{ mb: 1, mt: 2 }}>
       <Box
@@ -69,30 +69,6 @@ export default function AutomationStatusRow({ autoWedge, autoVIP, autoUpload, va
             Upload Credit:
           </Typography>
           {autoUpload ? (
-            <CheckCircleIcon
-              sx={{
-                color: 'success.main',
-                fontSize: 22,
-                position: 'relative',
-                top: '-1px',
-              }}
-            />
-          ) : (
-            <CancelIcon
-              sx={{
-                color: 'error.main',
-                fontSize: 22,
-                position: 'relative',
-                top: '-1px',
-              }}
-            />
-          )}
-        </Box>
-        <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5, ml: 2 }}>
-          <Typography sx={{ fontWeight: 500 }} variant="body2">
-            Vault:
-          </Typography>
-          {vaultAutomation ? (
             <CheckCircleIcon
               sx={{
                 color: 'success.main',

@@ -14,7 +14,6 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import React, { useCallback } from 'react';
 import MouseTrapIcon from './assets/mousetrap-icon.svg';
 import EventLogModalButton from './components/EventLogModalButton';
-import MAMBrowserSetupCard from './components/MAMBrowserSetupCard';
 import MouseTrapConfigCard from './components/MouseTrapConfigCard';
 import NotificationsCard from './components/NotificationsCard';
 import PerkAutomationCard from './components/PerkAutomationCard';
@@ -22,7 +21,6 @@ import PortMonitorCard from './components/PortMonitorCard';
 import ProxyConfigCard from './components/ProxyConfigCard';
 import SessionSelector from './components/SessionSelector';
 import StatusCard from './components/StatusCard';
-import VaultConfigCard from './components/VaultConfigCard';
 import { useSession } from './context/SessionContext.jsx';
 
 export default function App() {
@@ -34,17 +32,6 @@ export default function App() {
       setProxies(data || {});
     } catch (_e) {
       setProxies({});
-    }
-  }, []);
-
-  // Fetch all vault configurations and update state
-  const refreshVaultConfigurations = useCallback(async () => {
-    try {
-      const res = await fetch('/api/vault/configurations');
-      const data = await res.json();
-      setVaultConfigurations(data.configurations || {});
-    } catch (_e) {
-      setVaultConfigurations({});
     }
   }, []);
 
@@ -74,7 +61,6 @@ export default function App() {
   const [proxies, setProxies] = React.useState({});
   const [sessions, setSessions] = React.useState([]);
   const [selectedLabel, setSelectedLabel] = React.useState('');
-  const [vaultConfigurations, setVaultConfigurations] = React.useState({});
   const statusCardRef = React.useRef(null);
 
   // Fetch all sessions and update state, restoring last session if available
@@ -84,11 +70,6 @@ export default function App() {
   React.useEffect(() => {
     refreshProxies();
   }, [refreshProxies]);
-
-  // On mount, fetch vault configurations
-  React.useEffect(() => {
-    refreshVaultConfigurations();
-  }, [refreshVaultConfigurations]);
 
   // Handler to refresh session and proxies after session save
   const handleSessionSaved = (label) => {
@@ -347,25 +328,11 @@ export default function App() {
               wedgeMethod={wedgeMethod}
             />
           )}
-          {/* 4. Millionaire's Vault Configuration */}
-          <VaultConfigCard
-            _proxies={proxies}
-            _sessions={sessions}
-            onConfigUpdate={refreshVaultConfigurations}
-            vaultConfigurations={vaultConfigurations}
-          />
-          {/* 5. Notifications */}
+          {/* 4. Notifications */}
           <NotificationsCard />
-          {/* 6. Browser Cookie Setup */}
-          <MAMBrowserSetupCard
-            onConfigUpdate={refreshVaultConfigurations}
-            proxies={proxies}
-            sessions={sessions}
-            vaultConfigurations={vaultConfigurations}
-          />
-          {/* 7. Docker Port Monitor */}
+          {/* 5. Docker Port Monitor */}
           <PortMonitorCard />
-          {/* 8. Proxy Configuration */}
+          {/* 6. Proxy Configuration */}
           <ProxyConfigCard proxies={proxies} refreshProxies={refreshProxies} />
         </Container>
       </Box>

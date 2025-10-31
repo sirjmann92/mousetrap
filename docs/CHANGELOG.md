@@ -3,11 +3,6 @@
 ## Notification System Consolidation 🔔
 
 ### **Consolidated Notification Event Types**
-- **Vault automation failures now trigger notifications:**
-  - Fixed: Changed `vault_automation_error` to `vault_donation_failure`
-  - Automated vault donation failures now respect the "Vault Donation → Failure" checkbox in UI
-  - Previously, automation failures were logged but notifications were silently skipped
-  
 - **Port monitor events consolidated:**
   - All port monitoring failures now use `port_monitor_failure` event type
   - Consolidated: `port_monitor_port_timeout`, `port_monitor_container_not_running`, `port_monitor_manual_ip_paused`
@@ -93,91 +88,6 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
 
 ---
 
-## Browser Cookie Setup Card & UI Improvements ✨
-
-### **New Browser Cookie Setup Card**
-- **Separated browser cookie management from Vault Configuration:**
-  - Created dedicated `MAMBrowserSetupCard.jsx` component for browser cookie extraction and validation
-  - Renamed from "MAM Browser Cookie Setup" to "Browser Cookie Setup" for clarity
-  - Moved bookmarklet, browser cookie input, connection method, and vault access testing to new card
-  - Vault Configuration card now focuses solely on donation settings and automation
-- **React 19 bookmarklet compatibility fix:**
-  - Fixed bookmarklet drag-to-bookmark functionality broken by React 19 security changes
-  - Implemented callback ref pattern: `ref={(node) => { if (node) node.setAttribute('href', code); }}`
-  - Sets `href` immediately when element is created, bypassing React's security blocking of `javascript:` URLs
-  - Works with React 19's stricter security model without compromising functionality
-
-### **Notification Card Enhancements**
-- **Visual notification method indicators:**
-  - Added icon-based indicators showing which notification methods are configured
-  - Icons displayed on far right of card header, clickable to expand card and Configuration accordion
-  - Uses official brand logos from Wikimedia Commons for Gmail and Discord (proper licensing and consistency)
-- **Icon implementations:**
-  - **Gmail:** Multicolor "M" logo SVG from Wikimedia Commons (automatically detected when SMTP host contains "gmail")
-  - **Discord:** Official blurple game controller logo SVG from Wikimedia Commons (for Discord webhooks)
-  - **Email:** Material-UI EmailIcon in blue (#4285F4) for non-Gmail SMTP
-  - **Webhook:** Material-UI WebhookIcon in red (#FF6B6B) for generic webhooks
-  - **Apprise:** Font Awesome bullhorn icon in orange (#FFA726) - no official logo available
-- **Removed info tooltip:** Cleaned up card header by removing redundant info icon tooltip
-- **Smart detection:** Checks actual configuration fields (smtp.host, webhook_url, apprise.url) not event rules
-
-### **Perk Automation Card Improvements**
-- **Vault currency display:**
-  - Added Wedges and Cheese counters next to Points display in card header
-  - Fetches from associated vault configuration (prefers matching session, falls back to first available)
-  - Displays as: `Points: 12,345 | Wedges: 678 | Cheese: 901` with green success color
-  - Currency values shown only when available and not loading
-
-### **Component Organization**
-- **Card reordering for better workflow:**
-  1. Session Status
-  2. Session Configuration
-  3. Perk Purchase & Automation
-  4. Millionaire's Vault Configuration
-  5. **Notifications** (moved up from position 8)
-  6. **Browser Cookie Setup** (new card, position 6)
-  7. Docker Port Monitor
-  8. Proxy Configuration
-- **Parent state management:**
-  - `vaultConfigurations` now managed in `App.jsx` and passed to child components
-  - Added `onConfigUpdate` callback for child components to trigger parent refresh
-  - Prevents stale data and unnecessary API calls
-
-### **Technical Details**
-- Added Font Awesome 6.5.1 CDN to `index.html` for Apprise bullhorn icon
-- Inline SVG components for Gmail and Discord logos (no external dependencies)
-- Callback ref pattern bypasses React 19's `href` security: sets attribute after render but before React's security check
-- Bookmarklet extracts `mam_id`, `uid`, and browser type in one click
-
----
-
-## Vault Donation Success Detection Fix 🔧
-
-### **Bug Fixes**
-- **Fixed vault donation success detection race condition:**
-  - Added 2-second delay after donation POST before checking points balance
-  - Prevents false "no success confirmation" errors when MAM backend processes donation slowly
-  - Affects both direct and proxy donation methods
-  - Race condition occurred when points verification happened before MAM's database updated
-
-### **Improved Vault Donation Logging**
-- **Enhanced points verification logging:**
-  - Changed verification logs from DEBUG to INFO level for better visibility
-  - Added actual delta calculation: shows exact point change vs expected change
-  - Improved error messages with detailed point comparison data
-  - Format: `Points before: X, Current: Y, Expected: Z, Actual delta: W`
-- **Better failure diagnostics:**
-  - Error messages now include point deltas when verification fails
-  - Shows tolerance threshold (100 points) in warning messages
-  - Helps identify whether donation actually succeeded but verification had timing issues
-
-### **Technical Details**
-- Added `await asyncio.sleep(2)` after donation POST in both `_perform_vault_donation_direct()` and `_perform_vault_donation_proxy()`
-- Improved error message from generic "Donation not processed - no success confirmation received" to more detailed "Donation may have failed - no success confirmation in response and points verification inconclusive (points before: X, after: Y, expected: Z)"
-- All three verification paths updated: session-based, browser-based, and proxy-based
-
----
-
 # October 3, 2025
 
 ## UI/UX Polish & Consistency Improvements ✨
@@ -189,19 +99,6 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
   - Session Label, Session Type, Interval, MAM ID, and IP Address now follow same validation pattern
   - Asterisks (*) indicate required fields, red borders indicate validation errors
 - **Button alignment:** Fine-tuned "Manage MAM ID" button positioning for perfect alignment with MAM ID field
-
-### **Vault Configuration Improvements**
-- **Last Donation display:** Prominent celebration-themed section showing timestamp, amount, and type (Automated/Manual) of last donation
-  - Uses existing `automation.last_run` data - no need to wait for new donations!
-  - Green celebration icons (🎉) flanking header for visual appeal
-  - Conditionally displays: shown when viewing existing configs, hidden when creating new
-  - Replaces redundant Configuration Name field (already shown in dropdown)
-- **Pot tracking backend:** Enhanced to track donation amount and type for future donations
-  - Backward compatible: automatically merges old configs with new fields
-  - `update_pot_tracking()` now accepts amount and donation_type parameters
-- **Configuration dropdown spacing:** Reduced excessive spacing when no configuration selected
-- **Browser MAM ID validation:** Red border only shows after save attempt (consistent with other cards)
-- **Button heights standardized:** Get Browser Cookies, Test Vault Access, and Donate Now buttons now match input field height (40px)
 
 ### **Visual Consistency & Theme Updates**
 - **Accordion styling:** Prowlarr Integration and Notifications Configuration accordions now match MAM Details/Network Details style
@@ -222,12 +119,6 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
   - All required fields filled (label, host, port): Both buttons enabled
   - Prevents invalid proxy saves and improves UX clarity
 
-### **Backend Data Structure Updates**
-- **vault_config.py:** 
-  - Added `get_vault_configuration()` field merging for backward compatibility
-  - Default pot_tracking schema includes `last_donation_amount` and `last_donation_type`
-- **millionaires_vault_automation.py:** Updated to pass donation details to `update_pot_tracking()`
-
 ---
 
 # October 2, 2025
@@ -245,7 +136,7 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
 - **Event logging:** All Prowlarr operations logged to UI event log for audit trail
 
 ### **UI/UX Improvements**
-- **Redesigned Notifications Card:** Consolidated success/failure notification pairs into single rows with checkboxes (automation, manual_purchase, seedbox_update, vault_donation) for space efficiency
+- **Redesigned Notifications Card:** Consolidated success/failure notification pairs into single rows with checkboxes (automation, manual_purchase, seedbox_update) for space efficiency
 - **Configuration Accordion:** Moved Webhook, SMTP, and Apprise configuration sections into collapsible accordion within Notifications card
 - **Prowlarr Accordion:** Converted Prowlarr Integration to proper MUI Accordion pattern matching Notifications styling with consistent borders and spacing
 - **Dynamic MAM ID fields:** MAM ID and Browser MAM ID + UID fields now auto-resize (2 rows hidden, 6 rows visible) for better space utilization
@@ -253,19 +144,15 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
 - **Button layout optimization:** Moved UPDATE PROWLARR button to same row as "Notify Before Expiry" field, aligned right
 - **Info tooltips:** Replaced long helper text with info icon tooltips for cleaner appearance (Notify Before Expiry, Prowlarr Integration header)
 - **Required field indicators:** Added asterisks to all required fields in Prowlarr configuration (Host, Port, API Key)
-- **Fixed duplicate asterisks:** Removed manual asterisk from Vault Config "Connection Method" label (MUI adds it automatically)
 - **Dark mode datetime picker:** Native browser datetime-local input now respects dark theme with `colorScheme` CSS
 - **Server timezone handling:** NOW button fetches server time via `/api/server_time` endpoint for consistent timestamps
-- **Vault session auto-update:** Vault configurations automatically update when associated session is renamed
 - **Prowlarr config persistence:** Fixed bug where Prowlarr settings weren't loading after container restart
-- **Vault points refresh:** Points display auto-refreshes when changing associated session (no browser refresh needed)
 
 ### **Backend Enhancements**
 - **Daily scheduler job:** APScheduler runs `check_mam_session_expiry()` at 8:00 AM daily
 - **Multi-channel notifications:** Expiry warnings sent via configured channels (SMTP/Webhook/Apprise)
 - **Configurable threshold:** Set notification warning days before expiry (default: 7 days)
 - **Auto-update logic:** `update_prowlarr_mam_id()` function handles Prowlarr API interactions
-- **Session label tracking:** `update_session_label_references()` prevents orphaned vault configurations
 
 ### **Documentation & Testing**
 - **Prowlarr setup guide:** Comprehensive documentation in `docs/prowlarr-integration.md`
@@ -291,7 +178,6 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
 - **Auto-expand behavior:** Restored `minRows={2}` `maxRows={6}` for MAM ID fields (auto-expands on content)
 - **Form spacing consistency:** Standardized component spacing with `gap: 2, mb: 3` throughout
 - **Tooltip positioning:** Fixed info icon overlap issues by adjusting spacing
-- **Applied globally:** Fixes applied to both MouseTrapConfigCard and VaultConfigCard components
 
 ### **Infrastructure Issues Resolved**
 - **Favicon 404 fixed:** Corrected `BASE_DIR` resolution after Docker file structure changes in PR #24
@@ -327,11 +213,6 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
 # September 25, 2025
 
 ## Logging & UI Enhancements 🎯
-
-### **Reduced Logging Verbosity**
-- **Vault donation automation:** Converted detailed browser interaction logs from INFO to DEBUG level
-- **Cleaner production logs:** Essential success/failure information remains at INFO, detailed parsing moved to DEBUG
-- **Better log readability:** Reduced noise in production environments while maintaining full debugging capability
 
 ### **Session Scheduler Optimization**
 - **Efficient job management:** Session updates now register individual jobs instead of bulk re-registration
@@ -416,7 +297,7 @@ The enhanced ASN mismatch detection only applies to ASN Locked sessions, as IP L
 ### New Features & Fixes
 - **Upload Credit Automation:**
   - Added backend automation for upload credit purchases, supporting both point-based and time-based triggers.
-  - UI and backend now support all three automation types: Wedge, VIP, and Upload Credit.
+  - UI and backend now support automation types: VIP and Upload Credit.
 - **Integer Guardrails:**
   - All automation logic now safely handles None values for points and thresholds, preventing comparison errors and automation crashes.
 - **VIP Duration Label:**

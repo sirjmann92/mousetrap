@@ -6,7 +6,7 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
   <img src="frontend/src/assets/mousetrap-icon.svg" alt="MouseTrap logo" width="120" height="120" />
 </p>
 
-![MouseTrap dashboard](images/mousetrap-002.png)
+![MouseTrap dashboard](images/mousetrap-001.png)
 
 ---
 
@@ -44,7 +44,6 @@ docker compose up -d
 - **Web UI**: Modern interface for all automation and configuration
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
-- **Millionaire's Vault**: Advanced browser-cookie-based vault donation automation
 - **Prowlarr Integration**: Automatic MAM session ID sync with 90-day expiry tracking
 - **Notifications**: Email (SMTP), Webhook (incl. Discord), and Apprise with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
@@ -188,7 +187,6 @@ environment:
 
 - **[Features Guide](docs/features-guide.md)**: Comprehensive feature overview and usage
 - **[Prowlarr Integration](docs/prowlarr-integration.md)**: Automatic MAM ID sync and expiry tracking
-- **[Millionaire's Vault Automation](docs/millionaires-vault-automation.md)**: Advanced vault donation setup
 - **[API Reference](docs/api-reference.md)**: Complete REST API documentation  
 - **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
 - **[Architecture & Rules](docs/architecture-and-rules.md)**: Technical implementation details

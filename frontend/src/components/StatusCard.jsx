@@ -32,8 +32,7 @@ import TimerDisplay from './TimerDisplay';
 const StatusCard = forwardRef(
   /** @param {StatusCardProps} props */
   function StatusCard({ autoWedge, autoVIP, autoUpload, onStatusUpdate }, ref) {
-    const { sessionLabel, setDetectedIp, setPoints, setCheese, status, setStatus, prowlarr } =
-      useSession();
+    const { sessionLabel, setDetectedIp, setPoints, status, setStatus, prowlarr } = useSession();
     // Removed local status/setStatus, use context only
     // Timer is now derived from backend only; no local countdown
     const [timer, setTimer] = useState(0);
@@ -91,14 +90,12 @@ const StatusCard = forwardRef(
               severity: 'error',
             });
             setPoints?.(null);
-            setCheese?.(null);
             return;
           }
           const detectedIp = data.detected_public_ip || '';
           const newStatus = {
             asn: data.asn || '',
             check_freq: data.check_freq || 5, // minutes, from backend
-            cheese: data.cheese ?? null,
             configured: data.configured ?? null,
             current_ip: data.current_ip,
             current_ip_asn: data.current_ip_asn,
@@ -120,13 +117,11 @@ const StatusCard = forwardRef(
             proxy_error: data.proxy_error ?? null,
             ratelimit: data.ratelimit || 0, // seconds, from backend
             status_message: data.status_message || '', // user-friendly status message
-            vault_automation_enabled: data.vault_automation_enabled || false,
           };
           setStatus(newStatus);
           if (onStatusUpdateRef.current) onStatusUpdateRef.current(newStatus);
           setDetectedIp?.(detectedIp);
           setPoints?.(data.points ?? null);
-          setCheese?.(data.cheese ?? null);
         } catch (e) {
           setStatus({ error: e.message || 'Failed to fetch status.' });
           setSnackbar({
@@ -135,10 +130,9 @@ const StatusCard = forwardRef(
             severity: 'error',
           });
           setPoints?.(null);
-          setCheese?.(null);
         }
       },
-      [sessionLabel, setStatus, setDetectedIp, setPoints, setCheese],
+      [sessionLabel, setStatus, setDetectedIp, setPoints],
     );
 
     // Poll backend every 5 seconds for status, but only if session is fully configured
@@ -524,7 +518,6 @@ const StatusCard = forwardRef(
                       autoUpload={autoUpload}
                       autoVIP={autoVIP}
                       autoWedge={autoWedge}
-                      vaultAutomation={status.vault_automation_enabled}
                     />
                     <MamDetailsAccordion status={status} />
                     {/* Network & Proxy Details Accordion */}

@@ -1,7 +1,7 @@
 
 # Purchase Logging and Event Log Behavior
 
-This document describes how MouseTrap logs all manual and automated perk purchases (Upload Credit, VIP, Wedge) in both backend logs and the UI event log. For the rules and guardrails that determine when purchases are allowed, see [purchase_rules.md](purchase_rules.md).
+This document describes how MouseTrap logs all manual and automated perk purchases (Upload Credit, VIP) in both backend logs and the UI event log. For the rules and guardrails that determine when purchases are allowed, see [purchase_rules.md](purchase_rules.md).
 
 ## Overview
 All manual and automated purchases are logged if and only if a purchase is attempted or an automation is enabled and actively managed by the backend. No log entries are created for automations that are disabled or for sessions that are not eligible to automate a purchase type (see rules doc).
@@ -11,11 +11,9 @@ All manual and automated purchases are logged if and only if a purchase is attem
 - **Manual Purchases:**
   - "Purchased 1GB upload credit"
   - "Purchased VIP (4 weeks)"
-  - "Purchased Wedge (points)"
 - **Automated Purchases:**
   - "Automated purchase: 1GB upload credit"
   - "Automated purchase: VIP (4 weeks)"
-  - "Automated purchase: Wedge (points)"
 - **Failures:**
   - Will show as e.g. "Upload credit purchase failed (1GB)" or "Automated VIP purchase failed (4 weeks)"
 - **Skipped Automations:**
@@ -33,7 +31,7 @@ All manual and automated purchases are logged if and only if a purchase is attem
 
 
 ## Coverage
-- Applies to all three purchase types: Upload Credit, VIP, Wedge
+- Applies to both purchase types: Upload Credit and VIP
 - Applies to both manual (API-triggered) and automated (scheduled) flows
 - All logs and event log entries are now human-readable and unambiguous
 - Logging is always consistent with the rules in [purchase_rules.md](purchase_rules.md)

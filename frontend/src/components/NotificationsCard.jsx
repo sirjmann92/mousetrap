@@ -104,12 +104,6 @@ export default function NotificationsCard() {
       successKey: 'seedbox_update_success',
       failureKey: 'seedbox_update_failure',
     },
-    {
-      baseKey: 'vault_donation',
-      label: 'Vault Donation',
-      successKey: 'vault_donation_success',
-      failureKey: 'vault_donation_failure',
-    },
   ];
 
   // Unique events (no success/failure pair)

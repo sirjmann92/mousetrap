@@ -9,7 +9,6 @@
 - The `DOCKER_GID` environment variable can be set to match your host's Docker group GID for proper Docker socket access. See README for details.
 
 # Automation Types
-- **Wedge Automation:** Point-based and time-based triggers, with safe integer checks.
 - **VIP Automation:** Point-based and time-based triggers, with safe integer checks. UI uses "VIP Duration" for selection.
 - **Upload Credit Automation:** Point-based and time-based triggers, with safe integer checks. Now fully implemented and logged.
 # MouseTrap Application Documentation
@@ -28,7 +27,7 @@ MouseTrap is a modular automation and monitoring tool for MaM (MyAnonamouse) see
 ---
 
 - **Session Monitoring:** Regularly checks IP/ASN for configured sessions, detects changes, and logs all significant events.
-- **Automation:** Supports automated purchases of perks (Wedge, VIP, Upload Credit) based on user-configured rules. All automations have integer guardrails to prevent errors if points or thresholds are missing or None.
+- **Automation:** Supports automated purchases of perks (VIP, Upload Credit) based on user-configured rules. All automations have integer guardrails to prevent errors if points or thresholds are missing or None.
 - **Event Log:** All important backend activities (manual, scheduled, automation, session add/delete, port monitoring) are logged and surfaced in the UI with clear event types. Session add/delete and port monitoring events are always global.
 - **UI Controls:** Manual check, update, and purchase actions; real-time status and event log display; color-coded status messages. The VIP purchase dropdown is labeled "VIP Duration" for clarity.
 - **Config Management:** Edit and save session and automation settings via the UI.

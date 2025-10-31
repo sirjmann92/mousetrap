@@ -54,11 +54,6 @@ export default function PerkAutomationCard(props) {
   const [, setAutoUploadLocal] = useState(autoUpload ?? false);
   const [minPoints, setMinPoints] = useState(0);
 
-  // State for vault currencies (cheese and wedges)
-  const [vaultCheese, setVaultCheese] = useState(null);
-  const [vaultWedges, setVaultWedges] = useState(null);
-  const [currenciesLoading, setCurrenciesLoading] = useState(false);
-
   // Ensure prop setters update both local and parent state. Memoize so
   // they can safely be used in effect dependency arrays without
   // triggering Biome/react-hooks warnings.
@@ -194,70 +189,6 @@ export default function PerkAutomationCard(props) {
     setWedgeGuardMsg(wedgeMsg);
     setVIPGuardMsg(vipMsg);
   }, [guardrails, currentUsername, sessionLabel]);
-
-  // Fetch vault currencies (cheese and wedges) from vault configurations
-  useEffect(() => {
-    const fetchVaultCurrencies = async () => {
-      try {
-        setCurrenciesLoading(true);
-        // Fetch vault configurations to find one with associated session
-        const configsResponse = await fetch('/api/vault/configurations');
-        if (!configsResponse.ok) {
-          setCurrenciesLoading(false);
-          return;
-        }
-
-        const configsData = await configsResponse.json();
-        const configurations = configsData.configurations || {};
-
-        // Find a configuration with an associated session (prefer matching sessionLabel if possible)
-        let targetConfig = null;
-        for (const [configId, config] of Object.entries(configurations)) {
-          if (config.associated_session_label === sessionLabel) {
-            targetConfig = configId;
-            break;
-          }
-        }
-
-        // If no match, use first config with any associated session
-        if (!targetConfig) {
-          for (const [configId, config] of Object.entries(configurations)) {
-            if (config.associated_session_label) {
-              targetConfig = configId;
-              break;
-            }
-          }
-        }
-
-        if (!targetConfig) {
-          setCurrenciesLoading(false);
-          return;
-        }
-
-        // Fetch the vault points endpoint for this config
-        const pointsResponse = await fetch('/api/vault/points', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            config_id: targetConfig,
-          }),
-        });
-        if (pointsResponse.ok) {
-          const pointsData = await pointsResponse.json();
-          setVaultCheese(pointsData.cheese ?? null);
-          setVaultWedges(pointsData.wedges ?? null);
-        }
-      } catch (error) {
-        console.error('Error fetching vault currencies:', error);
-      } finally {
-        setCurrenciesLoading(false);
-      }
-    };
-
-    if (sessionLabel) {
-      fetchVaultCurrencies();
-    }
-  }, [sessionLabel]);
 
   // API call helpers
   const _triggerWedge = async () => {
@@ -543,16 +474,6 @@ export default function PerkAutomationCard(props) {
           <Typography sx={{ color: 'success.main' }} variant="body1">
             Points: <b>{points !== null ? points.toLocaleString() : 'N/A'}</b>
           </Typography>
-          {vaultWedges !== null && vaultWedges !== undefined && !currenciesLoading && (
-            <Typography sx={{ color: 'success.main' }} variant="body1">
-              Wedges: <b>{vaultWedges.toLocaleString()}</b>
-            </Typography>
-          )}
-          {vaultCheese !== null && vaultCheese !== undefined && !currenciesLoading && (
-            <Typography sx={{ color: 'success.main' }} variant="body1">
-              Cheese: <b>{vaultCheese.toLocaleString()}</b>
-            </Typography>
-          )}
         </Box>
         <IconButton size="small">{expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
       </Box>

@@ -51,12 +51,6 @@ Get detailed configuration for a specific session.
       "trigger_type": "time",
       "trigger_days": 7
     },
-    "wedge": {
-      "enabled": false,
-      "method": "points",
-      "trigger_type": "time", 
-      "trigger_days": 7
-    },
     "vip": {
       "enabled": false,
       "weeks": 4,
@@ -113,7 +107,6 @@ Get comprehensive status for all sessions or a specific session.
     "proxied_ip": null,
     "current_asn": "AS12345",
     "points": 50000,
-    "cheese": 10,
     "hnr_count": 0,
     "inactive_unseeded": 5,
     "inactive_unsatisfied": 2,
@@ -177,12 +170,6 @@ Update automation settings for a session.
     "trigger_type": "time",
     "trigger_days": 14
   },
-  "wedge": {
-    "enabled": false,
-    "method": "points",
-    "trigger_type": "time",
-    "trigger_days": 7
-  },
   "vip": {
     "enabled": true,
     "weeks": 8,
@@ -197,7 +184,7 @@ Manually trigger a purchase.
 
 **Parameters:**
 - `label` (path): Session label/name
-- `item_type` (path): One of `upload`, `wedge`, `vip`
+- `item_type` (path): One of `upload`, `vip`
 
 **Request Body (for upload credit):**
 ```json
@@ -210,13 +197,6 @@ Manually trigger a purchase.
 ```json
 {
   "weeks": 4
-}
-```
-
-**Request Body (for wedge):**
-```json
-{
-  "method": "points"
 }
 ```
 
