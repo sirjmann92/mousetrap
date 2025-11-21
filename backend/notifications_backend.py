@@ -226,6 +226,10 @@ async def notify_event(
     cfg = load_notify_config()
     event_rules = cfg.get("event_rules", {})
     rule = event_rules.get(event_type, {"email": False, "webhook": False, "apprise": False})
+    # Check if this notification event is explicitly disabled via the 'enabled' flag
+    # If enabled is False, don't send any notifications regardless of channel settings
+    if rule.get("enabled") is False:
+        return
     # Prevent spam: only send if at least one channel is enabled for this event
     if not rule.get("email") and not rule.get("webhook") and not rule.get("apprise"):
         return
