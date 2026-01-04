@@ -71,7 +71,8 @@ async def upload_credit_automation_job() -> None:
             gb_amount = automation.get("gb", 10)
 
             # Validate upload credit amount - MAM only accepts certain values
-            valid_amounts = [1, 2.5, 5, 20, 100]
+            # As of January 2026, MAM requires minimum 50GB purchase
+            valid_amounts = [50, 100]
             if gb_amount not in valid_amounts:
                 _logger.error(
                     "[UploadAuto] Invalid upload credit amount configured: %sGB. Skipping session '%s'. Valid amounts are: %s",

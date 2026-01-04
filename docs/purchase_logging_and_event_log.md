@@ -9,13 +9,13 @@ All manual and automated purchases are logged if and only if a purchase is attem
 
 ## Event Log Entries
 - **Manual Purchases:**
-  - "Purchased 1GB upload credit"
+  - "Purchased 50GB upload credit"
   - "Purchased VIP (4 weeks)"
 - **Automated Purchases:**
-  - "Automated purchase: 1GB upload credit"
+  - "Automated purchase: 50GB upload credit"
   - "Automated purchase: VIP (4 weeks)"
 - **Failures:**
-  - Will show as e.g. "Upload credit purchase failed (1GB)" or "Automated VIP purchase failed (4 weeks)"
+  - Will show as e.g. "Upload credit purchase failed (50GB)" or "Automated VIP purchase failed (4 weeks)"
 - **Skipped Automations:**
   - "Not enough points: 9133 < 20000" (session-level guardrail)
   - "Below automation point threshold: 9133 < 10000" (automation-level guardrail)
@@ -24,7 +24,7 @@ All manual and automated purchases are logged if and only if a purchase is attem
 
 ## Backend Log Entries
 - All purchase attempts (manual or automated) are logged with clear, explicit messages, e.g.:
-  - "[ManualUpload] Purchase: 1GB upload credit for session 'Gluetun' succeeded."
+  - "[ManualUpload] Purchase: 50GB upload credit for session 'Gluetun' succeeded."
   - "[VIPAuto] Automated purchase: VIP (4 weeks) for session 'Gluetun' succeeded."
   - Failures are also clearly logged with error details.
 - Skipped automations (due to guardrails) are only logged if the automation is enabled for that session.

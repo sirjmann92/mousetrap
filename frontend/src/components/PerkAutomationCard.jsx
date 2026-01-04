@@ -100,7 +100,7 @@ export default function PerkAutomationCard(props) {
   const [triggerDays, setTriggerDays] = useState(7);
   const [triggerPointThreshold, setTriggerPointThreshold] = useState(50000);
   const [expanded, setExpanded] = useState(false);
-  const [uploadAmount, setUploadAmount] = useState(1);
+  const [uploadAmount, setUploadAmount] = useState(50);
   const [vipWeeks, setVipWeeks] = useState(4);
   const [wedgeMethod, setWedgeMethod] = useState('points');
   const [wedgeTriggerType, setWedgeTriggerType] = useState('time');
@@ -126,7 +126,9 @@ export default function PerkAutomationCard(props) {
         // --- Upload Credit Automation fields ---
         const upload = pa.upload_credit || {};
         setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
-        setUploadAmount(upload.gb ?? 1);
+        // Validate upload amount - only 50 and 100 are valid as of Jan 2026
+        const loadedAmount = upload.gb ?? 50;
+        setUploadAmount([50, 100].includes(loadedAmount) ? loadedAmount : 50);
         setPoints?.(cfg.points ?? null);
         setTriggerType(upload.trigger_type ?? 'time');
         setTriggerDays(upload.trigger_days ?? 7);
@@ -627,10 +629,7 @@ export default function PerkAutomationCard(props) {
             onTriggerTypeChange={(e) => setTriggerType(e.target.value)}
             selectLabel="Amount"
             selectOptions={[
-              { label: '1GB', value: 1 },
-              { label: '2.5GB', value: 2.5 },
-              { label: '5GB', value: 5 },
-              { label: '20GB', value: 20 },
+              { label: '50GB', value: 50 },
               { label: '100GB', value: 100 },
             ]}
             selectValue={uploadAmount}

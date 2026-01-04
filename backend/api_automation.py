@@ -50,7 +50,8 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="Session label required.")
 
     # Validate upload credit amount - MAM only accepts certain values
-    valid_amounts = [1, 2.5, 5, 20, 100]
+    # As of January 2026, MAM requires minimum 50GB purchase
+    valid_amounts = [50, 100]
     if amount not in valid_amounts:
         raise HTTPException(
             status_code=400,

@@ -1,5 +1,22 @@
 # January 4, 2026
 
+## MAM API Change: Minimum Upload Credit Purchase Updated ⚠️
+
+### **Breaking Change**
+- **MAM API updated**: Minimum upload credit purchase is now **50GB** (was previously 1GB)
+- **Removed options**: 1GB, 2.5GB, 5GB, and 20GB upload credit purchases are no longer available
+- **Available options**: 50GB and 100GB only
+- **Default changed**: Default upload amount changed from 1GB to 50GB
+- **Action required**: If you have existing automation configured for amounts less than 50GB, you must update your configuration
+
+### **Technical Updates**
+- Updated frontend UI to show only 50GB and 100GB options
+- Updated backend validation to enforce 50GB minimum
+- Updated default values in both frontend and backend
+- Updated documentation to reflect new minimums
+
+---
+
 ## Docker Socket Proxy Support Added 🔒
 
 ### **Enhanced Security for Port Monitoring**
