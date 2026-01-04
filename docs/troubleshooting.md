@@ -54,6 +54,42 @@ services:
 
 **Causes & Solutions:**
 
+**Option 1: Use Docker Socket Proxy (Recommended)**
+
+More secure than direct socket access:
+
+```yaml
+services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    environment:
+      - CONTAINERS=1
+      - POST=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - mousetrap-network
+    restart: unless-stopped
+
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    environment:
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    volumes:
+      - ./config:/config
+      - ./logs:/app/logs
+    networks:
+      - mousetrap-network
+    depends_on:
+      - docker-proxy
+
+networks:
+  mousetrap-network:
+```
+
+**Option 2: Direct Socket Access**
+
 **Docker Socket Not Mounted:**
 ```yaml
 # Add this to your docker-compose.yml:

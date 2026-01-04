@@ -32,6 +32,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * @property {(ip:string)=>void} setDetectedIp
  * @property {Object} prowlarr
  * @property {(p:Object)=>void} setProwlarr
+ * @property {Object} chaptarr
+ * @property {(c:Object)=>void} setChaptarr
  * @property {string|null} mamSessionCreatedDate
  * @property {(d:string|null)=>void} setMamSessionCreatedDate
  */
@@ -68,6 +70,8 @@ const defaultSessionContext = {
   setDetectedIp: () => {},
   prowlarr: {},
   setProwlarr: () => {},
+  chaptarr: {},
+  setChaptarr: () => {},
   mamSessionCreatedDate: null,
   setMamSessionCreatedDate: () => {},
 };
@@ -113,6 +117,7 @@ export function SessionProvider({ children }) {
   const [points, setPoints] = useState(null);
   const [detectedIp, setDetectedIp] = useState('');
   const [prowlarr, setProwlarr] = useState({});
+  const [chaptarr, setChaptarr] = useState({});
   const [mamSessionCreatedDate, setMamSessionCreatedDate] = useState(
     /** @type {string|null} */ (null),
   );
@@ -148,6 +153,8 @@ export function SessionProvider({ children }) {
     status,
     prowlarr,
     setProwlarr,
+    chaptarr,
+    setChaptarr,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   };

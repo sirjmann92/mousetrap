@@ -282,11 +282,24 @@ services:
 5. **Notification**: Send notifications about restart actions
 6. **Event logging**: Log all actions to event log
 
-### Docker Permissions
-- **Socket mounting**: Requires `/var/run/docker.sock` mount
-- **Group permissions**: Automatic Docker group GID handling
-- **Graceful degradation**: All other features work without Docker permissions
-- **Clear warnings**: UI shows permission status and requirements
+### Docker Access Methods
+
+MouseTrap supports two methods for accessing Docker:
+
+**Docker Socket Proxy (Recommended)**
+- More secure - no direct socket access
+- Fine-grained permission control
+- Set `DOCKER_HOST=tcp://docker-proxy:2375`
+- See README for setup example
+
+**Direct Socket Access**
+- Mount `/var/run/docker.sock:/var/run/docker.sock:ro`
+- Automatic Docker group GID handling via `DOCKER_GID`
+- Works on most systems out of the box
+
+**Graceful Degradation**
+- All other features work without Docker access
+- Clear warnings in UI show permission status and requirements
 
 ---
 

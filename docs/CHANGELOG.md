@@ -1,3 +1,90 @@
+# January 4, 2026
+
+## Docker Socket Proxy Support Added 🔒
+
+### **Enhanced Security for Port Monitoring**
+- **Docker Socket Proxy support**: Connect to Docker via HTTP proxy instead of direct socket access
+- **Set `DOCKER_HOST` environment variable**: Point to socket proxy (e.g., `tcp://docker-proxy:2375`)
+- **Backward compatible**: Existing direct socket access continues to work unchanged
+- **Production-ready**: Industry best practice for secure container management
+
+### **Two Access Methods**
+
+**Docker Socket Proxy (Recommended)**
+- No direct socket mount required
+- Fine-grained permission control (CONTAINERS, POST, etc.)
+- Enhanced security - MouseTrap never touches the Docker socket
+- Compatible with Tecnativa/docker-socket-proxy and similar solutions
+
+**Direct Socket Access (Existing)**
+- Mount `/var/run/docker.sock:/var/run/docker.sock:ro`
+- Set `DOCKER_GID` for non-standard Docker group IDs
+- Works as before - zero breaking changes
+
+### **Implementation Details**
+- Updated `get_docker_client()` in port_monitor.py
+- Auto-detects `DOCKER_HOST` environment variable
+- Falls back to default socket if not set
+- Enhanced logging shows connection method used
+- Error messages include DOCKER_HOST value for debugging
+
+### **Documentation Updates**
+- README: Added Docker Socket Proxy configuration example
+- Port Monitoring docs: Explained both access methods
+- Troubleshooting guide: Socket proxy setup and debugging
+- Features guide: Updated Docker access section
+
+---
+
+# January 3, 2026
+
+## Chaptarr Integration Added 🎉
+
+### **Multi-Indexer Support**
+- **Chaptarr integration:** MouseTrap now supports both Prowlarr and Chaptarr indexer integrations
+- **Unified interface:** New "Indexer Integrations" section replaces the old "Prowlarr Integration"
+- **Independent configuration:** Each service (Prowlarr/Chaptarr) can be enabled/disabled separately
+- **Simultaneous updates:** When both are enabled, MAM ID updates are pushed to both services
+- **Smart notifications:** Event logs show which service(s) were successfully updated or failed
+
+### **Key Differences**
+| Feature | Prowlarr | Chaptarr |
+|---------|----------|----------|
+| Default Port | 9696 | 8789 |
+| Implementation | MyAnonamouse | MyAnonaMouse (case-insensitive) |
+| Field Name | mamId | MamId |
+| Force Save | No | Yes |
+
+### **New API Endpoints**
+- `POST /api/chaptarr/test` - Test Chaptarr connection and find MAM indexer
+- `POST /api/chaptarr/update` - Update MAM ID in Chaptarr for a session
+- `POST /api/indexer/update` - Unified endpoint that updates all enabled indexers
+
+### **UI Changes**
+- **"UPDATE PROWLARR" → "UPDATE":** Button now updates whichever services are enabled
+- **Tooltip added:** Explains that clicking updates Prowlarr, Chaptarr, or both depending on configuration
+- **Separate test buttons:** Each service has its own TEST button for troubleshooting
+- **Independent auto-update:** Each service can be configured to auto-update on save independently
+
+### **Backend Changes**
+- **Auto-sync logic:** When MAM ID changes, both Prowlarr and Chaptarr are updated if enabled
+- **Detailed event logging:** Shows which services succeeded/failed with specific error messages
+- **Expiry notifications:** Notifications now list all enabled indexer services
+- **New integration module:** `chaptarr_integration.py` mirrors Prowlarr functionality
+
+### **Documentation**
+- **New guide:** [Indexer Integrations](docs/indexer-integrations.md) covers both services
+- **Migration notes:** Existing Prowlarr configurations continue to work unchanged
+- **Configuration examples:** YAML examples showing both services configured
+
+### **Backward Compatibility**
+- Existing Prowlarr configurations remain unchanged
+- Old API endpoints (`/api/prowlarr/*`) still work for backward compatibility
+- Sessions without Chaptarr configuration simply won't use it
+- No breaking changes to existing workflows
+
+---
+
 # October 22, 2025
 
 ## Notification System Consolidation 🔔

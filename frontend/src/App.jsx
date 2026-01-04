@@ -48,6 +48,7 @@ export default function App() {
     setProxiedIp,
     setProxiedAsn,
     setProwlarr,
+    setChaptarr,
     setMamSessionCreatedDate,
   } = useSession();
   // State for automation and perks
@@ -101,6 +102,7 @@ export default function App() {
         setProxiedIp(cfg?.proxied_public_ip ?? '');
         setProxiedAsn(cfg?.proxied_public_ip_asn ?? '');
         setProwlarr(cfg?.prowlarr ?? {});
+        setChaptarr(cfg?.chaptarr ?? {});
         setMamSessionCreatedDate(cfg?.mam_session_created_date || '');
       } catch (_e) {
         // handle error
@@ -118,6 +120,7 @@ export default function App() {
       setProxiedIp,
       setProxiedAsn,
       setProwlarr,
+      setChaptarr,
       setMamSessionCreatedDate,
     ],
   );

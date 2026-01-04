@@ -44,7 +44,7 @@ docker compose up -d
 - **Web UI**: Modern interface for all automation and configuration
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
-- **Prowlarr Integration**: Automatic MAM session ID sync with 90-day expiry tracking
+- **Indexer Integrations**: Automatic MAM session ID sync with Prowlarr and/or Chaptarr, 90-day expiry tracking
 - **Notifications**: Email (SMTP), Webhook (incl. Discord), and Apprise with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
@@ -85,12 +85,13 @@ MouseTrap offers three IP monitoring modes to suit different use cases and netwo
 | `TZ`            | Timezone for logs and scheduling         | UTC     | `Europe/London`           |
 | `PUID`          | User ID for volume permissions           | 1000    | Match your host user      |
 | `PGID`          | Group ID for volume permissions          | 1000    | Match your host group     |
+| `DOCKER_HOST`   | Docker socket or proxy URL               | None    | `tcp://docker-proxy:2375` |
 | `DOCKER_GID`    | Docker group ID for port monitoring     | 992     | See troubleshooting guide |
 | `IPINFO_TOKEN`  | ipinfo.io API token (recommended)        | None    | Improves IP detection     |
 | `IPDATA_API_KEY`| ipdata.co API key (optional)             | test    | 1,500 requests/day free   |
 | `LOGLEVEL`      | Backend log level                        | INFO    | DEBUG, INFO, WARNING      |
 
-> **Note:** For port monitoring, add `- /var/run/docker.sock:/var/run/docker.sock:ro` to volumes
+> **Note:** For port monitoring, either mount `/var/run/docker.sock` OR set `DOCKER_HOST` to a Docker Socket Proxy
 
 ---
 
@@ -161,7 +162,52 @@ environment:
 ## ⚙️ Optional Features
 
 ### Port Monitoring
-Add Docker socket access to enable container port monitoring:
+
+MouseTrap supports two methods for Docker access (required for port monitoring):
+
+#### Method 1: Docker Socket Proxy (Recommended for Production)
+
+More secure - no direct socket access required:
+
+```yaml
+services:
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: docker-proxy
+    environment:
+      - CONTAINERS=1    # Allow container operations
+      - POST=1          # Allow POST operations (restart)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - mousetrap-network
+    restart: unless-stopped
+
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    container_name: mousetrap
+    environment:
+      - TZ=Europe/London
+      - DOCKER_HOST=tcp://docker-proxy:2375  # Connect via proxy
+    volumes:
+      - ./config:/config
+      - ./logs:/app/logs
+      # No docker.sock mount needed!
+    networks:
+      - mousetrap-network
+    depends_on:
+      - docker-proxy
+    ports:
+      - 39842:39842
+    restart: unless-stopped
+
+networks:
+  mousetrap-network:
+```
+
+#### Method 2: Direct Socket Access
+
+Add Docker socket access directly:
 
 ```yaml
 volumes:
@@ -186,7 +232,7 @@ environment:
 ## 📚 Documentation
 
 - **[Features Guide](docs/features-guide.md)**: Comprehensive feature overview and usage
-- **[Prowlarr Integration](docs/prowlarr-integration.md)**: Automatic MAM ID sync and expiry tracking
+- **[Indexer Integrations](docs/indexer-integrations.md)**: Prowlarr & Chaptarr MAM ID sync and expiry tracking
 - **[API Reference](docs/api-reference.md)**: Complete REST API documentation  
 - **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
 - **[Architecture & Rules](docs/architecture-and-rules.md)**: Technical implementation details

@@ -32,7 +32,8 @@ import TimerDisplay from './TimerDisplay';
 const StatusCard = forwardRef(
   /** @param {StatusCardProps} props */
   function StatusCard({ autoWedge, autoVIP, autoUpload, onStatusUpdate }, ref) {
-    const { sessionLabel, setDetectedIp, setPoints, status, setStatus, prowlarr } = useSession();
+    const { sessionLabel, setDetectedIp, setPoints, status, setStatus, prowlarr, chaptarr } =
+      useSession();
     // Removed local status/setStatus, use context only
     // Timer is now derived from backend only; no local countdown
     const [timer, setTimer] = useState(0);
@@ -225,13 +226,13 @@ const StatusCard = forwardRef(
       }
     };
 
-    // Handler for 'Update Prowlarr' button
-    const [prowlarrLoading, setProwlarrLoading] = useState(false);
-    const handleUpdateProwlarr = async () => {
+    // Handler for 'Update Indexer(s)' button (Prowlarr/Chaptarr)
+    const [indexerLoading, setIndexerLoading] = useState(false);
+    const handleUpdateIndexer = async () => {
       if (!sessionLabel) return;
-      setProwlarrLoading(true);
+      setIndexerLoading(true);
       try {
-        const res = await fetch('/api/prowlarr/update', {
+        const res = await fetch('/api/indexer/update', {
           body: JSON.stringify({ label: sessionLabel }),
           headers: { 'Content-Type': 'application/json' },
           method: 'POST',
@@ -241,11 +242,11 @@ const StatusCard = forwardRef(
         // Extract detailed error message if available
         let errorMessage = data.message || 'Update failed';
         if (!data.success && data.detail) {
-          // Handle Prowlarr API error responses with detailed messages
+          // Handle API error responses with detailed messages
           if (typeof data.detail === 'string') {
             errorMessage = data.detail;
           } else if (Array.isArray(data.detail)) {
-            // Format array of error objects from Prowlarr
+            // Format array of error objects
             errorMessage = data.detail
               .map((err) => err.errorMessage || JSON.stringify(err))
               .join('; ');
@@ -253,18 +254,18 @@ const StatusCard = forwardRef(
         }
 
         setSnackbar({
-          message: data.success ? data.message || 'Prowlarr updated!' : errorMessage,
+          message: data.success ? data.message || 'Indexer(s) updated!' : errorMessage,
           open: true,
-          severity: data.success ? 'success' : 'error',
+          severity: data.success ? (data.warning ? 'warning' : 'success') : 'error',
         });
       } catch (e) {
         setSnackbar({
-          message: `Prowlarr update failed: ${e.message}`,
+          message: `Indexer update failed: ${e.message}`,
           open: true,
           severity: 'error',
         });
       } finally {
-        setProwlarrLoading(false);
+        setIndexerLoading(false);
       }
     };
 
@@ -428,24 +429,33 @@ const StatusCard = forwardRef(
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title="Updates MAM ID in Prowlarr">
+              <Tooltip
+                arrow
+                placement="top"
+                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr or Chaptarr or both, depending on your configuration"
+              >
                 <span>
                   <Button
                     color="info"
                     disabled={
-                      prowlarrLoading ||
+                      indexerLoading ||
                       !sessionLabel ||
-                      !prowlarr?.enabled ||
-                      !prowlarr?.host?.trim() ||
-                      !(prowlarr?.port || 9696) ||
-                      !prowlarr?.api_key?.trim()
+                      (!prowlarr?.enabled && !chaptarr?.enabled) ||
+                      (prowlarr?.enabled &&
+                        (!prowlarr?.host?.trim() ||
+                          !(prowlarr?.port || 9696) ||
+                          !prowlarr?.api_key?.trim())) ||
+                      (chaptarr?.enabled &&
+                        (!chaptarr?.host?.trim() ||
+                          !(chaptarr?.port || 8789) ||
+                          !chaptarr?.api_key?.trim()))
                     }
-                    onClick={handleUpdateProwlarr}
+                    onClick={handleUpdateIndexer}
                     size="small"
                     sx={{ ml: 2 }}
                     variant="contained"
                   >
-                    {prowlarrLoading ? 'Updating...' : 'Update Prowlarr'}
+                    {indexerLoading ? 'Updating...' : 'UPDATE'}
                   </Button>
                 </span>
               </Tooltip>

@@ -16,10 +16,29 @@
   - If not reachable, but the container is running, the system proceeds to restart secondary containers and notifies the user.
   - If the container is not running, secondary containers are not restarted and the user is notified.
 
-### 4. Docker Permissions & DOCKER_GID
-- If Docker socket permissions are missing, port monitoring is disabled and a warning is shown in the UI.
-- The `DOCKER_GID` environment variable can be set to match your host's Docker group GID, ensuring proper access to `/var/run/docker.sock`.
-- See the README for details on setting `DOCKER_GID`.
+### 4. Docker Access Methods
+
+MouseTrap supports two methods for accessing Docker (required for port monitoring):
+
+#### Docker Socket Proxy (Recommended)
+- **More secure**: No direct socket access to MouseTrap container
+- **Fine-grained permissions**: Control exactly what operations are allowed
+- **Production-ready**: Industry best practice for container management
+
+Set `DOCKER_HOST` environment variable to your socket proxy URL:
+```yaml
+environment:
+  - DOCKER_HOST=tcp://docker-proxy:2375
+```
+
+See README for complete Docker Socket Proxy setup example.
+
+#### Direct Socket Access
+- Mount `/var/run/docker.sock:/var/run/docker.sock:ro`
+- Set `DOCKER_GID` environment variable if your Docker group GID isn't 992
+- See README for details on setting `DOCKER_GID`
+
+If Docker permissions are missing, port monitoring is disabled and a warning is shown in the UI.
 
 ### 5. Event Logging & Notifications
 - All port monitoring actions (checks, restarts, failures, manual IP pauses) are logged to the UI event log and backend logs.

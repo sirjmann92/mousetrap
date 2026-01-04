@@ -185,6 +185,10 @@ class PortMonitorStackManager:
     def get_docker_client(self) -> Any:
         """Return a cached Docker client or create one from the environment.
 
+        Supports both direct socket access and Docker Socket Proxy via DOCKER_HOST.
+        When DOCKER_HOST is set (e.g., tcp://docker-proxy:2375), connects via HTTP.
+        Otherwise, uses the default docker socket at /var/run/docker.sock.
+
         Returns None if the docker SDK is unavailable or client creation
         fails. Returns docker.DockerClient when available.
         """
@@ -199,14 +203,29 @@ class PortMonitorStackManager:
                 )
             return None
         try:
-            client = docker.from_env()
+            # Check for Docker Socket Proxy URL from environment variable
+            docker_host = os.environ.get("DOCKER_HOST")
+
+            if docker_host:
+                # Connect via socket proxy (e.g., tcp://docker-proxy:2375)
+                _logger.info(
+                    "[PortMonitorStack] Connecting to Docker via DOCKER_HOST: %s",
+                    docker_host,
+                )
+                client = docker.DockerClient(base_url=docker_host)
+            else:
+                # Use default socket at /var/run/docker.sock
+                client = docker.from_env()
+
             self._docker_client = client
         except Exception as e:
             # Log the error creating the docker client (rate limited)
             warning_key = "docker_from_env_failed"
             if self._should_log_warning(warning_key, min_interval=60):
+                docker_host = os.environ.get("DOCKER_HOST", "/var/run/docker.sock")
                 _logger.error(
-                    "[PortMonitorStack] Failed to create docker client from environment: %s",
+                    "[PortMonitorStack] Failed to create docker client (DOCKER_HOST=%s): %s",
+                    docker_host,
                     e,
                 )
             return None

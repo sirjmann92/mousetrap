@@ -30,6 +30,11 @@ from backend.api_notifications import router as notifications_router
 from backend.api_port_monitor import router as port_monitor_router
 from backend.api_proxy import router as proxy_router
 from backend.automation import run_all_automation_jobs
+from backend.chaptarr_integration import (
+    find_mam_indexer_id as find_mam_indexer_id_chaptarr,
+    sync_mam_id_to_chaptarr,
+    test_chaptarr_connection,
+)
 from backend.config import (
     delete_session,
     get_session_path,
@@ -303,7 +308,7 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
 def check_mam_session_expiry() -> None:
     """Check all sessions for approaching MAM session expiry and send notifications.
 
-    This runs daily to check if any sessions with Prowlarr integration have
+    This runs daily to check if any sessions with Prowlarr or Chaptarr integration have
     MAM sessions that are approaching the 90-day expiry limit.
     """
     _logger.info("[ExpiryCheck] Checking MAM session expiry for all sessions")
@@ -314,9 +319,10 @@ def check_mam_session_expiry() -> None:
             try:
                 cfg = load_session(label)
                 prowlarr_cfg = cfg.get("prowlarr", {})
+                chaptarr_cfg = cfg.get("chaptarr", {})
 
-                # Skip if Prowlarr not enabled or no created date
-                if not prowlarr_cfg.get("enabled"):
+                # Skip if neither Prowlarr nor Chaptarr is enabled
+                if not prowlarr_cfg.get("enabled") and not chaptarr_cfg.get("enabled"):
                     continue
 
                 created_date_str = cfg.get("mam_session_created_date")
@@ -342,8 +348,15 @@ def check_mam_session_expiry() -> None:
                 expiry_date = created_date + timedelta(days=90)
                 days_until_expiry = (expiry_date - datetime.now()).days
 
-                # Check if we should notify
-                notify_days = prowlarr_cfg.get("notify_before_expiry_days", 7)
+                # Check if we should notify - use the minimum of both services' notify days
+                notify_days = min(
+                    prowlarr_cfg.get("notify_before_expiry_days", 7)
+                    if prowlarr_cfg.get("enabled")
+                    else 999,
+                    chaptarr_cfg.get("notify_before_expiry_days", 7)
+                    if chaptarr_cfg.get("enabled")
+                    else 999,
+                )
 
                 if days_until_expiry <= notify_days and days_until_expiry >= 0:
                     _logger.info(
@@ -356,6 +369,17 @@ def check_mam_session_expiry() -> None:
                     mam_id = cfg.get("mam", {}).get("mam_id", "N/A")
                     redacted_mam_id = redact_mam_id(mam_id) if mam_id != "N/A" else "N/A"
 
+                    # Build indexer info strings
+                    indexer_info = []
+                    if prowlarr_cfg.get("enabled") and prowlarr_cfg.get("host"):
+                        indexer_info.append(
+                            f"Prowlarr: {prowlarr_cfg['host']}:{prowlarr_cfg.get('port', 9696)}"
+                        )
+                    if chaptarr_cfg.get("enabled") and chaptarr_cfg.get("host"):
+                        indexer_info.append(
+                            f"Chaptarr: {chaptarr_cfg['host']}:{chaptarr_cfg.get('port', 8789)}"
+                        )
+
                     # Prepare notification message
                     message = (
                         f"⚠️ MAM Session Expiring Soon!\n\n"
@@ -364,13 +388,11 @@ def check_mam_session_expiry() -> None:
                         f"Created: {created_date.strftime('%Y-%m-%d %H:%M')}\n"
                         f"Expires: {expiry_date.strftime('%Y-%m-%d %H:%M')}\n"
                         f"Days Remaining: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''}\n\n"
-                        f"You will need to refresh your MAM session and update Prowlarr.\n"
+                        f"You will need to refresh your MAM session and update your indexer(s).\n"
                     )
 
-                    if prowlarr_cfg.get("host"):
-                        message += (
-                            f"Prowlarr: {prowlarr_cfg['host']}:{prowlarr_cfg.get('port', 9696)}"
-                        )
+                    if indexer_info:
+                        message += "\n" + "\n".join(indexer_info)
 
                     details = {
                         "session_label": label,
@@ -378,7 +400,12 @@ def check_mam_session_expiry() -> None:
                         "created_date": created_date.isoformat(),
                         "expiry_date": expiry_date.isoformat(),
                         "days_remaining": days_until_expiry,
-                        "prowlarr_host": prowlarr_cfg.get("host", "N/A"),
+                        "prowlarr_host": prowlarr_cfg.get("host", "N/A")
+                        if prowlarr_cfg.get("enabled")
+                        else "N/A",
+                        "chaptarr_host": chaptarr_cfg.get("host", "N/A")
+                        if chaptarr_cfg.get("enabled")
+                        else "N/A",
                     }
 
                     # Send notification asynchronously
@@ -1450,19 +1477,23 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 "[APScheduler] Failed to manage session job for '%s' after save: %s", label, e
             )
 
-        # Auto-update Prowlarr if enabled and MAM ID changed
+        # Auto-update Prowlarr and/or Chaptarr if enabled and MAM ID changed
+        new_mam_id = cfg.get("mam", {}).get("mam_id")
+        prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
+
         prowlarr_cfg = cfg.get("prowlarr", {})
-        if prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save"):
-            # Check if MAM ID actually changed
-            new_mam_id = cfg.get("mam", {}).get("mam_id")
-            prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
+        chaptarr_cfg = cfg.get("chaptarr", {})
 
-            if new_mam_id and new_mam_id != prev_mam_id:
+        prowlarr_enabled = prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save")
+        chaptarr_enabled = chaptarr_cfg.get("enabled") and chaptarr_cfg.get("auto_update_on_save")
+
+        if (prowlarr_enabled or chaptarr_enabled) and new_mam_id and new_mam_id != prev_mam_id:
+            updated_services = []
+            failed_services = []
+
+            # Update Prowlarr if enabled
+            if prowlarr_enabled:
                 try:
-                    from backend.prowlarr_integration import (  # noqa: PLC0415
-                        sync_mam_id_to_prowlarr,
-                    )
-
                     _logger.info(
                         "[Prowlarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
                         label,
@@ -1472,31 +1503,69 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                     result = await sync_mam_id_to_prowlarr(cfg, new_mam_id)
                     if result.get("success"):
                         _logger.info("[Prowlarr] Auto-update successful: %s", result.get("message"))
-                        append_ui_event_log(
-                            {
-                                "event": "prowlarr_auto_updated",
-                                "label": label,
-                                "timestamp": datetime.now(UTC).isoformat(),
-                                "user_action": False,
-                                "status_message": result.get(
-                                    "message", "MAM ID synced to Prowlarr"
-                                ),
-                            }
-                        )
+                        updated_services.append("Prowlarr")
                     else:
                         _logger.warning("[Prowlarr] Auto-update failed: %s", result.get("message"))
+                        failed_services.append(f"Prowlarr ({result.get('message')})")
                 except Exception as e:
                     _logger.error("[Prowlarr] Auto-update error for session '%s': %s", label, e)
-            elif new_mam_id == prev_mam_id:
-                _logger.debug(
-                    "[Prowlarr] Auto-update skipped for session '%s' (MAM ID unchanged: %s)",
-                    label,
-                    new_mam_id,
+                    failed_services.append(f"Prowlarr ({e!s})")
+
+            # Update Chaptarr if enabled
+            if chaptarr_enabled:
+                try:
+                    _logger.info(
+                        "[Chaptarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                        label,
+                        prev_mam_id,
+                        new_mam_id,
+                    )
+                    result = await sync_mam_id_to_chaptarr(cfg, new_mam_id)
+                    if result.get("success"):
+                        _logger.info("[Chaptarr] Auto-update successful: %s", result.get("message"))
+                        updated_services.append("Chaptarr")
+                    else:
+                        _logger.warning("[Chaptarr] Auto-update failed: %s", result.get("message"))
+                        failed_services.append(f"Chaptarr ({result.get('message')})")
+                except Exception as e:
+                    _logger.error("[Chaptarr] Auto-update error for session '%s': %s", label, e)
+                    failed_services.append(f"Chaptarr ({e!s})")
+
+            # Log event with detailed message
+            if updated_services:
+                status_msg = f"MAM ID synced to {', '.join(updated_services)}"
+                if failed_services:
+                    status_msg += f". Failed: {', '.join(failed_services)}"
+                append_ui_event_log(
+                    {
+                        "event": "indexer_auto_updated",
+                        "label": label,
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "user_action": False,
+                        "status_message": status_msg,
+                    }
                 )
-            else:
-                _logger.debug(
-                    "[Prowlarr] Auto-update skipped for session '%s' (no MAM ID provided)", label
+            elif failed_services:
+                append_ui_event_log(
+                    {
+                        "event": "indexer_auto_update_failed",
+                        "label": label,
+                        "timestamp": datetime.now(UTC).isoformat(),
+                        "user_action": False,
+                        "status_message": f"Failed to sync MAM ID: {', '.join(failed_services)}",
+                    }
                 )
+        elif new_mam_id == prev_mam_id:
+            _logger.debug(
+                "[Indexers] Auto-update skipped for session '%s' (MAM ID unchanged: %s)",
+                label,
+                new_mam_id,
+            )
+        else:
+            _logger.debug(
+                "[Indexers] Auto-update skipped for session '%s' (no MAM ID provided or unchanged)",
+                label,
+            )
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
@@ -2009,6 +2078,205 @@ async def api_prowlarr_update(request: Request) -> dict[str, Any]:
         return result  # noqa: TRY300
     except Exception as e:
         _logger.exception("Failed to update Prowlarr")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/chaptarr/test")
+async def api_chaptarr_test(request: Request) -> dict[str, Any]:
+    """Test Chaptarr API connectivity.
+
+    Expects JSON with: host, port, api_key
+    """
+    try:
+        data = await request.json()
+        host = data.get("host", "").strip()
+        port = data.get("port")
+        api_key = data.get("api_key", "").strip()
+
+        _logger.debug(
+            "[Chaptarr] Test connection request - host: %s, port: %s (type: %s), api_key: %s",
+            host,
+            port,
+            type(port).__name__,
+            "***" + api_key[-4:] if api_key and len(api_key) > 4 else "***",
+        )
+
+        if not host or port is None or not api_key:
+            return {"success": False, "message": "Missing required fields"}
+
+        # Test connection and find MAM indexer
+        conn_result = await test_chaptarr_connection(host, port, api_key)
+        if not conn_result["success"]:
+            return conn_result
+
+        # If connection successful, try to find MAM indexer
+        indexer_result = await find_mam_indexer_id_chaptarr(host, port, api_key)
+        if indexer_result["success"]:
+            # Merge results: keep connection success, add indexer_id
+            return {
+                "success": True,
+                "message": conn_result["message"],
+                "indexer_count": conn_result.get("indexer_count"),
+                "indexer_id": indexer_result.get("indexer_id"),
+            }
+
+        # MAM indexer not found, but connection was successful
+        return {
+            "success": True,
+            "message": f"{conn_result['message']} However, MyAnonaMouse indexer not found.",
+            "indexer_count": conn_result.get("indexer_count"),
+            "warning": indexer_result.get("message"),
+        }
+    except Exception as e:
+        _logger.exception("Chaptarr test failed")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/chaptarr/update")
+async def api_chaptarr_update(request: Request) -> dict[str, Any]:
+    """Update MAM ID in Chaptarr for a session.
+
+    Expects JSON with:
+    - label: session label
+    - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        cfg = load_session(label)
+        if cfg is None:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        # Use provided mam_id or fall back to session config
+        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        if not mam_id:
+            return {
+                "success": False,
+                "message": "MAM ID not configured in session and not provided",
+            }
+
+        result = await sync_mam_id_to_chaptarr(cfg, mam_id)
+        if result["success"]:
+            # Log success event
+            append_ui_event_log(
+                {
+                    "event": "chaptarr_manual_update",
+                    "label": label,
+                    "event_type": "chaptarr_update",
+                    "status_message": f"Updated Chaptarr MAM ID to {mam_id}",
+                    "user_action": True,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+        return result  # noqa: TRY300
+    except Exception as e:
+        _logger.exception("Failed to update Chaptarr")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/indexer/update")
+async def api_indexer_update(request: Request) -> dict[str, Any]:
+    """Update MAM ID in configured indexer(s) (Prowlarr and/or Chaptarr).
+
+    This is the unified endpoint that updates whichever services are enabled.
+
+    Expects JSON with:
+    - label: session label
+    - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        cfg = load_session(label)
+        if cfg is None:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        # Use provided mam_id or fall back to session config
+        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        if not mam_id:
+            return {
+                "success": False,
+                "message": "MAM ID not configured in session and not provided",
+            }
+
+        prowlarr_cfg = cfg.get("prowlarr", {})
+        chaptarr_cfg = cfg.get("chaptarr", {})
+
+        prowlarr_enabled = prowlarr_cfg.get("enabled", False)
+        chaptarr_enabled = chaptarr_cfg.get("enabled", False)
+
+        if not prowlarr_enabled and not chaptarr_enabled:
+            return {
+                "success": False,
+                "message": "No indexer integrations are enabled for this session",
+            }
+
+        updated_services = []
+        failed_services = []
+
+        # Update Prowlarr if enabled
+        if prowlarr_enabled:
+            try:
+                result = await sync_mam_id_to_prowlarr(cfg, mam_id)
+                if result.get("success"):
+                    updated_services.append("Prowlarr")
+                else:
+                    failed_services.append(f"Prowlarr ({result.get('message')})")
+            except Exception as e:
+                _logger.error("[Prowlarr] Update error for session '%s': %s", label, e)
+                failed_services.append(f"Prowlarr ({e!s})")
+
+        # Update Chaptarr if enabled
+        if chaptarr_enabled:
+            try:
+                result = await sync_mam_id_to_chaptarr(cfg, mam_id)
+                if result.get("success"):
+                    updated_services.append("Chaptarr")
+                else:
+                    failed_services.append(f"Chaptarr ({result.get('message')})")
+            except Exception as e:
+                _logger.error("[Chaptarr] Update error for session '%s': %s", label, e)
+                failed_services.append(f"Chaptarr ({e!s})")
+
+        # Prepare response
+        if updated_services and not failed_services:
+            status_msg = f"Successfully updated MAM ID in {', '.join(updated_services)}"
+            append_ui_event_log(
+                {
+                    "event": "indexer_manual_update",
+                    "label": label,
+                    "event_type": "indexer_update",
+                    "status_message": status_msg,
+                    "user_action": True,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+            return {"success": True, "message": status_msg}
+        if updated_services and failed_services:
+            status_msg = f"Partially successful: Updated {', '.join(updated_services)}. Failed: {', '.join(failed_services)}"
+            append_ui_event_log(
+                {
+                    "event": "indexer_partial_update",
+                    "label": label,
+                    "event_type": "indexer_update",
+                    "status_message": status_msg,
+                    "user_action": True,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+            return {"success": True, "message": status_msg, "warning": True}
+        # All failed
+        status_msg = f"Failed to update all services: {', '.join(failed_services)}"
+        return {"success": False, "message": status_msg}  # noqa: TRY300
+
+    except Exception as e:
+        _logger.exception("Failed to update indexer(s)")
         return {"success": False, "message": f"Error: {e!s}"}
 
 

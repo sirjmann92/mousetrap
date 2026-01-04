@@ -25,7 +25,7 @@ import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
 
 import { useSession } from '../context/SessionContext.jsx';
-import ProwlarrConfig from './ProwlarrConfig.jsx';
+import IndexerIntegrations from './IndexerIntegrations.jsx';
 
 export default function MouseTrapConfigCard({
   proxies = {},
@@ -54,6 +54,8 @@ export default function MouseTrapConfigCard({
     setProxy,
     prowlarr,
     setProwlarr,
+    chaptarr,
+    setChaptarr,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   } = useSession();
@@ -166,6 +168,7 @@ export default function MouseTrapConfigCard({
       mam_session_created_date: mamSessionCreatedDate || null,
       old_label: oldLabel,
       prowlarr,
+      chaptarr,
       proxy: { label: proxyLabel },
     };
     try {
@@ -601,11 +604,13 @@ export default function MouseTrapConfigCard({
             </Box>
           </Box>
 
-          {/* Prowlarr Integration */}
-          <ProwlarrConfig
+          {/* Indexer Integrations (Prowlarr & Chaptarr) */}
+          <IndexerIntegrations
             _mamSessionCreatedDate={mamSessionCreatedDate}
+            chaptarrConfig={chaptarr}
             prowlarrConfig={prowlarr}
             sessionLabel={sessionLabel}
+            setChaptarrConfig={setChaptarr}
             setMamSessionCreatedDate={setMamSessionCreatedDate}
             setProwlarrConfig={setProwlarr}
           />
