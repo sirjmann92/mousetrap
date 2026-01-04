@@ -178,14 +178,14 @@ async def update_mam_id_in_chaptarr(
 
     config = get_result["config"]
 
-    # Step 2: Find and update MamId field (note the capital M)
+    # Step 2: Find and update mamId field (lowercase m)
     old_mam_id = None
     mam_id_found = False
 
     fields = config.get("fields", [])
     for field in fields:
-        # Chaptarr uses "MamId" (capital M)
-        if field.get("name") == "MamId":
+        # Chaptarr uses "mamId" (lowercase m)
+        if field.get("name") == "mamId":
             old_mam_id = field.get("value", "")
             field["value"] = new_mam_id
             mam_id_found = True

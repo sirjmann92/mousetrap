@@ -54,3 +54,7 @@ venv/
 # Test outputs - pot.php HTML files (contain sensitive data)
 tests/pot_page_*.html
 pot_page_*.html
+
+# Diagnostic test scripts
+test_chaptarr_direct.py
+create_test_indexer.py
