@@ -156,6 +156,17 @@ export default function MouseTrapConfigCard({
     if (!allValid) return;
     // Only update global sessionLabel on save
     setSessionLabel(label);
+
+    // Ensure default ports are set if not specified
+    const prowlarrWithDefaults = {
+      ...prowlarr,
+      port: prowlarr.port || 9696,
+    };
+    const chaptarrWithDefaults = {
+      ...chaptarr,
+      port: chaptarr.port || 8789,
+    };
+
     const payload = {
       check_freq: typeof checkFrequency === 'number' ? checkFrequency : 0,
       label,
@@ -167,8 +178,8 @@ export default function MouseTrapConfigCard({
       mam_ip: mamIp,
       mam_session_created_date: mamSessionCreatedDate || null,
       old_label: oldLabel,
-      prowlarr,
-      chaptarr,
+      prowlarr: prowlarrWithDefaults,
+      chaptarr: chaptarrWithDefaults,
       proxy: { label: proxyLabel },
     };
     try {

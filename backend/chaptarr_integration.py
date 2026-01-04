@@ -255,21 +255,34 @@ async def sync_mam_id_to_chaptarr(session_cfg: dict[str, Any], mam_id: str) -> d
     """
     chaptarr_cfg = session_cfg.get("chaptarr", {})
 
+    _logger.info(
+        "[Chaptarr] sync_mam_id_to_chaptarr called for session. chaptarr_cfg keys: %s, enabled: %s",
+        list(chaptarr_cfg.keys()),
+        chaptarr_cfg.get("enabled"),
+    )
+
     # Validate required config
     if not chaptarr_cfg.get("enabled", False):
         return {
             "success": False,
-            "message": "Chaptarr integration is not enabled for this session.",
+            "message": "Chaptarr integration is not enabled for this session. Please enable Chaptarr and save your session.",
         }
 
     host = chaptarr_cfg.get("host", "").strip()
     port = chaptarr_cfg.get("port")
     api_key = chaptarr_cfg.get("api_key", "").strip()
 
+    _logger.info(
+        "[Chaptarr] Config details: host=%s, port=%s, api_key=%s",
+        host,
+        port,
+        "***" if api_key else "(empty)",
+    )
+
     if not all([host, port, api_key]):
         return {
             "success": False,
-            "message": "Chaptarr configuration incomplete. Please configure host, port, and API key.",
+            "message": "Chaptarr configuration incomplete. Please configure host, port, and API key, then save your session before updating.",
         }
 
     # Auto-detect MAM indexer ID

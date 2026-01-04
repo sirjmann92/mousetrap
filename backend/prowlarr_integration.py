@@ -249,7 +249,7 @@ async def sync_mam_id_to_prowlarr(session_cfg: dict[str, Any], mam_id: str) -> d
     if not prowlarr_cfg.get("enabled", False):
         return {
             "success": False,
-            "message": "Prowlarr integration is not enabled for this session.",
+            "message": "Prowlarr integration is not enabled for this session. Please enable Prowlarr and save your session.",
         }
 
     host = prowlarr_cfg.get("host", "").strip()
@@ -259,7 +259,7 @@ async def sync_mam_id_to_prowlarr(session_cfg: dict[str, Any], mam_id: str) -> d
     if not all([host, port, api_key]):
         return {
             "success": False,
-            "message": "Prowlarr configuration incomplete. Please configure host, port, and API key.",
+            "message": "Prowlarr configuration incomplete. Please configure host, port, and API key, then save your session before updating.",
         }
 
     # Auto-detect MAM indexer ID
