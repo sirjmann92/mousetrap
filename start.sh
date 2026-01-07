@@ -16,8 +16,9 @@ log_debug() {
 # compatibility with unRAID and other platforms that may force non-root startup
 
 # Set PUID/PGID, defaulting to 1000 if not provided
-PUID=${PUID:-1000}
-PGID=${PGID:-1000}
+# Support MOUSETRAP_PUID/MOUSETRAP_PGID for Podman compatibility (Podman sets PUID/PGID automatically)
+PUID=${MOUSETRAP_PUID:-${PUID:-1000}}
+PGID=${MOUSETRAP_PGID:-${PGID:-1000}}
 USERNAME=appuser
 GROUPNAME=appgroup
 

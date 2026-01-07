@@ -450,7 +450,41 @@ cp -r config/ config-backup/
 
 ---
 
-## 📞 Getting Help
+## � Podman-Specific Issues
+
+### Container Crashes with "GID 0 is in use by system group 'root'" Loop
+
+**Symptoms:**
+- Container repeatedly crashes and restarts
+- Logs show: `GID 0 is already in use by group 'root'`
+- Container never fully starts
+
+**Cause:**
+Podman automatically sets `PUID` and `PGID` environment variables based on the user running `podman`, which overrides values set in compose files. If you're running Podman as root (or with sudo), it sets `PGID=0`, causing a conflict with the root group.
+
+**Solution:**
+Use `MOUSETRAP_PUID` and `MOUSETRAP_PGID` instead:
+
+```yaml
+services:
+  mousetrap:
+    image: ghcr.io/sirjmann92/mousetrap:latest
+    environment:
+      - TZ=America/New_York
+      - MOUSETRAP_PUID=1000  # Use MOUSETRAP_ prefix instead of PUID
+      - MOUSETRAP_PGID=1000  # Use MOUSETRAP_ prefix instead of PGID
+      - DOCKER_GID=1000      # This one is fine as-is
+    volumes:
+      - ./config:/config
+      - ./logs:/app/logs
+```
+
+**Alternative Solution:**
+Run Podman as a non-root user (rootless mode) and keep using `PUID`/`PGID`.
+
+---
+
+## �📞 Getting Help
 
 If you're still experiencing issues:
 
