@@ -82,22 +82,27 @@ if ! id "$USERNAME" >/dev/null 2>&1; then
 	adduser -u "$PUID" -G "$GROUPNAME" -D -s /bin/sh "$USERNAME"
 fi
 
+# If DOCKER_GID is set, update/create docker group and add appuser
+if [ -n "$DOCKER_GID" ]; then
+	# Remove user from docker group first to avoid conflicts
+	deluser "$USERNAME" docker 2>/dev/null || true
+
+	# Recreate docker group with the correct GID
+	if getent group docker >/dev/null; then
+		delgroup docker 2>/dev/null || true
+	fi
+	addgroup -g "$DOCKER_GID" docker
+
+	# Add user to docker group
+	adduser "$USERNAME" docker
+	log_info "Added user '$USERNAME' to docker group (GID: $DOCKER_GID)"
+fi
+
 # Log final PUID/PGID configuration
 FINAL_UID=$(id -u "$USERNAME" 2>/dev/null)
 FINAL_GID=$(id -g "$USERNAME" 2>/dev/null)
-log_info "User '$USERNAME' successfully configured with PUID:$FINAL_UID PGID:$FINAL_GID"
-
-
-
-
-# If DOCKER_GID is set, update/create docker group and add appuser
-if [ -n "$DOCKER_GID" ]; then
-	if getent group docker >/dev/null; then
-		delgroup docker
-	fi
-	addgroup -g "$DOCKER_GID" docker
-	adduser "$USERNAME" docker
-fi
+FINAL_GROUPS=$(id -G "$USERNAME" 2>/dev/null)
+log_info "User '$USERNAME' successfully configured with PUID:$FINAL_UID PGID:$FINAL_GID Groups:$FINAL_GROUPS"
 
 # Ensure ownership of /app/logs and /config if they exist
 chown -R "$PUID":"$PGID" /app/logs 2>/dev/null || true
