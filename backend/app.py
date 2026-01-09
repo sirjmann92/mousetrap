@@ -45,6 +45,7 @@ from backend.config import (
 )
 from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
+from backend.jackett_integration import sync_mam_id_to_jackett, test_jackett_connection
 from backend.last_session_api import router as last_session_router, write_last_session
 from backend.mam_api import get_mam_seen_ip_info, get_proxied_public_ip, get_status
 from backend.notifications_backend import notify_event
@@ -1483,11 +1484,17 @@ async def api_save_session(request: Request) -> dict[str, Any]:
 
         prowlarr_cfg = cfg.get("prowlarr", {})
         chaptarr_cfg = cfg.get("chaptarr", {})
+        jackett_cfg = cfg.get("jackett", {})
 
         prowlarr_enabled = prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save")
         chaptarr_enabled = chaptarr_cfg.get("enabled") and chaptarr_cfg.get("auto_update_on_save")
+        jackett_enabled = jackett_cfg.get("enabled") and jackett_cfg.get("auto_update_on_save")
 
-        if (prowlarr_enabled or chaptarr_enabled) and new_mam_id and new_mam_id != prev_mam_id:
+        if (
+            (prowlarr_enabled or chaptarr_enabled or jackett_enabled)
+            and new_mam_id
+            and new_mam_id != prev_mam_id
+        ):
             updated_services = []
             failed_services = []
 
@@ -1530,6 +1537,34 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 except Exception as e:
                     _logger.error("[Chaptarr] Auto-update error for session '%s': %s", label, e)
                     failed_services.append(f"Chaptarr ({e!s})")
+
+            # Update Jackett if enabled
+            if jackett_enabled:
+                try:
+                    _logger.info(
+                        "[Jackett] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                        label,
+                        prev_mam_id,
+                        new_mam_id,
+                    )
+                    host = jackett_cfg.get("host", "").strip()
+                    port = jackett_cfg.get("port", 9117)
+                    api_key = jackett_cfg.get("api_key", "").strip()
+                    admin_password = jackett_cfg.get("admin_password", "").strip()
+
+                    result = await sync_mam_id_to_jackett(
+                        host, port, api_key, admin_password, new_mam_id
+                    )
+                    if result.get("success"):
+                        _logger.info("[Jackett] Auto-update successful: %s", result.get("message"))
+                        updated_services.append("Jackett")
+                    else:
+                        error_msg = result.get("error", "Unknown error")
+                        _logger.warning("[Jackett] Auto-update failed: %s", error_msg)
+                        failed_services.append(f"Jackett ({error_msg})")
+                except Exception as e:
+                    _logger.error("[Jackett] Auto-update error for session '%s': %s", label, e)
+                    failed_services.append(f"Jackett ({e!s})")
 
             # Log event with detailed message
             if updated_services:
@@ -2177,9 +2212,99 @@ async def api_chaptarr_update(request: Request) -> dict[str, Any]:
         return {"success": False, "message": f"Error: {e!s}"}
 
 
+@app.post("/api/jackett/test")
+async def api_jackett_test(request: Request) -> dict[str, Any]:
+    """Test Jackett API connectivity with admin authentication.
+
+    Expects JSON with: host, port, api_key, admin_password
+    """
+    try:
+        data = await request.json()
+        host = data.get("host", "").strip()
+        port = data.get("port")
+        api_key = data.get("api_key", "").strip()
+        admin_password = data.get("admin_password", "").strip()
+
+        _logger.debug(
+            "[Jackett] Test connection request - host: %s, port: %s",
+            host,
+            port,
+        )
+
+        if not host or port is None or not api_key:
+            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
+
+        # Test API connection with optional authentication
+        return await test_jackett_connection(host, port, api_key, admin_password or "")
+    except Exception as e:
+        _logger.exception("Jackett test failed")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/jackett/update")
+async def api_jackett_update(request: Request) -> dict[str, Any]:
+    """Update MAM ID in Jackett for a session via API.
+
+    Expects JSON with:
+    - label: session label
+    - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        cfg = load_session(label)
+        if cfg is None:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        # Use provided mam_id or fall back to session config
+        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        if not mam_id:
+            return {
+                "success": False,
+                "message": "MAM ID not configured in session and not provided",
+            }
+
+        # Get Jackett config from session
+        jackett_cfg = cfg.get("jackett", {})
+        if not jackett_cfg.get("enabled"):
+            return {"success": False, "message": "Jackett integration not enabled"}
+
+        host = jackett_cfg.get("host", "").strip()
+        port = jackett_cfg.get("port", 9117)
+        api_key = jackett_cfg.get("api_key", "").strip()
+        admin_password = jackett_cfg.get("admin_password", "").strip()
+
+        if not all([host, port, api_key, admin_password]):
+            return {
+                "success": False,
+                "message": "Jackett configuration incomplete (host, port, api_key, admin_password required)",
+            }
+
+        result = await sync_mam_id_to_jackett(host, port, api_key, admin_password, mam_id)
+        if result.get("success"):
+            # Log success event
+            append_ui_event_log(
+                {
+                    "event": "jackett_manual_update",
+                    "label": label,
+                    "event_type": "jackett_update",
+                    "status_message": f"Updated Jackett MAM ID to {mam_id}",
+                    "user_action": True,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+        return result  # noqa: TRY300
+    except Exception as e:
+        _logger.exception("Failed to update Jackett")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
 @app.post("/api/indexer/update")
 async def api_indexer_update(request: Request) -> dict[str, Any]:
-    """Update MAM ID in configured indexer(s) (Prowlarr and/or Chaptarr).
+    """Update MAM ID in configured indexer(s) (Prowlarr, Chaptarr, and/or Jackett).
 
     This is the unified endpoint that updates whichever services are enabled.
 
@@ -2207,11 +2332,13 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
 
         prowlarr_cfg = cfg.get("prowlarr", {})
         chaptarr_cfg = cfg.get("chaptarr", {})
+        jackett_cfg = cfg.get("jackett", {})
 
         prowlarr_enabled = prowlarr_cfg.get("enabled", False)
         chaptarr_enabled = chaptarr_cfg.get("enabled", False)
+        jackett_enabled = jackett_cfg.get("enabled", False)
 
-        if not prowlarr_enabled and not chaptarr_enabled:
+        if not prowlarr_enabled and not chaptarr_enabled and not jackett_enabled:
             return {
                 "success": False,
                 "message": "No indexer integrations are enabled for this session",
@@ -2243,6 +2370,30 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
             except Exception as e:
                 _logger.error("[Chaptarr] Update error for session '%s': %s", label, e)
                 failed_services.append(f"Chaptarr ({e!s})")
+
+        # Update Jackett if enabled
+        if jackett_enabled:
+            try:
+                host = jackett_cfg.get("host", "").strip()
+                port = jackett_cfg.get("port", 9117)
+                api_key = jackett_cfg.get("api_key", "").strip()
+                admin_password = jackett_cfg.get("admin_password", "").strip()
+
+                if not all([host, port, api_key, admin_password]):
+                    failed_services.append("Jackett (incomplete configuration)")
+                else:
+                    result = await sync_mam_id_to_jackett(
+                        host, port, api_key, admin_password, mam_id
+                    )
+                    if result.get("success"):
+                        updated_services.append("Jackett")
+                    else:
+                        failed_services.append(
+                            f"Jackett ({result.get('error', result.get('message'))})"
+                        )
+            except Exception as e:
+                _logger.error("[Jackett] Update error for session '%s': %s", label, e)
+                failed_services.append(f"Jackett ({e!s})")
 
         # Prepare response
         if updated_services and not failed_services:

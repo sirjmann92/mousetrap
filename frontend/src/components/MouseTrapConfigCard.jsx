@@ -56,6 +56,8 @@ export default function MouseTrapConfigCard({
     setProwlarr,
     chaptarr,
     setChaptarr,
+    jackett,
+    setJackett,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   } = useSession();
@@ -166,6 +168,10 @@ export default function MouseTrapConfigCard({
       ...chaptarr,
       port: chaptarr.port || 8789,
     };
+    const jackettWithDefaults = {
+      ...jackett,
+      port: jackett.port || 9117,
+    };
 
     const payload = {
       check_freq: typeof checkFrequency === 'number' ? checkFrequency : 0,
@@ -180,6 +186,7 @@ export default function MouseTrapConfigCard({
       old_label: oldLabel,
       prowlarr: prowlarrWithDefaults,
       chaptarr: chaptarrWithDefaults,
+      jackett: jackettWithDefaults,
       proxy: { label: proxyLabel },
     };
     try {
@@ -615,14 +622,15 @@ export default function MouseTrapConfigCard({
             </Box>
           </Box>
 
-          {/* Indexer Integrations (Prowlarr & Chaptarr) */}
+          {/* Indexer Integrations (Prowlarr, Chaptarr, & Jackett) */}
           <IndexerIntegrations
             _mamSessionCreatedDate={mamSessionCreatedDate}
             chaptarrConfig={chaptarr}
+            jackettConfig={jackett}
             prowlarrConfig={prowlarr}
             sessionLabel={sessionLabel}
             setChaptarrConfig={setChaptarr}
-            setMamSessionCreatedDate={setMamSessionCreatedDate}
+            setJackettConfig={setJackett}
             setProwlarrConfig={setProwlarr}
           />
 

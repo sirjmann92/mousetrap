@@ -49,6 +49,7 @@ export default function App() {
     setProxiedAsn,
     setProwlarr,
     setChaptarr,
+    setJackett,
     setMamSessionCreatedDate,
   } = useSession();
   // State for automation and perks
@@ -101,8 +102,18 @@ export default function App() {
         setProxy(cfg?.proxy ?? {});
         setProxiedIp(cfg?.proxied_public_ip ?? '');
         setProxiedAsn(cfg?.proxied_public_ip_asn ?? '');
-        setProwlarr(cfg?.prowlarr ?? {});
-        setChaptarr(cfg?.chaptarr ?? {});
+        setProwlarr({
+          auto_update_on_save: false,
+          ...(cfg?.prowlarr ?? {}),
+        });
+        setChaptarr({
+          auto_update_on_save: false,
+          ...(cfg?.chaptarr ?? {}),
+        });
+        setJackett({
+          auto_update_on_save: false,
+          ...(cfg?.jackett ?? {}),
+        });
         setMamSessionCreatedDate(cfg?.mam_session_created_date || '');
       } catch (_e) {
         // handle error
@@ -121,6 +132,7 @@ export default function App() {
       setProxiedAsn,
       setProwlarr,
       setChaptarr,
+      setJackett,
       setMamSessionCreatedDate,
     ],
   );

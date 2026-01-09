@@ -559,7 +559,7 @@ export default function PerkAutomationCard(props) {
               <Tooltip
                 title={
                   <span>
-                    4 +weeks = 5,000 points
+                    4 weeks = 5,000 points
                     <br />8 weeks = 10,000 points
                     <br />
                     Max me out! = Top up to 90 days (variable points)

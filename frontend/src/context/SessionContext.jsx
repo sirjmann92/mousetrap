@@ -34,6 +34,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * @property {(p:Object)=>void} setProwlarr
  * @property {Object} chaptarr
  * @property {(c:Object)=>void} setChaptarr
+ * @property {Object} jackett
+ * @property {(j:Object)=>void} setJackett
  * @property {string|null} mamSessionCreatedDate
  * @property {(d:string|null)=>void} setMamSessionCreatedDate
  */
@@ -72,6 +74,8 @@ const defaultSessionContext = {
   setProwlarr: () => {},
   chaptarr: {},
   setChaptarr: () => {},
+  jackett: {},
+  setJackett: () => {},
   mamSessionCreatedDate: null,
   setMamSessionCreatedDate: () => {},
 };
@@ -118,6 +122,7 @@ export function SessionProvider({ children }) {
   const [detectedIp, setDetectedIp] = useState('');
   const [prowlarr, setProwlarr] = useState({});
   const [chaptarr, setChaptarr] = useState({});
+  const [jackett, setJackett] = useState({});
   const [mamSessionCreatedDate, setMamSessionCreatedDate] = useState(
     /** @type {string|null} */ (null),
   );
@@ -155,6 +160,8 @@ export function SessionProvider({ children }) {
     setProwlarr,
     chaptarr,
     setChaptarr,
+    jackett,
+    setJackett,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   };

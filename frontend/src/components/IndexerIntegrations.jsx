@@ -23,8 +23,9 @@ export default function IndexerIntegrations({
   setProwlarrConfig,
   chaptarrConfig,
   setChaptarrConfig,
+  jackettConfig,
+  setJackettConfig,
   _mamSessionCreatedDate,
-  setMamSessionCreatedDate,
   sessionLabel,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -36,6 +37,10 @@ export default function IndexerIntegrations({
   // Chaptarr state
   const [chaptarrTestResult, setChaptarrTestResult] = useState(null);
   const [chaptarrTestLoading, setChaptarrTestLoading] = useState(false);
+
+  // Jackett state
+  const [jackettTestResult, setJackettTestResult] = useState(null);
+  const [jackettTestLoading, setJackettTestLoading] = useState(false);
 
   // Unified update state
   const [updateResult, setUpdateResult] = useState(null);
@@ -57,6 +62,13 @@ export default function IndexerIntegrations({
   }, [chaptarrTestResult]);
 
   useEffect(() => {
+    if (jackettTestResult) {
+      const timer = setTimeout(() => setJackettTestResult(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [jackettTestResult]);
+
+  useEffect(() => {
     if (updateResult) {
       const timer = setTimeout(() => setUpdateResult(null), 5000);
       return () => clearTimeout(timer);
@@ -72,6 +84,13 @@ export default function IndexerIntegrations({
 
   const handleChaptarrChange = (field, value) => {
     setChaptarrConfig((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleJackettChange = (field, value) => {
+    setJackettConfig((prev) => ({
       ...prev,
       [field]: value,
     }));
@@ -131,6 +150,34 @@ export default function IndexerIntegrations({
     }
   };
 
+  const handleJackettTest = async () => {
+    if (!jackettConfig.host || !jackettConfig.api_key) {
+      setJackettTestResult({ success: false, message: 'Please fill in host and API key' });
+      return;
+    }
+
+    setJackettTestLoading(true);
+    try {
+      const response = await fetch('/api/jackett/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: jackettConfig.host,
+          port: jackettConfig.port || 9117,
+          api_key: jackettConfig.api_key,
+          admin_password: jackettConfig.admin_password || '',
+        }),
+      });
+
+      const result = await response.json();
+      setJackettTestResult(result);
+    } catch (_error) {
+      setJackettTestResult({ success: false, message: 'Network error' });
+    } finally {
+      setJackettTestLoading(false);
+    }
+  };
+
   const handleUpdate = async () => {
     setUpdateLoading(true);
     try {
@@ -161,7 +208,8 @@ export default function IndexerIntegrations({
     }
   };
 
-  const anyServiceEnabled = prowlarrConfig.enabled || chaptarrConfig.enabled;
+  const anyServiceEnabled =
+    prowlarrConfig.enabled || chaptarrConfig.enabled || jackettConfig.enabled;
 
   return (
     <Accordion
@@ -188,7 +236,7 @@ export default function IndexerIntegrations({
           </Typography>
           <Tooltip
             placement="right"
-            title="Auto-update your MAM ID in Prowlarr and/or Chaptarr when it changes. You'll be notified before your 90-day MAM session expires so you can update it."
+            title="Auto-update your MAM ID in Prowlarr, Chaptarr, and/or Jackett when it changes. You'll be notified before your 90-day MAM session expires so you can update it."
           >
             <IconButton size="small">
               <InfoOutlinedIcon fontSize="small" />
@@ -453,6 +501,142 @@ export default function IndexerIntegrations({
             )}
           </Box>
 
+          <Divider />
+
+          {/* Jackett Section */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Typography sx={{ fontWeight: 600 }} variant="body2">
+              Jackett
+            </Typography>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={jackettConfig.enabled || false}
+                  onChange={(e) => handleJackettChange('enabled', e.target.checked)}
+                />
+              }
+              label="Enable Jackett Integration"
+            />
+
+            {jackettConfig.enabled && (
+              <>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    helperText="Jackett hostname or IP"
+                    label="Jackett Host"
+                    onChange={(e) => handleJackettChange('host', e.target.value)}
+                    placeholder="localhost"
+                    required
+                    size="small"
+                    sx={{ width: 300 }}
+                    value={jackettConfig.host || ''}
+                  />
+                  <TextField
+                    helperText="Jackett port"
+                    label="Port"
+                    onChange={(e) =>
+                      handleJackettChange('port', Number.parseInt(e.target.value, 10) || 9117)
+                    }
+                    placeholder="9117"
+                    required
+                    size="small"
+                    sx={{ width: 120 }}
+                    type="number"
+                    value={jackettConfig.port || 9117}
+                  />
+                </Box>
+
+                <Box
+                  sx={{
+                    alignItems: 'flex-start',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                  }}
+                >
+                  <TextField
+                    helperText="Jackett API Key (found at top of Dashboard page)"
+                    label="API Key"
+                    onChange={(e) => handleJackettChange('api_key', e.target.value)}
+                    placeholder="Enter API key"
+                    required
+                    size="small"
+                    sx={{ maxWidth: 350 }}
+                    type="password"
+                    value={jackettConfig.api_key || ''}
+                  />
+                  <TextField
+                    helperText="Jackett admin password (optional, only needed if authentication is enabled in Jackett)"
+                    label="Admin Password (Optional)"
+                    onChange={(e) => handleJackettChange('admin_password', e.target.value)}
+                    placeholder="Leave empty if Jackett auth is disabled"
+                    required
+                    size="small"
+                    sx={{ maxWidth: 350 }}
+                    type="password"
+                    value={jackettConfig.admin_password || ''}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={jackettTestLoading || !jackettConfig.host || !jackettConfig.api_key}
+                    onClick={handleJackettTest}
+                    sx={{ height: 40, minWidth: 150 }}
+                    variant="outlined"
+                  >
+                    {jackettTestLoading ? 'Testing...' : 'TEST'}
+                  </Button>
+                </Box>
+
+                {jackettTestResult && (
+                  <Alert
+                    severity={jackettTestResult.success ? 'success' : 'error'}
+                    sx={{ mt: -0.5 }}
+                  >
+                    <Typography variant="body2">{jackettTestResult.message}</Typography>
+                  </Alert>
+                )}
+
+                <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+                  <TextField
+                    label="Notify Before Expiry (days)"
+                    onChange={(e) =>
+                      handleJackettChange(
+                        'notify_before_expiry_days',
+                        Number.parseInt(e.target.value, 10) || 7,
+                      )
+                    }
+                    size="small"
+                    sx={{ width: 220 }}
+                    type="number"
+                    value={jackettConfig.notify_before_expiry_days || 7}
+                  />
+                  <Tooltip
+                    arrow
+                    placement="right"
+                    title="Number of days before expiry to send notification"
+                  >
+                    <IconButton size="small">
+                      <InfoOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={jackettConfig.auto_update_on_save || false}
+                      onChange={(e) => handleJackettChange('auto_update_on_save', e.target.checked)}
+                    />
+                  }
+                  label="Auto-update Jackett on Save"
+                />
+              </>
+            )}
+          </Box>
+
           {/* Unified Update Button */}
           {anyServiceEnabled && (
             <>
@@ -463,7 +647,7 @@ export default function IndexerIntegrations({
                 <Tooltip
                   arrow
                   placement="top"
-                  title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr or Chaptarr or both, depending on your configuration"
+                  title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, and/or Jackett, depending on your configuration"
                 >
                   <Button disabled={updateLoading} onClick={handleUpdate} variant="contained">
                     {updateLoading ? 'Updating...' : 'UPDATE'}
@@ -493,6 +677,8 @@ IndexerIntegrations.propTypes = {
   setProwlarrConfig: PropTypes.func.isRequired,
   chaptarrConfig: PropTypes.object.isRequired,
   setChaptarrConfig: PropTypes.func.isRequired,
+  jackettConfig: PropTypes.object.isRequired,
+  setJackettConfig: PropTypes.func.isRequired,
   mamSessionCreatedDate: PropTypes.string,
   setMamSessionCreatedDate: PropTypes.func.isRequired,
   sessionLabel: PropTypes.string.isRequired,

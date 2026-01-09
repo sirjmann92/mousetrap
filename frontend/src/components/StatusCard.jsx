@@ -32,8 +32,16 @@ import TimerDisplay from './TimerDisplay';
 const StatusCard = forwardRef(
   /** @param {StatusCardProps} props */
   function StatusCard({ autoWedge, autoVIP, autoUpload, onStatusUpdate }, ref) {
-    const { sessionLabel, setDetectedIp, setPoints, status, setStatus, prowlarr, chaptarr } =
-      useSession();
+    const {
+      sessionLabel,
+      setDetectedIp,
+      setPoints,
+      status,
+      setStatus,
+      prowlarr,
+      chaptarr,
+      jackett,
+    } = useSession();
     // Removed local status/setStatus, use context only
     // Timer is now derived from backend only; no local countdown
     const [timer, setTimer] = useState(0);
@@ -432,7 +440,7 @@ const StatusCard = forwardRef(
               <Tooltip
                 arrow
                 placement="top"
-                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr or Chaptarr or both, depending on your configuration"
+                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, and/or Jackett, depending on your configuration"
               >
                 <span>
                   <Button
@@ -440,7 +448,7 @@ const StatusCard = forwardRef(
                     disabled={
                       indexerLoading ||
                       !sessionLabel ||
-                      (!prowlarr?.enabled && !chaptarr?.enabled) ||
+                      (!prowlarr?.enabled && !chaptarr?.enabled && !jackett?.enabled) ||
                       (prowlarr?.enabled &&
                         (!prowlarr?.host?.trim() ||
                           !(prowlarr?.port || 9696) ||
@@ -448,7 +456,11 @@ const StatusCard = forwardRef(
                       (chaptarr?.enabled &&
                         (!chaptarr?.host?.trim() ||
                           !(chaptarr?.port || 8789) ||
-                          !chaptarr?.api_key?.trim()))
+                          !chaptarr?.api_key?.trim())) ||
+                      (jackett?.enabled &&
+                        (!jackett?.host?.trim() ||
+                          !(jackett?.port || 9117) ||
+                          !jackett?.api_key?.trim()))
                     }
                     onClick={handleUpdateIndexer}
                     size="small"
