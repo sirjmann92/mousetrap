@@ -347,12 +347,15 @@ async def sync_mam_id_to_jackett(
         success = await update_indexer_config(
             host, port, api_key, session_cookie, updated_config, indexer_name
         )
-        if success:
-            return {
+
+        return (
+            {
                 "success": True,
                 "message": f"Successfully updated MAM ID to {new_mam_id} in Jackett",
             }
-        return {"success": False, "error": "Failed to update config via API"}
+            if success
+            else {"success": False, "error": "Failed to update config via API"}
+        )
 
     except Exception as e:
         _logger.exception("Error syncing MAM ID to Jackett")

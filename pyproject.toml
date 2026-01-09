@@ -197,6 +197,7 @@ ignore = [
     "TC003", # Move standard library import {} into a type-checking block
 
     "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY300", # Consider moving this statement to an `else` block - overly strict, flags valid patterns
     "TRY400", # Use `logging.exception` instead of `logging.error`
 
     # May conflict with the formatter, https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
