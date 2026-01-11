@@ -29,6 +29,10 @@ from backend.api_event_log import router as event_log_router
 from backend.api_notifications import router as notifications_router
 from backend.api_port_monitor import router as port_monitor_router
 from backend.api_proxy import router as proxy_router
+from backend.audiobookrequest_integration import (
+    sync_mam_id_to_audiobookrequest,
+    test_audiobookrequest_connection,
+)
 from backend.automation import run_all_automation_jobs
 from backend.chaptarr_integration import (
     find_mam_indexer_id as find_mam_indexer_id_chaptarr,
@@ -1478,20 +1482,24 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 "[APScheduler] Failed to manage session job for '%s' after save: %s", label, e
             )
 
-        # Auto-update Prowlarr and/or Chaptarr if enabled and MAM ID changed
+        # Auto-update Prowlarr and/or Chaptarr and/or Jackett and/or AudioBookRequest if enabled and MAM ID changed
         new_mam_id = cfg.get("mam", {}).get("mam_id")
         prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
 
         prowlarr_cfg = cfg.get("prowlarr", {})
         chaptarr_cfg = cfg.get("chaptarr", {})
         jackett_cfg = cfg.get("jackett", {})
+        audiobookrequest_cfg = cfg.get("audiobookrequest", {})
 
         prowlarr_enabled = prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save")
         chaptarr_enabled = chaptarr_cfg.get("enabled") and chaptarr_cfg.get("auto_update_on_save")
         jackett_enabled = jackett_cfg.get("enabled") and jackett_cfg.get("auto_update_on_save")
+        audiobookrequest_enabled = audiobookrequest_cfg.get("enabled") and audiobookrequest_cfg.get(
+            "auto_update_on_save"
+        )
 
         if (
-            (prowlarr_enabled or chaptarr_enabled or jackett_enabled)
+            (prowlarr_enabled or chaptarr_enabled or jackett_enabled or audiobookrequest_enabled)
             and new_mam_id
             and new_mam_id != prev_mam_id
         ):
@@ -1565,6 +1573,35 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 except Exception as e:
                     _logger.error("[Jackett] Auto-update error for session '%s': %s", label, e)
                     failed_services.append(f"Jackett ({e!s})")
+
+            # Update AudioBookRequest if enabled
+            if audiobookrequest_enabled:
+                try:
+                    _logger.info(
+                        "[AudioBookRequest] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                        label,
+                        prev_mam_id,
+                        new_mam_id,
+                    )
+                    host = audiobookrequest_cfg.get("host", "").strip()
+                    port = audiobookrequest_cfg.get("port", 3000)
+                    api_key = audiobookrequest_cfg.get("api_key", "").strip()
+
+                    result = await sync_mam_id_to_audiobookrequest(host, port, api_key, new_mam_id)
+                    if result.get("success"):
+                        _logger.info(
+                            "[AudioBookRequest] Auto-update successful: %s", result.get("message")
+                        )
+                        updated_services.append("AudioBookRequest")
+                    else:
+                        error_msg = result.get("error", "Unknown error")
+                        _logger.warning("[AudioBookRequest] Auto-update failed: %s", error_msg)
+                        failed_services.append(f"AudioBookRequest ({error_msg})")
+                except Exception as e:
+                    _logger.error(
+                        "[AudioBookRequest] Auto-update error for session '%s': %s", label, e
+                    )
+                    failed_services.append(f"AudioBookRequest ({e!s})")
 
             # Log event with detailed message
             if updated_services:
@@ -2302,9 +2339,96 @@ async def api_jackett_update(request: Request) -> dict[str, Any]:
         return {"success": False, "message": f"Error: {e!s}"}
 
 
+@app.post("/api/audiobookrequest/test")
+async def api_audiobookrequest_test(request: Request) -> dict[str, Any]:
+    """Test AudioBookRequest API connectivity.
+
+    Expects JSON with: host, port, api_key
+    """
+    try:
+        data = await request.json()
+        host = data.get("host", "").strip()
+        port = data.get("port")
+        api_key = data.get("api_key", "").strip()
+
+        _logger.debug(
+            "[AudioBookRequest] Test connection request - host: %s, port: %s",
+            host,
+            port,
+        )
+
+        if not host or port is None or not api_key:
+            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
+
+        return await test_audiobookrequest_connection(host, port, api_key)
+    except Exception as e:
+        _logger.exception("AudioBookRequest test failed")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
+@app.post("/api/audiobookrequest/update")
+async def api_audiobookrequest_update(request: Request) -> dict[str, Any]:
+    """Update MAM ID in AudioBookRequest for a session.
+
+    Expects JSON with:
+    - label: session label
+    - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
+    """
+    try:
+        data = await request.json()
+        label = data.get("label")
+        if not label:
+            return {"success": False, "message": "Session label required"}
+
+        cfg = load_session(label)
+        if cfg is None:
+            return {"success": False, "message": f"Session '{label}' not found"}
+
+        # Use provided mam_id or fall back to session config
+        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        if not mam_id:
+            return {
+                "success": False,
+                "message": "MAM ID not configured in session and not provided",
+            }
+
+        # Get AudioBookRequest config from session
+        abr_cfg = cfg.get("audiobookrequest", {})
+        if not abr_cfg.get("enabled"):
+            return {"success": False, "message": "AudioBookRequest integration not enabled"}
+
+        host = abr_cfg.get("host", "").strip()
+        port = abr_cfg.get("port", 3000)
+        api_key = abr_cfg.get("api_key", "").strip()
+
+        if not all([host, port, api_key]):
+            return {
+                "success": False,
+                "message": "AudioBookRequest configuration incomplete (host, port, api_key required)",
+            }
+
+        result = await sync_mam_id_to_audiobookrequest(host, port, api_key, mam_id)
+        if result.get("success"):
+            # Log success event
+            append_ui_event_log(
+                {
+                    "event": "audiobookrequest_manual_update",
+                    "label": label,
+                    "event_type": "audiobookrequest_update",
+                    "status_message": f"Updated AudioBookRequest MAM ID to {mam_id}",
+                    "user_action": True,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+        return result  # noqa: TRY300
+    except Exception as e:
+        _logger.exception("Failed to update AudioBookRequest")
+        return {"success": False, "message": f"Error: {e!s}"}
+
+
 @app.post("/api/indexer/update")
 async def api_indexer_update(request: Request) -> dict[str, Any]:
-    """Update MAM ID in configured indexer(s) (Prowlarr, Chaptarr, and/or Jackett).
+    """Update MAM ID in configured indexer(s) (Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest).
 
     This is the unified endpoint that updates whichever services are enabled.
 
@@ -2333,12 +2457,19 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
         prowlarr_cfg = cfg.get("prowlarr", {})
         chaptarr_cfg = cfg.get("chaptarr", {})
         jackett_cfg = cfg.get("jackett", {})
+        audiobookrequest_cfg = cfg.get("audiobookrequest", {})
 
         prowlarr_enabled = prowlarr_cfg.get("enabled", False)
         chaptarr_enabled = chaptarr_cfg.get("enabled", False)
         jackett_enabled = jackett_cfg.get("enabled", False)
+        audiobookrequest_enabled = audiobookrequest_cfg.get("enabled", False)
 
-        if not prowlarr_enabled and not chaptarr_enabled and not jackett_enabled:
+        if (
+            not prowlarr_enabled
+            and not chaptarr_enabled
+            and not jackett_enabled
+            and not audiobookrequest_enabled
+        ):
             return {
                 "success": False,
                 "message": "No indexer integrations are enabled for this session",
@@ -2394,6 +2525,27 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
             except Exception as e:
                 _logger.error("[Jackett] Update error for session '%s': %s", label, e)
                 failed_services.append(f"Jackett ({e!s})")
+
+        # Update AudioBookRequest if enabled
+        if audiobookrequest_enabled:
+            try:
+                host = audiobookrequest_cfg.get("host", "").strip()
+                port = audiobookrequest_cfg.get("port", 3000)
+                api_key = audiobookrequest_cfg.get("api_key", "").strip()
+
+                if not all([host, port, api_key]):
+                    failed_services.append("AudioBookRequest (incomplete configuration)")
+                else:
+                    result = await sync_mam_id_to_audiobookrequest(host, port, api_key, mam_id)
+                    if result.get("success"):
+                        updated_services.append("AudioBookRequest")
+                    else:
+                        failed_services.append(
+                            f"AudioBookRequest ({result.get('error', result.get('message'))})"
+                        )
+            except Exception as e:
+                _logger.error("[AudioBookRequest] Update error for session '%s': %s", label, e)
+                failed_services.append(f"AudioBookRequest ({e!s})")
 
         # Prepare response
         if updated_services and not failed_services:

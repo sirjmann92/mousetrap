@@ -1,13 +1,13 @@
-# Indexer Integrations (Prowlarr & Chaptarr)
+# Indexer Integrations
 
-MouseTrap can automatically sync your MAM session ID with Prowlarr and/or Chaptarr indexers, ensuring your indexers stay up-to-date without manual intervention. Additionally, it tracks MAM session expiry (90 days) and sends notifications before your session expires.
+MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest, ensuring your indexers stay up-to-date without manual intervention. Additionally, it tracks MAM session expiry (90 days) and sends notifications before your session expires.
 
 ---
 
 ## 🎯 Features
 
 ### Automatic MAM ID Sync
-- **Multi-service support**: Update Prowlarr, Chaptarr, or both simultaneously
+- **Multi-service support**: Update Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest simultaneously
 - **Smart detection**: Only updates when MAM ID actually changes
 - **Manual override**: Force update with "UPDATE" button
 - **Event logging**: All operations logged for audit trail
@@ -38,6 +38,16 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr and/or Chapta
 1. **Chaptarr instance** running and accessible
 2. **Chaptarr API key** (Settings → General → Security)
 3. **MyAnonaMouse indexer** already configured in Chaptarr (implementation: "MyAnonaMouse")
+
+### For Jackett
+1. **Jackett instance** running and accessible
+2. **Jackett API key** (found in top-right corner or server settings)
+3. **MyAnonamouse indexer** added and configured in Jackett
+
+### For AudioBookRequest
+1. **AudioBookRequest instance** running and accessible
+2. **AudioBookRequest API key** (Settings → Account → API Keys)
+3. **MyAnonamouse indexer** configured in AudioBookRequest
 
 ### Optional
 - **Notification channels** configured (for expiry warnings)
@@ -88,13 +98,52 @@ In the same session configuration (below Prowlarr):
    - **Notify Before Expiry (days)**: Default 7 days
    - **Auto-update Chaptarr on Save**: Enabled by default
 
-### 3. Update Both Services
+### 3. Configure Jackett (Optional)
+
+1. **Enable Jackett Integration**:
+   - Toggle "Enable Jackett Integration" switch
+   
+2. **Enter Jackett Details**:
+   - **Host**: IP or hostname (e.g., `192.168.1.100` or `jackett.local`)
+   - **Port**: Jackett port (default: `9117`)
+   - **API Key**: Your Jackett API key (top-right corner)
+   - **Admin Password**: Optional, only if Jackett has admin password protection
+
+3. **Test Connection**:
+   - Click "TEST" button
+   - Verify green success message
+   - Confirm MyAnonamouse indexer found
+
+4. **Configure Options**:
+   - **Notify Before Expiry (days)**: Default 7 days
+   - **Auto-update Jackett on Save**: Disabled by default
+
+### 4. Configure AudioBookRequest (Optional)
+
+1. **Enable AudioBookRequest Integration**:
+   - Toggle "Enable AudioBookRequest Integration" switch
+   
+2. **Enter AudioBookRequest Details**:
+   - **Host**: IP or hostname (e.g., `192.168.1.100` or `localhost`)
+   - **Port**: AudioBookRequest port (default: `8000`)
+   - **API Key**: Your AudioBookRequest API key (Settings → Account → API Keys)
+
+3. **Test Connection**:
+   - Click "TEST" button
+   - Verify green success message
+   - Confirm MyAnonamouse indexer status
+
+4. **Configure Options**:
+   - **Notify Before Expiry (days)**: Default 7 days
+   - **Auto-update AudioBookRequest on Save**: Disabled by default
+
+### 5. Update All Services
 
 - Click the **"UPDATE"** button at the bottom of the Indexer Integrations section
 - This will push the current MAM ID to whichever services are enabled
 - Check the event log for confirmation of which services were updated
 
-### 4. Enable Expiry Notifications
+### 6. Enable Expiry Notifications
 
 Edit `/config/notify.yaml`:
 

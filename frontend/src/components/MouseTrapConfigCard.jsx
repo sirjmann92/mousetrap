@@ -58,6 +58,8 @@ export default function MouseTrapConfigCard({
     setChaptarr,
     jackett,
     setJackett,
+    audiobookrequest,
+    setAudiobookrequest,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   } = useSession();
@@ -172,6 +174,10 @@ export default function MouseTrapConfigCard({
       ...jackett,
       port: jackett.port || 9117,
     };
+    const audiobookrequestWithDefaults = {
+      ...audiobookrequest,
+      port: audiobookrequest?.port || 8000,
+    };
 
     const payload = {
       check_freq: typeof checkFrequency === 'number' ? checkFrequency : 0,
@@ -187,6 +193,7 @@ export default function MouseTrapConfigCard({
       prowlarr: prowlarrWithDefaults,
       chaptarr: chaptarrWithDefaults,
       jackett: jackettWithDefaults,
+      audiobookrequest: audiobookrequestWithDefaults,
       proxy: { label: proxyLabel },
     };
     try {
@@ -582,8 +589,9 @@ export default function MouseTrapConfigCard({
               </Box>
               <Box sx={{ alignItems: 'center', display: 'flex', mt: 2 }}>
                 <FormControl size="small" sx={{ maxWidth: 320, minWidth: 260 }}>
-                  <InputLabel>Proxy</InputLabel>
+                  <InputLabel shrink>Proxy</InputLabel>
                   <Select
+                    displayEmpty
                     label="Proxy"
                     MenuProps={{
                       disableScrollLock: true,
@@ -592,6 +600,17 @@ export default function MouseTrapConfigCard({
                       },
                     }}
                     onChange={(e) => setProxyLabel(e.target.value)}
+                    renderValue={(selected) => {
+                      if (!selected) {
+                        return <em>None</em>;
+                      }
+                      // Find the proxy to display its details
+                      const selectedProxy = proxies[selected];
+                      if (selectedProxy) {
+                        return `${selected} (${selectedProxy.host}:${selectedProxy.port})`;
+                      }
+                      return selected;
+                    }}
                     sx={{ maxWidth: 320, minWidth: 260 }}
                     value={proxyLabel}
                   >
@@ -622,13 +641,15 @@ export default function MouseTrapConfigCard({
             </Box>
           </Box>
 
-          {/* Indexer Integrations (Prowlarr, Chaptarr, & Jackett) */}
+          {/* Indexer Integrations (Prowlarr, Chaptarr, Jackett, & AudioBookRequest) */}
           <IndexerIntegrations
             _mamSessionCreatedDate={mamSessionCreatedDate}
+            audiobookrequestConfig={audiobookrequest}
             chaptarrConfig={chaptarr}
             jackettConfig={jackett}
             prowlarrConfig={prowlarr}
             sessionLabel={sessionLabel}
+            setAudiobookrequestConfig={setAudiobookrequest}
             setChaptarrConfig={setChaptarr}
             setJackettConfig={setJackett}
             setProwlarrConfig={setProwlarr}

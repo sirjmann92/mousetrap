@@ -36,6 +36,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * @property {(c:Object)=>void} setChaptarr
  * @property {Object} jackett
  * @property {(j:Object)=>void} setJackett
+ * @property {Object} audiobookrequest
+ * @property {(a:Object)=>void} setAudiobookrequest
  * @property {string|null} mamSessionCreatedDate
  * @property {(d:string|null)=>void} setMamSessionCreatedDate
  */
@@ -76,6 +78,8 @@ const defaultSessionContext = {
   setChaptarr: () => {},
   jackett: {},
   setJackett: () => {},
+  audiobookrequest: {},
+  setAudiobookrequest: () => {},
   mamSessionCreatedDate: null,
   setMamSessionCreatedDate: () => {},
 };
@@ -123,6 +127,7 @@ export function SessionProvider({ children }) {
   const [prowlarr, setProwlarr] = useState({});
   const [chaptarr, setChaptarr] = useState({});
   const [jackett, setJackett] = useState({});
+  const [audiobookrequest, setAudiobookrequest] = useState({});
   const [mamSessionCreatedDate, setMamSessionCreatedDate] = useState(
     /** @type {string|null} */ (null),
   );
@@ -162,6 +167,8 @@ export function SessionProvider({ children }) {
     setChaptarr,
     jackett,
     setJackett,
+    audiobookrequest,
+    setAudiobookrequest,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   };

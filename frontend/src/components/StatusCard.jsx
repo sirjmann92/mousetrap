@@ -41,6 +41,7 @@ const StatusCard = forwardRef(
       prowlarr,
       chaptarr,
       jackett,
+      audiobookrequest,
     } = useSession();
     // Removed local status/setStatus, use context only
     // Timer is now derived from backend only; no local countdown
@@ -440,7 +441,7 @@ const StatusCard = forwardRef(
               <Tooltip
                 arrow
                 placement="top"
-                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, and/or Jackett, depending on your configuration"
+                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest, depending on your configuration"
               >
                 <span>
                   <Button
@@ -448,7 +449,10 @@ const StatusCard = forwardRef(
                     disabled={
                       indexerLoading ||
                       !sessionLabel ||
-                      (!prowlarr?.enabled && !chaptarr?.enabled && !jackett?.enabled) ||
+                      (!prowlarr?.enabled &&
+                        !chaptarr?.enabled &&
+                        !jackett?.enabled &&
+                        !audiobookrequest?.enabled) ||
                       (prowlarr?.enabled &&
                         (!prowlarr?.host?.trim() ||
                           !(prowlarr?.port || 9696) ||
@@ -460,7 +464,11 @@ const StatusCard = forwardRef(
                       (jackett?.enabled &&
                         (!jackett?.host?.trim() ||
                           !(jackett?.port || 9117) ||
-                          !jackett?.api_key?.trim()))
+                          !jackett?.api_key?.trim())) ||
+                      (audiobookrequest?.enabled &&
+                        (!audiobookrequest?.host?.trim() ||
+                          !(audiobookrequest?.port || 8000) ||
+                          !audiobookrequest?.api_key?.trim()))
                     }
                     onClick={handleUpdateIndexer}
                     size="small"
