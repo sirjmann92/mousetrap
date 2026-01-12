@@ -17,7 +17,7 @@ _A beginner-friendly Docker web app for automating MyAnonaMouse seedbox and acco
 ```yaml
 services:
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
       - TZ=Europe/London # Your timezone
@@ -188,7 +188,7 @@ services:
     restart: unless-stopped
 
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
       - TZ=Europe/London
@@ -293,7 +293,7 @@ MouseTrap can connect to MyAnonaMouse via your VPN container in two ways:
 ```yaml
 services:
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     network_mode: "service:gluetun"  # or your VPN container name
     ...
 ```
@@ -409,7 +409,7 @@ services:
       - ./gluetun:/gluetun
 
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     container_name: mousetrap
     environment:
       - TZ=Europe/London
@@ -432,7 +432,7 @@ For Unraid users, here is a full example `compose.yaml` configuration:
 ```yaml
 services:
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     # build: ../src # Uncomment if you want to build from source instead of using the pre-built image
     container_name: Mousetrap
     # network_mode: container:qbittorrent-vpn # Shares network with qbittorrent-vpn for VPN routing

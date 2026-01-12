@@ -73,7 +73,7 @@ services:
     restart: unless-stopped
 
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     environment:
       - DOCKER_HOST=tcp://docker-proxy:2375
     volumes:
@@ -203,7 +203,7 @@ services:
   gluetun:
     image: qmcgaw/gluetun
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap
+    image: ghcr.io/sirjmann92/mousetrap  # Or: sirjmann92/mousetrap
     # No network_mode specified - uses default bridge
 
 # ✅ Correct - shared networking
@@ -213,7 +213,7 @@ services:
     ports:
       - 39842:39842
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap
+    image: ghcr.io/sirjmann92/mousetrap  # Or: sirjmann92/mousetrap
     network_mode: "service:gluetun"
 ```
 
@@ -468,7 +468,7 @@ Use `MOUSETRAP_PUID` and `MOUSETRAP_PGID` instead:
 ```yaml
 services:
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     environment:
       - TZ=America/New_York
       - MOUSETRAP_PUID=1000  # Use MOUSETRAP_ prefix instead of PUID

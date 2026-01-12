@@ -432,7 +432,7 @@ MouseTrap supports two methods for accessing Docker:
 # Production-ready docker-compose.yml
 services:
   mousetrap:
-    image: ghcr.io/sirjmann92/mousetrap:latest
+    image: ghcr.io/sirjmann92/mousetrap:latest  # Or: sirjmann92/mousetrap:latest
     container_name: mousetrap
     restart: unless-stopped
     environment:
