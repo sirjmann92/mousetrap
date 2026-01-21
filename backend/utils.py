@@ -22,7 +22,10 @@ def setup_logging() -> None:
         logging.getLogger("urllib3").setLevel(logging.INFO)
         logging.getLogger("httpx").setLevel(logging.INFO)
         logging.getLogger("requests").setLevel(logging.INFO)
-    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    # Suppress APScheduler "missed run time" warnings which are common on Windows Docker Desktop
+    # due to clock drift/sleep issues. Critical errors will still be logged.
+    logging.getLogger("apscheduler.schedulers.base").setLevel(logging.ERROR)
+    logging.getLogger("apscheduler").setLevel(logging.ERROR)
 
 
 def extract_asn_number(asn_str: str) -> str | None:

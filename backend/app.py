@@ -2818,7 +2818,18 @@ def sync_session_check_job(label: str) -> None:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        loop.run_until_complete(session_check_job(label))
+        # Add timeout to prevent jobs from hanging (especially on Windows Docker Desktop)
+        # Must be < minimum interval (60s) to avoid blocking subsequent jobs
+        task = loop.create_task(session_check_job(label))
+        loop.run_until_complete(asyncio.wait_for(task, timeout=45))  # 45s timeout
+    except TimeoutError:
+        _logger.error(
+            "[APScheduler] Session check job for '%s' timed out after 45 seconds. "
+            "This may indicate network or system resource issues.",
+            label,
+        )
+    except Exception as e:
+        _logger.error("[APScheduler] Session check job for '%s' failed: %s", label, e)
     finally:
         loop.close()
 
@@ -2885,6 +2896,7 @@ def register_session_job(label: str) -> None:
         replace_existing=True,
         coalesce=True,
         max_instances=1,
+        misfire_grace_time=30,  # 30s grace for Windows timing drift (must be < min interval)
     )
     _logger.info(
         "[APScheduler] Registered job for session '%s' every %s min",
