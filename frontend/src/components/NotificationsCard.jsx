@@ -21,6 +21,8 @@ import {
   FormGroup,
   IconButton,
   InputAdornment,
+  Radio,
+  RadioGroup,
   Switch,
   TextField,
   Tooltip,
@@ -123,7 +125,14 @@ export default function NotificationsCard() {
     { key: 'mam_session_expiry', label: 'MAM Session Expiry Warning' },
   ];
   const [config, setConfig] = useState({
-    apprise: { include_prefix: false, notify_url_string: '', url: '' },
+    apprise: {
+      include_prefix: false,
+      key: '',
+      mode: 'stateless',
+      notify_url_string: '',
+      tags: '',
+      url: '',
+    },
     event_rules: {},
     smtp: {},
     webhook_url: '',
@@ -201,7 +210,10 @@ export default function NotificationsCard() {
       ...cfg,
       apprise: {
         include_prefix: cfg.apprise?.include_prefix ?? false,
+        key: cfg.apprise?.key ?? '',
+        mode: cfg.apprise?.mode ?? 'stateless',
         notify_url_string: cfg.apprise?.notify_url_string ?? '',
+        tags: cfg.apprise?.tags ?? '',
         url: cfg.apprise?.url ?? '',
         [field]: value,
       },
@@ -837,81 +849,181 @@ export default function NotificationsCard() {
                   />
                 </Box>
               </Box>
-              <Box
-                sx={{
-                  alignItems: 'flex-start',
-                  display: 'flex',
-                  gap: 2,
-                  mb: 2,
-                  width: '100%',
-                }}
-              >
-                <TextField
-                  helperText={
-                    <>
-                      Comma-separated Apprise URLs. See the &nbsp;
-                      <a
-                        href="https://github.com/caronc/apprise/wiki#notification-services"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: '#1976d2',
-                          fontWeight: 500,
-                          textDecoration: 'underline',
-                        }}
-                        target="_blank"
-                      >
-                        Apprise docs
-                      </a>
-                      .
-                    </>
-                  }
-                  label="Notify URL String"
-                  minRows={showNotifyString ? 2 : undefined}
-                  multiline={showNotifyString}
-                  onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
-                  size="small"
-                  slotProps={{
-                    input: {
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            aria-label={
-                              showNotifyString ? 'Hide notify URL string' : 'Show notify URL string'
-                            }
-                            edge="end"
-                            onClick={() => setShowNotifyString((v) => !v)}
-                          >
-                            {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                  sx={{ maxWidth: 600, minWidth: 350 }}
-                  type={showNotifyString ? 'text' : 'password'}
-                  value={config.apprise?.notify_url_string || ''}
-                />
+
+              {/* Mode selector */}
+              <Box sx={{ mb: 2 }}>
+                <Typography sx={{ mb: 1 }} variant="body2">
+                  Notification Mode
+                </Typography>
+                <RadioGroup
+                  onChange={(e) => handleAppriseChange('mode', e.target.value)}
+                  row
+                  value={config.apprise?.mode || 'stateless'}
+                >
+                  <FormControlLabel
+                    control={<Radio size="small" />}
+                    label={
+                      <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+                        Stateless (URLs)
+                        <Tooltip
+                          arrow
+                          title="Pass notification service URLs directly in each request. Good for simple setups."
+                        >
+                          <InfoOutlinedIcon sx={{ color: 'text.secondary', fontSize: 16 }} />
+                        </Tooltip>
+                      </Box>
+                    }
+                    value="stateless"
+                  />
+                  <FormControlLabel
+                    control={<Radio size="small" />}
+                    label={
+                      <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5 }}>
+                        Stateful (Key/Tags)
+                        <Tooltip
+                          arrow
+                          title="Use a configuration key stored on your Apprise server. Better for centralized management."
+                        >
+                          <InfoOutlinedIcon sx={{ color: 'text.secondary', fontSize: 16 }} />
+                        </Tooltip>
+                      </Box>
+                    }
+                    value="stateful"
+                  />
+                </RadioGroup>
+              </Box>
+
+              {/* Stateless mode fields */}
+              {(config.apprise?.mode || 'stateless') === 'stateless' && (
                 <Box
                   sx={{
-                    alignItems: 'center',
+                    alignItems: 'flex-start',
                     display: 'flex',
-                    flex: 1,
-                    height: 40,
-                    justifyContent: 'flex-end',
+                    gap: 2,
+                    mb: 2,
+                    width: '100%',
                   }}
                 >
-                  <Button
-                    disabled={
-                      testLoading || !config.apprise?.url || !config.apprise?.notify_url_string
+                  <TextField
+                    helperText={
+                      <>
+                        Comma-separated Apprise URLs. See the &nbsp;
+                        <a
+                          href="https://github.com/caronc/apprise/wiki#notification-services"
+                          rel="noopener noreferrer"
+                          style={{
+                            color: '#1976d2',
+                            fontWeight: 500,
+                            textDecoration: 'underline',
+                          }}
+                          target="_blank"
+                        >
+                          Apprise docs
+                        </a>
+                        .
+                      </>
                     }
-                    onClick={handleTestApprise}
-                    sx={{ minWidth: 80 }}
-                    variant="outlined"
+                    label="Notify URL String"
+                    minRows={showNotifyString ? 2 : undefined}
+                    multiline={showNotifyString}
+                    onChange={(e) => handleAppriseChange('notify_url_string', e.target.value)}
+                    size="small"
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              aria-label={
+                                showNotifyString
+                                  ? 'Hide notify URL string'
+                                  : 'Show notify URL string'
+                              }
+                              edge="end"
+                              onClick={() => setShowNotifyString((v) => !v)}
+                            >
+                              {showNotifyString ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                    sx={{ maxWidth: 600, minWidth: 350 }}
+                    type={showNotifyString ? 'text' : 'password'}
+                    value={config.apprise?.notify_url_string || ''}
+                  />
+                  <Box
+                    sx={{
+                      alignItems: 'center',
+                      display: 'flex',
+                      flex: 1,
+                      height: 40,
+                      justifyContent: 'flex-end',
+                    }}
                   >
-                    TEST
-                  </Button>
+                    <Button
+                      disabled={
+                        testLoading || !config.apprise?.url || !config.apprise?.notify_url_string
+                      }
+                      onClick={handleTestApprise}
+                      sx={{ minWidth: 80 }}
+                      variant="outlined"
+                    >
+                      TEST
+                    </Button>
+                  </Box>
                 </Box>
-              </Box>
+              )}
+
+              {/* Stateful mode fields */}
+              {config.apprise?.mode === 'stateful' && (
+                <Box
+                  sx={{
+                    alignItems: 'flex-start',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    mb: 2,
+                    width: '100%',
+                  }}
+                >
+                  <Box sx={{ alignItems: 'flex-start', display: 'flex', gap: 2, width: '100%' }}>
+                    <TextField
+                      helperText="Configuration key stored on your Apprise server."
+                      label="Key"
+                      onChange={(e) => handleAppriseChange('key', e.target.value)}
+                      size="small"
+                      sx={{ maxWidth: 300, minWidth: 200 }}
+                      value={config.apprise?.key || ''}
+                    />
+                    <TextField
+                      helperText="Optional comma-separated tags to filter notifications (e.g., 'telegram,email')."
+                      label="Tags"
+                      onChange={(e) => handleAppriseChange('tags', e.target.value)}
+                      size="small"
+                      sx={{ maxWidth: 400, minWidth: 250 }}
+                      value={config.apprise?.tags || ''}
+                    />
+                    <Box
+                      sx={{
+                        alignItems: 'center',
+                        display: 'flex',
+                        flex: 1,
+                        height: 40,
+                        justifyContent: 'flex-end',
+                      }}
+                    >
+                      <Button
+                        disabled={testLoading || !config.apprise?.url || !config.apprise?.key}
+                        onClick={handleTestApprise}
+                        sx={{ minWidth: 80 }}
+                        variant="outlined"
+                      >
+                        TEST
+                      </Button>
+                    </Box>
+                  </Box>
+                </Box>
+              )}
             </AccordionDetails>
           </Accordion>
 

@@ -117,14 +117,37 @@ def send_smtp_notification(
 
 
 async def send_apprise_notification(
-    apprise_url: str, notify_url_string: str, payload: dict, include_prefix: bool = False
+    apprise_url: str,
+    notify_url_string: str,
+    payload: dict,
+    include_prefix: bool = False,
+    *,
+    mode: str = "stateless",
+    key: str = "",
+    tags: str = "",
 ) -> bool:
     """Send a notification using Apprise.
 
-    Returns True on success, False on failure.
-    """
+    Supports both stateless (URLs in request) and stateful (key/tags) modes.
 
-    if not notify_url_string or not apprise_url:
+    Args:
+        apprise_url: Base URL of the Apprise server (e.g., http://localhost:8000)
+        notify_url_string: For stateless mode - comma-separated notification URLs
+        payload: Notification payload with event_type, status, message, etc.
+        include_prefix: Whether to prefix title with "MouseTrap: "
+        mode: "stateless" (default) or "stateful"
+        key: For stateful mode - the configuration key on the Apprise server
+        tags: For stateful mode - comma-separated tags to filter notifications
+
+    Returns:
+        True on success, False on failure.
+    """
+    # Validate required fields based on mode
+    if mode == "stateful":
+        if not key or not apprise_url:
+            _logger.error("[Notify] Apprise stateful config missing apprise_url or key")
+            return False
+    elif not notify_url_string or not apprise_url:
         _logger.error("[Notify] Apprise config missing apprise_url or notify_url_string")
         return False
 
@@ -143,23 +166,35 @@ async def send_apprise_notification(
 
     try:
         apprise_base = apprise_url.rstrip("/")
-        if apprise_base.lower().endswith("/notify"):
-            post_url = apprise_base
+
+        # Build URL and request data based on mode
+        if mode == "stateful":
+            # Stateful: POST /notify/{key} with optional tags
+            post_url = f"{apprise_base}/notify/{key}"
+            request_data: dict[str, str] = {
+                "body": message,
+                "title": title,
+                "type": notif_type,
+            }
+            if tags:
+                request_data["tag"] = tags
         else:
-            post_url = f"{apprise_base}/notify"
+            # Stateless: POST /notify with URLs
+            if apprise_base.lower().endswith("/notify"):
+                post_url = apprise_base
+            else:
+                post_url = f"{apprise_base}/notify"
+            request_data = {
+                "urls": notify_url_string,
+                "body": message,
+                "title": title,
+                "type": notif_type,
+            }
 
         timeout = aiohttp.ClientTimeout(total=5)
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
-            session.post(
-                post_url,
-                data={
-                    "urls": notify_url_string,
-                    "body": message,
-                    "title": title,
-                    "type": notif_type,
-                },
-            ) as resp,
+            session.post(post_url, data=request_data) as resp,
         ):
             if resp.status < 200 or resp.status >= 300:
                 text = await resp.text()
@@ -186,7 +221,7 @@ async def send_apprise_notification(
         _logger.error("[Notify] Apprise failed. %s: %s", type(e).__name__, e)
         return False
     else:
-        _logger.info("[Notify] Apprise sent successfully")
+        _logger.info("[Notify] Apprise sent successfully (mode=%s)", mode)
         return True
 
 
@@ -276,12 +311,31 @@ async def notify_event(
     if rule.get("apprise"):
         apprise_cfg = cfg.get("apprise", {})
         apprise_url = apprise_cfg.get("url")
-        notify_url_string = apprise_cfg.get("notify_url_string")
+        mode = apprise_cfg.get("mode", "stateless")
+        notify_url_string = apprise_cfg.get("notify_url_string", "")
+        key = apprise_cfg.get("key", "")
+        tags = apprise_cfg.get("tags", "")
         include_prefix = apprise_cfg.get("include_prefix", False)
-        if apprise_url and notify_url_string:
+
+        # Check if config is valid based on mode
+        config_valid = False
+        if (
+            mode == "stateful"
+            and apprise_url
+            and key
+            or mode == "stateless"
+            and apprise_url
+            and notify_url_string
+        ):
+            config_valid = True
+
+        if config_valid:
             await send_apprise_notification(
                 apprise_url=apprise_url,
                 notify_url_string=notify_url_string,
                 payload=payload,
                 include_prefix=include_prefix,
+                mode=mode,
+                key=key,
+                tags=tags,
             )

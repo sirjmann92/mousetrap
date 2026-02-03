@@ -125,6 +125,7 @@ async def test_apprise(payload: dict[str, Any]) -> dict[str, Any]:
 
     The function builds a small test payload from the provided `payload`
     argument and dispatches it using the configured Apprise settings.
+    Supports both stateless (URLs) and stateful (key/tags) modes.
 
     Args:
         payload: Dict that may include `event_type`, `label`, `status`,
@@ -141,9 +142,19 @@ async def test_apprise(payload: dict[str, Any]) -> dict[str, Any]:
     cfg = load_notify_config()
     apprise_cfg = cfg.get("apprise", {})
     apprise_url = apprise_cfg.get("url")
-    notify_url_string = apprise_cfg.get("notify_url_string")
+    mode = apprise_cfg.get("mode", "stateless")
+    notify_url_string = apprise_cfg.get("notify_url_string", "")
+    key = apprise_cfg.get("key", "")
+    tags = apprise_cfg.get("tags", "")
     include_prefix = apprise_cfg.get("include_prefix", False)
-    if not apprise_url or not notify_url_string:
+
+    # Validate based on mode
+    if mode == "stateful":
+        if not apprise_url or not key:
+            raise HTTPException(
+                status_code=400, detail="Apprise stateful config incomplete (need URL and key)."
+            )
+    elif not apprise_url or not notify_url_string:
         raise HTTPException(status_code=400, detail="Apprise config incomplete.")
 
     test_payload = {
@@ -157,6 +168,12 @@ async def test_apprise(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
     ok = await send_apprise_notification(
-        apprise_url, notify_url_string, test_payload, include_prefix
+        apprise_url,
+        notify_url_string,
+        test_payload,
+        include_prefix,
+        mode=mode,
+        key=key,
+        tags=tags,
     )
     return {"success": ok}
