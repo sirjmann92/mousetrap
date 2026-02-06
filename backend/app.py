@@ -2599,6 +2599,25 @@ def api_server_time() -> dict[str, Any]:
     return {"server_time": now.isoformat()}
 
 
+@app.get("/api/version")
+def api_version() -> dict[str, str]:
+    """Return the application version.
+
+    The version is set via the APP_VERSION environment variable which is
+    injected during the Docker build from the VERSION file. Falls back to
+    reading the VERSION file directly for local development.
+    """
+    version = os.environ.get("APP_VERSION", "")
+    if not version or version == "dev":
+        # Fallback: read from VERSION file (for local development)
+        version_file = Path(__file__).resolve().parent.parent / "VERSION"
+        if version_file.is_file():
+            version = version_file.read_text().strip()
+        else:
+            version = "dev"
+    return {"version": version}
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon_ico() -> FileResponse:
     """Serve the glyphicon favicon.ico from the frontend public directory.

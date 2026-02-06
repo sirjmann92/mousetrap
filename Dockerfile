@@ -30,11 +30,13 @@ RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
     && rm -rf /root/.cache/pip /tmp/* /var/cache/apk/*
 
 # Set environment variables
+ARG APP_VERSION=dev
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENV=production \
     PUID=1000 \
-    PGID=1000
+    PGID=1000 \
+    APP_VERSION=${APP_VERSION}
 
 # Copy the rest of the backend code and config (exclude dev files)
 COPY backend/*.py /app/backend/

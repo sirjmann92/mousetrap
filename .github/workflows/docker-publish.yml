@@ -1,10 +1,8 @@
 name: Publish Docker image
 
 on:
-  release:
-    types: [published, edited]
   push:
-    branches: [ "main" ]   # or "master", or whatever branch you want
+    branches: ["main"]
     paths-ignore:
       - 'README.md'
       - 'docs/**'
@@ -15,22 +13,23 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Skip version-bump commits to avoid double builds
+    if: "!contains(github.event.head_commit.message, 'chore: bump version')"
 
     permissions:
       contents: read
       packages: write   # needed for GHCR
 
     steps:
-      - name: Debug Variables
-        run: |
-            echo "github.event_name: ${{ github.event_name }}"
-            echo "github.ref_name: ${{ github.ref_name }}"
-            echo "github.actor: ${{ github.actor  }}"
-            echo "github.repository_owner: ${{ github.repository_owner }}"
-            echo "github.repository: ${{ github.repository }}"
-
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Read version from VERSION file
+        id: version
+        run: |
+          VERSION=$(cat VERSION | tr -d '[:space:]')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "App version: $VERSION"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -48,10 +47,9 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=semver,pattern={{version}},priority=1000
-            type=ref,event=branch,enable={{is_not_default_branch}},priority=900
+            type=raw,value=${{ steps.version.outputs.version }},priority=1000
+            type=raw,value=latest,priority=900
             type=sha,prefix=,format=long,priority=200
-            type=raw,value=latest,enable=${{ github.event_name == 'release' || github.ref == 'refs/heads/main' }},priority=100
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -73,6 +71,8 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: |

@@ -3,15 +3,17 @@ import Brightness7Icon from '@mui/icons-material/Brightness7';
 import {
   AppBar,
   Box,
+  Chip,
   Container,
   CssBaseline,
   IconButton,
   Switch,
   Toolbar,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import MouseTrapIcon from './assets/mousetrap-icon.svg';
 import EventLogModalButton from './components/EventLogModalButton';
 import MouseTrapConfigCard from './components/MouseTrapConfigCard';
@@ -24,6 +26,16 @@ import StatusCard from './components/StatusCard';
 import { useSession } from './context/SessionContext.jsx';
 
 export default function App() {
+  // Application version
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    fetch('/api/version')
+      .then((res) => res.json())
+      .then((data) => setAppVersion(data.version || ''))
+      .catch(() => setAppVersion(''));
+  }, []);
+
   // Fetch all proxies and update state
   const refreshProxies = useCallback(async () => {
     try {
@@ -265,8 +277,28 @@ export default function App() {
             src={MouseTrapIcon}
             style={{ height: 48, marginRight: 20, width: 48 }}
           />
-          <Typography component="div" sx={{ flexGrow: 1 }} variant="h6">
+          <Typography
+            component="div"
+            sx={{ alignItems: 'center', display: 'flex', flexGrow: 1, gap: 1 }}
+            variant="h6"
+          >
             MouseTrap
+            {appVersion && (
+              <Tooltip arrow title={`Version ${appVersion}`}>
+                <Chip
+                  label={`v${appVersion}`}
+                  size="small"
+                  sx={{
+                    cursor: 'default',
+                    fontSize: '0.7rem',
+                    fontWeight: 500,
+                    height: 22,
+                    opacity: 0.85,
+                  }}
+                  variant="outlined"
+                />
+              </Tooltip>
+            )}
           </Typography>
           <SessionSelector
             onCreateSession={handleCreateSession}
