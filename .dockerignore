@@ -37,6 +37,17 @@ favicon_io/
 notes/
 scripts/
 README.md
+LICENSE
+images/
+
+# CI/CD and linting config (not needed in image)
+.github/
+.pre-commit-config.yaml
+.nvmrc
+biome.json
+pyproject.toml
+requirements-dev.txt
+requirements-lint.txt
 
 # Specific empty/stub files
 backend/millionaires_vault.py
