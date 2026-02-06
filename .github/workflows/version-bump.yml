@@ -14,7 +14,7 @@ jobs:
   bump:
     runs-on: ubuntu-latest
     # Skip if the commit was made by the version bump workflow itself
-    if: "!contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, 'chore: bump version')"
+    if: "!contains(github.event.head_commit.message, 'chore: bump version')"
 
     permissions:
       contents: write
@@ -45,5 +45,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add VERSION
-          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
           git push

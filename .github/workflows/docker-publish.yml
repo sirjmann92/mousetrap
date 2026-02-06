@@ -17,8 +17,8 @@ jobs:
     if: "!contains(github.event.head_commit.message, 'chore: bump version')"
 
     permissions:
-      contents: read
-      packages: write   # needed for GHCR
+      contents: write   # needed for GitHub Releases
+      packages: write    # needed for GHCR
 
     steps:
       - name: Checkout repository
@@ -78,3 +78,14 @@ jobs:
           cache-from: |
             type=gha
           cache-to: type=gha,mode=max
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.version }}"
+          if ! gh release view "$VERSION" &>/dev/null; then
+            gh release create "$VERSION" \
+              --title "$VERSION" \
+              --generate-notes
+          fi
