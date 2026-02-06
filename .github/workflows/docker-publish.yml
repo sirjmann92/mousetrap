@@ -27,7 +27,7 @@ jobs:
       - name: Read version from VERSION file
         id: version
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          VERSION=$(tr -d '[:space:]' < VERSION)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "App version: $VERSION"
 

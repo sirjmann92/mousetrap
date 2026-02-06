@@ -28,7 +28,7 @@ jobs:
       - name: Bump patch version
         id: bump
         run: |
-          CURRENT=$(cat VERSION | tr -d '[:space:]')
+          CURRENT=$(tr -d '[:space:]' < VERSION)
           echo "Current version: $CURRENT"
 
           # Split into major.minor.patch
