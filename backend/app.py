@@ -2604,17 +2604,9 @@ def api_version() -> dict[str, str]:
     """Return the application version.
 
     The version is set via the APP_VERSION environment variable which is
-    injected during the Docker build from the VERSION file. Falls back to
-    reading the VERSION file directly for local development.
+    injected during the Docker build. Defaults to 'dev' for local builds.
     """
-    version = os.environ.get("APP_VERSION", "")
-    if not version or version == "dev":
-        # Fallback: read from VERSION file (for local development)
-        version_file = Path(__file__).resolve().parent.parent / "VERSION"
-        if version_file.is_file():
-            version = version_file.read_text().strip()
-        else:
-            version = "dev"
+    version = os.environ.get("APP_VERSION", "dev")
     return {"version": version}
 
 

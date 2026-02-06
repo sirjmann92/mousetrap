@@ -35,8 +35,8 @@ jobs:
             PATCH=$((PATCH + 1))
             NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           else
-            # No tags yet — use VERSION file as the starting version
-            NEW_VERSION=$(tr -d '[:space:]' < VERSION)
+            # No tags yet — start at 2.3.6
+            NEW_VERSION="2.3.6"
           fi
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"

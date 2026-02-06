@@ -45,8 +45,7 @@ COPY backend/app.py logconfig.yaml.template /app/
 # Copy frontend build output and minimal public assets
 COPY --from=frontend-build /frontend/build /app/frontend/build
 COPY frontend/public/favicon.ico frontend/public/favicon.svg /app/frontend/public/
-# Copy VERSION file and startup script, set permissions
-COPY VERSION /app/VERSION
+# Copy startup script and set permissions
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh \
     && mkdir -p /frontend && ln -s /app/frontend/build /frontend/build
