@@ -286,7 +286,7 @@ export default function App() {
             {appVersion && (
               <Tooltip arrow title={`Version ${appVersion}`}>
                 <Chip
-                  label={`v${appVersion}`}
+                  label={appVersion === 'dev' ? 'dev' : `v${appVersion}`}
                   size="small"
                   sx={{
                     cursor: 'default',
