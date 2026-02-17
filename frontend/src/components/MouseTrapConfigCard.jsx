@@ -60,6 +60,8 @@ export default function MouseTrapConfigCard({
     setJackett,
     audiobookrequest,
     setAudiobookrequest,
+    autobrr,
+    setAutobrr,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
   } = useSession();
@@ -178,6 +180,10 @@ export default function MouseTrapConfigCard({
       ...audiobookrequest,
       port: audiobookrequest?.port || 8000,
     };
+    const autobrrWithDefaults = {
+      ...autobrr,
+      port: autobrr?.port || 7474,
+    };
 
     const payload = {
       check_freq: typeof checkFrequency === 'number' ? checkFrequency : 0,
@@ -194,6 +200,7 @@ export default function MouseTrapConfigCard({
       chaptarr: chaptarrWithDefaults,
       jackett: jackettWithDefaults,
       audiobookrequest: audiobookrequestWithDefaults,
+      autobrr: autobrrWithDefaults,
       proxy: { label: proxyLabel },
     };
     try {
@@ -645,11 +652,13 @@ export default function MouseTrapConfigCard({
           <IndexerIntegrations
             _mamSessionCreatedDate={mamSessionCreatedDate}
             audiobookrequestConfig={audiobookrequest}
+            autobrrConfig={autobrr}
             chaptarrConfig={chaptarr}
             jackettConfig={jackett}
             prowlarrConfig={prowlarr}
             sessionLabel={sessionLabel}
             setAudiobookrequestConfig={setAudiobookrequest}
+            setAutobrrConfig={setAutobrr}
             setChaptarrConfig={setChaptarr}
             setJackettConfig={setJackett}
             setProwlarrConfig={setProwlarr}

@@ -62,6 +62,8 @@ export default function IndexerIntegrations({
   setJackettConfig,
   audiobookrequestConfig,
   setAudiobookrequestConfig,
+  autobrrConfig,
+  setAutobrrConfig,
   _mamSessionCreatedDate,
   sessionLabel,
 }) {
@@ -82,6 +84,10 @@ export default function IndexerIntegrations({
   // AudioBookRequest state
   const [audiobookrequestTestResult, setAudiobookrequestTestResult] = useState(null);
   const [audiobookrequestTestLoading, setAudiobookrequestTestLoading] = useState(false);
+
+  // Autobrr state
+  const [autobrrTestResult, setAutobrrTestResult] = useState(null);
+  const [autobrrTestLoading, setAutobrrTestLoading] = useState(false);
 
   // Unified update state
   const [updateResult, setUpdateResult] = useState(null);
@@ -117,6 +123,13 @@ export default function IndexerIntegrations({
   }, [audiobookrequestTestResult]);
 
   useEffect(() => {
+    if (autobrrTestResult) {
+      const timer = setTimeout(() => setAutobrrTestResult(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [autobrrTestResult]);
+
+  useEffect(() => {
     if (updateResult) {
       const timer = setTimeout(() => setUpdateResult(null), 5000);
       return () => clearTimeout(timer);
@@ -132,6 +145,7 @@ export default function IndexerIntegrations({
   const handleChaptarrChange = createChangeHandler(setChaptarrConfig);
   const handleJackettChange = createChangeHandler(setJackettConfig);
   const handleAudiobookrequestChange = createChangeHandler(setAudiobookrequestConfig);
+  const handleAutobrrChange = createChangeHandler(setAutobrrConfig);
 
   // Generic test handler to reduce duplication
   const createTestHandler = (config, endpoint, defaultPort, setLoading, setResult) => async () => {
@@ -199,6 +213,14 @@ export default function IndexerIntegrations({
     setAudiobookrequestTestResult,
   );
 
+  const handleAutobrrTest = createTestHandler(
+    autobrrConfig,
+    '/api/autobrr/test',
+    7474,
+    setAutobrrTestLoading,
+    setAutobrrTestResult,
+  );
+
   const handleUpdate = async () => {
     setUpdateLoading(true);
     try {
@@ -233,7 +255,8 @@ export default function IndexerIntegrations({
     prowlarrConfig.enabled ||
     chaptarrConfig.enabled ||
     jackettConfig.enabled ||
-    audiobookrequestConfig.enabled;
+    audiobookrequestConfig.enabled ||
+    autobrrConfig.enabled;
 
   return (
     <Accordion
@@ -837,6 +860,109 @@ export default function IndexerIntegrations({
             )}
           </Box>
 
+          <Divider />
+
+          {/* Autobrr Section */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
+              <Typography sx={{ fontWeight: 600 }} variant="body2">
+                Autobrr
+              </Typography>
+              <Link
+                href="https://github.com/autobrr/autobrr"
+                rel="noopener noreferrer"
+                sx={{ alignItems: 'center', display: 'flex' }}
+                target="_blank"
+              >
+                <GitHubIcon size={16} />
+              </Link>
+            </Box>
+
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={autobrrConfig.enabled || false}
+                  onChange={(e) => handleAutobrrChange('enabled', e.target.checked)}
+                />
+              }
+              label="Enable Autobrr Integration"
+            />
+
+            {autobrrConfig.enabled && (
+              <>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    helperText="Autobrr hostname or IP"
+                    label="Autobrr Host"
+                    onChange={(e) => handleAutobrrChange('host', e.target.value)}
+                    placeholder="localhost"
+                    required
+                    size="small"
+                    sx={{ width: 300 }}
+                    value={autobrrConfig.host || ''}
+                  />
+                  <TextField
+                    helperText="Autobrr port"
+                    label="Port"
+                    onChange={(e) =>
+                      handleAutobrrChange('port', Number.parseInt(e.target.value, 10) || 7474)
+                    }
+                    placeholder="7474"
+                    required
+                    size="small"
+                    sx={{ width: 120 }}
+                    type="number"
+                    value={autobrrConfig.port || 7474}
+                  />
+                </Box>
+
+                <Box sx={{ alignItems: 'flex-start', display: 'flex', gap: 2 }}>
+                  <TextField
+                    helperText="Autobrr API Key (Settings → API Keys)"
+                    label="API Key"
+                    onChange={(e) => handleAutobrrChange('api_key', e.target.value)}
+                    placeholder="Enter API key"
+                    required
+                    size="small"
+                    sx={{ maxWidth: 350 }}
+                    type="password"
+                    value={autobrrConfig.api_key || ''}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={autobrrTestLoading || !autobrrConfig.host || !autobrrConfig.api_key}
+                    onClick={handleAutobrrTest}
+                    sx={{ height: 40, minWidth: 150 }}
+                    variant="outlined"
+                  >
+                    {autobrrTestLoading ? 'Testing...' : 'TEST'}
+                  </Button>
+                </Box>
+
+                {autobrrTestResult && (
+                  <Alert
+                    severity={autobrrTestResult.success ? 'success' : 'error'}
+                    sx={{ mt: -0.5 }}
+                  >
+                    <Typography variant="body2">{autobrrTestResult.message}</Typography>
+                  </Alert>
+                )}
+
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={autobrrConfig.auto_update_on_save || false}
+                      onChange={(e) => handleAutobrrChange('auto_update_on_save', e.target.checked)}
+                    />
+                  }
+                  label="Auto-update Autobrr on Save"
+                />
+              </>
+            )}
+          </Box>
+
           {/* Unified Update Button */}
           {anyServiceEnabled && (
             <>
@@ -847,7 +973,7 @@ export default function IndexerIntegrations({
                 <Tooltip
                   arrow
                   placement="top"
-                  title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, and/or Jackett, depending on your configuration"
+                  title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, depending on your configuration"
                 >
                   <Button disabled={updateLoading} onClick={handleUpdate} variant="contained">
                     {updateLoading ? 'Updating...' : 'UPDATE'}
@@ -881,6 +1007,8 @@ IndexerIntegrations.propTypes = {
   setJackettConfig: PropTypes.func.isRequired,
   audiobookrequestConfig: PropTypes.object.isRequired,
   setAudiobookrequestConfig: PropTypes.func.isRequired,
+  autobrrConfig: PropTypes.object.isRequired,
+  setAutobrrConfig: PropTypes.func.isRequired,
   mamSessionCreatedDate: PropTypes.string,
   setMamSessionCreatedDate: PropTypes.func.isRequired,
   sessionLabel: PropTypes.string.isRequired,

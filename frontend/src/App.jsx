@@ -63,6 +63,7 @@ export default function App() {
     setChaptarr,
     setJackett,
     setAudiobookrequest,
+    setAutobrr,
     setMamSessionCreatedDate,
   } = useSession();
   // State for automation and perks
@@ -131,6 +132,10 @@ export default function App() {
           auto_update_on_save: false,
           ...(cfg?.audiobookrequest ?? {}),
         });
+        setAutobrr({
+          auto_update_on_save: false,
+          ...(cfg?.autobrr ?? {}),
+        });
         setMamSessionCreatedDate(cfg?.mam_session_created_date || '');
       } catch (_e) {
         // handle error
@@ -151,6 +156,7 @@ export default function App() {
       setChaptarr,
       setJackett,
       setAudiobookrequest,
+      setAutobrr,
       setMamSessionCreatedDate,
     ],
   );

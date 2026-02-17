@@ -44,7 +44,7 @@ docker compose up -d
 - **Web UI**: Modern interface for all automation and configuration
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
-- **Indexer Integrations**: Automatic MAM session ID sync with Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest, 90-day expiry tracking
+- **Indexer Integrations**: Automatic MAM session ID sync with Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, 90-day expiry tracking
 - **Notifications**: Email (SMTP), Webhook (incl. Discord), and Apprise with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
@@ -236,7 +236,7 @@ environment:
 ## 📚 Documentation
 
 - **[Features Guide](docs/features-guide.md)**: Comprehensive feature overview and usage
-- **[Indexer Integrations](docs/indexer-integrations.md)**: Prowlarr, Chaptarr, Jackett & AudioBookRequest MAM ID sync and expiry tracking
+- **[Indexer Integrations](docs/indexer-integrations.md)**: Prowlarr, Chaptarr, Jackett, AudioBookRequest & Autobrr MAM ID sync and expiry tracking
 - **[API Reference](docs/api-reference.md)**: Complete REST API documentation  
 - **[Troubleshooting](docs/troubleshooting.md)**: Common issues and solutions
 - **[Architecture & Rules](docs/architecture-and-rules.md)**: Technical implementation details

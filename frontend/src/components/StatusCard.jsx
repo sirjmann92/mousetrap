@@ -365,29 +365,32 @@ const StatusCard = forwardRef(
                   );
                 })()}
               </Box>
-              {/* Connectable Status */}
-              <Box sx={{ alignItems: 'center', display: 'flex', height: 40 }}>
-                <Typography
-                  sx={{
-                    alignItems: 'center',
-                    display: 'flex',
-                    height: 40,
-                    mb: 0,
-                    mr: 1,
-                  }}
-                  variant="h6"
-                >
-                  Connectable
-                </Typography>
-                {(() => {
-                  if (!status || !status.details || !status.details.raw) return null;
-                  const connectable = status.details.raw.connectable;
+              {/* Connectable Status - only show when valid data exists */}
+              {(() => {
+                if (!status || !status.details || !status.details.raw) return null;
+                const connectable = status.details.raw.connectable;
 
-                  if (connectable === undefined || connectable === null || connectable === 'N/A')
-                    return null;
+                if (connectable === undefined || connectable === null || connectable === 'N/A')
+                  return null;
 
-                  if (connectable === 'yes') {
-                    return (
+                // Only show the section if connectable is 'yes' or 'no'
+                if (connectable !== 'yes' && connectable !== 'no') return null;
+
+                return (
+                  <Box sx={{ alignItems: 'center', display: 'flex', height: 40 }}>
+                    <Typography
+                      sx={{
+                        alignItems: 'center',
+                        display: 'flex',
+                        height: 40,
+                        mb: 0,
+                        mr: 1,
+                      }}
+                      variant="h6"
+                    >
+                      Connectable
+                    </Typography>
+                    {connectable === 'yes' ? (
                       <CheckCircleIcon
                         sx={{
                           color: 'success.main',
@@ -396,10 +399,7 @@ const StatusCard = forwardRef(
                         }}
                         titleAccess="Connectable: Yes"
                       />
-                    );
-                  }
-                  if (connectable === 'no') {
-                    return (
+                    ) : (
                       <CancelIcon
                         sx={{
                           color: 'error.main',
@@ -408,12 +408,10 @@ const StatusCard = forwardRef(
                         }}
                         titleAccess="Connectable: No"
                       />
-                    );
-                  }
-
-                  return null;
-                })()}
-              </Box>
+                    )}
+                  </Box>
+                );
+              })()}
             </Box>
             <Box>
               <Tooltip title="Refreshes session status from MAM">
@@ -441,7 +439,7 @@ const StatusCard = forwardRef(
               <Tooltip
                 arrow
                 placement="top"
-                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest, depending on your configuration"
+                title="Clicking this button will push the current MAM ID in MouseTrap to Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, depending on your configuration"
               >
                 <span>
                   <Button

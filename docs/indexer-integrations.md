@@ -1,13 +1,13 @@
 # Indexer Integrations
 
-MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest, ensuring your indexers stay up-to-date without manual intervention. Additionally, it tracks MAM session expiry (90 days) and sends notifications before your session expires.
+MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, ensuring your indexers stay up-to-date without manual intervention. Additionally, it tracks MAM session expiry (90 days) and sends notifications before your session expires.
 
 ---
 
 ## 🎯 Features
 
 ### Automatic MAM ID Sync
-- **Multi-service support**: Update Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest simultaneously
+- **Multi-service support**: Update Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr simultaneously
 - **Smart detection**: Only updates when MAM ID actually changes
 - **Manual override**: Force update with "UPDATE" button
 - **Event logging**: All operations logged for audit trail
@@ -48,6 +48,11 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Ja
 1. **AudioBookRequest instance** running and accessible
 2. **AudioBookRequest API key** (Settings → Account → API Keys)
 3. **MyAnonamouse indexer** configured in AudioBookRequest
+
+### For Autobrr
+1. **Autobrr instance** running and accessible
+2. **Autobrr API key** (Settings → API Keys)
+3. **MyAnonamouse indexer** configured in Autobrr
 
 ### Optional
 - **Notification channels** configured (for expiry warnings)
@@ -137,13 +142,31 @@ In the same session configuration (below Prowlarr):
    - **Notify Before Expiry (days)**: Default 7 days
    - **Auto-update AudioBookRequest on Save**: Disabled by default
 
-### 5. Update All Services
+### 5. Configure Autobrr (Optional)
+
+1. **Enable Autobrr Integration**:
+   - Toggle "Enable Autobrr Integration" switch
+   
+2. **Enter Autobrr Details**:
+   - **Host**: IP or hostname (e.g., `192.168.1.100` or `localhost`)
+   - **Port**: Autobrr port (default: `7474`)
+   - **API Key**: Your Autobrr API key (Settings → API Keys)
+
+3. **Test Connection**:
+   - Click "TEST" button
+   - Verify green success message
+   - Confirm MyAnonamouse indexer status
+
+4. **Configure Options**:
+   - **Auto-update Autobrr on Save**: Disabled by default
+
+### 6. Update All Services
 
 - Click the **"UPDATE"** button at the bottom of the Indexer Integrations section
 - This will push the current MAM ID to whichever services are enabled
 - Check the event log for confirmation of which services were updated
 
-### 6. Enable Expiry Notifications
+### 7. Enable Expiry Notifications
 
 Edit `/config/notify.yaml`:
 
