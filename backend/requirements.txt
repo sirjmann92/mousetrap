@@ -1,11 +1,7 @@
 aiohttp
 apscheduler
-beautifulsoup4
-cryptography
 docker
 fastapi
 pyyaml
-requests
 starlette
 uvicorn
-watchdog

@@ -16,34 +16,11 @@ from typing import Any
 
 import aiohttp
 
+from backend.utils import handle_http_error
+
 _logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 _INDEXER_NAME = "MyAnonamouse"  # Case-sensitive indexer name
-
-
-def _handle_http_error(status: int, text: str = "") -> dict[str, Any]:
-    """Handle common HTTP error status codes.
-
-    Args:
-        status: HTTP status code
-        text: Response text (optional)
-
-    Returns:
-        dict with success=False and appropriate error message
-    """
-    if status == 401:
-        return {"success": False, "error": "Authentication failed. Check API key."}
-    if status == 403:
-        return {"success": False, "error": "Forbidden. Check API key permissions."}
-    if status == 404:
-        return {
-            "success": False,
-            "error": f"{_INDEXER_NAME} indexer not found. Please configure it first.",
-        }
-    return {
-        "success": False,
-        "error": f"HTTP {status} - {text[:100]}" if text else f"HTTP {status}",
-    }
 
 
 async def test_audiobookrequest_connection(host: str, port: int, api_key: str) -> dict[str, Any]:
@@ -79,7 +56,7 @@ async def test_audiobookrequest_connection(host: str, port: int, api_key: str) -
                 }
 
             # Handle errors (returns with 'error' key, convert to 'message' for test endpoint)
-            error_result = _handle_http_error(response.status, await response.text())
+            error_result = handle_http_error(response.status, await response.text(), _INDEXER_NAME)
             return {"success": False, "message": error_result.get("error", "Unknown error")}
 
     except aiohttp.ClientConnectorError:
@@ -136,7 +113,7 @@ async def sync_mam_id_to_audiobookrequest(
                 }
 
             # Use shared error handler
-            error_result = _handle_http_error(response.status, await response.text())
+            error_result = handle_http_error(response.status, await response.text(), _INDEXER_NAME)
             _logger.error("AudioBookRequest update failed: %s", error_result.get("error"))
             return error_result
 

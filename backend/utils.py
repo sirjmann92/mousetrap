@@ -104,3 +104,29 @@ def build_proxy_dict(proxy_cfg: dict[str, Any]) -> dict[str, Any] | None:
     else:
         proxy_url = f"http://{host}:{port}" if port else f"http://{host}"
     return {"http": proxy_url, "https": proxy_url}
+
+
+def handle_http_error(status: int, text: str = "", indexer_name: str = "Indexer") -> dict[str, Any]:
+    """Handle common HTTP error status codes for indexer integrations.
+
+    Args:
+        status: HTTP status code
+        text: Response text (optional)
+        indexer_name: Name of the indexer for error messages
+
+    Returns:
+        dict with success=False and appropriate error message
+    """
+    if status == 401:
+        return {"success": False, "error": "Authentication failed. Check API key."}
+    if status == 403:
+        return {"success": False, "error": "Forbidden. Check API key permissions."}
+    if status == 404:
+        return {
+            "success": False,
+            "error": f"{indexer_name} indexer not found. Please configure it first.",
+        }
+    return {
+        "success": False,
+        "error": f"HTTP {status} - {text[:100]}" if text else f"HTTP {status}",
+    }

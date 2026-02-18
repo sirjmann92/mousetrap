@@ -16,34 +16,11 @@ from typing import Any
 
 import aiohttp
 
+from backend.utils import handle_http_error
+
 _logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 _INDEXER_IDENTIFIER = "myanonamouse"  # Lowercase identifier used by Autobrr
-
-
-def _handle_http_error(status: int, text: str = "") -> dict[str, Any]:
-    """Handle common HTTP error status codes.
-
-    Args:
-        status: HTTP status code
-        text: Response text (optional)
-
-    Returns:
-        dict with success=False and appropriate error message
-    """
-    if status == 401:
-        return {"success": False, "error": "Authentication failed. Check API key."}
-    if status == 403:
-        return {"success": False, "error": "Forbidden. Check API key permissions."}
-    if status == 404:
-        return {
-            "success": False,
-            "error": "MyAnonamouse indexer not found. Please configure it in Autobrr first.",
-        }
-    return {
-        "success": False,
-        "error": f"HTTP {status} - {text[:100]}" if text else f"HTTP {status}",
-    }
 
 
 async def test_autobrr_connection(host: str, port: int, api_key: str) -> dict[str, Any]:
@@ -87,7 +64,7 @@ async def test_autobrr_connection(host: str, port: int, api_key: str) -> dict[st
                 }
 
             # Handle errors (returns with 'error' key, convert to 'message' for test endpoint)
-            error_result = _handle_http_error(response.status, await response.text())
+            error_result = handle_http_error(response.status, await response.text(), "MyAnonamouse")
             return {"success": False, "message": error_result.get("error", "Unknown error")}
 
     except aiohttp.ClientConnectorError:
@@ -129,7 +106,7 @@ async def sync_mam_id_to_autobrr(
         async with aiohttp.ClientSession() as session:
             async with session.get(list_url, headers=headers, timeout=_TIMEOUT) as response:
                 if response.status != 200:
-                    return _handle_http_error(response.status, await response.text())
+                    return handle_http_error(response.status, await response.text(), "MyAnonamouse")
 
                 indexers = await response.json()
 
@@ -151,7 +128,7 @@ async def sync_mam_id_to_autobrr(
             get_url = f"http://{host}:{port}/api/indexer/{indexer_id}"
             async with session.get(get_url, headers=headers, timeout=_TIMEOUT) as response:
                 if response.status != 200:
-                    return _handle_http_error(response.status, await response.text())
+                    return handle_http_error(response.status, await response.text(), "MyAnonamouse")
 
                 indexer_data = await response.json()
 
@@ -175,7 +152,9 @@ async def sync_mam_id_to_autobrr(
                     }
 
                 # Use shared error handler
-                error_result = _handle_http_error(response.status, await response.text())
+                error_result = handle_http_error(
+                    response.status, await response.text(), "MyAnonamouse"
+                )
                 _logger.error("Autobrr update failed: %s", error_result.get("error"))
                 return error_result
 
