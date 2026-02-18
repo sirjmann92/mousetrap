@@ -7,7 +7,7 @@ This module provides functionality to:
 Key details:
 - Authentication: X-API-Token header
 - Endpoint: PUT /api/indexer/{id}
-- Field name: settings.cookie (contains mam_id)
+- Field name: settings.cookie (format: "mam_id=<session-id>")
 - Indexer identifier: "myanonamouse" (lowercase)
 """
 
@@ -85,12 +85,13 @@ async def sync_mam_id_to_autobrr(
     """Update MAM session ID in Autobrr.
 
     Finds the MyAnonamouse indexer and updates its settings.cookie field via PUT request.
+    The cookie is formatted as "mam_id=<session-id>" as required by Autobrr.
 
     Args:
         host: Autobrr host
         port: Autobrr port
         api_key: Autobrr API key (X-API-Token header)
-        new_mam_id: New MAM session ID to set
+        new_mam_id: New MAM session ID to set (will be formatted as mam_id=<value>)
 
     Returns:
         dict with keys:
@@ -132,10 +133,10 @@ async def sync_mam_id_to_autobrr(
 
                 indexer_data = await response.json()
 
-            # Update the settings.cookie field
+            # Update the settings.cookie field with proper format: mam_id=<session-id>
             if "settings" not in indexer_data:
                 indexer_data["settings"] = {}
-            indexer_data["settings"]["cookie"] = new_mam_id
+            indexer_data["settings"]["cookie"] = f"mam_id={new_mam_id}"
 
             # Send PUT request to update indexer
             put_url = f"http://{host}:{port}/api/indexer/{indexer_id}"
@@ -144,7 +145,7 @@ async def sync_mam_id_to_autobrr(
             ) as response:
                 if response.status in [200, 204]:
                     _logger.info(
-                        "[Autobrr] Successfully updated MAM cookie (mam_id) to '%s'", new_mam_id
+                        "[Autobrr] Successfully updated MAM cookie to 'mam_id=%s'", new_mam_id
                     )
                     return {
                         "success": True,
