@@ -53,7 +53,7 @@ from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fall
 from backend.jackett_integration import sync_mam_id_to_jackett, test_jackett_connection
 from backend.last_session_api import router as last_session_router, write_last_session
 from backend.mam_api import get_mam_seen_ip_info, get_proxied_public_ip, get_status
-from backend.notifications_backend import notify_event
+from backend.notifications_backend import notify_event, safe_notify_event
 from backend.port_monitor import port_monitor_manager
 from backend.prowlarr_integration import (
     find_mam_indexer_id,
@@ -721,7 +721,7 @@ async def auto_update_seedbox_if_needed(
                     api_msg = result.get("msg", "").strip()
                     if not api_msg or api_msg.lower() == "completed":
                         api_msg = "IP Changed. Seedbox IP updated."
-                    await notify_event(
+                    await safe_notify_event(
                         event_type="seedbox_update_success",
                         label=label,
                         status="SUCCESS",
@@ -770,7 +770,7 @@ async def auto_update_seedbox_if_needed(
                             rate_limit_minutes = int(60 - elapsed)
                         else:
                             rate_limit_minutes = 0
-                    await notify_event(
+                    await safe_notify_event(
                         event_type="seedbox_update_rate_limited",
                         label=label,
                         status="RATE_LIMITED",
@@ -815,7 +815,7 @@ async def auto_update_seedbox_if_needed(
                             last_seedbox_asn,
                             current_asn,
                         )
-                        await notify_event(
+                        await safe_notify_event(
                             event_type="seedbox_update_failure",
                             label=label,
                             status="FAILED",
@@ -834,7 +834,7 @@ async def auto_update_seedbox_if_needed(
                             "reason": reason,
                         }
 
-                await notify_event(
+                await safe_notify_event(
                     event_type="seedbox_update_failure",
                     label=label,
                     status="FAILED",
@@ -859,7 +859,7 @@ async def auto_update_seedbox_if_needed(
                 reason,
             )
 
-            await notify_event(
+            await safe_notify_event(
                 event_type="seedbox_update_failure",
                 label=label,
                 status="EXCEPTION",

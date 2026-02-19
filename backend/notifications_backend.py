@@ -217,7 +217,10 @@ async def send_apprise_notification(
                 _logger.error("[Notify] Apprise failed. success=false: %s", resp_json)
                 return False
 
-    except aiohttp.ClientError as e:
+    except Exception as e:
+        # Catch all errors including asyncio.TimeoutError (not a subclass of
+        # aiohttp.ClientError) so a slow/unreachable Apprise server never
+        # propagates an unhandled exception up to the ASGI layer.
         _logger.error("[Notify] Apprise failed. %s: %s", type(e).__name__, e)
         return False
     else:
@@ -339,3 +342,20 @@ async def notify_event(
                 key=key,
                 tags=tags,
             )
+
+
+async def safe_notify_event(*args: Any, **kwargs: Any) -> None:
+    """Call :func:`notify_event` and swallow any exception.
+
+    Notification failures must never crash the caller — especially inside
+    error-recovery paths where raising a secondary exception would mask the
+    original problem and produce an unhandled ASGI 500 response.
+    """
+    try:
+        await notify_event(*args, **kwargs)
+    except Exception as e:  # noqa: BLE001
+        _logger.warning(
+            "[Notify] safe_notify_event suppressed an unexpected error: %s: %s",
+            type(e).__name__,
+            e,
+        )
