@@ -16,12 +16,19 @@ from fastapi import APIRouter, HTTPException, Request
 
 from backend.config import load_session
 from backend.event_log import append_ui_event_log
+from backend.mam_api import get_status
 from backend.notifications_backend import notify_event
 from backend.perk_automation import buy_upload_credit, buy_vip, buy_wedge
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils_redact import redact_sensitive
 
 _logger: logging.Logger = logging.getLogger(__name__)
+
+# Point costs for the enforce-minimum-points guardrail
+_WEDGE_POINTS_COST = 50_000
+_VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
+_UPLOAD_POINTS_PER_GB = 500
+
 router = APIRouter()
 
 
@@ -66,6 +73,36 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
 
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
+    # --- Enforce minimum points guardrail (prevent spend below minimum) ---
+    enforce_min_pts = cfg.get("perk_automation", {}).get("enforce_min_points_guardrail", False)
+    session_min_points = cfg.get("perk_automation", {}).get("min_points")
+    if enforce_min_pts and session_min_points is not None:
+        status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        current_points = status.get("points", 0) if isinstance(status, dict) else 0
+        if current_points is None:
+            current_points = 0
+        purchase_cost = amount * _UPLOAD_POINTS_PER_GB
+        if int(current_points) - purchase_cost < int(session_min_points):
+            guardrail_reason = (
+                f"Purchase would drop below minimum points: "
+                f"{current_points} - {purchase_cost} = {int(current_points) - purchase_cost} "
+                f"< {session_min_points}"
+            )
+            _logger.info("[ManualUpload] BLOCKED for session '%s': %s", label, guardrail_reason)
+            append_ui_event_log(
+                {
+                    "timestamp": now.isoformat(),
+                    "label": label,
+                    "event_type": "manual",
+                    "trigger": "manual",
+                    "purchase_type": "upload_credit",
+                    "amount": amount,
+                    "details": {"points_before": current_points},
+                    "result": "blocked",
+                    "status_message": f"Manual Upload Credit purchase blocked: {guardrail_reason}",
+                }
+            )
+            return {"success": False, "error": guardrail_reason}
     result = await buy_upload_credit(amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
     success = result.get("success", False)
     status_message = (
@@ -156,6 +193,37 @@ async def manual_wedge(request: Request) -> dict[str, Any]:
 
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
+    # --- Enforce minimum points guardrail (prevent spend below minimum) ---
+    # Only applies to points method; cheese method has no point cost
+    enforce_min_pts = cfg.get("perk_automation", {}).get("enforce_min_points_guardrail", False)
+    session_min_points = cfg.get("perk_automation", {}).get("min_points")
+    if enforce_min_pts and session_min_points is not None and method == "points":
+        status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        current_points = status.get("points", 0) if isinstance(status, dict) else 0
+        if current_points is None:
+            current_points = 0
+        purchase_cost = _WEDGE_POINTS_COST
+        if int(current_points) - purchase_cost < int(session_min_points):
+            guardrail_reason = (
+                f"Purchase would drop below minimum points: "
+                f"{current_points} - {purchase_cost} = {int(current_points) - purchase_cost} "
+                f"< {session_min_points}"
+            )
+            _logger.info("[ManualWedge] BLOCKED for session '%s': %s", label, guardrail_reason)
+            append_ui_event_log(
+                {
+                    "timestamp": now.isoformat(),
+                    "label": label,
+                    "event_type": "manual",
+                    "trigger": "manual",
+                    "purchase_type": "wedge",
+                    "amount": 1,
+                    "details": {"method": method, "points_before": current_points},
+                    "result": "blocked",
+                    "status_message": f"Manual Wedge purchase blocked: {guardrail_reason}",
+                }
+            )
+            return {"success": False, "error": guardrail_reason}
     result = await buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
     success = result.get("success", False)
     status_message = (
@@ -244,6 +312,38 @@ async def manual_vip(request: Request) -> dict[str, Any]:
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
     is_max = str(weeks).lower() in ["max", "90"]
+    # --- Enforce minimum points guardrail (prevent spend below minimum) ---
+    # Max/90-week VIP has variable cost; guardrail is skipped for that case
+    enforce_min_pts = cfg.get("perk_automation", {}).get("enforce_min_points_guardrail", False)
+    session_min_points = cfg.get("perk_automation", {}).get("min_points")
+    if enforce_min_pts and session_min_points is not None and not is_max:
+        purchase_cost = _VIP_POINTS_COST.get(int(weeks)) if int(weeks) in _VIP_POINTS_COST else None
+        if purchase_cost is not None:
+            status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            current_points = status.get("points", 0) if isinstance(status, dict) else 0
+            if current_points is None:
+                current_points = 0
+            if int(current_points) - purchase_cost < int(session_min_points):
+                guardrail_reason = (
+                    f"Purchase would drop below minimum points: "
+                    f"{current_points} - {purchase_cost} = {int(current_points) - purchase_cost} "
+                    f"< {session_min_points}"
+                )
+                _logger.info("[ManualVIP] BLOCKED for session '%s': %s", label, guardrail_reason)
+                append_ui_event_log(
+                    {
+                        "timestamp": now.isoformat(),
+                        "label": label,
+                        "event_type": "manual",
+                        "trigger": "manual",
+                        "purchase_type": "vip",
+                        "amount": weeks,
+                        "details": {"points_before": current_points},
+                        "result": "blocked",
+                        "status_message": f"Manual VIP purchase blocked: {guardrail_reason}",
+                    }
+                )
+                return {"success": False, "error": guardrail_reason}
     if is_max:
         result = await buy_vip(mam_id, duration="max", proxy_cfg=proxy_cfg)
         success = result.get("success", False)

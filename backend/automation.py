@@ -27,6 +27,11 @@ from backend.proxy_config import resolve_proxy_from_session_cfg
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
+# Point costs for the enforce-minimum-points guardrail
+_WEDGE_POINTS_COST = 50_000
+_VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
+_UPLOAD_POINTS_PER_GB = 500
+
 
 # --- Automation Scheduler ---
 async def run_all_automation_jobs() -> None:
@@ -108,6 +113,34 @@ async def upload_credit_automation_job() -> None:
                 )
                 # Do not check any automation-level guardrails if session minimum is not met
                 continue
+            # --- Enforce minimum points guardrail (prevent spend below minimum) ---
+            enforce_min_points_guardrail = cfg.get("perk_automation", {}).get(
+                "enforce_min_points_guardrail", False
+            )
+            if enforce_min_points_guardrail and session_min_points is not None:
+                purchase_cost = int(gb_amount) * _UPLOAD_POINTS_PER_GB
+                if int(points) - purchase_cost < int(session_min_points):
+                    guardrail_reason = (
+                        f"Purchase would drop below minimum points: "
+                        f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
+                        f"< {session_min_points}"
+                    )
+                    log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
+                    _logger.info(log_msg, label, guardrail_reason)
+                    append_ui_event_log(
+                        {
+                            "timestamp": now.isoformat(),
+                            "label": label,
+                            "event_type": "automation",
+                            "trigger": "automation",
+                            "purchase_type": "upload_credit",
+                            "amount": gb_amount,
+                            "details": {"points_before": points},
+                            "result": "skipped",
+                            "status_message": f"Automated Upload Credit purchase skipped: {guardrail_reason}",
+                        }
+                    )
+                    continue
             # --- Time-based trigger enforcement ---
             last_upload_time = (
                 cfg.get("perk_automation", {}).get("upload_credit", {}).get("last_upload_time")
@@ -296,6 +329,42 @@ async def vip_automation_job() -> None:
                     save_session(cfg, old_label=label)
                 # Do not check any automation-level guardrails if session minimum is not met
                 continue
+            # --- Enforce minimum points guardrail (prevent spend below minimum) ---
+            enforce_min_points_guardrail = cfg.get("perk_automation", {}).get(
+                "enforce_min_points_guardrail", False
+            )
+            if enforce_min_points_guardrail and session_min_points is not None:
+                purchase_cost = (
+                    _VIP_POINTS_COST.get(int(weeks)) if int(weeks) in _VIP_POINTS_COST else None
+                )
+                if purchase_cost is not None and int(points) - purchase_cost < int(
+                    session_min_points
+                ):
+                    guardrail_reason = (
+                        f"Purchase would drop below minimum points: "
+                        f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
+                        f"< {session_min_points}"
+                    )
+                    log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
+                    _logger.info(log_msg, label, guardrail_reason)
+                    append_ui_event_log(
+                        {
+                            "timestamp": now.isoformat(),
+                            "label": label,
+                            "event_type": "automation",
+                            "trigger": "automation",
+                            "purchase_type": "vip",
+                            "amount": weeks,
+                            "details": {"points_before": points},
+                            "result": "skipped",
+                            "status_message": f"Automated VIP purchase skipped: {guardrail_reason}",
+                        }
+                    )
+                    if "retry" in automation:
+                        automation.pop("retry", None)
+                        automation.pop("cooldown_until", None)
+                        save_session(cfg, old_label=label)
+                    continue
             # --- Time-based trigger enforcement ---
             last_vip_time = (
                 cfg.get("perk_automation", {}).get("vip_automation", {}).get("last_vip_time")
@@ -560,6 +629,36 @@ async def wedge_automation_job() -> None:
                 )
                 # Do not check any automation-level guardrails if session minimum is not met
                 continue
+            # --- Enforce minimum points guardrail (prevent spend below minimum) ---
+            enforce_min_points_guardrail = cfg.get("perk_automation", {}).get(
+                "enforce_min_points_guardrail", False
+            )
+            if enforce_min_points_guardrail and session_min_points is not None:
+                purchase_cost = _WEDGE_POINTS_COST  # Automation always uses points method
+                if int(points) - purchase_cost < int(session_min_points):
+                    guardrail_reason = (
+                        f"Purchase would drop below minimum points: "
+                        f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
+                        f"< {session_min_points}"
+                    )
+                    log_msg = (
+                        "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
+                    )
+                    _logger.info(log_msg, label, guardrail_reason)
+                    append_ui_event_log(
+                        {
+                            "timestamp": now.isoformat(),
+                            "label": label,
+                            "event_type": "automation",
+                            "trigger": "automation",
+                            "purchase_type": "wedge",
+                            "amount": 1,
+                            "details": {"points_before": points},
+                            "result": "skipped",
+                            "status_message": f"Automated Wedge purchase skipped: {guardrail_reason}",
+                        }
+                    )
+                    continue
             # --- Time-based trigger enforcement ---
             last_wedge_time = (
                 cfg.get("perk_automation", {}).get("wedge_automation", {}).get("last_wedge_time")

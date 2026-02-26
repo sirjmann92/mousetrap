@@ -6,8 +6,10 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Collapse,
   Divider,
+  FormControlLabel,
   IconButton,
   TextField,
   Tooltip,
@@ -53,6 +55,7 @@ export default function PerkAutomationCard(props) {
   const [, setAutoVIPLocal] = useState(autoVIP ?? false);
   const [, setAutoUploadLocal] = useState(autoUpload ?? false);
   const [minPoints, setMinPoints] = useState(0);
+  const [enforceMinPoints, setEnforceMinPoints] = useState(false);
 
   // Ensure prop setters update both local and parent state. Memoize so
   // they can safely be used in effect dependency arrays without
@@ -123,6 +126,7 @@ export default function PerkAutomationCard(props) {
       .then((cfg) => {
         const pa = cfg.perk_automation || {};
         setMinPoints(pa.min_points ?? 0);
+        setEnforceMinPoints(pa.enforce_min_points_guardrail ?? false);
         // --- Upload Credit Automation fields ---
         const upload = pa.upload_credit || {};
         setAutoUploadCombined(upload.enabled ?? pa.autoUpload ?? false);
@@ -409,6 +413,7 @@ export default function PerkAutomationCard(props) {
       autoUpload,
       autoVIP,
       autoWedge,
+      enforce_min_points_guardrail: enforceMinPoints,
       min_points: Number(minPoints),
       upload_credit: {
         enabled: autoUpload,
@@ -499,6 +504,19 @@ export default function PerkAutomationCard(props) {
               type="number"
               value={minPoints}
             />
+            <Tooltip title="When enabled, any purchase (manual or automated) that would cause your points to drop below the Minimum Points value will be blocked.">
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={enforceMinPoints}
+                    onChange={(e) => setEnforceMinPoints(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="Enforce minimum points guardrail"
+                sx={{ mt: 1 }}
+              />
+            </Tooltip>
           </Box>
           {/* Wedge Section (modularized) */}
           <AutomationSection
