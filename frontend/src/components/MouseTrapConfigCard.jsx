@@ -64,6 +64,8 @@ export default function MouseTrapConfigCard({
     setAutobrr,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
+    notifyBeforeExpiryDays,
+    setNotifyBeforeExpiryDays,
   } = useSession();
 
   // Local state for editing label
@@ -195,6 +197,7 @@ export default function MouseTrapConfigCard({
       },
       mam_ip: mamIp,
       mam_session_created_date: mamSessionCreatedDate || null,
+      notify_before_expiry_days: notifyBeforeExpiryDays ?? 7,
       old_label: oldLabel,
       prowlarr: prowlarrWithDefaults,
       chaptarr: chaptarrWithDefaults,
@@ -525,6 +528,27 @@ export default function MouseTrapConfigCard({
                 Now
               </Button>
             </Box>
+          </Box>
+
+          {/* Notify Before Expiry */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <TextField
+              label="Notify Before Expiry (days)"
+              onChange={(e) => setNotifyBeforeExpiryDays(Number.parseInt(e.target.value, 10) || 7)}
+              size="small"
+              sx={{ width: 220 }}
+              type="number"
+              value={notifyBeforeExpiryDays ?? 7}
+            />
+            <Tooltip
+              arrow
+              placement="right"
+              title="How many days before your MAM session ID expires to send a notification reminder. MAM session IDs expire after 90 days — you'll need to manually generate a new one on the MAM security page and update your session here."
+            >
+              <IconButton size="small">
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 3 }}>

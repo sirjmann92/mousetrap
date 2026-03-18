@@ -354,15 +354,8 @@ def check_mam_session_expiry() -> None:
                 expiry_date = created_date + timedelta(days=90)
                 days_until_expiry = (expiry_date - datetime.now()).days
 
-                # Check if we should notify - use the minimum of both services' notify days
-                notify_days = min(
-                    prowlarr_cfg.get("notify_before_expiry_days", 7)
-                    if prowlarr_cfg.get("enabled")
-                    else 999,
-                    chaptarr_cfg.get("notify_before_expiry_days", 7)
-                    if chaptarr_cfg.get("enabled")
-                    else 999,
-                )
+                # Check if we should notify - use the session-level setting
+                notify_days = cfg.get("notify_before_expiry_days", 7)
 
                 if days_until_expiry <= notify_days and days_until_expiry >= 0:
                     _logger.info(

@@ -38,9 +38,8 @@ AudioBookRequest is an audiobook request and management system. This integration
    - **Port**: AudioBookRequest port (default: `8000`)
    - **API Key**: Your AudioBookRequest API key
 5. Click **TEST** to verify connectivity
-6. Set **Notify Before Expiry** days (default: 7 days)
-7. Enable **Auto-update AudioBookRequest on Save** if desired
-8. Click **SAVE** to save your configuration
+6. Enable **Auto-update AudioBookRequest on Save** if desired
+7. Click **SAVE** to save your configuration
 
 ## How It Works
 
@@ -116,8 +115,9 @@ You can manually trigger an update at any time:
 | Setting | Default Value |
 |---------|--------------|
 | Port | 8000 |
-| Notify Before Expiry | 7 days |
 | Auto-update on Save | Disabled |
+
+> **Note:** The **Notify Before Expiry (days)** setting is now configured at the session level, not per-indexer.
 
 ## API Reference
 

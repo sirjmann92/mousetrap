@@ -42,6 +42,8 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * @property {(a:Object)=>void} setAutobrr
  * @property {string|null} mamSessionCreatedDate
  * @property {(d:string|null)=>void} setMamSessionCreatedDate
+ * @property {number} notifyBeforeExpiryDays
+ * @property {(d:number)=>void} setNotifyBeforeExpiryDays
  */
 
 /** @type {SessionContextType} */
@@ -86,6 +88,8 @@ const defaultSessionContext = {
   setAutobrr: () => {},
   mamSessionCreatedDate: null,
   setMamSessionCreatedDate: () => {},
+  notifyBeforeExpiryDays: 7,
+  setNotifyBeforeExpiryDays: () => {},
 };
 
 const SessionContext = createContext(defaultSessionContext);
@@ -136,6 +140,7 @@ export function SessionProvider({ children }) {
   const [mamSessionCreatedDate, setMamSessionCreatedDate] = useState(
     /** @type {string|null} */ (null),
   );
+  const [notifyBeforeExpiryDays, setNotifyBeforeExpiryDays] = useState(7);
 
   const value = {
     checkFrequency,
@@ -178,6 +183,8 @@ export function SessionProvider({ children }) {
     setAutobrr,
     mamSessionCreatedDate,
     setMamSessionCreatedDate,
+    notifyBeforeExpiryDays,
+    setNotifyBeforeExpiryDays,
   };
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

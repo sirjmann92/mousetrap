@@ -233,38 +233,7 @@ export default function ProwlarrConfig({
                 </Alert>
               )}
 
-              <Box
-                sx={{
-                  alignItems: 'center',
-                  display: 'flex',
-                  gap: 1,
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Box sx={{ alignItems: 'center', display: 'flex', gap: 1 }}>
-                  <TextField
-                    label="Notify Before Expiry (days)"
-                    onChange={(e) =>
-                      handleChange(
-                        'notify_before_expiry_days',
-                        Number.parseInt(e.target.value, 10) || 7,
-                      )
-                    }
-                    size="small"
-                    sx={{ width: 220 }}
-                    type="number"
-                    value={prowlarrConfig.notify_before_expiry_days || 7}
-                  />
-                  <Tooltip
-                    arrow
-                    placement="right"
-                    title="Number of days before expiry to send notification"
-                  >
-                    <IconButton size="small">
-                      <InfoOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Button disabled={updateLoading} onClick={handleUpdate} variant="contained">
                   {updateLoading ? 'Updating...' : 'UPDATE PROWLARR'}
                 </Button>

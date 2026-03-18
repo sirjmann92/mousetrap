@@ -79,7 +79,6 @@ In your MouseTrap session configuration:
    - Confirm indexer ID is found
 
 4. **Configure Options**:
-   - **Notify Before Expiry (days)**: Default 7 days
    - **Auto-update Prowlarr on Save**: Enabled by default
 
 ### 2. Configure Chaptarr
@@ -100,7 +99,6 @@ In the same session configuration (below Prowlarr):
    - Confirm indexer ID is found
 
 4. **Configure Options**:
-   - **Notify Before Expiry (days)**: Default 7 days
    - **Auto-update Chaptarr on Save**: Enabled by default
 
 ### 3. Configure Jackett (Optional)
@@ -120,7 +118,6 @@ In the same session configuration (below Prowlarr):
    - Confirm MyAnonamouse indexer found
 
 4. **Configure Options**:
-   - **Notify Before Expiry (days)**: Default 7 days
    - **Auto-update Jackett on Save**: Disabled by default
 
 ### 4. Configure AudioBookRequest (Optional)
@@ -139,7 +136,6 @@ In the same session configuration (below Prowlarr):
    - Confirm MyAnonamouse indexer status
 
 4. **Configure Options**:
-   - **Notify Before Expiry (days)**: Default 7 days
    - **Auto-update AudioBookRequest on Save**: Disabled by default
 
 ### 5. Configure Autobrr (Optional)
@@ -201,8 +197,9 @@ event_rules:
 | **Host** | Server IP/hostname | `192.168.1.100` |
 | **Port** | Service port | `9696` / `8789` |
 | **API Key** | Service API key | `abc123...` |
-| **Notify Before Expiry** | Warning threshold in days | `7` (default) |
 | **Auto-update on Save** | Sync MAM ID on session save | ✅ Enabled |
+
+> **Note:** The **Notify Before Expiry (days)** setting is configured at the session level (in the main session card, beside the MAM Session Created Date field), not per-indexer. It controls how many days before your MAM session ID expires you receive a notification reminder.
 
 ---
 
@@ -343,20 +340,19 @@ mam:
   session_type: ip
   ip_monitoring_mode: auto
 mam_session_created_date: "2025-01-03T10:00:00"
+notify_before_expiry_days: 7
 prowlarr:
   enabled: true
   host: "prowlarr"
   port: 9696
   api_key: "prowlarr-api-key"
   auto_update_on_save: true
-  notify_before_expiry_days: 7
 chaptarr:
   enabled: true
   host: "chaptarr"
   port: 8789
   api_key: "chaptarr-api-key"
   auto_update_on_save: true
-  notify_before_expiry_days: 7
 ```
 
 ---

@@ -129,7 +129,6 @@ def load_session(label: str) -> dict[str, Any]:
         "port": 9696,
         "api_key": "",
         "auto_update_on_save": False,
-        "notify_before_expiry_days": 7,
     }
     prowlarr_cfg = cfg.setdefault("prowlarr", {})
     for k, v in prowlarr_defaults.items():
@@ -138,6 +137,10 @@ def load_session(label: str) -> dict[str, Any]:
     # MAM session created date (for 90-day expiry tracking)
     if "mam_session_created_date" not in cfg:
         cfg["mam_session_created_date"] = None
+
+    # Session-level expiry notification setting
+    if "notify_before_expiry_days" not in cfg:
+        cfg["notify_before_expiry_days"] = 7
 
     return cfg
 

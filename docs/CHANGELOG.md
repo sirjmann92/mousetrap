@@ -1,3 +1,19 @@
+# March 18, 2026
+
+## Session-Level Expiry Notification Setting 🔔
+
+### **Improvement**
+- **Moved "Notify Before Expiry (days)"** from each indexer integration section to the session level, beside the MAM Session Created Date field
+- **Rationale**: The expiry clock is a session-level concept (the MAM session ID on the MAM website expires after 90 days) — it has nothing to do with individual indexers. Previously the setting appeared redundantly in every indexer panel, and was silently ignored for Jackett and AudioBookRequest
+- **Backend simplified**: Expiry check now reads a single `notify_before_expiry_days` field from the session config rather than computing the minimum across enabled indexers
+- **Tooltip updated**: Field now shows an explanatory tooltip instead of generic helper text
+
+### **Migration**
+- Existing per-indexer `notify_before_expiry_days` values in saved YAML files are harmlessly ignored
+- The session-level field defaults to `7` days and is written on next session save
+
+---
+
 # January 4, 2026
 
 ## MAM API Change: Minimum Upload Credit Purchase Updated ⚠️
