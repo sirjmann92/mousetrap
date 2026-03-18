@@ -1,5 +1,9 @@
 # Stage 1: Build frontend
-FROM node:22.20.0-alpine AS frontend-build
+# Pin to linux/amd64 so this stage always runs natively on the CI runner.
+# Node.js 22 uses CPU instructions that QEMU cannot emulate, causing SIGILL
+# (exit 132) when building for arm64 under QEMU. The output is pure static
+# files (JS/CSS/HTML), so the build architecture does not matter.
+FROM --platform=linux/amd64 node:22.20.0-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
 COPY frontend/ ./
