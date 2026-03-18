@@ -45,7 +45,7 @@ docker compose up -d
 - **Multi-session**: Manage multiple MAM accounts in one instance
 - **Automation**: Auto-purchase wedges, VIP, upload credit with smart triggers
 - **Indexer Integrations**: Automatic MAM session ID sync with Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, 90-day expiry tracking
-- **Notifications**: Email (SMTP), Webhook (incl. Discord), and Apprise with event filtering
+- **Notifications**: Email (SMTP), Webhook (incl. Discord), Apprise, and Pushover with event filtering
 - **Proxy support**: Global proxy management with testing and IP detection
 - **Port monitoring**: Monitor container ports, auto-restart with stack support
 - **IP monitoring modes**: Flexible IP monitoring for different network setups
@@ -467,7 +467,7 @@ Adjust paths and environment variables as needed for your Unraid setup.
 
 ## 🔔 Notifications
 
-MouseTrap supports notifications via Email (SMTP), Webhook (including Discord), and Apprise. Configure and test these in the Notifications card in the UI.
+MouseTrap supports notifications via Email (SMTP), Webhook (including Discord), Apprise, and Pushover. Configure and test these in the Notifications card in the UI.
 
 ### Email (SMTP)
 
@@ -491,6 +491,14 @@ MouseTrap supports notifications via Email (SMTP), Webhook (including Discord), 
   - Apprise URL: e.g., `http://apprise:8000` (base URL only; do not include `/notify`)
   - Notify URL String: e.g., `tgram://<bot-token>/<chat-id>` (see Apprise docs for providers)
 - See [Apprise documentation](https://github.com/caronc/apprise) for setup and building the notify URL string.
+
+### Pushover
+
+- Send push notifications directly to your devices via [Pushover](https://pushover.net).
+- In the UI, set:
+  - **User Key**: found on your Pushover account dashboard.
+  - **API Token**: create a free app at [pushover.net/apps/build](https://pushover.net/apps/build) (name it "MouseTrap"); the token is shown immediately after creation.
+- No server exposure or inbound connectivity required — MouseTrap posts outbound to Pushover's API.
 
 ---
 

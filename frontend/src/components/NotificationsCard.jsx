@@ -29,10 +29,16 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+import pushoverIcon from '../assets/pushover-icon.ico';
 
 // Font Awesome icon wrapper component (keeping for Apprise since it doesn't have an official logo)
 const FontAwesomeIcon = ({ icon, color, fontSize = 20 }) => (
   <i className={icon} style={{ color, fontSize }} />
+);
+
+// Pushover icon — official logo served from local assets
+const PushoverIcon = ({ size = 20 }) => (
+  <img alt="Pushover" height={size} src={pushoverIcon} style={{ display: 'block' }} width={size} />
 );
 
 // Gmail icon SVG from Wikimedia Commons
@@ -81,6 +87,11 @@ const DiscordIcon = ({ size = 20 }) => (
 );
 
 export default function NotificationsCard() {
+  // Width of the event label column — kept as a single constant so all rows stay aligned.
+  const LABEL_COL_WIDTH = 230;
+  // Fixed width for each method checkbox+label slot so columns align regardless of label length.
+  const METHOD_COL_WIDTH = 115;
+
   const [showWebhook, setShowWebhook] = useState(false);
   const [showNotifyString, setShowNotifyString] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -134,6 +145,10 @@ export default function NotificationsCard() {
       url: '',
     },
     event_rules: {},
+    pushover: {
+      api_token: '',
+      user_key: '',
+    },
     smtp: {},
     webhook_url: '',
     discord_webhook: false,
@@ -180,6 +195,10 @@ export default function NotificationsCard() {
     if (config.apprise?.url) {
       methods.push('Apprise');
     }
+    // Check if Pushover is configured
+    if (config.pushover?.user_key && config.pushover?.api_token) {
+      methods.push('Pushover');
+    }
     return methods;
   };
 
@@ -215,6 +234,17 @@ export default function NotificationsCard() {
         notify_url_string: cfg.apprise?.notify_url_string ?? '',
         tags: cfg.apprise?.tags ?? '',
         url: cfg.apprise?.url ?? '',
+        [field]: value,
+      },
+    }));
+  };
+
+  const handlePushoverChange = (field, value) => {
+    setConfig((cfg) => ({
+      ...cfg,
+      pushover: {
+        api_token: cfg.pushover?.api_token ?? '',
+        user_key: cfg.pushover?.user_key ?? '',
         [field]: value,
       },
     }));
@@ -326,6 +356,30 @@ export default function NotificationsCard() {
     }
   };
 
+  const handleTestPushover = async () => {
+    setTestLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/notify/test/pushover', {
+        body: JSON.stringify({ message: 'Test Pushover notification from MouseTrap' }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult(data.success ? 'Pushover sent!' : 'Pushover failed.');
+      } else {
+        const detail = data?.detail || data?.message || null;
+        const status = ` (HTTP ${res.status})`;
+        setTestResult(detail ? `Pushover failed${status}: ${detail}` : `Pushover failed${status}.`);
+      }
+    } catch {
+      setTestResult('Pushover failed.');
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   if (loading)
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -375,6 +429,9 @@ export default function NotificationsCard() {
                 // Apprise doesn't have an official logo, use Font Awesome bullhorn
                 icon = <FontAwesomeIcon color="#FFA726" icon="fa-solid fa-bullhorn" />;
                 tooltip = 'Apprise Configured';
+              } else if (method === 'Pushover') {
+                icon = <PushoverIcon size={20} />;
+                tooltip = 'Pushover Configured';
               }
 
               return (
@@ -417,43 +474,52 @@ export default function NotificationsCard() {
               {pairedEvents.map((group) => (
                 <Box
                   key={group.baseKey}
-                  sx={{
-                    alignItems: 'center',
-                    display: 'flex',
-                    gap: 2,
-                    justifyContent: 'space-between',
-                  }}
+                  sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}
                 >
-                  <Typography sx={{ minWidth: 180 }}>{group.label}</Typography>
-
-                  {/* Success/Failure Checkboxes */}
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={!!config.event_rules?.[group.successKey]?.enabled}
-                          onChange={(e) =>
-                            handleEventRuleChange(group.successKey, 'enabled', e.target.checked)
-                          }
-                        />
-                      }
-                      label="Success"
-                    />
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={!!config.event_rules?.[group.failureKey]?.enabled}
-                          onChange={(e) =>
-                            handleEventRuleChange(group.failureKey, 'enabled', e.target.checked)
-                          }
-                        />
-                      }
-                      label="Failure"
-                    />
+                  {/* Row 1: Label + Success/Failure enable toggles */}
+                  <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
+                    <Typography sx={{ minWidth: LABEL_COL_WIDTH }}>{group.label}</Typography>
+                    <Box
+                      sx={{
+                        '& .MuiFormControlLabel-root': { minWidth: METHOD_COL_WIDTH },
+                        display: 'flex',
+                        gap: 2,
+                      }}
+                    >
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={!!config.event_rules?.[group.successKey]?.enabled}
+                            onChange={(e) =>
+                              handleEventRuleChange(group.successKey, 'enabled', e.target.checked)
+                            }
+                          />
+                        }
+                        label="Success"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={!!config.event_rules?.[group.failureKey]?.enabled}
+                            onChange={(e) =>
+                              handleEventRuleChange(group.failureKey, 'enabled', e.target.checked)
+                            }
+                          />
+                        }
+                        label="Failure"
+                      />
+                    </Box>
                   </Box>
 
-                  {/* Notification Method Checkboxes */}
-                  <Box sx={{ display: 'flex', gap: 2, ml: 'auto' }}>
+                  {/* Row 2: Notification method checkboxes, indented to align with Success checkbox */}
+                  <Box
+                    sx={{
+                      '& .MuiFormControlLabel-root': { minWidth: METHOD_COL_WIDTH },
+                      display: 'flex',
+                      gap: 2,
+                    }}
+                  >
+                    <Box sx={{ minWidth: LABEL_COL_WIDTH }} />
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -538,6 +604,34 @@ export default function NotificationsCard() {
                       disabled={!config.apprise?.url || !config.apprise?.notify_url_string}
                       label="Apprise"
                     />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={
+                            (!!config.event_rules?.[group.successKey]?.pushover &&
+                              !!config.event_rules?.[group.successKey]?.enabled) ||
+                            (!!config.event_rules?.[group.failureKey]?.pushover &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          indeterminate={
+                            (!!config.event_rules?.[group.successKey]?.pushover &&
+                              !!config.event_rules?.[group.successKey]?.enabled) !==
+                            (!!config.event_rules?.[group.failureKey]?.pushover &&
+                              !!config.event_rules?.[group.failureKey]?.enabled)
+                          }
+                          onChange={(e) => {
+                            if (config.event_rules?.[group.successKey]?.enabled) {
+                              handleEventRuleChange(group.successKey, 'pushover', e.target.checked);
+                            }
+                            if (config.event_rules?.[group.failureKey]?.enabled) {
+                              handleEventRuleChange(group.failureKey, 'pushover', e.target.checked);
+                            }
+                          }}
+                        />
+                      }
+                      disabled={!config.pushover?.user_key || !config.pushover?.api_token}
+                      label="Pushover"
+                    />
                   </Box>
                 </Box>
               ))}
@@ -553,10 +647,16 @@ export default function NotificationsCard() {
                     alignItems: 'center',
                     display: 'flex',
                     gap: 2,
-                    justifyContent: 'space-between',
                   }}
                 >
-                  <Box sx={{ alignItems: 'center', display: 'flex', gap: 1, minWidth: 180 }}>
+                  <Box
+                    sx={{
+                      alignItems: 'center',
+                      display: 'flex',
+                      gap: 1,
+                      minWidth: LABEL_COL_WIDTH,
+                    }}
+                  >
                     <Typography>{ev.label}</Typography>
                     {ev.tooltip && (
                       <Tooltip arrow placement="top" title={ev.tooltip}>
@@ -567,11 +667,14 @@ export default function NotificationsCard() {
                     )}
                   </Box>
 
-                  {/* No Success/Failure checkboxes for unique events - just spacing */}
-                  <Box sx={{ display: 'flex', gap: 1, width: 180 }} />
-
                   {/* Notification Method Checkboxes */}
-                  <Box sx={{ display: 'flex', gap: 2, ml: 'auto' }}>
+                  <Box
+                    sx={{
+                      '& .MuiFormControlLabel-root': { minWidth: METHOD_COL_WIDTH },
+                      display: 'flex',
+                      gap: 2,
+                    }}
+                  >
                     <FormControlLabel
                       control={
                         <Checkbox
@@ -605,6 +708,18 @@ export default function NotificationsCard() {
                       }
                       disabled={!config.apprise?.url || !config.apprise?.notify_url_string}
                       label="Apprise"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={!!config.event_rules?.[ev.key]?.pushover}
+                          onChange={(e) =>
+                            handleEventRuleChange(ev.key, 'pushover', e.target.checked)
+                          }
+                        />
+                      }
+                      disabled={!config.pushover?.user_key || !config.pushover?.api_token}
+                      label="Pushover"
                     />
                   </Box>
                 </Box>
@@ -1024,6 +1139,48 @@ export default function NotificationsCard() {
                   </Box>
                 </Box>
               )}
+              <Divider sx={{ my: 3 }} />
+              <Typography sx={{ mt: 2 }} variant="subtitle1">
+                Pushover
+              </Typography>
+              <Box
+                sx={{
+                  alignItems: 'center',
+                  display: 'flex',
+                  gap: 2,
+                  mb: 2,
+                  width: '100%',
+                }}
+              >
+                <TextField
+                  label="User Key"
+                  onChange={(e) => handlePushoverChange('user_key', e.target.value)}
+                  size="small"
+                  sx={{ maxWidth: 400, minWidth: 300 }}
+                  type="password"
+                  value={config.pushover?.user_key || ''}
+                />
+                <TextField
+                  label="API Token"
+                  onChange={(e) => handlePushoverChange('api_token', e.target.value)}
+                  size="small"
+                  sx={{ maxWidth: 400, minWidth: 300 }}
+                  type="password"
+                  value={config.pushover?.api_token || ''}
+                />
+                <Box sx={{ display: 'flex', flex: 1, justifyContent: 'flex-end' }}>
+                  <Button
+                    disabled={
+                      testLoading || !config.pushover?.user_key || !config.pushover?.api_token
+                    }
+                    onClick={handleTestPushover}
+                    sx={{ minWidth: 80 }}
+                    variant="outlined"
+                  >
+                    TEST
+                  </Button>
+                </Box>
+              </Box>
             </AccordionDetails>
           </Accordion>
 

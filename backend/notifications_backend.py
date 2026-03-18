@@ -1,9 +1,9 @@
-"""Notification helpers for webhooks, SMTP and Apprise.
+"""Notification helpers for webhooks, SMTP, Apprise and Pushover.
 
 This module provides small helper functions used by the application to send
-notifications via webhooks (including Discord), SMTP, and the Apprise service.
-Only minimal dependencies are required so these helpers can be used in simple
-automation and alerting flows.
+notifications via webhooks (including Discord), SMTP, the Apprise service, and
+Pushover. Only minimal dependencies are required so these helpers can be used
+in simple automation and alerting flows.
 """
 
 from email.mime.multipart import MIMEMultipart
@@ -228,6 +228,44 @@ async def send_apprise_notification(
         return True
 
 
+async def send_pushover_notification(
+    user_key: str,
+    api_token: str,
+    title: str,
+    message: str,
+) -> bool:
+    """Send a notification via the Pushover API.
+
+    Args:
+        user_key: The Pushover user/group key.
+        api_token: The Pushover application API token.
+        title: Notification title.
+        message: Notification message body.
+
+    Returns:
+        True on success, False on failure.
+    """
+    timeout = aiohttp.ClientTimeout(total=10)
+    try:
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            data = {
+                "token": api_token,
+                "user": user_key,
+                "title": title,
+                "message": message,
+            }
+            async with session.post("https://api.pushover.net/1/messages.json", data=data) as resp:
+                if resp.status >= 400:
+                    text = await resp.text()
+                    raise Exception(f"HTTP {resp.status}: {text[:200]}")
+    except Exception as e:
+        _logger.error("[Notify] Pushover failed: %s", e)
+        return False
+    else:
+        _logger.info("[Notify] Pushover sent successfully")
+        return True
+
+
 def load_notify_config() -> dict[str, Any]:
     """Load notification configuration from a YAML file.
 
@@ -269,7 +307,12 @@ async def notify_event(
     if rule.get("enabled") is False:
         return
     # Prevent spam: only send if at least one channel is enabled for this event
-    if not rule.get("email") and not rule.get("webhook") and not rule.get("apprise"):
+    if (
+        not rule.get("email")
+        and not rule.get("webhook")
+        and not rule.get("apprise")
+        and not rule.get("pushover")
+    ):
         return
     # Always prepend MouseTrap and session name to the message
     mousetrap_prefix = "MouseTrap: "
@@ -342,6 +385,17 @@ async def notify_event(
                 key=key,
                 tags=tags,
             )
+
+    # Pushover
+    if rule.get("pushover"):
+        pushover_cfg = cfg.get("pushover", {})
+        user_key = pushover_cfg.get("user_key", "")
+        api_token = pushover_cfg.get("api_token", "")
+        if user_key and api_token:
+            event_type_title = event_type.replace("_", " ").title()
+            status_part = f": {status.title()}" if status else ""
+            pushover_title = f"MouseTrap: {event_type_title}{status_part}"
+            await send_pushover_notification(user_key, api_token, pushover_title, full_message)
 
 
 async def safe_notify_event(*args: Any, **kwargs: Any) -> None:

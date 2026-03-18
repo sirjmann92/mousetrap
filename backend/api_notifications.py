@@ -2,8 +2,9 @@
 
 This module exposes FastAPI routes under `/notify/*` to read and write the
 notification configuration and to trigger test notifications for webhook,
-SMTP, and Apprise-based notification backends. The endpoints delegate to the
-utilities in :mod:`backend.notifications_backend` for the actual sending logic.
+SMTP, Apprise-based, and Pushover notification backends. The endpoints
+delegate to the utilities in :mod:`backend.notifications_backend` for the
+actual sending logic.
 """
 
 from pathlib import Path
@@ -16,6 +17,7 @@ from backend.notifications_backend import (
     NOTIFY_CONFIG_PATH,
     load_notify_config,
     send_apprise_notification,
+    send_pushover_notification,
     send_smtp_notification,
     send_webhook_notification,
 )
@@ -175,5 +177,37 @@ async def test_apprise(payload: dict[str, Any]) -> dict[str, Any]:
         mode=mode,
         key=key,
         tags=tags,
+    )
+    return {"success": ok}
+
+
+@router.post("/notify/test/pushover")
+async def test_pushover(payload: dict[str, Any]) -> dict[str, Any]:
+    """Send a test notification via Pushover.
+
+    Args:
+        payload: Dict that may include `message` for the test notification body.
+
+    Returns:
+        A dict with a "success" boolean indicating whether the notification
+        was sent successfully.
+
+    Raises:
+        HTTPException: If the Pushover configuration is incomplete.
+
+    """
+    cfg = load_notify_config()
+    pushover_cfg = cfg.get("pushover", {})
+    user_key = pushover_cfg.get("user_key", "")
+    api_token = pushover_cfg.get("api_token", "")
+    if not user_key or not api_token:
+        raise HTTPException(
+            status_code=400, detail="Pushover config incomplete (need user key and API token)."
+        )
+    ok = await send_pushover_notification(
+        user_key,
+        api_token,
+        "MouseTrap: Test Notification",
+        payload.get("message", "Test Pushover notification from MouseTrap"),
     )
     return {"success": ok}

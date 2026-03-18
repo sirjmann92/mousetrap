@@ -360,6 +360,14 @@ Test email notification configuration.
 ### POST `/api/notifications/test-webhook`
 Test webhook notification configuration.
 
+### POST `/api/notify/test/apprise`
+Test Apprise notification configuration.
+
+### POST `/api/notify/test/pushover`
+Test Pushover notification configuration.
+
+**Raises:** `400` if `user_key` or `api_token` are not configured.
+
 ---
 
 ## Event Log
