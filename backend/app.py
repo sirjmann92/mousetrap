@@ -1754,6 +1754,12 @@ async def api_save_perkautomation(request: Request) -> dict[str, Any]:
             if enabled and trigger_type in ("time", "both"):
                 if not old_pa.get(automation_key, {}).get(ts_field):
                     auto[ts_field] = now_iso
+                    _logger.info(
+                        "[PerkAutomation] Timer initialized for '%s' automation in session '%s' at %s (settings save, not a purchase).",
+                        automation_key,
+                        label,
+                        now_iso,
+                    )
 
         handle_time_trigger("upload_credit")
         handle_time_trigger("vip_automation")
@@ -1761,6 +1767,16 @@ async def api_save_perkautomation(request: Request) -> dict[str, Any]:
 
         cfg["perk_automation"] = new_pa
         save_session(cfg, old_label=label)
+        _logger.info("[PerkAutomation] Saved automation settings for session '%s'.", label)
+        append_ui_event_log(
+            {
+                "event_type": "config",
+                "label": label,
+                "timestamp": now_iso,
+                "user_action": True,
+                "status_message": f"Perk automation settings saved for session '{label}'.",
+            }
+        )
 
     except Exception as e:
         _logger.warning("[PerkAutomation] Failed to save automation settings: %s", e)

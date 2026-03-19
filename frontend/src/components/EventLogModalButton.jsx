@@ -127,6 +127,7 @@ export default function EventLogModalButton({ sessionLabel }) {
   // Color coding by event type
   const eventTypeColors = {
     automation: '#7b1fa2',
+    config: '#f57c00',
     manual: '#388e3c',
     port_monitor_add: '#1976d2',
     port_monitor_check: '#0288d1',
