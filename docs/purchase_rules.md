@@ -36,7 +36,7 @@ This document describes all rules and guardrails for purchases (Upload Credit, V
   - If a session is configured with a proxy, all purchase attempts (manual or automated) will use the proxy for MaM API calls.
 
 ## 5. Purchase Types and Costs
-- **Upload Credit:** 500 points per GB (configurable amount per automation)
+- **Upload Credit:** 500 points per GB (50 GB or 100 GB per purchase)
 - **VIP:** 5,000 points per 4 weeks (configurable duration per automation)
 
 ---

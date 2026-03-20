@@ -173,14 +173,14 @@ volumes:
 perk_automation:
   upload_credit:
     enabled: "true"  # Should be boolean true, not string
-    gb: "2"          # Should be number 2, not string
+    gb: "50"         # Should be number 50 or 100, not string
     trigger_days: 0  # Should be > 0 for time-based triggers
 
 # ✅ Correct format:
 perk_automation:
   upload_credit:
     enabled: true
-    gb: 2
+    gb: 50
     trigger_days: 7
     trigger_type: "time"
 ```

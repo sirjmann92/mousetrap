@@ -57,7 +57,7 @@ MouseTrap also works with MAM's two session security types:
 
 **Upload Credit Automation:**
 - **Cost**: 500 points per GB
-- **Configurable amount**: 1-10 GB per purchase
+- **Configurable amount**: 50 GB or 100 GB per purchase
 - **Trigger types**: Time-based, point-based, or both
 - **Time trigger**: Days since last purchase
 - **Point trigger**: Minimum points before purchase

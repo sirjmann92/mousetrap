@@ -166,7 +166,7 @@ Update automation settings for a session.
   "min_points": 10000,
   "upload_credit": {
     "enabled": true,
-    "gb": 2,
+    "gb": 50,
     "trigger_type": "time",
     "trigger_days": 14
   },
@@ -189,7 +189,7 @@ Manually trigger a purchase.
 **Request Body (for upload credit):**
 ```json
 {
-  "gb": 2
+  "gb": 50
 }
 ```
 
