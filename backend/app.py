@@ -1403,6 +1403,7 @@ async def api_save_session(request: Request) -> dict[str, Any]:
             "proxied_public_ip_asn",
             "points",
             "vip_active",
+            "perk_automation",
         ]
         # If prev_cfg not set above, try to load it now
         if prev_cfg is None:
@@ -1830,6 +1831,7 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
 
         proxy_cfg = resolve_proxy_from_session_cfg(cfg)
         cookies = {"mam_id": mam_id}
+        proxies = None
         if proxy_cfg:
             proxies = build_proxy_dict(proxy_cfg)
         # Log proxy label and redacted URL for debugging
@@ -2012,6 +2014,7 @@ async def api_test_asn_notifications(request: Request) -> dict[str, Any]:
     Note: Only sends ASN mismatch (403 error) notification, as ASN change
     notifications are suppressed for ASN Locked sessions.
     """
+    label = ""
     try:
         data = await request.json()
         label = data.get("label", "").strip()
