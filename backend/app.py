@@ -2852,7 +2852,10 @@ async def session_check_job(label: str) -> None:
             proxied_ip: str | None = await get_proxied_public_ip(proxy_cfg)
             if proxied_ip:
                 cfg["proxied_public_ip"] = proxied_ip
-                save_session(cfg, old_label=label)
+                # Reload from disk before saving to avoid overwriting concurrent changes
+                fresh_cfg = load_session(label)
+                fresh_cfg["proxied_public_ip"] = proxied_ip
+                save_session(fresh_cfg, old_label=label)
         # Use mam_ip_override if set, else proxied_public_ip if set, else detected_public_ip
         ip_to_use: str | None = (
             mam_ip_override or cfg.get("proxied_public_ip") or detected_public_ip
@@ -2917,7 +2920,12 @@ async def session_check_job(label: str) -> None:
             # Always update last_status with the latest automation result
             status["status_message"] = build_status_message(status)
             cfg["last_status"] = status
-            save_session(cfg, old_label=label)
+            # Reload from disk before saving to avoid overwriting concurrent changes
+            # (e.g. perk_automation settings saved while awaiting network calls above)
+            fresh_cfg = load_session(label)
+            fresh_cfg["last_check_time"] = now.isoformat()
+            fresh_cfg["last_status"] = status
+            save_session(fresh_cfg, old_label=label)
             # Log event using pre-update (old) and detected/proxied (new) values
             # Ensure auto_update is always a string, never None/null in JSON
             auto_update_val = get_auto_update_val(status)
