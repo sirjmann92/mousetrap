@@ -16,6 +16,7 @@ from typing import Any
 
 import aiohttp
 
+from backend.url_builder import build_service_url
 from backend.utils import handle_http_error
 
 _logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ async def test_audiobookrequest_connection(host: str, port: int, api_key: str) -
             - success: bool
             - message: str
     """
-    url = f"http://{host}:{port}/api/indexers/configurations"
+    url = build_service_url(host, port, "/api/indexers/configurations")
     headers = {"Authorization": f"Bearer {api_key}", "accept": "application/json"}
 
     try:
@@ -90,7 +91,7 @@ async def sync_mam_id_to_audiobookrequest(
             - message: str (if success)
             - error: str (if failure)
     """
-    url = f"http://{host}:{port}/api/indexers/{_INDEXER_NAME}"
+    url = build_service_url(host, port, f"/api/indexers/{_INDEXER_NAME}")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "accept": "application/json",

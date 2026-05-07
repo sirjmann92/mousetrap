@@ -16,6 +16,7 @@ from typing import Any
 
 import aiohttp
 
+from backend.url_builder import build_service_url
 from backend.utils import handle_http_error
 
 _logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ async def test_autobrr_connection(host: str, port: int, api_key: str) -> dict[st
             - success: bool
             - message: str
     """
-    url = f"http://{host}:{port}/api/indexer"
+    url = build_service_url(host, port, "/api/indexer")
     headers = {"X-API-Token": api_key}
 
     try:
@@ -100,7 +101,7 @@ async def sync_mam_id_to_autobrr(
             - error: str (if failure)
     """
     headers = {"X-API-Token": api_key, "Content-Type": "application/json"}
-    list_url = f"http://{host}:{port}/api/indexer"
+    list_url = build_service_url(host, port, "/api/indexer")
 
     try:
         # First, get the list of indexers to find MAM indexer ID
@@ -126,7 +127,7 @@ async def sync_mam_id_to_autobrr(
             indexer_id = mam_indexer["id"]
 
             # Get full indexer details
-            get_url = f"http://{host}:{port}/api/indexer/{indexer_id}"
+            get_url = build_service_url(host, port, f"/api/indexer/{indexer_id}")
             async with session.get(get_url, headers=headers, timeout=_TIMEOUT) as response:
                 if response.status != 200:
                     return handle_http_error(response.status, await response.text(), "MyAnonamouse")
@@ -139,7 +140,7 @@ async def sync_mam_id_to_autobrr(
             indexer_data["settings"]["cookie"] = f"mam_id={new_mam_id}"
 
             # Send PUT request to update indexer
-            put_url = f"http://{host}:{port}/api/indexer/{indexer_id}"
+            put_url = build_service_url(host, port, f"/api/indexer/{indexer_id}")
             async with session.put(
                 put_url, headers=headers, json=indexer_data, timeout=_TIMEOUT
             ) as response:
