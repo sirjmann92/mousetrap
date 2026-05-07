@@ -18,6 +18,8 @@ from typing import Any
 import aiohttp
 from yarl import URL
 
+from backend.url_builder import build_service_url
+
 _logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 
@@ -37,8 +39,8 @@ async def jackett_login(host: str, port: int, admin_password: str) -> str | None
     Returns:
         Session cookie string if successful, None otherwise
     """
-    login_url = f"http://{host}:{port}/UI/Login"
-    dashboard_url = f"http://{host}:{port}/UI/Dashboard"
+    login_url = build_service_url(host, port, "/UI/Login")
+    dashboard_url = build_service_url(host, port, "/UI/Dashboard")
 
     try:
         # Create cookie jar with unsafe=True to allow cookies for non-secure HTTP domains
@@ -48,7 +50,7 @@ async def jackett_login(host: str, port: int, admin_password: str) -> str | None
             # Step 1: GET /UI/Login to receive TestCookie and Jackett session cookie
             async with session.get(login_url, allow_redirects=True, timeout=_TIMEOUT) as response:
                 # Get all cookies after visiting login page
-                cookies = session.cookie_jar.filter_cookies(URL(f"http://{host}:{port}"))
+                cookies = session.cookie_jar.filter_cookies(URL(build_service_url(host, port)))
 
                 # Check for required cookies
                 has_test_cookie = any(cookie.key == "TestCookie" for cookie in cookies.values())
@@ -72,7 +74,7 @@ async def jackett_login(host: str, port: int, admin_password: str) -> str | None
                     dashboard_url, data=form_data, allow_redirects=True, timeout=_TIMEOUT
                 ) as response:
                     # Get all cookies after authentication
-                    cookies = session.cookie_jar.filter_cookies(URL(f"http://{host}:{port}"))
+                    cookies = session.cookie_jar.filter_cookies(URL(build_service_url(host, port)))
 
                     # Check for Jackett auth cookie
                     has_jackett_cookie = any(cookie.key == "Jackett" for cookie in cookies.values())
@@ -98,7 +100,7 @@ async def jackett_login(host: str, port: int, admin_password: str) -> str | None
                     return None
 
             # Should not reach here, but return cookies we have
-            cookies = session.cookie_jar.filter_cookies(URL(f"http://{host}:{port}"))
+            cookies = session.cookie_jar.filter_cookies(URL(build_service_url(host, port)))
             if cookies:
                 return "; ".join([f"{k}={v.value}" for k, v in cookies.items()])
 
@@ -135,7 +137,7 @@ async def test_jackett_connection(
             }
 
         # Test API access
-        url = f"http://{host}:{port}/api/v2.0/indexers"
+        url = build_service_url(host, port, "/api/v2.0/indexers")
         headers = {"X-Api-Key": api_key}
         if session_cookie:
             headers["Cookie"] = session_cookie
@@ -205,7 +207,7 @@ async def get_indexer_config(
     Returns:
         List of config fields if successful, None otherwise
     """
-    url = f"http://{host}:{port}/api/v2.0/indexers/{indexer_name}/config"
+    url = build_service_url(host, port, f"/api/v2.0/indexers/{indexer_name}/config")
     headers = {"X-Api-Key": api_key}
     if session_cookie:
         headers["Cookie"] = session_cookie
@@ -253,7 +255,7 @@ async def update_indexer_config(
     Returns:
         True if successful, False otherwise
     """
-    url = f"http://{host}:{port}/api/v2.0/indexers/{indexer_name}/config"
+    url = build_service_url(host, port, f"/api/v2.0/indexers/{indexer_name}/config")
     headers = {
         "X-Api-Key": api_key,
         "Content-Type": "application/json",

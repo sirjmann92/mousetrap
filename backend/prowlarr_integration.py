@@ -12,13 +12,15 @@ from typing import Any
 
 import aiohttp
 
+from backend.url_builder import build_service_url
+
 _logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 
 async def test_prowlarr_connection(host: str, port: int, api_key: str) -> dict[str, Any]:
     """Test connection to Prowlarr and return indexer count."""
-    url = f"http://{host}:{port}/api/v1/indexer"
+    url = build_service_url(host, port, "/api/v1/indexer")
     headers = {"X-Api-Key": api_key}
 
     try:
@@ -60,7 +62,7 @@ async def find_mam_indexer_id(host: str, port: int, api_key: str) -> dict[str, A
             - indexer_id: int (if found)
             - message: str
     """
-    url = f"http://{host}:{port}/api/v1/indexer"
+    url = build_service_url(host, port, "/api/v1/indexer")
     headers = {"X-Api-Key": api_key}
 
     try:
@@ -114,7 +116,7 @@ async def get_indexer_config(host: str, port: int, api_key: str, indexer_id: int
             - config: dict (if successful)
             - message: str
     """
-    url = f"http://{host}:{port}/api/v1/indexer/{indexer_id}"
+    url = build_service_url(host, port, f"/api/v1/indexer/{indexer_id}")
     headers = {"X-Api-Key": api_key}
 
     try:
@@ -189,7 +191,7 @@ async def update_mam_id_in_prowlarr(
         }
 
     # Step 3: PUT updated config
-    url = f"http://{host}:{port}/api/v1/indexer/{indexer_id}"
+    url = build_service_url(host, port, f"/api/v1/indexer/{indexer_id}")
     headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
 
     try:
