@@ -17,7 +17,6 @@ from typing import Any
 import aiohttp
 
 from backend.url_builder import build_service_url
-
 from backend.utils import handle_http_error
 
 _logger = logging.getLogger(__name__)

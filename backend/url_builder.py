@@ -16,14 +16,18 @@ def build_service_url(host: str, port: int | str | None, path: str = "") -> str:
     Otherwise, https is inferred for port 443 and http for all other ports.
     """
     host = (host or "").strip().rstrip("/")
+    if not host:
+        raise ValueError("Host is required")
+
     parsed = urlparse(host)
 
     if parsed.scheme in {"http", "https"}:
         base = host
-        if port and parsed.port is None and int(port) not in {80, 443}:
-            base = f"{base}:{int(port)}"
     else:
-        port_int = int(port or 80)
+        if port is None or str(port).strip() == "":
+            raise ValueError("Port is required when host does not include a scheme")
+
+        port_int = int(port)
         scheme = "https" if port_int == 443 else "http"
         base = f"{scheme}://{host}:{port_int}"
 
