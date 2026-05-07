@@ -46,8 +46,8 @@ In your MouseTrap session configuration:
    - Toggle "Enable Prowlarr Integration" switch
    
 2. **Enter Prowlarr Details**:
-   - **Host**: IP or hostname (e.g., `192.168.1.100` or `prowlarr.local`)
-   - **Port**: Prowlarr port (default: `9696`)
+   - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100`, `prowlarr.local`, or `prowlarr.example.com`). For HTTPS reverse proxies use port `443`.
+   - **Port**: Prowlarr port (default: `9696`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your Prowlarr API key from Settings → General
 
 3. **Test Connection**:

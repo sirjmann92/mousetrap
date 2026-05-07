@@ -328,7 +328,7 @@ export default function IndexerIntegrations({
               <>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
-                    helperText="Prowlarr hostname or IP"
+                    helperText="Hostname or IP only (e.g. localhost or prowlarr.example.com)"
                     label="Prowlarr Host"
                     onChange={(e) => handleProwlarrChange('host', e.target.value)}
                     placeholder="localhost"
@@ -448,7 +448,7 @@ export default function IndexerIntegrations({
               <>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
-                    helperText="Chaptarr hostname or IP"
+                    helperText="Hostname or IP only (e.g. localhost or chaptarr.example.com)"
                     label="Chaptarr Host"
                     onChange={(e) => handleChaptarrChange('host', e.target.value)}
                     placeholder="localhost"
@@ -559,7 +559,7 @@ export default function IndexerIntegrations({
               <>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
-                    helperText="Jackett hostname or IP"
+                    helperText="Hostname or IP only (e.g. localhost or jackett.example.com)"
                     label="Jackett Host"
                     onChange={(e) => handleJackettChange('host', e.target.value)}
                     placeholder="localhost"
@@ -680,7 +680,7 @@ export default function IndexerIntegrations({
               <>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
-                    helperText="AudioBookRequest hostname or IP"
+                    helperText="Hostname or IP only (e.g. localhost or abr.example.com)"
                     label="AudioBookRequest Host"
                     onChange={(e) => handleAudiobookrequestChange('host', e.target.value)}
                     placeholder="localhost"
@@ -698,7 +698,7 @@ export default function IndexerIntegrations({
                         Number.parseInt(e.target.value, 10) || 3000,
                       )
                     }
-                    placeholder="3000"
+                    placeholder="8000"
                     required
                     size="small"
                     sx={{ width: 120 }}
@@ -792,7 +792,7 @@ export default function IndexerIntegrations({
               <>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
-                    helperText="Autobrr hostname or IP"
+                    helperText="Hostname or IP only (e.g. localhost or autobrr.example.com)"
                     label="Autobrr Host"
                     onChange={(e) => handleAutobrrChange('host', e.target.value)}
                     placeholder="localhost"

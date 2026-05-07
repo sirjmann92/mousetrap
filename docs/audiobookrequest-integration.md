@@ -34,8 +34,8 @@ AudioBookRequest is an audiobook request and management system. This integration
 2. Expand the **Indexer Integrations** section
 3. Enable **AudioBookRequest Integration**
 4. Fill in the following fields:
-   - **Host**: AudioBookRequest hostname or IP (e.g., `localhost`)
-   - **Port**: AudioBookRequest port (default: `8000`)
+   - **Host**: AudioBookRequest hostname or IP only (e.g., `localhost`). Do not include `http://` or a port. For HTTPS reverse proxies use port `443`.
+   - **Port**: AudioBookRequest port (default: `8000`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your AudioBookRequest API key
 5. Click **TEST** to verify connectivity
 6. Enable **Auto-update AudioBookRequest on Save** if desired

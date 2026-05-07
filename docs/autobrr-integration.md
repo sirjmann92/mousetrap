@@ -34,8 +34,8 @@ Autobrr is an automation tool for torrents and Usenet that monitors IRC announce
 2. Expand the **Indexer Integrations** section
 3. Enable **Autobrr Integration**
 4. Fill in the following fields:
-   - **Host**: Autobrr hostname or IP (e.g., `localhost`)
-   - **Port**: Autobrr port (default: `7474`)
+   - **Host**: Autobrr hostname or IP only (e.g., `localhost`). Do not include `http://` or a port. For HTTPS reverse proxies use port `443`.
+   - **Port**: Autobrr port (default: `7474`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your Autobrr API key
 5. Click **TEST** to verify connectivity
 6. Enable **Auto-update Autobrr on Save** if desired

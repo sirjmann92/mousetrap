@@ -69,8 +69,8 @@ In your MouseTrap session configuration:
    - Toggle "Enable Prowlarr Integration" switch
    
 2. **Enter Prowlarr Details**:
-   - **Host**: IP or hostname (e.g., `192.168.1.100` or `prowlarr.local`)
-   - **Port**: Prowlarr port (default: `9696`)
+   - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100`, `prowlarr.local`, or `prowlarr.example.com`). For HTTPS reverse proxies use port `443`.
+   - **Port**: Prowlarr port (default: `9696`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your Prowlarr API key from Settings → General
 
 3. **Test Connection**:
@@ -89,8 +89,8 @@ In the same session configuration (below Prowlarr):
    - Toggle "Enable Chaptarr Integration" switch
    
 2. **Enter Chaptarr Details**:
-   - **Host**: IP or hostname (e.g., `192.168.1.100` or `chaptarr.local`)
-   - **Port**: Chaptarr port (default: `8789`)
+   - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100`, `chaptarr.local`, or `chaptarr.example.com`). For HTTPS reverse proxies use port `443`.
+   - **Port**: Chaptarr port (default: `8789`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your Chaptarr API key from Settings → General → Security
 
 3. **Test Connection**:
@@ -107,8 +107,8 @@ In the same session configuration (below Prowlarr):
    - Toggle "Enable Jackett Integration" switch
    
 2. **Enter Jackett Details**:
-   - **Host**: IP or hostname (e.g., `192.168.1.100` or `jackett.local`)
-   - **Port**: Jackett port (default: `9117`)
+   - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100`, `jackett.local`, or `jackett.example.com`). For HTTPS reverse proxies use port `443`.
+   - **Port**: Jackett port (default: `9117`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your Jackett API key (top-right corner)
    - **Admin Password**: Optional, only if Jackett has admin password protection
 
@@ -126,8 +126,8 @@ In the same session configuration (below Prowlarr):
    - Toggle "Enable AudioBookRequest Integration" switch
    
 2. **Enter AudioBookRequest Details**:
-   - **Host**: IP or hostname (e.g., `192.168.1.100` or `localhost`)
-   - **Port**: AudioBookRequest port (default: `8000`)
+   - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100` or `localhost`). For HTTPS reverse proxies use port `443`.
+   - **Port**: AudioBookRequest port (default: `8000`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your AudioBookRequest API key (Settings → Account → API Keys)
 
 3. **Test Connection**:
@@ -144,8 +144,8 @@ In the same session configuration (below Prowlarr):
    - Toggle "Enable Autobrr Integration" switch
    
 2. **Enter Autobrr Details**:
-   - **Host**: IP or hostname (e.g., `192.168.1.100` or `localhost`)
-   - **Port**: Autobrr port (default: `7474`)
+   - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100` or `localhost`). For HTTPS reverse proxies use port `443`.
+   - **Port**: Autobrr port (default: `7474`; use `443` for HTTPS reverse proxy)
    - **API Key**: Your Autobrr API key (Settings → API Keys)
 
 3. **Test Connection**:

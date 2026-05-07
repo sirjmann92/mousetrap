@@ -174,7 +174,7 @@ export default function ProwlarrConfig({
             <>
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <TextField
-                  helperText="Prowlarr hostname or IP"
+                  helperText="Hostname or IP only (e.g. localhost or prowlarr.example.com)"
                   label="Prowlarr Host"
                   onChange={(e) => handleChange('host', e.target.value)}
                   placeholder="localhost"
