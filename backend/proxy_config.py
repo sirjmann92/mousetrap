@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 
 from backend.config import CONFIG_DIR
+from backend.yaml_store import load_yaml_file, write_yaml_file
 
 PROXIES_PATH = CONFIG_DIR / "proxies.yaml"
 _LOCK = threading.Lock()
@@ -89,8 +90,8 @@ def load_proxies() -> dict[str, Any]:
     exist or is empty. The _LOCK is used to synchronize file access.
     """
     try:
-        with _LOCK, Path(PROXIES_PATH).open(encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
+        with _LOCK:
+            return load_yaml_file(Path(PROXIES_PATH), {})
     except FileNotFoundError:
         return {}
     except yaml.YAMLError as e:
@@ -105,5 +106,5 @@ def save_proxies(proxies: dict[str, Any]) -> None:
     the _LOCK to synchronize concurrent access.
     """
     Path(PROXIES_PATH).parent.mkdir(parents=True, exist_ok=True)
-    with _LOCK, Path(PROXIES_PATH).open("w", encoding="utf-8") as f:
-        yaml.safe_dump(proxies, f)
+    with _LOCK:
+        write_yaml_file(Path(PROXIES_PATH), proxies)

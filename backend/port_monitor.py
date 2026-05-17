@@ -15,11 +15,10 @@ import threading
 import time
 from typing import Any
 
-import yaml
-
 from backend.config import CONFIG_DIR
 from backend.event_log import append_ui_event_log
 from backend.notifications_backend import notify_event
+from backend.yaml_store import load_yaml_file, write_yaml_file
 
 try:
     import docker
@@ -128,8 +127,7 @@ class PortMonitorStackManager:
             _logger.info("[PortMonitor] No config found at %s", PORT_MONITOR_CONFIG_PATH)
             return
         try:
-            with PORT_MONITOR_CONFIG_PATH.open(encoding="utf-8") as f:
-                data = yaml.safe_load(f) or []
+            data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [])
             seen = set()
             unique_stacks = []
             for d in data:
@@ -164,22 +162,21 @@ class PortMonitorStackManager:
         Errors during writing are logged but not raised to the caller.
         """
         try:
-            with PORT_MONITOR_CONFIG_PATH.open("w", encoding="utf-8") as f:
-                yaml.safe_dump(
-                    [
-                        {
-                            "name": s.name,
-                            "primary_container": s.primary_container,
-                            "primary_port": s.primary_port,
-                            "secondary_containers": s.secondary_containers,
-                            "interval": getattr(s, "interval", 60),
-                            "public_ip": getattr(s, "public_ip", None),
-                            "public_ip_detected": getattr(s, "public_ip_detected", None),
-                        }
-                        for s in self.stacks
-                    ],
-                    f,
-                )
+            write_yaml_file(
+                PORT_MONITOR_CONFIG_PATH,
+                [
+                    {
+                        "name": s.name,
+                        "primary_container": s.primary_container,
+                        "primary_port": s.primary_port,
+                        "secondary_containers": s.secondary_containers,
+                        "interval": getattr(s, "interval", 60),
+                        "public_ip": getattr(s, "public_ip", None),
+                        "public_ip_detected": getattr(s, "public_ip_detected", None),
+                    }
+                    for s in self.stacks
+                ],
+            )
         except Exception as e:
             _logger.error("[PortMonitorStack] Failed to save stacks: %s", e)
 

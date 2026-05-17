@@ -1033,7 +1033,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     mam_seen_asn = str(mam_seen.get("ASN")) if mam_seen.get("ASN") is not None else None
     mam_seen_as = mam_seen.get("AS")
     tz_env = os.environ.get("TZ")
-    timezone_used = tz_env if tz_env else "UTC"
+    timezone_used = tz_env or "UTC"
     now = datetime.now(UTC)
     # Remove timer persistence: do not use session file for last_check_time
     cache = session_status_cache.get(label, {})

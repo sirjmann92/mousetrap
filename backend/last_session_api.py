@@ -10,7 +10,8 @@ Persistence is a simple YAML file located at `LAST_SESSION_FILE`.
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
-import yaml
+
+from backend.yaml_store import load_yaml_file, write_yaml_file
 
 from backend.config import CONFIG_DIR
 
@@ -24,11 +25,8 @@ def read_last_session() -> str | None:
     Returns:
         The saved label string, or None if the file does not exist or is malformed.
     """
-    if not LAST_SESSION_FILE.exists():
-        return None
-    with LAST_SESSION_FILE.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f)
-        return data.get("label") if isinstance(data, dict) else None
+    data = load_yaml_file(LAST_SESSION_FILE, {})
+    return data.get("label") if isinstance(data, dict) else None
 
 
 def write_last_session(label: str | None) -> None:
@@ -38,8 +36,7 @@ def write_last_session(label: str | None) -> None:
         label: The session label to persist.
     """
     LAST_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with LAST_SESSION_FILE.open("w", encoding="utf-8") as f:
-        yaml.safe_dump({"label": label if label else ""}, f)
+    write_yaml_file(LAST_SESSION_FILE, {"label": label or ""})
 
 
 @router.get("/last_session")

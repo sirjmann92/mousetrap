@@ -10,7 +10,7 @@ from pathlib import Path
 import threading
 from typing import Any
 
-import yaml
+from backend.yaml_store import load_yaml_file, write_yaml_file
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
@@ -70,8 +70,8 @@ def load_session(label: str) -> dict[str, Any]:
     if not path.exists():
         cfg = get_default_config(label)
     else:
-        with _LOCK, path.open(encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or get_default_config(label)
+        with _LOCK:
+            cfg = load_yaml_file(path, get_default_config(label))
     # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault("perk_automation", {})
     # Upload Credit Automation defaults
@@ -167,8 +167,8 @@ def save_session(cfg: dict, old_label: str | None = None) -> None:
     # No encryption: just save password as-is
     if "browser_cookie" not in cfg:
         cfg["browser_cookie"] = ""
-    with _LOCK, path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f)
+    with _LOCK:
+        write_yaml_file(path, cfg)
 
 
 def get_default_config(label: str | None = None) -> dict[str, Any]:
@@ -202,15 +202,15 @@ def load_config() -> dict[str, Any]:
     # Load default config.yaml for defaults only
     if not CONFIG_PATH.exists():
         return get_default_config()
-    with _LOCK, CONFIG_PATH.open(encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or get_default_config()
-        if "mam_ip" not in cfg:
-            cfg["mam_ip"] = ""
-        if "last_check_time" not in cfg:
-            cfg["last_check_time"] = None
-        if "label" not in cfg:
-            cfg["label"] = ""
-        return cfg
+    with _LOCK:
+        cfg = load_yaml_file(CONFIG_PATH, get_default_config())
+    if "mam_ip" not in cfg:
+        cfg["mam_ip"] = ""
+    if "last_check_time" not in cfg:
+        cfg["last_check_time"] = None
+    if "label" not in cfg:
+        cfg["label"] = ""
+    return cfg
 
 
 def save_config(cfg: dict[str, Any]) -> None:
@@ -221,8 +221,8 @@ def save_config(cfg: dict[str, Any]) -> None:
     # Save to config.yaml (for defaults)
     config_dir = CONFIG_PATH.parent
     config_dir.mkdir(parents=True, exist_ok=True)
-    with _LOCK, CONFIG_PATH.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f)
+    with _LOCK:
+        write_yaml_file(CONFIG_PATH, cfg)
 
 
 def delete_session(label: str) -> None:
