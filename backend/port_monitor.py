@@ -122,10 +122,6 @@ class PortMonitorStackManager:
         parse or IO errors are caught and logged; in that case the stacks
         list will be empty.
         """
-        if not Path(PORT_MONITOR_CONFIG_PATH).exists():
-            self.stacks = []
-            _logger.info("[PortMonitor] No config found at %s", PORT_MONITOR_CONFIG_PATH)
-            return
         try:
             data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [])
             seen = set()

@@ -52,7 +52,7 @@ def load_yaml_file(path: Path, default: Any) -> Any:
     try:
         data = _read_yaml_file(path)
     except FileNotFoundError:
-        return default
+        _logger.warning("[ConfigStore] YAML file missing at %s; attempting backup recovery", path)
     except yaml.YAMLError as err:
         _logger.warning("[ConfigStore] Malformed YAML at %s: %s", path, err)
     else:
@@ -75,7 +75,10 @@ def load_yaml_file(path: Path, default: Any) -> Any:
         return default
 
     _logger.warning("[ConfigStore] Recovered %s from backup %s", path, backup)
-    write_yaml_file(path, backup_data)
+    try:
+        write_yaml_file(path, backup_data)
+    except (OSError, yaml.YAMLError) as err:
+        _logger.error("[ConfigStore] Recovery write failed for %s: %s", path, err)
     return backup_data
 
 
@@ -102,7 +105,33 @@ def write_yaml_file(path: Path, data: Any) -> None:
 
         temp_path.replace(path)
         _fsync_directory(path.parent)
-        shutil.copy2(path, backup_path(path))
+        _atomic_copy(path, backup_path(path))
+    finally:
+        if temp_path.exists():
+            temp_path.unlink()
+
+
+def _atomic_copy(src: Path, dst: Path) -> None:
+    """Copy one file to another through an atomic replacement.
+
+    Args:
+        src: Source file to copy.
+        dst: Destination file to replace atomically.
+    """
+    fd, temp_name = tempfile.mkstemp(
+        dir=str(dst.parent),
+        prefix=f".{dst.name}.",
+        suffix=".tmp",
+    )
+    temp_path = Path(temp_name)
+    try:
+        with os.fdopen(fd, "wb") as out_file, src.open("rb") as in_file:
+            shutil.copyfileobj(in_file, out_file)
+            out_file.flush()
+            os.fsync(out_file.fileno())
+
+        temp_path.replace(dst)
+        _fsync_directory(dst.parent)
     finally:
         if temp_path.exists():
             temp_path.unlink()

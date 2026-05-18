@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 
 from backend import config
 from backend.yaml_store import backup_path
@@ -50,7 +51,8 @@ def test_load_session_recovers_from_empty_file_backup(temp_config_paths: Path) -
     assert loaded["mam"]["mam_id"] == "secret-cookie"
     assert loaded["proxy"]["label"] == "VPN"
     assert loaded["prowlarr"]["enabled"] is True
-    assert "mam_id: secret-cookie" in path.read_text(encoding="utf-8")
+    persisted = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    assert persisted.get("mam", {}).get("mam_id") == "secret-cookie"
 
 
 def test_load_session_recovers_from_malformed_file_backup(temp_config_paths: Path) -> None:
