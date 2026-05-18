@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 import yaml
 
+from backend import yaml_store
 from backend.yaml_store import backup_path, load_yaml_file, write_yaml_file
 
 
@@ -18,6 +19,28 @@ def test_write_yaml_file_creates_backup(tmp_path: Path) -> None:
 
     assert yaml.safe_load(path.read_text(encoding="utf-8")) == data
     assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == data
+
+
+def test_write_yaml_file_succeeds_when_backup_refresh_fails(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Keep the primary write successful when refreshing the backup fails."""
+    path = tmp_path / "settings.yaml"
+    old_backup_data = {"label": "old"}
+    new_data = {"label": "new"}
+    backup_path(path).write_text(yaml.safe_dump(old_backup_data), encoding="utf-8")
+
+    def fail_atomic_copy(src: Path, dst: Path) -> None:
+        """Simulate an OS failure while refreshing the backup file."""
+        raise OSError("simulated backup refresh failure")
+
+    monkeypatch.setattr(yaml_store, "_atomic_copy", fail_atomic_copy)
+
+    write_yaml_file(path, new_data)
+
+    assert yaml.safe_load(path.read_text(encoding="utf-8")) == new_data
+    assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == old_backup_data
 
 
 def test_load_yaml_file_uses_default_without_file(tmp_path: Path) -> None:

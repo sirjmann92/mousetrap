@@ -105,7 +105,10 @@ def write_yaml_file(path: Path, data: Any) -> None:
 
         temp_path.replace(path)
         _fsync_directory(path.parent)
-        _atomic_copy(path, backup_path(path))
+        try:
+            _atomic_copy(path, backup_path(path))
+        except OSError as err:
+            _logger.warning("[ConfigStore] Backup refresh failed for %s: %s", path, err)
     finally:
         if temp_path.exists():
             temp_path.unlink()
