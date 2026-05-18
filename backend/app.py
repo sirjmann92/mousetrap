@@ -1072,10 +1072,12 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         # Persist refreshed cookie immediately so the reload below picks it up
         _refreshed_mam_id = mam_status.pop("updated_mam_id", None)
         if _refreshed_mam_id and _refreshed_mam_id != mam_id:
+            _prev_mam_id = mam_id
             mam_id = _refreshed_mam_id
             cfg["mam"]["mam_id"] = _refreshed_mam_id
             save_session(cfg, old_label=label)
             _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
+            await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
         if "proxy_error" not in mam_status and "proxy_error" in locals() and proxy_error:
             mam_status["proxy_error"] = proxy_error
         mam_status["configured_ip"] = ip_to_use
@@ -1361,6 +1363,190 @@ def api_load_session(label: str) -> dict[str, Any]:
     return cfg
 
 
+async def _sync_integrations_if_mam_id_changed(
+    cfg: dict[str, Any], label: str, new_mam_id: str | None, prev_mam_id: str | None
+) -> None:
+    """Push updated mam_id to all enabled integrations when it has changed."""
+    prowlarr_cfg = cfg.get("prowlarr", {})
+    chaptarr_cfg = cfg.get("chaptarr", {})
+    jackett_cfg = cfg.get("jackett", {})
+    audiobookrequest_cfg = cfg.get("audiobookrequest", {})
+    autobrr_cfg = cfg.get("autobrr", {})
+
+    prowlarr_enabled = prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save")
+    chaptarr_enabled = chaptarr_cfg.get("enabled") and chaptarr_cfg.get("auto_update_on_save")
+    jackett_enabled = jackett_cfg.get("enabled") and jackett_cfg.get("auto_update_on_save")
+    audiobookrequest_enabled = audiobookrequest_cfg.get("enabled") and audiobookrequest_cfg.get(
+        "auto_update_on_save"
+    )
+    autobrr_enabled = autobrr_cfg.get("enabled") and autobrr_cfg.get("auto_update_on_save")
+
+    if not (
+        (
+            prowlarr_enabled
+            or chaptarr_enabled
+            or jackett_enabled
+            or audiobookrequest_enabled
+            or autobrr_enabled
+        )
+        and new_mam_id
+        and new_mam_id != prev_mam_id
+    ):
+        if new_mam_id == prev_mam_id:
+            _logger.debug(
+                "[Indexers] Auto-update skipped for session '%s' (MAM ID unchanged: %s)",
+                label,
+                new_mam_id,
+            )
+        else:
+            _logger.debug(
+                "[Indexers] Auto-update skipped for session '%s' (no MAM ID provided or unchanged)",
+                label,
+            )
+        return
+
+    updated_services = []
+    failed_services = []
+
+    # Update Prowlarr if enabled
+    if prowlarr_enabled:
+        try:
+            _logger.info(
+                "[Prowlarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                label,
+                prev_mam_id,
+                new_mam_id,
+            )
+            result = await sync_mam_id_to_prowlarr(cfg, new_mam_id)
+            if result.get("success"):
+                _logger.info("[Prowlarr] Auto-update successful: %s", result.get("message"))
+                updated_services.append("Prowlarr")
+            else:
+                _logger.warning("[Prowlarr] Auto-update failed: %s", result.get("message"))
+                failed_services.append(f"Prowlarr ({result.get('message')})")
+        except Exception as e:
+            _logger.error("[Prowlarr] Auto-update error for session '%s': %s", label, e)
+            failed_services.append(f"Prowlarr ({e!s})")
+
+    # Update Chaptarr if enabled
+    if chaptarr_enabled:
+        try:
+            _logger.info(
+                "[Chaptarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                label,
+                prev_mam_id,
+                new_mam_id,
+            )
+            result = await sync_mam_id_to_chaptarr(cfg, new_mam_id)
+            if result.get("success"):
+                _logger.info("[Chaptarr] Auto-update successful: %s", result.get("message"))
+                updated_services.append("Chaptarr")
+            else:
+                _logger.warning("[Chaptarr] Auto-update failed: %s", result.get("message"))
+                failed_services.append(f"Chaptarr ({result.get('message')})")
+        except Exception as e:
+            _logger.error("[Chaptarr] Auto-update error for session '%s': %s", label, e)
+            failed_services.append(f"Chaptarr ({e!s})")
+
+    # Update Jackett if enabled
+    if jackett_enabled:
+        try:
+            _logger.info(
+                "[Jackett] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                label,
+                prev_mam_id,
+                new_mam_id,
+            )
+            host = jackett_cfg.get("host", "").strip()
+            port = jackett_cfg.get("port", 9117)
+            api_key = jackett_cfg.get("api_key", "").strip()
+            admin_password = jackett_cfg.get("admin_password", "").strip()
+            result = await sync_mam_id_to_jackett(host, port, api_key, admin_password, new_mam_id)
+            if result.get("success"):
+                _logger.info("[Jackett] Auto-update successful: %s", result.get("message"))
+                updated_services.append("Jackett")
+            else:
+                error_msg = result.get("error", "Unknown error")
+                _logger.warning("[Jackett] Auto-update failed: %s", error_msg)
+                failed_services.append(f"Jackett ({error_msg})")
+        except Exception as e:
+            _logger.error("[Jackett] Auto-update error for session '%s': %s", label, e)
+            failed_services.append(f"Jackett ({e!s})")
+
+    # Update AudioBookRequest if enabled
+    if audiobookrequest_enabled:
+        try:
+            _logger.info(
+                "[AudioBookRequest] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                label,
+                prev_mam_id,
+                new_mam_id,
+            )
+            host = audiobookrequest_cfg.get("host", "").strip()
+            port = audiobookrequest_cfg.get("port", 3000)
+            api_key = audiobookrequest_cfg.get("api_key", "").strip()
+            result = await sync_mam_id_to_audiobookrequest(host, port, api_key, new_mam_id)
+            if result.get("success"):
+                _logger.info("[AudioBookRequest] Auto-update successful: %s", result.get("message"))
+                updated_services.append("AudioBookRequest")
+            else:
+                error_msg = result.get("error", "Unknown error")
+                _logger.warning("[AudioBookRequest] Auto-update failed: %s", error_msg)
+                failed_services.append(f"AudioBookRequest ({error_msg})")
+        except Exception as e:
+            _logger.error("[AudioBookRequest] Auto-update error for session '%s': %s", label, e)
+            failed_services.append(f"AudioBookRequest ({e!s})")
+
+    # Update Autobrr if enabled
+    if autobrr_enabled:
+        try:
+            _logger.info(
+                "[Autobrr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
+                label,
+                prev_mam_id,
+                new_mam_id,
+            )
+            host = autobrr_cfg.get("host", "").strip()
+            port = autobrr_cfg.get("port", 7474)
+            api_key = autobrr_cfg.get("api_key", "").strip()
+            result = await sync_mam_id_to_autobrr(host, port, api_key, new_mam_id)
+            if result.get("success"):
+                _logger.info("[Autobrr] Auto-update successful: %s", result.get("message"))
+                updated_services.append("Autobrr")
+            else:
+                error_msg = result.get("error", "Unknown error")
+                _logger.warning("[Autobrr] Auto-update failed: %s", error_msg)
+                failed_services.append(f"Autobrr ({error_msg})")
+        except Exception as e:
+            _logger.error("[Autobrr] Auto-update error for session '%s': %s", label, e)
+            failed_services.append(f"Autobrr ({e!s})")
+
+    # Log event with detailed message
+    if updated_services:
+        status_msg = f"MAM ID synced to {', '.join(updated_services)}"
+        if failed_services:
+            status_msg += f". Failed: {', '.join(failed_services)}"
+        append_ui_event_log(
+            {
+                "event": "indexer_auto_updated",
+                "label": label,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "user_action": False,
+                "status_message": status_msg,
+            }
+        )
+    elif failed_services:
+        append_ui_event_log(
+            {
+                "event": "indexer_auto_update_failed",
+                "label": label,
+                "timestamp": datetime.now(UTC).isoformat(),
+                "user_action": False,
+                "status_message": f"Failed to sync MAM ID: {', '.join(failed_services)}",
+            }
+        )
+
+
 @app.post("/api/session/save")
 async def api_save_session(request: Request) -> dict[str, Any]:
     """Save or update a session configuration.
@@ -1484,195 +1670,10 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 "[APScheduler] Failed to manage session job for '%s' after save: %s", label, e
             )
 
-        # Auto-update Prowlarr and/or Chaptarr and/or Jackett and/or AudioBookRequest and/or Autobrr if enabled and MAM ID changed
+        # Auto-update integrations if MAM ID changed
         new_mam_id = cfg.get("mam", {}).get("mam_id")
         prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
-
-        prowlarr_cfg = cfg.get("prowlarr", {})
-        chaptarr_cfg = cfg.get("chaptarr", {})
-        jackett_cfg = cfg.get("jackett", {})
-        audiobookrequest_cfg = cfg.get("audiobookrequest", {})
-        autobrr_cfg = cfg.get("autobrr", {})
-
-        prowlarr_enabled = prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save")
-        chaptarr_enabled = chaptarr_cfg.get("enabled") and chaptarr_cfg.get("auto_update_on_save")
-        jackett_enabled = jackett_cfg.get("enabled") and jackett_cfg.get("auto_update_on_save")
-        audiobookrequest_enabled = audiobookrequest_cfg.get("enabled") and audiobookrequest_cfg.get(
-            "auto_update_on_save"
-        )
-        autobrr_enabled = autobrr_cfg.get("enabled") and autobrr_cfg.get("auto_update_on_save")
-
-        if (
-            (
-                prowlarr_enabled
-                or chaptarr_enabled
-                or jackett_enabled
-                or audiobookrequest_enabled
-                or autobrr_enabled
-            )
-            and new_mam_id
-            and new_mam_id != prev_mam_id
-        ):
-            updated_services = []
-            failed_services = []
-
-            # Update Prowlarr if enabled
-            if prowlarr_enabled:
-                try:
-                    _logger.info(
-                        "[Prowlarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                        label,
-                        prev_mam_id,
-                        new_mam_id,
-                    )
-                    result = await sync_mam_id_to_prowlarr(cfg, new_mam_id)
-                    if result.get("success"):
-                        _logger.info("[Prowlarr] Auto-update successful: %s", result.get("message"))
-                        updated_services.append("Prowlarr")
-                    else:
-                        _logger.warning("[Prowlarr] Auto-update failed: %s", result.get("message"))
-                        failed_services.append(f"Prowlarr ({result.get('message')})")
-                except Exception as e:
-                    _logger.error("[Prowlarr] Auto-update error for session '%s': %s", label, e)
-                    failed_services.append(f"Prowlarr ({e!s})")
-
-            # Update Chaptarr if enabled
-            if chaptarr_enabled:
-                try:
-                    _logger.info(
-                        "[Chaptarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                        label,
-                        prev_mam_id,
-                        new_mam_id,
-                    )
-                    result = await sync_mam_id_to_chaptarr(cfg, new_mam_id)
-                    if result.get("success"):
-                        _logger.info("[Chaptarr] Auto-update successful: %s", result.get("message"))
-                        updated_services.append("Chaptarr")
-                    else:
-                        _logger.warning("[Chaptarr] Auto-update failed: %s", result.get("message"))
-                        failed_services.append(f"Chaptarr ({result.get('message')})")
-                except Exception as e:
-                    _logger.error("[Chaptarr] Auto-update error for session '%s': %s", label, e)
-                    failed_services.append(f"Chaptarr ({e!s})")
-
-            # Update Jackett if enabled
-            if jackett_enabled:
-                try:
-                    _logger.info(
-                        "[Jackett] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                        label,
-                        prev_mam_id,
-                        new_mam_id,
-                    )
-                    host = jackett_cfg.get("host", "").strip()
-                    port = jackett_cfg.get("port", 9117)
-                    api_key = jackett_cfg.get("api_key", "").strip()
-                    admin_password = jackett_cfg.get("admin_password", "").strip()
-
-                    result = await sync_mam_id_to_jackett(
-                        host, port, api_key, admin_password, new_mam_id
-                    )
-                    if result.get("success"):
-                        _logger.info("[Jackett] Auto-update successful: %s", result.get("message"))
-                        updated_services.append("Jackett")
-                    else:
-                        error_msg = result.get("error", "Unknown error")
-                        _logger.warning("[Jackett] Auto-update failed: %s", error_msg)
-                        failed_services.append(f"Jackett ({error_msg})")
-                except Exception as e:
-                    _logger.error("[Jackett] Auto-update error for session '%s': %s", label, e)
-                    failed_services.append(f"Jackett ({e!s})")
-
-            # Update AudioBookRequest if enabled
-            if audiobookrequest_enabled:
-                try:
-                    _logger.info(
-                        "[AudioBookRequest] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                        label,
-                        prev_mam_id,
-                        new_mam_id,
-                    )
-                    host = audiobookrequest_cfg.get("host", "").strip()
-                    port = audiobookrequest_cfg.get("port", 3000)
-                    api_key = audiobookrequest_cfg.get("api_key", "").strip()
-
-                    result = await sync_mam_id_to_audiobookrequest(host, port, api_key, new_mam_id)
-                    if result.get("success"):
-                        _logger.info(
-                            "[AudioBookRequest] Auto-update successful: %s", result.get("message")
-                        )
-                        updated_services.append("AudioBookRequest")
-                    else:
-                        error_msg = result.get("error", "Unknown error")
-                        _logger.warning("[AudioBookRequest] Auto-update failed: %s", error_msg)
-                        failed_services.append(f"AudioBookRequest ({error_msg})")
-                except Exception as e:
-                    _logger.error(
-                        "[AudioBookRequest] Auto-update error for session '%s': %s", label, e
-                    )
-                    failed_services.append(f"AudioBookRequest ({e!s})")
-
-            # Update Autobrr if enabled
-            if autobrr_enabled:
-                try:
-                    _logger.info(
-                        "[Autobrr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                        label,
-                        prev_mam_id,
-                        new_mam_id,
-                    )
-                    host = autobrr_cfg.get("host", "").strip()
-                    port = autobrr_cfg.get("port", 7474)
-                    api_key = autobrr_cfg.get("api_key", "").strip()
-
-                    result = await sync_mam_id_to_autobrr(host, port, api_key, new_mam_id)
-                    if result.get("success"):
-                        _logger.info("[Autobrr] Auto-update successful: %s", result.get("message"))
-                        updated_services.append("Autobrr")
-                    else:
-                        error_msg = result.get("error", "Unknown error")
-                        _logger.warning("[Autobrr] Auto-update failed: %s", error_msg)
-                        failed_services.append(f"Autobrr ({error_msg})")
-                except Exception as e:
-                    _logger.error("[Autobrr] Auto-update error for session '%s': %s", label, e)
-                    failed_services.append(f"Autobrr ({e!s})")
-
-            # Log event with detailed message
-            if updated_services:
-                status_msg = f"MAM ID synced to {', '.join(updated_services)}"
-                if failed_services:
-                    status_msg += f". Failed: {', '.join(failed_services)}"
-                append_ui_event_log(
-                    {
-                        "event": "indexer_auto_updated",
-                        "label": label,
-                        "timestamp": datetime.now(UTC).isoformat(),
-                        "user_action": False,
-                        "status_message": status_msg,
-                    }
-                )
-            elif failed_services:
-                append_ui_event_log(
-                    {
-                        "event": "indexer_auto_update_failed",
-                        "label": label,
-                        "timestamp": datetime.now(UTC).isoformat(),
-                        "user_action": False,
-                        "status_message": f"Failed to sync MAM ID: {', '.join(failed_services)}",
-                    }
-                )
-        elif new_mam_id == prev_mam_id:
-            _logger.debug(
-                "[Indexers] Auto-update skipped for session '%s' (MAM ID unchanged: %s)",
-                label,
-                new_mam_id,
-            )
-        else:
-            _logger.debug(
-                "[Indexers] Auto-update skipped for session '%s' (no MAM ID provided or unchanged)",
-                label,
-            )
+        await _sync_integrations_if_mam_id_changed(cfg, label, new_mam_id, prev_mam_id)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
@@ -2899,9 +2900,11 @@ async def session_check_job(label: str) -> None:
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             _refreshed_mam_id = status.pop("updated_mam_id", None)
             if _refreshed_mam_id and _refreshed_mam_id != mam_id:
+                _prev_mam_id = mam_id
                 mam_id = _refreshed_mam_id
                 cfg["mam"]["mam_id"] = _refreshed_mam_id
                 _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
+                await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # Check for increments in hit & run and unsatisfied counts before auto-update logic
