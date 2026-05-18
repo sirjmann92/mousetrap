@@ -157,6 +157,8 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
                     )
                 raise Exception(f"HTTP {resp.status}")
             text = await resp.text()
+            # Capture updated mam_id cookie if MAM rotated it (rolling session cookie)
+            updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
             try:
                 data = json.loads(text)
             except Exception as json_e:
@@ -192,6 +194,8 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
             "points": points,
             "wedge_active": wedge_active,
             "vip_active": vip_active,
+            # None when MAM did not rotate the cookie, new value when it did
+            "updated_mam_id": updated_mam_id,
             # No 'message' key unless there is an error
             "raw": data,
         }

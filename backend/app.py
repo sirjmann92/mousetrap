@@ -1069,6 +1069,13 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
             "forced_api_status" if force else "auto_api_status",
         )
         mam_status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+        # Persist refreshed cookie immediately so the reload below picks it up
+        _refreshed_mam_id = mam_status.pop("updated_mam_id", None)
+        if _refreshed_mam_id and _refreshed_mam_id != mam_id:
+            mam_id = _refreshed_mam_id
+            cfg["mam"]["mam_id"] = _refreshed_mam_id
+            save_session(cfg, old_label=label)
+            _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
         if "proxy_error" not in mam_status and "proxy_error" in locals() and proxy_error:
             mam_status["proxy_error"] = proxy_error
         mam_status["configured_ip"] = ip_to_use
@@ -2890,6 +2897,11 @@ async def session_check_job(label: str) -> None:
             match = re.search(r"(AS)?(\d+)", asn_full or "") if asn_full else None
             new_asn = match.group(2) if match else asn_full
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
+            _refreshed_mam_id = status.pop("updated_mam_id", None)
+            if _refreshed_mam_id and _refreshed_mam_id != mam_id:
+                mam_id = _refreshed_mam_id
+                cfg["mam"]["mam_id"] = _refreshed_mam_id
+                _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # Check for increments in hit & run and unsatisfied counts before auto-update logic
@@ -2923,6 +2935,8 @@ async def session_check_job(label: str) -> None:
             # Reload from disk before saving to avoid overwriting concurrent changes
             # (e.g. perk_automation settings saved while awaiting network calls above)
             fresh_cfg = load_session(label)
+            if _refreshed_mam_id:
+                fresh_cfg["mam"]["mam_id"] = _refreshed_mam_id
             fresh_cfg["last_check_time"] = now.isoformat()
             fresh_cfg["last_status"] = status
             save_session(fresh_cfg, old_label=label)
