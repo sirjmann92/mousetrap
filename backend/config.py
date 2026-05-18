@@ -10,7 +10,7 @@ from pathlib import Path
 import threading
 from typing import Any
 
-from backend.yaml_store import load_yaml_file, write_yaml_file
+from backend.yaml_store import backup_path, load_yaml_file, write_yaml_file
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
@@ -62,16 +62,13 @@ def decrypt_password(token: str) -> str:
 def load_session(label: str) -> dict[str, Any]:
     """Load a session configuration by label.
 
-    If the session file does not exist the default config is returned. The
-    returned dictionary is guaranteed to contain keys expected by the
-    application (some defaults are populated if missing).
+    If the session file does not exist the backup is tried before defaults are
+    returned. The returned dictionary is guaranteed to contain keys expected by
+    the application (some defaults are populated if missing).
     """
     path = get_session_path(label)
-    if not path.exists():
-        cfg = get_default_config(label)
-    else:
-        with _LOCK:
-            cfg = load_yaml_file(path, get_default_config(label))
+    with _LOCK:
+        cfg = load_yaml_file(path, get_default_config(label))
     # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault("perk_automation", {})
     # Upload Credit Automation defaults
@@ -196,12 +193,9 @@ def get_default_config(label: str | None = None) -> dict[str, Any]:
 def load_config() -> dict[str, Any]:
     """Load the global default configuration from CONFIG_PATH.
 
-    If the config file does not exist returns a default config. Ensures a
-    few expected keys are present before returning.
+    If the config file does not exist the backup is tried before defaults are
+    returned. Ensures a few expected keys are present before returning.
     """
-    # Load default config.yaml for defaults only
-    if not CONFIG_PATH.exists():
-        return get_default_config()
     with _LOCK:
         cfg = load_yaml_file(CONFIG_PATH, get_default_config())
     if "mam_ip" not in cfg:
@@ -226,8 +220,11 @@ def save_config(cfg: dict[str, Any]) -> None:
 
 
 def delete_session(label: str) -> None:
-    """Delete the session file for a given label if it exists."""
+    """Delete the session file and backup for a given label if they exist."""
 
     path = get_session_path(label)
     if path.exists():
         path.unlink()
+    backup = backup_path(path)
+    if backup.exists():
+        backup.unlink()
