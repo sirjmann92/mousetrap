@@ -136,3 +136,25 @@ def test_delete_session_removes_primary_and_backup(temp_config_paths: Path) -> N
 
     assert not path.exists()
     assert not backup.exists()
+
+
+def test_save_session_rename_removes_old_backup(temp_config_paths: Path) -> None:
+    """Prevent a stale backup from resurrecting a renamed session."""
+    session: dict[str, Any] = {
+        "label": "Old",
+        "mam": {
+            "mam_id": "secret-cookie",
+            "session_type": "IP Locked",
+            "ip_monitoring_mode": "manual",
+        },
+    }
+    config.save_session(session)
+    old_path = config.get_session_path("Old")
+    old_backup = backup_path(old_path)
+
+    session["label"] = "New"
+    config.save_session(session, old_label="Old")
+
+    assert not old_path.exists()
+    assert not old_backup.exists()
+    assert config.load_session("Old")["mam"]["mam_id"] == ""

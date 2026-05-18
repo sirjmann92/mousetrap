@@ -20,6 +20,7 @@ from typing import Any
 import yaml
 
 _logger = logging.getLogger(__name__)
+_EMPTY_YAML = object()
 
 
 def backup_path(path: Path) -> Path:
@@ -56,7 +57,7 @@ def load_yaml_file(path: Path, default: Any) -> Any:
     except yaml.YAMLError as err:
         _logger.warning("[ConfigStore] Malformed YAML at %s: %s", path, err)
     else:
-        if data is not None:
+        if data is not _EMPTY_YAML:
             return data
         _logger.warning("[ConfigStore] Empty YAML at %s; attempting backup recovery", path)
 
@@ -70,7 +71,7 @@ def load_yaml_file(path: Path, default: Any) -> Any:
         _logger.warning("[ConfigStore] Backup YAML is malformed at %s: %s", backup, err)
         return default
 
-    if backup_data is None:
+    if backup_data is _EMPTY_YAML:
         _logger.warning("[ConfigStore] Backup YAML is empty at %s; using defaults", backup)
         return default
 
@@ -141,16 +142,18 @@ def _atomic_copy(src: Path, dst: Path) -> None:
 
 
 def _read_yaml_file(path: Path) -> Any:
-    """Read one YAML file and return ``None`` for empty content.
+    """Read one YAML file and return a sentinel for empty content.
 
     Args:
         path: YAML path to read.
 
     Returns:
-        Parsed YAML data or ``None`` when the file is empty.
+        Parsed YAML data or an internal sentinel when the file is empty.
     """
-    with path.open(encoding="utf-8") as file_obj:
-        return yaml.safe_load(file_obj)
+    text = path.read_text(encoding="utf-8")
+    if text.strip() == "":
+        return _EMPTY_YAML
+    return yaml.safe_load(text)
 
 
 def _fsync_directory(path: Path) -> None:

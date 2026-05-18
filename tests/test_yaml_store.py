@@ -21,6 +21,15 @@ def test_write_yaml_file_creates_backup(tmp_path: Path) -> None:
     assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == data
 
 
+def test_write_yaml_file_round_trips_yaml_null(tmp_path: Path) -> None:
+    """Preserve a top-level YAML null as valid data instead of corruption."""
+    path = tmp_path / "settings.yaml"
+
+    write_yaml_file(path, None)
+
+    assert load_yaml_file(path, {"label": "default"}) is None
+
+
 def test_write_yaml_file_succeeds_when_backup_refresh_fails(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

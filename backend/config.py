@@ -159,6 +159,9 @@ def save_session(cfg: dict, old_label: str | None = None) -> None:
         old_path = get_session_path(old_label)
         if old_path.exists():
             old_path.rename(path)
+        old_backup = backup_path(old_path)
+        if old_backup.exists():
+            old_backup.unlink()
     config_dir = path.parent
     config_dir.mkdir(parents=True, exist_ok=True)
     # No encryption: just save password as-is
