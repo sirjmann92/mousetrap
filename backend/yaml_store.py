@@ -15,12 +15,15 @@ import os
 from pathlib import Path
 import shutil
 import tempfile
+import threading
 from typing import Any
 
 import yaml
 
 _logger = logging.getLogger(__name__)
 _EMPTY_YAML = object()
+_LOCK_STRIPE_COUNT = 64
+_LOCK_STRIPES = tuple(threading.RLock() for _ in range(_LOCK_STRIPE_COUNT))
 
 
 def backup_path(path: Path) -> Path:
@@ -41,6 +44,21 @@ def load_yaml_file(path: Path, default: Any) -> Any:
     Empty and malformed YAML files are treated as corrupt instead of as a valid
     empty config. This prevents a transient truncation from becoming permanent
     when the application later saves defaults back over the real settings.
+
+    Args:
+        path: YAML file to load.
+        default: Value returned when neither the main file nor backup can be
+            loaded.
+
+    Returns:
+        Parsed YAML content, backup content, or ``default``.
+    """
+    with _lock_for_path(path):
+        return _load_yaml_file_unlocked(path, default)
+
+
+def _load_yaml_file_unlocked(path: Path, default: Any) -> Any:
+    """Load YAML while the caller holds the path lock.
 
     Args:
         path: YAML file to load.
@@ -90,6 +108,17 @@ def write_yaml_file(path: Path, data: Any) -> None:
         path: Destination YAML path.
         data: YAML-serializable value to persist.
     """
+    with _lock_for_path(path):
+        _write_yaml_file_unlocked(path, data)
+
+
+def _write_yaml_file_unlocked(path: Path, data: Any) -> None:
+    """Atomically write YAML while the caller holds the path lock.
+
+    Args:
+        path: Destination YAML path.
+        data: YAML-serializable value to persist.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(
         dir=str(path.parent),
@@ -113,6 +142,19 @@ def write_yaml_file(path: Path, data: Any) -> None:
     finally:
         if temp_path.exists():
             temp_path.unlink()
+
+
+def _lock_for_path(path: Path) -> threading.RLock:
+    """Return the in-process lock for a YAML path.
+
+    Args:
+        path: YAML path to protect.
+
+    Returns:
+        Re-entrant lock shared by all operations in the same path stripe.
+    """
+    lock_key = path.resolve(strict=False)
+    return _LOCK_STRIPES[hash(lock_key) % _LOCK_STRIPE_COUNT]
 
 
 def _atomic_copy(src: Path, dst: Path) -> None:

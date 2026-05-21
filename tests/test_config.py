@@ -100,6 +100,29 @@ def test_load_session_recovers_from_missing_file_backup(temp_config_paths: Path)
     assert yaml.safe_load(path.read_text(encoding="utf-8"))["mam"]["mam_id"] == "secret-cookie"
 
 
+def test_load_session_recovers_from_backup_when_primary_missing(
+    temp_config_paths: Path,
+) -> None:
+    """Recover a session backup when the main YAML file is missing."""
+    path = config.get_session_path("Session1")
+    backup_data: dict[str, Any] = {
+        "label": "Session1",
+        "mam": {
+            "mam_id": "secret-cookie",
+            "session_type": "IP Locked",
+            "ip_monitoring_mode": "manual",
+        },
+        "browser_cookie": "secret-browser-cookie",
+    }
+    backup_path(path).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
+
+    loaded = config.load_session("Session1")
+
+    assert loaded["mam"]["mam_id"] == "secret-cookie"
+    assert loaded["browser_cookie"] == "secret-browser-cookie"
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["label"] == "Session1"
+
+
 def test_load_config_recovers_from_missing_file_backup(temp_config_paths: Path) -> None:
     """Recover global config from backup when the main YAML file is missing."""
     global_config = config.get_default_config()
@@ -118,6 +141,36 @@ def test_load_config_recovers_from_missing_file_backup(temp_config_paths: Path) 
     )
 
 
+def test_load_config_recovers_from_backup_when_primary_missing(
+    temp_config_paths: Path,
+) -> None:
+    """Recover the global config backup when the main YAML file is missing."""
+    backup_data: dict[str, Any] = {
+        "label": "Default",
+        "mam": {"mam_id": "global-secret", "session_type": "IP Locked"},
+        "mam_ip": "192.0.2.20",
+        "last_check_time": "2026-05-21T00:00:00",
+    }
+    backup_path(config.CONFIG_PATH).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
+
+    loaded = config.load_config()
+
+    assert loaded["mam"]["mam_id"] == "global-secret"
+    assert loaded["mam_ip"] == "192.0.2.20"
+    assert yaml.safe_load(config.CONFIG_PATH.read_text(encoding="utf-8"))["label"] == "Default"
+
+
+def test_list_sessions_includes_backup_only_sessions(temp_config_paths: Path) -> None:
+    """List sessions that only have a recoverable backup file."""
+    session_path = config.get_session_path("Session1")
+    backup_path(session_path).write_text(
+        yaml.safe_dump({"label": "Session1", "mam": {"mam_id": "secret-cookie"}}),
+        encoding="utf-8",
+    )
+
+    assert config.list_sessions() == ["Session1"]
+
+
 def test_delete_session_removes_primary_and_backup(temp_config_paths: Path) -> None:
     """Delete both the session YAML file and its last-known-good backup."""
     session: dict[str, Any] = {
@@ -127,6 +180,45 @@ def test_delete_session_removes_primary_and_backup(temp_config_paths: Path) -> N
             "session_type": "IP Locked",
             "ip_monitoring_mode": "manual",
         },
+    }
+    config.save_session(session)
+    path = config.get_session_path("Session1")
+    backup = backup_path(path)
+
+    config.delete_session("Session1")
+
+    assert not path.exists()
+    assert not backup.exists()
+
+
+def test_save_session_renames_existing_backup(temp_config_paths: Path) -> None:
+    """Move the backup file when a session label changes."""
+    session: dict[str, Any] = {
+        "label": "Session1",
+        "mam": {"mam_id": "secret-cookie", "session_type": "IP Locked"},
+        "browser_cookie": "secret-browser-cookie",
+    }
+    config.save_session(session)
+    old_path = config.get_session_path("Session1")
+    old_backup = backup_path(old_path)
+
+    renamed = session | {"label": "Session2"}
+    config.save_session(renamed, old_label="Session1")
+    new_path = config.get_session_path("Session2")
+    new_backup = backup_path(new_path)
+
+    assert not old_path.exists()
+    assert not old_backup.exists()
+    assert yaml.safe_load(new_path.read_text(encoding="utf-8"))["label"] == "Session2"
+    assert yaml.safe_load(new_backup.read_text(encoding="utf-8"))["label"] == "Session2"
+
+
+def test_delete_session_removes_existing_backup(temp_config_paths: Path) -> None:
+    """Remove the backup file when deleting a session."""
+    session: dict[str, Any] = {
+        "label": "Session1",
+        "mam": {"mam_id": "secret-cookie", "session_type": "IP Locked"},
+        "browser_cookie": "secret-browser-cookie",
     }
     config.save_session(session)
     path = config.get_session_path("Session1")

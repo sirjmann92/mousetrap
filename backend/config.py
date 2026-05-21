@@ -7,18 +7,17 @@ the backend to locate and manage session files.
 
 from os import environ
 from pathlib import Path
-import threading
 from typing import Any
 
 from backend.yaml_store import backup_path, load_yaml_file, write_yaml_file
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
-_LOCK = threading.Lock()
 
 
 SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
+BACKUP_SUFFIX = ".bak"
 
 
 def get_session_path(label: str) -> Path:
@@ -34,10 +33,17 @@ def list_sessions() -> list[str]:
     """Return a list of session labels present in the config directory.
 
     Scans the ``CONFIG_DIR`` for files that match the session naming
-    convention and returns the extracted labels (without prefix/suffix).
+    convention, including backup-only files, and returns the extracted labels.
     """
-    files = list(CONFIG_DIR.glob(f"{SESSION_PREFIX}*{SESSION_SUFFIX}"))
-    return [f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX)] for f in files]
+    labels = {
+        f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX)]
+        for f in CONFIG_DIR.glob(f"{SESSION_PREFIX}*{SESSION_SUFFIX}")
+    }
+    labels.update(
+        f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX + BACKUP_SUFFIX)]
+        for f in CONFIG_DIR.glob(f"{SESSION_PREFIX}*{SESSION_SUFFIX}{BACKUP_SUFFIX}")
+    )
+    return sorted(labels)
 
 
 def encrypt_password(password: str) -> str:
@@ -67,8 +73,7 @@ def load_session(label: str) -> dict[str, Any]:
     the application (some defaults are populated if missing).
     """
     path = get_session_path(label)
-    with _LOCK:
-        cfg = load_yaml_file(path, get_default_config(label))
+    cfg = load_yaml_file(path, get_default_config(label))
     # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault("perk_automation", {})
     # Upload Credit Automation defaults
@@ -158,17 +163,13 @@ def save_session(cfg: dict, old_label: str | None = None) -> None:
     if old_label and old_label != label:
         old_path = get_session_path(old_label)
         if old_path.exists():
-            old_path.rename(path)
-        old_backup = backup_path(old_path)
-        if old_backup.exists():
-            old_backup.unlink()
+            _rename_session_file_with_backup(old_path, path)
     config_dir = path.parent
     config_dir.mkdir(parents=True, exist_ok=True)
     # No encryption: just save password as-is
     if "browser_cookie" not in cfg:
         cfg["browser_cookie"] = ""
-    with _LOCK:
-        write_yaml_file(path, cfg)
+    write_yaml_file(path, cfg)
 
 
 def get_default_config(label: str | None = None) -> dict[str, Any]:
@@ -199,8 +200,7 @@ def load_config() -> dict[str, Any]:
     If the config file does not exist the backup is tried before defaults are
     returned. Ensures a few expected keys are present before returning.
     """
-    with _LOCK:
-        cfg = load_yaml_file(CONFIG_PATH, get_default_config())
+    cfg = load_yaml_file(CONFIG_PATH, get_default_config())
     if "mam_ip" not in cfg:
         cfg["mam_ip"] = ""
     if "last_check_time" not in cfg:
@@ -218,16 +218,35 @@ def save_config(cfg: dict[str, Any]) -> None:
     # Save to config.yaml (for defaults)
     config_dir = CONFIG_PATH.parent
     config_dir.mkdir(parents=True, exist_ok=True)
-    with _LOCK:
-        write_yaml_file(CONFIG_PATH, cfg)
+    write_yaml_file(CONFIG_PATH, cfg)
 
 
 def delete_session(label: str) -> None:
     """Delete the session file and backup for a given label if they exist."""
 
     path = get_session_path(label)
-    if path.exists():
-        path.unlink()
-    backup = backup_path(path)
-    if backup.exists():
-        backup.unlink()
+    _delete_session_file_with_backup(path)
+
+
+def _rename_session_file_with_backup(old_path: Path, new_path: Path) -> None:
+    """Rename a session YAML file and its last-known-good backup.
+
+    Args:
+        old_path: Current session YAML path.
+        new_path: New session YAML path.
+    """
+    old_path.rename(new_path)
+    old_backup = backup_path(old_path)
+    if old_backup.exists():
+        old_backup.replace(backup_path(new_path))
+
+
+def _delete_session_file_with_backup(path: Path) -> None:
+    """Delete a session YAML file and its last-known-good backup.
+
+    Args:
+        path: Session YAML path.
+    """
+    for candidate in (path, backup_path(path)):
+        if candidate.exists():
+            candidate.unlink()

@@ -1,6 +1,8 @@
 """Tests for atomic YAML store helpers."""
 
 from pathlib import Path
+import threading
+import time
 from typing import Any
 
 import pytest
@@ -50,6 +52,56 @@ def test_write_yaml_file_succeeds_when_backup_refresh_fails(
 
     assert yaml.safe_load(path.read_text(encoding="utf-8")) == new_data
     assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == old_backup_data
+
+
+def test_write_yaml_file_serializes_same_path_operations(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Serialize concurrent writes that target the same YAML path."""
+    path = tmp_path / "settings.yaml"
+    active_writes = 0
+    max_active_writes = 0
+    state_lock = threading.Lock()
+    start_barrier = threading.Barrier(4)
+    thread_errors: list[BaseException] = []
+
+    def slow_atomic_copy(src: Path, dst: Path) -> None:
+        """Track whether same-path writes overlap while backup refresh runs."""
+        nonlocal active_writes, max_active_writes
+        with state_lock:
+            active_writes += 1
+            max_active_writes = max(max_active_writes, active_writes)
+        time.sleep(0.05)
+        with state_lock:
+            active_writes -= 1
+
+    def write_number(value: int) -> None:
+        """Start all worker threads together, then write one YAML payload."""
+        try:
+            start_barrier.wait()
+            write_yaml_file(path, {"value": value})
+        except BaseException as err:
+            thread_errors.append(err)
+
+    monkeypatch.setattr(yaml_store, "_atomic_copy", slow_atomic_copy)
+    threads = [threading.Thread(target=write_number, args=(value,)) for value in range(4)]
+
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert thread_errors == []
+    assert max_active_writes == 1
+
+
+def test_locking_does_not_retain_per_path_lock_entries(tmp_path: Path) -> None:
+    """Avoid retaining one permanent lock entry per arbitrary YAML path."""
+    for index in range(100):
+        load_yaml_file(tmp_path / f"missing-{index}.yaml", {})
+
+    assert not hasattr(yaml_store, "_PATH_LOCKS")
 
 
 def test_load_yaml_file_uses_default_without_file(tmp_path: Path) -> None:

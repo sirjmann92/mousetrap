@@ -7,7 +7,6 @@ resolve inline proxy configs from session configuration structures.
 
 import logging
 from pathlib import Path
-import threading
 import time
 from typing import Any
 
@@ -17,7 +16,6 @@ from backend.config import CONFIG_DIR
 from backend.yaml_store import load_yaml_file, write_yaml_file
 
 PROXIES_PATH = CONFIG_DIR / "proxies.yaml"
-_LOCK = threading.Lock()
 _logger: logging.Logger = logging.getLogger(__name__)
 _last_resolve_log_time: dict[str, float] = {}
 # Minimum seconds between identical resolve debug logs per proxy label/key
@@ -87,11 +85,10 @@ def load_proxies() -> dict[str, Any]:
     """Load proxies from PROXIES_PATH.
 
     Returns a dict parsed from YAML or an empty dict if the file does not
-    exist or is empty. The _LOCK is used to synchronize file access.
+    exist or is empty.
     """
     try:
-        with _LOCK:
-            return load_yaml_file(Path(PROXIES_PATH), {})
+        return load_yaml_file(Path(PROXIES_PATH), {})
     except FileNotFoundError:
         return {}
     except yaml.YAMLError as e:
@@ -102,9 +99,7 @@ def load_proxies() -> dict[str, Any]:
 def save_proxies(proxies: dict[str, Any]) -> None:
     """Persist the given proxies mapping to PROXIES_PATH as YAML.
 
-    Ensures the parent directory exists before attempting to write. Uses
-    the _LOCK to synchronize concurrent access.
+    Ensures the parent directory exists before attempting to write.
     """
     Path(PROXIES_PATH).parent.mkdir(parents=True, exist_ok=True)
-    with _LOCK:
-        write_yaml_file(Path(PROXIES_PATH), proxies)
+    write_yaml_file(Path(PROXIES_PATH), proxies)
