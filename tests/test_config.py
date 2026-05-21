@@ -190,6 +190,7 @@ def test_delete_session_removes_primary_and_backup(temp_config_paths: Path) -> N
     assert not path.exists()
     assert not backup.exists()
 
+
 def test_save_session_renames_existing_backup(temp_config_paths: Path) -> None:
     """Move the backup file when a session label changes."""
     session: dict[str, Any] = {
