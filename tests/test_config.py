@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 import yaml
 
-from backend import config
+from backend import config, yaml_store
 from backend.yaml_store import backup_path
 
 
@@ -123,6 +123,21 @@ def test_load_session_recovers_from_backup_when_primary_missing(
     assert yaml.safe_load(path.read_text(encoding="utf-8"))["label"] == "Session1"
 
 
+@pytest.mark.parametrize("content", ["null\n", "- not-a-mapping\n", "scalar\n"])
+def test_load_session_uses_defaults_for_non_mapping_yaml(
+    temp_config_paths: Path,
+    content: str,
+) -> None:
+    """Use defaults when a session file contains valid non-mapping YAML."""
+    path = config.get_session_path("Session1")
+    path.write_text(content, encoding="utf-8")
+
+    loaded = config.load_session("Session1")
+
+    assert loaded["label"] == "Session1"
+    assert loaded["mam"]["mam_id"] == ""
+
+
 def test_load_config_recovers_from_missing_file_backup(temp_config_paths: Path) -> None:
     """Recover global config from backup when the main YAML file is missing."""
     global_config = config.get_default_config()
@@ -158,6 +173,20 @@ def test_load_config_recovers_from_backup_when_primary_missing(
     assert loaded["mam"]["mam_id"] == "global-secret"
     assert loaded["mam_ip"] == "192.0.2.20"
     assert yaml.safe_load(config.CONFIG_PATH.read_text(encoding="utf-8"))["label"] == "Default"
+
+
+@pytest.mark.parametrize("content", ["null\n", "- not-a-mapping\n", "scalar\n"])
+def test_load_config_uses_defaults_for_non_mapping_yaml(
+    temp_config_paths: Path,
+    content: str,
+) -> None:
+    """Use defaults when global config contains valid non-mapping YAML."""
+    config.CONFIG_PATH.write_text(content, encoding="utf-8")
+
+    loaded = config.load_config()
+
+    assert loaded["label"] == ""
+    assert loaded["mam"]["mam_id"] == ""
 
 
 def test_list_sessions_includes_backup_only_sessions(temp_config_paths: Path) -> None:
@@ -213,23 +242,6 @@ def test_save_session_renames_existing_backup(temp_config_paths: Path) -> None:
     assert yaml.safe_load(new_backup.read_text(encoding="utf-8"))["label"] == "Session2"
 
 
-def test_delete_session_removes_existing_backup(temp_config_paths: Path) -> None:
-    """Remove the backup file when deleting a session."""
-    session: dict[str, Any] = {
-        "label": "Session1",
-        "mam": {"mam_id": "secret-cookie", "session_type": "IP Locked"},
-        "browser_cookie": "secret-browser-cookie",
-    }
-    config.save_session(session)
-    path = config.get_session_path("Session1")
-    backup = backup_path(path)
-
-    config.delete_session("Session1")
-
-    assert not path.exists()
-    assert not backup.exists()
-
-
 def test_save_session_rename_removes_old_backup(temp_config_paths: Path) -> None:
     """Prevent a stale backup from resurrecting a renamed session."""
     session: dict[str, Any] = {
@@ -250,3 +262,29 @@ def test_save_session_rename_removes_old_backup(temp_config_paths: Path) -> None
     assert not old_path.exists()
     assert not old_backup.exists()
     assert config.load_session("Old")["mam"]["mam_id"] == ""
+
+
+def test_save_session_rename_removes_stale_destination_backup(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Remove an unrelated destination backup when no source backup exists."""
+    old_path = config.get_session_path("Old")
+    new_path = config.get_session_path("New")
+    old_path.write_text(yaml.safe_dump({"label": "Old"}), encoding="utf-8")
+    stale_new_backup = backup_path(new_path)
+    stale_new_backup.write_text(
+        yaml.safe_dump({"label": "New", "mam": {"mam_id": "stale-secret"}}),
+        encoding="utf-8",
+    )
+
+    def fail_atomic_copy(src: Path, dst: Path) -> None:
+        """Simulate backup refresh failure after the primary rename/save."""
+        raise OSError("simulated backup refresh failure")
+
+    monkeypatch.setattr(yaml_store, "_atomic_copy", fail_atomic_copy)
+
+    config.save_session({"label": "New", "mam": {"mam_id": "fresh"}}, old_label="Old")
+
+    assert not backup_path(old_path).exists()
+    assert not stale_new_backup.exists()

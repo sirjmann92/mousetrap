@@ -73,7 +73,7 @@ def load_session(label: str) -> dict[str, Any]:
     the application (some defaults are populated if missing).
     """
     path = get_session_path(label)
-    cfg = load_yaml_file(path, get_default_config(label))
+    cfg = _load_config_mapping(path, get_default_config(label))
     # --- Ensure all perk automation configs are always present and complete ---
     perk_auto = cfg.setdefault("perk_automation", {})
     # Upload Credit Automation defaults
@@ -200,7 +200,7 @@ def load_config() -> dict[str, Any]:
     If the config file does not exist the backup is tried before defaults are
     returned. Ensures a few expected keys are present before returning.
     """
-    cfg = load_yaml_file(CONFIG_PATH, get_default_config())
+    cfg = _load_config_mapping(CONFIG_PATH, get_default_config())
     if "mam_ip" not in cfg:
         cfg["mam_ip"] = ""
     if "last_check_time" not in cfg:
@@ -237,8 +237,11 @@ def _rename_session_file_with_backup(old_path: Path, new_path: Path) -> None:
     """
     old_path.rename(new_path)
     old_backup = backup_path(old_path)
+    new_backup = backup_path(new_path)
     if old_backup.exists():
-        old_backup.replace(backup_path(new_path))
+        old_backup.replace(new_backup)
+    elif new_backup.exists():
+        new_backup.unlink()
 
 
 def _delete_session_file_with_backup(path: Path) -> None:
@@ -250,3 +253,19 @@ def _delete_session_file_with_backup(path: Path) -> None:
     for candidate in (path, backup_path(path)):
         if candidate.exists():
             candidate.unlink()
+
+
+def _load_config_mapping(path: Path, default: dict[str, Any]) -> dict[str, Any]:
+    """Load a YAML config file and ensure callers receive a mapping.
+
+    Args:
+        path: YAML config path.
+        default: Default config returned for missing, corrupt, or wrong-shaped data.
+
+    Returns:
+        Parsed config mapping or ``default``.
+    """
+    cfg = load_yaml_file(path, default)
+    if not isinstance(cfg, dict):
+        return default
+    return cfg

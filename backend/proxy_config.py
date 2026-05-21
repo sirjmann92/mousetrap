@@ -88,7 +88,8 @@ def load_proxies() -> dict[str, Any]:
     exist or is empty.
     """
     try:
-        return load_yaml_file(Path(PROXIES_PATH), {})
+        proxies = load_yaml_file(Path(PROXIES_PATH), {})
+        return proxies if isinstance(proxies, dict) else {}
     except FileNotFoundError:
         return {}
     except yaml.YAMLError as e:
