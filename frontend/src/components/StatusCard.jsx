@@ -366,7 +366,7 @@ const StatusCard = forwardRef(
               </Box>
               {/* Connectable Status - only show when valid data exists */}
               {(() => {
-                if (!status || !status.details || !status.details.raw) return null;
+                if (!status?.details?.raw) return null;
                 const connectable = status.details.raw.connectable;
 
                 if (connectable === undefined || connectable === null || connectable === 'N/A')

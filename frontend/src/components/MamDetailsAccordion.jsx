@@ -9,7 +9,7 @@ import {
 } from '@mui/material';
 
 export default function MamDetailsAccordion({ status }) {
-  if (!status || !status.details || !status.details.raw) return null;
+  if (!status?.details?.raw) return null;
   const raw = status.details.raw;
   return (
     <Accordion

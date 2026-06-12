@@ -1,10 +1,11 @@
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="6" y="34" width="36" height="8" rx="2" fill="#ffd700" stroke="#2d323b" stroke-width="2"/>
-  <ellipse cx="24" cy="24" rx="12" ry="8" fill="#fff"/>
-  <ellipse cx="24" cy="20" rx="10" ry="7" fill="#444"/>
-  <circle cx="19" cy="20" r="2" fill="#fff"/>
-  <circle cx="29" cy="20" r="2" fill="#fff"/>
-  <ellipse cx="16" cy="32" rx="2" ry="1" fill="#444"/>
-  <ellipse cx="32" cy="32" rx="2" ry="1" fill="#444"/>
-  <rect x="22" y="34" width="4" height="6" rx="2" fill="#2d323b"/>
+<svg fill="none" height="48" viewBox="0 0 48 48" width="48" xmlns="http://www.w3.org/2000/svg">
+  <title>MouseTrap logo</title>
+  <rect fill="#ffd700" height="8" rx="2" stroke="#2d323b" stroke-width="2" width="36" x="6" y="34" />
+  <ellipse cx="24" cy="24" fill="#fff" rx="12" ry="8" />
+  <ellipse cx="24" cy="20" fill="#444" rx="10" ry="7" />
+  <circle cx="19" cy="20" fill="#fff" r="2" />
+  <circle cx="29" cy="20" fill="#fff" r="2" />
+  <ellipse cx="16" cy="32" fill="#444" rx="2" ry="1" />
+  <ellipse cx="32" cy="32" fill="#444" rx="2" ry="1" />
+  <rect fill="#2d323b" height="6" rx="2" width="4" x="22" y="34" />
 </svg>
