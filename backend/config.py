@@ -5,13 +5,14 @@ configuration files, a default global config, and simple helpers used by
 the backend to locate and manage session files.
 """
 
+from os import environ
 from pathlib import Path
 import threading
 from typing import Any
 
 import yaml
 
-CONFIG_DIR = Path("/config")
+CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
 _LOCK = threading.Lock()
 

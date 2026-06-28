@@ -92,6 +92,8 @@ MouseTrap offers three IP monitoring modes to suit different use cases and netwo
 | `IPINFO_TOKEN`      | ipinfo.io API token (recommended)        | None    | Improves IP detection     |
 | `IPDATA_API_KEY`    | ipdata.co API key (optional)             | test    | 1,500 requests/day free   |
 | `LOGLEVEL`          | Backend log level                        | INFO    | DEBUG, INFO, WARNING      |
+| `CONFIG_DIR`        | Settings and session state directory     | /config | Rarely changed; for non-Docker installs |
+| `LOG_DIR`           | Log and UI event log directory           | /app/logs | Rarely changed; for non-Docker installs |
 
 > **Note:** For port monitoring, either mount `/var/run/docker.sock` OR set `DOCKER_HOST` to a Docker Socket Proxy
 > 
@@ -160,6 +162,7 @@ environment:
 - Port Monitoring: `/config/port_monitoring_stacks.yaml` (auto-created/updated)
 - Logs: `/logs` (persisted outside the container)
 - Global options: `config/config.yaml` (auto-created/updated)
+- These locations can be overridden with the `CONFIG_DIR` and `LOG_DIR` environment variables (see Environment Variables).
 
 ---
 

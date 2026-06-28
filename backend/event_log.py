@@ -5,6 +5,7 @@ is used by the backend to record UI events for debugging and auditing.
 
 import json
 import logging
+from os import environ
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -12,8 +13,8 @@ from typing import Any
 from backend.utils_redact import redact_sensitive
 
 _logger: logging.Logger = logging.getLogger(__name__)
-_ui_event_log_path = Path(__file__).parent.parent / "logs" / "ui_event_log.json"
-_ui_event_log_dir = _ui_event_log_path.parent
+_ui_event_log_dir = Path(environ.get("LOG_DIR", Path(__file__).parent.parent / "logs"))
+_ui_event_log_path = _ui_event_log_dir / "ui_event_log.json"
 _ui_event_log_lock = Lock()
 
 # Expose the log path for use in app.py
