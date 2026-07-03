@@ -519,6 +519,109 @@ def api_automation_guardrails() -> dict[str, Any]:
     return result
 
 
+async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) -> bool:
+    """Send a keepalive ping to MAM's dynamicSeedbox.php to prevent session expiry.
+
+    MAM sessions expire after ~30 days of inactivity. Regular status checks via
+    jsonLoad.php may not reset this timer. This function calls dynamicSeedbox.php
+    explicitly to keep the session alive, regardless of whether the IP has changed.
+
+    A 429 (rate-limited) response is treated as success for keepalive purposes —
+    MAM received and processed the request, which is sufficient to reset the timer.
+    Any other HTTP error or network exception is treated as a failure.
+
+    On success (including 429), updates ``last_mam_keepalive`` and resets
+    ``mam_session_created_date`` in the session config so the expiry notification
+    timer reflects recent activity rather than the original creation date.
+
+    Returns True if the keepalive was sent (or rate-limited), False on error.
+    """
+    mam_id: str = cfg.get("mam", {}).get("mam_id", "")
+    if not mam_id:
+        _logger.warning("[Keepalive] label=%s No mam_id; skipping keepalive.", label)
+        return False
+
+    proxy_cfg = resolve_proxy_from_session_cfg(cfg)
+    proxies = build_proxy_dict(proxy_cfg) if proxy_cfg else None
+    proxy_url = (proxies.get("https") or proxies.get("http")) if isinstance(proxies, dict) else None
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get(
+                "https://t.myanonamouse.net/json/dynamicSeedbox.php",
+                cookies={"mam_id": mam_id},
+                proxy=proxy_url,
+            ) as resp,
+        ):
+            status_code = resp.status
+            try:
+                result = await resp.json()
+            except Exception:
+                text = await resp.text()
+                result = {"msg": text[:200]}
+
+            if status_code == 429 or (
+                isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
+            ):
+                # Rate-limited — MAM still received the request; counts as keepalive activity
+                _logger.info(
+                    "[Keepalive] label=%s Rate-limited (429) — session activity confirmed.", label
+                )
+            elif status_code == 200:
+                _logger.info(
+                    "[Keepalive] label=%s Keepalive successful (200). msg=%s",
+                    label,
+                    result.get("msg", ""),
+                )
+            else:
+                _logger.warning(
+                    "[Keepalive] label=%s Unexpected response %s: %s",
+                    label,
+                    status_code,
+                    result.get("msg", ""),
+                )
+                append_ui_event_log(
+                    {
+                        "timestamp": now.isoformat(),
+                        "label": label,
+                        "event_type": "keepalive_failure",
+                        "status_message": f"[Keepalive] Unexpected response {status_code} from MAM: {result.get('msg', '')}",
+                    }
+                )
+                return False
+
+    except Exception as e:
+        _logger.warning("[Keepalive] label=%s Network error during keepalive: %s", label, e)
+        append_ui_event_log(
+            {
+                "timestamp": now.isoformat(),
+                "label": label,
+                "event_type": "keepalive_failure",
+                "status_message": f"[Keepalive] Network error contacting MAM: {e}",
+            }
+        )
+        return False
+
+    # Update keepalive timestamp and reset the session creation date so the
+    # expiry notification timer reflects this confirmed activity.
+    try:
+        fresh_cfg = load_session(label)
+        fresh_cfg["last_mam_keepalive"] = now.isoformat()
+        fresh_cfg["mam_session_created_date"] = now.isoformat()
+        save_session(fresh_cfg, old_label=label)
+        _logger.info(
+            "[Keepalive] label=%s Updated last_mam_keepalive and reset mam_session_created_date.",
+            label,
+        )
+    except Exception as e:
+        _logger.warning("[Keepalive] label=%s Failed to save keepalive timestamp: %s", label, e)
+        # Non-fatal — the network call succeeded
+
+    return True
+
+
 async def auto_update_seedbox_if_needed(
     cfg: dict[str, Any], label: str, ip_to_use: str | None, asn: str | None, now: datetime
 ) -> tuple[bool, dict[str, Any] | None]:
@@ -2919,6 +3022,30 @@ async def session_check_job(label: str) -> None:
                 await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
+            # MAM session keepalive: call dynamicSeedbox.php every 7 days to prevent
+            # the ~30-day session expiry, independent of whether the IP has changed.
+            # Uses last_mam_keepalive if present, otherwise falls back to last_seedbox_update,
+            # so existing installs get a keepalive on their first run after this change.
+            if status.get("mam_cookie_exists"):
+                _last_keepalive_str = cfg.get("last_mam_keepalive") or cfg.get(
+                    "last_seedbox_update"
+                )
+                _needs_keepalive = True
+                if _last_keepalive_str:
+                    try:
+                        _last_keepalive_dt = datetime.fromisoformat(_last_keepalive_str)
+                        _days_since = (now - _last_keepalive_dt).days
+                        _needs_keepalive = _days_since >= 7
+                    except Exception:
+                        _needs_keepalive = True  # Unparseable date — keepalive to be safe
+                if _needs_keepalive:
+                    _logger.info(
+                        "[Keepalive] label=%s Triggering session keepalive (>= 7 days since last contact).",
+                        label,
+                    )
+                    await keepalive_mam_session(cfg, label, now)
+                    # Reload cfg so the fresh timestamps are visible to the save block below
+                    cfg = load_session(label)
             # Check for increments in hit & run and unsatisfied counts before auto-update logic
             await check_and_notify_count_increments(cfg, status, label)
             # Auto-update logic

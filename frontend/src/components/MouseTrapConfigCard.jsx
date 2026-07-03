@@ -543,7 +543,7 @@ export default function MouseTrapConfigCard({
             <Tooltip
               arrow
               placement="right"
-              title="How many days before your MAM session ID expires to send a notification reminder. MAM session IDs expire after 90 days — you'll need to manually generate a new one on the MAM security page and update your session here."
+              title="Failsafe notification threshold. MouseTrap automatically keeps your MAM session alive by pinging MAM every 7 days, which resets the 30-day expiry timer. This notification only fires if roughly 4 consecutive keepalive attempts fail (≈28+ days without a successful ping). Under normal operation you should never receive this notification — if you do, check your proxy/VPN connection."
             >
               <IconButton size="small">
                 <InfoOutlinedIcon fontSize="small" />
