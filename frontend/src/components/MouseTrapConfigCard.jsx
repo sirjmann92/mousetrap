@@ -543,7 +543,7 @@ export default function MouseTrapConfigCard({
             <Tooltip
               arrow
               placement="right"
-              title="Failsafe notification threshold. MouseTrap automatically keeps your MAM session alive by pinging MAM every 7 days, which resets the 30-day expiry timer. This notification only fires if roughly 4 consecutive keepalive attempts fail (≈28+ days without a successful ping). Under normal operation you should never receive this notification — if you do, check your proxy/VPN connection."
+              title="MouseTrap pings MAM every 7 days to reset the 30-day session expiry automatically. This is a failsafe alert — it fires only after (30 − N) consecutive days of keepalive failure, where N is this value. At the default of 7, that means 23 days of failure before you're notified. Under normal operation you should never see this notification. If you do, check your proxy/VPN connection."
             >
               <IconButton size="small">
                 <InfoOutlinedIcon fontSize="small" />
