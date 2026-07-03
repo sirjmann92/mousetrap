@@ -90,31 +90,55 @@ Delete a session configuration.
 ## Status & Monitoring
 
 ### GET `/api/status`
-Get comprehensive status for all sessions or a specific session.
+Get the current status for a specific session.
 
 **Query Parameters:**
-- `label` (optional): Specific session label
-- `force` (optional): Force fresh check (bypasses cache)
+- `label` (**required** for session data): Session label to query. If omitted, the response returns `configured: false` along with a list of available session labels.
+- `force` (optional): Set to `1` to bypass the cache and perform a fresh status check immediately.
 
-**Response:**
+**Response (configured session):**
 ```json
 {
-  "success": true,
-  "data": {
-    "session_label": "session-name",
-    "mam_id": "your_mam_id",
-    "detected_ip": "1.2.3.4",
-    "proxied_ip": null,
-    "current_asn": "AS12345",
-    "points": 50000,
-    "hnr_count": 0,
-    "inactive_unseeded": 5,
-    "inactive_unsatisfied": 2,
-    "auto_update_seedbox": "N/A",
-    "last_seedbox_update": "2025-09-04T12:00:00Z",
-    "rate_limited": false,
-    "rate_limit_reset": null
-  }
+  "configured": true,
+  "status_message": "OK",
+  "mam_id": "your_mam_id",
+  "points": 50000,
+  "mam_cookie_exists": true,
+  "wedge_active": false,
+  "vip_active": true,
+  "current_ip": "1.2.3.4",
+  "current_ip_asn": "12345",
+  "mam_session_as": "AS12345 Some ISP",
+  "mam_seen_asn": "12345",
+  "mam_seen_as": "AS12345 Some ISP",
+  "configured_ip": "1.2.3.4",
+  "configured_asn": "12345",
+  "check_freq": 15,
+  "last_check_time": "2025-09-04T12:00:00+00:00",
+  "next_check_time": "2025-09-04T12:15:00+00:00",
+  "auto_update_seedbox": null,
+  "details": {},
+  "detected_public_ip": "1.2.3.4",
+  "detected_public_ip_asn": "12345",
+  "detected_public_ip_as": "AS12345 Some ISP",
+  "proxied_public_ip": null,
+  "proxied_public_ip_asn": null,
+  "proxied_public_ip_as": null,
+  "ip_monitoring_mode": "auto"
+}
+```
+
+**Response (no label provided or label not found):**
+```json
+{
+  "configured": false,
+  "status_message": "No session label provided. Use ?label=<name>. Available sessions: [\"Primary\"]",
+  "available_sessions": ["Primary"],
+  "last_check_time": null,
+  "next_check_time": null,
+  "details": {},
+  "detected_public_ip": "1.2.3.4",
+  "detected_public_ip_asn": "12345"
 }
 ```
 

@@ -889,13 +889,25 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
 
     cfg = load_session(label) if label else None
     if cfg is None:
+        available = list_sessions()
         if label is None:
             _logger.debug("No session label provided to status endpoint.")
+            status_message = (
+                f"No session label provided. Use ?label=<name>. Available sessions: {available}"
+                if available
+                else "No sessions configured yet. Please save session details to begin."
+            )
         else:
             _logger.warning("Session '%s' not found or not configured.", label)
+            status_message = (
+                f"Session '{label}' not found. Available sessions: {available}"
+                if available
+                else f"Session '{label}' not found and no sessions are configured."
+            )
         return {
             "configured": False,
-            "status_message": "Session not configured. Please save session details to begin.",
+            "status_message": status_message,
+            "available_sessions": available,
             "last_check_time": None,
             "next_check_time": None,
             "details": {},
