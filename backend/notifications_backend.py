@@ -17,9 +17,11 @@ from typing import Any
 import aiohttp
 import yaml
 
+from backend.config import CONFIG_DIR
+
 _logger: logging.Logger = logging.getLogger(__name__)
-# Notification config (could be loaded from YAML or env)
-NOTIFY_CONFIG_PATH = os.environ.get("NOTIFY_CONFIG_PATH", "/config/notify.yaml")
+# Notification config: explicit NOTIFY_CONFIG_PATH override, else derived from CONFIG_DIR
+NOTIFY_CONFIG_PATH = os.environ.get("NOTIFY_CONFIG_PATH") or CONFIG_DIR / "notify.yaml"
 
 
 async def send_webhook_notification(url: str, payload: dict, discord: bool = False) -> bool:

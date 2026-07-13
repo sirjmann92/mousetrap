@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from backend.config import CONFIG_DIR
 from backend.event_log import append_ui_event_log
 from backend.notifications_backend import notify_event
 
@@ -27,7 +28,7 @@ except ImportError:
 
 _logger: logging.Logger = logging.getLogger(__name__)
 PORT_MONITOR_CONFIG_PATH = Path(
-    os.environ.get("PORT_MONITOR_CONFIG_PATH", "/config/port_monitoring_stacks.yaml")
+    os.environ.get("PORT_MONITOR_CONFIG_PATH") or CONFIG_DIR / "port_monitoring_stacks.yaml"
 )
 
 
