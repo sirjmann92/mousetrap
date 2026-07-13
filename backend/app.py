@@ -352,7 +352,7 @@ def check_mam_session_expiry() -> None:
 
                 # Calculate expiry (30 days from creation)
                 expiry_date = created_date + timedelta(days=30)
-                days_until_expiry = (expiry_date - datetime.now()).days
+                days_until_expiry = (expiry_date - datetime.now(UTC)).days
 
                 # Check if we should notify - use the session-level setting
                 notify_days = cfg.get("notify_before_expiry_days", 7)
@@ -2067,13 +2067,13 @@ async def api_test_expiry_notification(request: Request) -> dict[str, Any]:
                 else:
                     created_date = datetime.fromisoformat(created_date_str)
             except Exception:
-                created_date = datetime.now() - timedelta(days=25)
+                created_date = datetime.now(UTC) - timedelta(days=25)
         else:
             # Simulate a session expiring in 5 days
-            created_date = datetime.now() - timedelta(days=25)
+            created_date = datetime.now(UTC) - timedelta(days=25)
 
         expiry_date = created_date + timedelta(days=30)
-        days_until_expiry = (expiry_date - datetime.now()).days
+        days_until_expiry = (expiry_date - datetime.now(UTC)).days
 
         # Get MAM ID and redact for security
         mam_id = cfg.get("mam", {}).get("mam_id", "N/A")
