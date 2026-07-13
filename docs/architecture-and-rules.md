@@ -152,7 +152,7 @@ MouseTrap supports notifications via Email (SMTP) and Webhook (including Discord
 ## File/Directory Structure (Key Parts)
 - `backend/`: FastAPI app, automation logic, event log, config/session management
 - `frontend/`: React app, UI components, event log panel, status card
-- `logs/ui_event_log.json`: Stores all UI-visible event log entries
+- `config/mousetrap.db`: SQLite database storing all UI-visible event log entries
 - `config/`: YAML config/session files
 
 ---

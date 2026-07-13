@@ -105,8 +105,7 @@ FINAL_GID=$(id -g "$USERNAME" 2>/dev/null)
 FINAL_GROUPS=$(id -G "$USERNAME" 2>/dev/null)
 log_info "User '$USERNAME' successfully configured with PUID:$FINAL_UID PGID:$FINAL_GID Groups:$FINAL_GROUPS"
 
-# Ensure ownership of /app/logs and /config if they exist
-chown -R "$PUID":"$PGID" /app/logs 2>/dev/null || true
+# Ensure ownership of /config if it exists
 chown -R "$PUID":"$PGID" /config 2>/dev/null || true
 
 # Normalize LOGLEVEL to lowercase and map common values

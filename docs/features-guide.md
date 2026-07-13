@@ -442,7 +442,6 @@ services:
       - LOGLEVEL=INFO
     volumes:
       - ./config:/config
-      - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
       - "127.0.0.1:39842:39842"  # Bind to localhost only

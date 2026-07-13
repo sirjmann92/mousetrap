@@ -80,11 +80,6 @@ _logger: logging.Logger = logging.getLogger(__name__)
 app = FastAPI(title="MouseTrap API")
 
 # Mount static files BEFORE any catch-all routes
-# Serve logs directory as static files for UI event log access
-logs_dir = Path(os.environ.get("LOG_DIR", Path(__file__).parent.parent / "logs"))
-if logs_dir.is_dir():
-    app.mount("/logs", StaticFiles(directory=str(logs_dir)), name="logs")
-
 if ASSETS_DIR.is_dir():
     app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="assets")
 else:

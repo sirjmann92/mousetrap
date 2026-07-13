@@ -78,7 +78,6 @@ services:
       - DOCKER_HOST=tcp://docker-proxy:2375
     volumes:
       - ./config:/config
-      - ./logs:/app/logs
     networks:
       - mousetrap-network
     depends_on:
@@ -318,7 +317,6 @@ environment:
 
 **Key Log Locations:**
 - **Container logs**: `docker logs mousetrap`
-- **Persistent logs**: `./logs/` directory (if mounted)
 - **Event log**: Available in Web UI under Event Log button
 
 **Common Log Patterns:**
@@ -370,11 +368,11 @@ services:
 - **Increase check frequency**: Don't check more often than every 5-10 minutes
 - **Rate limiting awareness**: MaM rate limits API calls (once per hour)
 
-**Log File Growth:**
-```bash
-# Rotate/clear large log files:
-docker exec mousetrap rm -f /app/logs/*.log
-# Or configure log rotation in Docker:
+**Container Log Growth:**
+
+Logs go to the container's stdout; configure Docker's log rotation to cap their size:
+
+```yaml
 logging:
   driver: "json-file"
   options:
@@ -442,7 +440,7 @@ docker restart mousetrap
 rm config/proxies.yaml          # Reset proxy configs
 rm config/notify.yaml           # Reset notification configs
 rm config/session-*.yaml        # Reset all sessions
-rm logs/ui_event_log.json       # Clear event log
+rm config/mousetrap.db*         # Clear event log
 
 # Backup before changes
 cp -r config/ config-backup/
@@ -476,7 +474,6 @@ services:
       - DOCKER_GID=1000      # This one is fine as-is
     volumes:
       - ./config:/config
-      - ./logs:/app/logs
 ```
 
 **Alternative Solution:**

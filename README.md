@@ -25,7 +25,6 @@ services:
       - PGID=1000        # Your host group ID
     volumes:
       - ./config:/config # Persistent settings
-      - ./logs:/app/logs # Logs for troubleshooting
     ports:
       - 39842:39842
 ```
@@ -93,7 +92,6 @@ MouseTrap offers three IP monitoring modes to suit different use cases and netwo
 | `IPDATA_API_KEY`    | ipdata.co API key (optional)             | test    | 1,500 requests/day free   |
 | `LOGLEVEL`          | Backend log level                        | INFO    | DEBUG, INFO, WARNING      |
 | `CONFIG_DIR`        | Settings and session state directory     | /config | Rarely changed; for non-Docker installs |
-| `LOG_DIR`           | Log and UI event log directory           | /app/logs | Rarely changed; for non-Docker installs |
 
 > **Note:** For port monitoring, either mount `/var/run/docker.sock` OR set `DOCKER_HOST` to a Docker Socket Proxy
 > 
@@ -160,9 +158,8 @@ environment:
 - All settings and state are stored in `/config` (if mapped as a volume)
 - Each session: `config/session-*.yaml` (created via the UI)
 - Port Monitoring: `/config/port_monitoring_stacks.yaml` (auto-created/updated)
-- Logs: `/logs` (persisted outside the container)
 - Global options: `config/config.yaml` (auto-created/updated)
-- These locations can be overridden with the `CONFIG_DIR` and `LOG_DIR` environment variables (see Environment Variables).
+- These locations can be overridden with the `CONFIG_DIR` environment variable (see Environment Variables).
 
 ---
 
@@ -198,7 +195,6 @@ services:
       - DOCKER_HOST=tcp://docker-proxy:2375  # Connect via proxy
     volumes:
       - ./config:/config
-      - ./logs:/app/logs
       # No docker.sock mount needed!
     networks:
       - mousetrap-network
@@ -219,7 +215,6 @@ Add Docker socket access directly:
 ```yaml
 volumes:
   - ./config:/config
-  - ./logs:/app/logs
   - /var/run/docker.sock:/var/run/docker.sock:ro  # Add this line
 ```
 
@@ -378,7 +373,6 @@ services:
       - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config
-      - ./logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock:ro #Optional, for port monitoring support
     # No ports here! All traffic is routed through gluetun
 ```
@@ -421,7 +415,6 @@ services:
       - DOCKER_GID=281 # (Optional) Set to your host's Docker group GID if not 992
     volumes:
       - ./config:/config
-      - ./logs:/app/logs 
       - /var/run/docker.sock:/var/run/docker.sock:ro #Optional, for port monitoring support
     ports:
       - 39842:39842
@@ -451,7 +444,6 @@ services:
 #      - IPINFO_TOKEN=your_token_here # Optional
     volumes:
       - ../config:/config # Persist configs (use absolute if needed, e.g., /mnt/user/appdata/mousetrap/config)
-      - ../logs:/app/logs # Persist logs
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 ```
@@ -460,7 +452,6 @@ Adjust paths and environment variables as needed for your Unraid setup.
 
 **Notes:**
 - The `/var/run/docker.sock` mount is only required if you want to enable the Port Monitoring feature. Without it, all other features will work normally.
-- The `./logs:/app/logs` volume is recommended to persist logs outside the container. This allows you to view logs even if the container is removed or recreated.
 - In HTTP proxy mode, enter your proxy credentials in each session's proxy config in the MouseTrap UI that you want to route through the proxy's connection.
 - For other VPN containers see their docs for enabling Privoxy or HTTP proxy and adjust the Compose file accordingly.
 - In VPN mode, only the VPN container should expose ports. In non-VPN/proxy mode, expose 39842 on the `mousetrap` service.
