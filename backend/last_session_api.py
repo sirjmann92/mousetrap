@@ -7,14 +7,15 @@ This module exposes two endpoints under `/last_session`:
 Persistence is a simple YAML file located at `LAST_SESSION_FILE`.
 """
 
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 import yaml
 
+from backend.config import CONFIG_DIR
+
 router = APIRouter()
-LAST_SESSION_FILE = Path("/config/last_session.yaml")
+LAST_SESSION_FILE = CONFIG_DIR / "last_session.yaml"
 
 
 def read_last_session() -> str | None:

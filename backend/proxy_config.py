@@ -13,7 +13,9 @@ from typing import Any
 
 import yaml
 
-PROXIES_PATH = "/config/proxies.yaml"
+from backend.config import CONFIG_DIR
+
+PROXIES_PATH = CONFIG_DIR / "proxies.yaml"
 _LOCK = threading.Lock()
 _logger: logging.Logger = logging.getLogger(__name__)
 _last_resolve_log_time: dict[str, float] = {}
