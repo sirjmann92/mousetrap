@@ -1129,7 +1129,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     # If we have cached data and not forcing, use it and calculate next_check_time
     if not force and status:
         # Use cached data with calculated timing
-        check_freq_minutes = cfg.get("check_freq", 15)
+        check_freq_minutes = cfg.get("check_freq", 5)
         if last_check_time:
             try:
                 last_check_dt = datetime.fromisoformat(last_check_time)
