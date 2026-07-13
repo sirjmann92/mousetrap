@@ -335,7 +335,9 @@ async def vip_automation_job() -> None:
             )
             if enforce_min_points_guardrail and session_min_points is not None:
                 purchase_cost = (
-                    _VIP_POINTS_COST.get(int(weeks)) if int(weeks) in _VIP_POINTS_COST else None
+                    None
+                    if str(weeks).lower() in ("max", "90")
+                    else _VIP_POINTS_COST.get(int(weeks))
                 )
                 if purchase_cost is not None and int(points) - purchase_cost < int(
                     session_min_points
