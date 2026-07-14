@@ -46,7 +46,7 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
     if now - last >= _resolve_log_min_interval:
         _logger.debug("[resolve_proxy_from_session_cfg] Input cfg proxy: %s", proxy)
         _last_resolve_log_time[log_key] = now
-    if isinstance(proxy, dict) and "label" in proxy:
+    if isinstance(proxy, dict) and proxy.get("label"):
         proxies = load_proxies()
         label = proxy["label"]
         resolved = proxies.get(label)
