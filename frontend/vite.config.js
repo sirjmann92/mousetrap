@@ -24,11 +24,6 @@ export default defineConfig(() => {
           target: backendUrl,
           changeOrigin: true,
         },
-        // Proxy logs (served by backend) so fetch('/logs/...') works in dev
-        '/logs': {
-          target: backendUrl,
-          changeOrigin: true,
-        },
       },
     },
     build: {
