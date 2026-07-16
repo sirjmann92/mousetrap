@@ -64,8 +64,6 @@ export default function App() {
     setJackett,
     setAudiobookrequest,
     setAutobrr,
-    setMamSessionCreatedDate,
-    setNotifyBeforeExpiryDays,
   } = useSession();
   // State for automation and perks
   const [autoWedge, setAutoWedge] = React.useState(false);
@@ -137,8 +135,6 @@ export default function App() {
           auto_update_on_save: false,
           ...(cfg?.autobrr ?? {}),
         });
-        setMamSessionCreatedDate(cfg?.mam_session_created_date || '');
-        setNotifyBeforeExpiryDays(cfg?.notify_before_expiry_days ?? 7);
       } catch (_e) {
         // handle error
       }
@@ -159,8 +155,6 @@ export default function App() {
       setJackett,
       setAudiobookrequest,
       setAutobrr,
-      setMamSessionCreatedDate,
-      setNotifyBeforeExpiryDays,
     ],
   );
 

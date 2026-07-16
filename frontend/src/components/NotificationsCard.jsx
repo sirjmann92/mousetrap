@@ -133,7 +133,11 @@ export default function NotificationsCard() {
       label: 'Inactive Unsatisfied',
       tooltip: 'Pre-H&R',
     },
-    { key: 'mam_session_expiry', label: 'MAM Session Expiry Warning' },
+    {
+      key: 'mam_session_invalid',
+      label: 'MAM Session Invalid',
+      tooltip: 'MAM reports this mam_id is dead — a new cookie is needed',
+    },
   ];
   const [config, setConfig] = useState({
     apprise: {

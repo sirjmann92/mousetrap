@@ -64,7 +64,6 @@ export default function IndexerIntegrations({
   setAudiobookrequestConfig,
   autobrrConfig,
   setAutobrrConfig,
-  _mamSessionCreatedDate,
   sessionLabel,
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -909,7 +908,5 @@ IndexerIntegrations.propTypes = {
   setAudiobookrequestConfig: PropTypes.func.isRequired,
   autobrrConfig: PropTypes.object.isRequired,
   setAutobrrConfig: PropTypes.func.isRequired,
-  mamSessionCreatedDate: PropTypes.string,
-  setMamSessionCreatedDate: PropTypes.func.isRequired,
   sessionLabel: PropTypes.string.isRequired,
 };

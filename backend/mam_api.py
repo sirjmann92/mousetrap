@@ -7,13 +7,32 @@ and resolve public IP/ASN information through optional proxy configurations.
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, Literal
 
 import aiohttp
 
 from backend.utils import build_proxy_dict
 
 _logger: logging.Logger = logging.getLogger(__name__)
+
+MamResponseClass = Literal["ok", "invalid_cookie", "other_error"]
+
+
+def classify_mam_response(status_code: int, msg: str) -> MamResponseClass:
+    """Classify a dynamicSeedbox.php response using MAM's documented message taxonomy.
+
+    See https://github.com/sirjmann92/mousetrap/issues/28 for the source of this table
+    (MAM's own API docs, reported by a user). Only "Invalid session" (bare) and
+    "Invalid session - Invalid Cookie" indicate the mam_id itself is dead; the other
+    403 variants (IP/ASN lock mismatch, session-type/permission issues, missing cookie)
+    are network/proxy/MAM-settings problems that a fresh mam_id would not fix.
+    """
+    msg = msg or ""
+    if status_code == 200 or "too recent" in msg:
+        return "ok"
+    if msg == "Invalid session" or "Invalid session - Invalid Cookie" in msg:
+        return "invalid_cookie"
+    return "other_error"
 
 
 async def get_proxied_public_ip(proxy_cfg: dict) -> str | None:
@@ -136,27 +155,31 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
             aiohttp.ClientSession(cookies=cookies) as session,
             session.get(url, timeout=timeout, proxy=proxy_url) as resp,
         ):
-            # Handle HTTP errors similarly to requests.raise_for_status
+            text = await resp.text()
+            # Handle HTTP errors similarly to requests.raise_for_status, but capture the
+            # body first — jsonLoad.php's error responses were previously discarded
+            # unread, so failures were indistinguishable from network/timeout errors.
             if resp.status >= 400:
                 if resp.status == 403:
                     _logger.warning(
-                        "[get_status] 403 Forbidden for url: %s | proxy_label: %s | proxies: %s | cookies: %s",
+                        "[get_status] 403 Forbidden for url: %s | proxy_label: %s | proxies: %s | cookies: %s | body: %s",
                         url,
                         proxy_label,
                         proxy_url_log,
                         cookies,
+                        text[:200],
                     )
                 else:
                     _logger.warning(
-                        "[get_status] HTTP error %s for url: %s | proxy_label: %s | proxies: %s | cookies: %s",
+                        "[get_status] HTTP error %s for url: %s | proxy_label: %s | proxies: %s | cookies: %s | body: %s",
                         resp.status,
                         url,
                         proxy_label,
                         proxy_url_log,
                         cookies,
+                        text[:200],
                     )
-                raise Exception(f"HTTP {resp.status}")
-            text = await resp.text()
+                raise Exception(f"HTTP {resp.status}: {text[:200]}")
             # Capture updated mam_id cookie if MAM rotated it (rolling session cookie)
             updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
             try:

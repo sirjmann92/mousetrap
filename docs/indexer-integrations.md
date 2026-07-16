@@ -1,6 +1,6 @@
 # Indexer Integrations
 
-MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, ensuring your indexers stay up-to-date without manual intervention. Additionally, it tracks MAM session expiry (90 days) and sends notifications before your session expires.
+MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr, ensuring your indexers stay up-to-date without manual intervention. Additionally, it detects when MAM has actually invalidated your session cookie and sends a notification so you can refresh it.
 
 ---
 
@@ -13,11 +13,10 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Ja
 - **Event logging**: All operations logged for audit trail
 - **Auto-update on save**: Seamlessly syncs when you update your session
 
-### Session Expiry Tracking
-- **90-day monitoring**: MAM sessions expire 90 days after creation
-- **Daily checks**: Automated scheduler checks all sessions at 8:00 AM
-- **Configurable warnings**: Set notification threshold (default: 7 days before expiry)
-- **Multi-channel alerts**: Email, Webhook, or Apprise notifications
+### MAM Session Validity Detection
+- **Response-based, not time-based**: a daily keepalive ping to MAM's seedbox API is classified using MAM's own documented error messages, rather than guessing from elapsed time
+- **Fires on the real signal**: only a confirmed "cookie is dead" response triggers a notification — IP/ASN lock mismatches and MAM session-settings issues are surfaced differently, since regenerating your cookie wouldn't fix those
+- **Multi-channel alerts**: Email, Webhook, Apprise, or Pushover notifications
 - **Secure notifications**: MAM IDs redacted (shows only last 8 characters)
 
 ### Testing & Validation
@@ -55,7 +54,7 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Ja
 3. **MyAnonamouse indexer** configured in Autobrr
 
 ### Optional
-- **Notification channels** configured (for expiry warnings)
+- **Notification channels** configured (for session-invalid alerts)
 
 ---
 
@@ -162,17 +161,18 @@ In the same session configuration (below Prowlarr):
 - This will push the current MAM ID to whichever services are enabled
 - Check the event log for confirmation of which services were updated
 
-### 7. Enable Expiry Notifications
+### 7. Enable Session Validity Notifications
 
 Edit `/config/notify.yaml`:
 
 ```yaml
 event_rules:
-  mam_session_expiry:
+  mam_session_invalid:
     enabled: true
     email: true      # Send via SMTP
     webhook: true    # Send to webhook
     apprise: false   # Send via Apprise
+    pushover: false  # Send via Pushover
 ```
 
 ---
@@ -199,7 +199,7 @@ event_rules:
 | **API Key** | Service API key | `abc123...` |
 | **Auto-update on Save** | Sync MAM ID on session save | ✅ Enabled |
 
-> **Note:** The **Notify Before Expiry (days)** setting is configured at the session level (in the main session card, beside the MAM Session Created Date field), not per-indexer. It controls how many days before your MAM session ID expires you receive a notification reminder.
+> **Note:** MAM session validity detection runs at the session level (not per-indexer) — see [Prowlarr Integration](prowlarr-integration.md#mam-session-validity-detection) for how it works.
 
 ---
 
@@ -224,23 +224,19 @@ If you enable "Auto-update on Save" for either service, MouseTrap will automatic
 
 ## 📊 Notification Format
 
-### Multi-Service Expiry Notification
+### Session Invalid Notification
 
-When a session with multiple services is approaching expiry:
+When MAM confirms a session's mam_id is invalid:
 
 ```
-⚠️ MAM Session Expiring Soon!
-
 Session: DirectSession
 MAM ID ending in ...N4k3Jrmn
-Created: 2025-10-02 19:45
-Expires: 2025-12-31 19:45
-Days Remaining: 7 days
 
-You will need to refresh your MAM session and update your indexer(s).
+MAM reports this session's mam_id is invalid.
+MAM message: Invalid session
 
-Prowlarr: 192.168.0.130:9696
-Chaptarr: 192.168.0.140:8789
+You will need to generate a new MAM session ID and update it in MouseTrap,
+then push the update to your indexer(s).
 ```
 
 ---
@@ -339,8 +335,6 @@ mam:
   mam_id: "your-mam-id-here"
   session_type: ip
   ip_monitoring_mode: auto
-mam_session_created_date: "2025-01-03T10:00:00"
-notify_before_expiry_days: 7
 prowlarr:
   enabled: true
   host: "prowlarr"

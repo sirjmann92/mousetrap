@@ -52,7 +52,12 @@ from backend.event_log import append_ui_event_log, clear_ui_event_log_for_sessio
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.jackett_integration import sync_mam_id_to_jackett, test_jackett_connection
 from backend.last_session_api import router as last_session_router, write_last_session
-from backend.mam_api import get_mam_seen_ip_info, get_proxied_public_ip, get_status
+from backend.mam_api import (
+    classify_mam_response,
+    get_mam_seen_ip_info,
+    get_proxied_public_ip,
+    get_status,
+)
 from backend.notifications_backend import notify_event, safe_notify_event
 from backend.port_monitor import port_monitor_manager
 from backend.prowlarr_integration import (
@@ -306,127 +311,6 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
             )
 
 
-def check_mam_session_expiry() -> None:
-    """Check all sessions for approaching MAM session expiry and send notifications.
-
-    This runs daily to check if any sessions with Prowlarr or Chaptarr integration have
-    MAM sessions that are approaching the 30-day expiry limit.
-    """
-    _logger.info("[ExpiryCheck] Checking MAM session expiry for all sessions")
-
-    try:
-        sessions = list_sessions()
-        for label in sessions:
-            try:
-                cfg = load_session(label)
-                prowlarr_cfg = cfg.get("prowlarr", {})
-                chaptarr_cfg = cfg.get("chaptarr", {})
-
-                # Skip if neither Prowlarr nor Chaptarr is enabled
-                if not prowlarr_cfg.get("enabled") and not chaptarr_cfg.get("enabled"):
-                    continue
-
-                created_date_str = cfg.get("mam_session_created_date")
-                if not created_date_str:
-                    continue
-
-                # Parse the created date
-                try:
-                    # Handle both ISO format with timezone and datetime-local format
-                    if "T" in created_date_str and len(created_date_str) == 16:
-                        # datetime-local format: YYYY-MM-DDTHH:MM
-                        created_date = datetime.fromisoformat(created_date_str)
-                    else:
-                        # ISO format with timezone
-                        created_date = datetime.fromisoformat(created_date_str)
-                except (ValueError, AttributeError) as e:
-                    _logger.warning(
-                        "[ExpiryCheck] Invalid date format for session '%s': %s", label, e
-                    )
-                    continue
-
-                # Calculate expiry (30 days from creation)
-                expiry_date = created_date + timedelta(days=30)
-                days_until_expiry = (expiry_date - datetime.now(UTC)).days
-
-                # Check if we should notify - use the session-level setting
-                notify_days = cfg.get("notify_before_expiry_days", 7)
-
-                if days_until_expiry <= notify_days and days_until_expiry >= 0:
-                    _logger.info(
-                        "[ExpiryCheck] Session '%s' expires in %d days - sending notification",
-                        label,
-                        days_until_expiry,
-                    )
-
-                    # Get MAM ID and redact for security
-                    mam_id = cfg.get("mam", {}).get("mam_id", "N/A")
-                    redacted_mam_id = redact_mam_id(mam_id) if mam_id != "N/A" else "N/A"
-
-                    # Build indexer info strings
-                    indexer_info = []
-                    if prowlarr_cfg.get("enabled") and prowlarr_cfg.get("host"):
-                        indexer_info.append(
-                            f"Prowlarr: {prowlarr_cfg['host']}:{prowlarr_cfg.get('port', 9696)}"
-                        )
-                    if chaptarr_cfg.get("enabled") and chaptarr_cfg.get("host"):
-                        indexer_info.append(
-                            f"Chaptarr: {chaptarr_cfg['host']}:{chaptarr_cfg.get('port', 8789)}"
-                        )
-
-                    # Prepare notification message
-                    message = (
-                        f"⚠️ MAM Session Expiring Soon!\n\n"
-                        f"Session: {label}\n"
-                        f"{redacted_mam_id}\n"
-                        f"Created: {created_date.strftime('%Y-%m-%d %H:%M')}\n"
-                        f"Expires: {expiry_date.strftime('%Y-%m-%d %H:%M')}\n"
-                        f"Days Remaining: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''}\n\n"
-                        f"You will need to refresh your MAM session and update your indexer(s).\n"
-                    )
-
-                    if indexer_info:
-                        message += "\n" + "\n".join(indexer_info)
-
-                    details = {
-                        "session_label": label,
-                        "mam_id": redacted_mam_id,  # Use redacted version in details too
-                        "created_date": created_date.isoformat(),
-                        "expiry_date": expiry_date.isoformat(),
-                        "days_remaining": days_until_expiry,
-                        "prowlarr_host": prowlarr_cfg.get("host", "N/A")
-                        if prowlarr_cfg.get("enabled")
-                        else "N/A",
-                        "chaptarr_host": chaptarr_cfg.get("host", "N/A")
-                        if chaptarr_cfg.get("enabled")
-                        else "N/A",
-                    }
-
-                    # Send notification asynchronously
-                    asyncio.run(
-                        notify_event(
-                            event_type="mam_session_expiry",
-                            label=label,
-                            status="WARNING",
-                            message=message,
-                            details=details,
-                        )
-                    )
-
-                elif days_until_expiry < 0:
-                    _logger.warning(
-                        "[ExpiryCheck] Session '%s' expired %d days ago!",
-                        label,
-                        abs(days_until_expiry),
-                    )
-
-            except Exception as e:
-                _logger.error("[ExpiryCheck] Error checking session '%s': %s", label, e)
-
-    except Exception as e:
-        _logger.error("[ExpiryCheck] Error in MAM expiry check: %s", e)
-
-
 # Start PortMonitorStackManager monitor loop on FastAPI startup
 @app.on_event("startup")  # type: ignore[deprecated]
 def start_port_monitor_manager() -> None:
@@ -461,20 +345,6 @@ async def initialize_scheduler() -> None:
         _logger.info("[APScheduler] Registered automation jobs to run every 10 min")
     except Exception as e:
         _logger.error("[APScheduler] Failed to register automation jobs: %s", e)
-
-    # Register MAM session expiry check to run daily
-    try:
-        scheduler.add_job(
-            check_mam_session_expiry,
-            trigger=IntervalTrigger(hours=24),
-            id="check_mam_expiry",
-            replace_existing=True,
-            coalesce=True,
-            max_instances=1,
-        )
-        _logger.info("[APScheduler] Registered MAM session expiry check to run daily")
-    except Exception as e:
-        _logger.error("[APScheduler] Failed to register MAM expiry check: %s", e)
 
     # Start scheduler AFTER all jobs are registered
     scheduler.start()
@@ -514,6 +384,39 @@ def api_automation_guardrails() -> dict[str, Any]:
     return result
 
 
+async def apply_mam_validity_classification(
+    cfg: dict[str, Any],
+    label: str,
+    classification: str,
+    now: datetime,
+    detail: str = "",
+) -> None:
+    """Update ``cfg`` in place with MAM cookie-validity bookkeeping for ``classification``.
+
+    Fires a real notification the first time "invalid_cookie" is seen for this
+    session (not on every subsequent failing check, via ``mam_invalid_notified``).
+    "ok" clears that state and records ``last_mam_valid_check``. "other_error"
+    (network/proxy/MAM-settings issues that aren't about the cookie itself, per
+    classify_mam_response) leaves the state untouched — it's not positive evidence
+    either way. Caller is responsible for persisting ``cfg`` via ``save_session``.
+    """
+    if classification == "invalid_cookie":
+        if not cfg.get("mam_invalid_notified"):
+            cfg["mam_invalid_notified"] = True
+            cfg["mam_invalid_since"] = now.isoformat()
+            await safe_notify_event(
+                event_type="mam_session_invalid",
+                label=label,
+                status="INVALID",
+                message=detail or "MAM reports this session's mam_id is invalid.",
+                details={"mam_message": detail},
+            )
+    elif classification == "ok":
+        cfg["mam_invalid_notified"] = False
+        cfg["mam_invalid_since"] = None
+        cfg["last_mam_valid_check"] = now.isoformat()
+
+
 async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) -> bool:
     """Send a keepalive ping to MAM's dynamicSeedbox.php to prevent session expiry.
 
@@ -523,11 +426,9 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
 
     A 429 (rate-limited) response is treated as success for keepalive purposes —
     MAM received and processed the request, which is sufficient to reset the timer.
-    Any other HTTP error or network exception is treated as a failure.
-
-    On success (including 429), updates ``last_mam_keepalive`` and resets
-    ``mam_session_created_date`` in the session config so the expiry notification
-    timer reflects recent activity rather than the original creation date.
+    The response is also classified (see ``classify_mam_response``) to detect a
+    genuinely dead mam_id and fire a real notification via
+    ``apply_mam_validity_classification``, rather than relying on elapsed time.
 
     Returns True if the keepalive was sent (or rate-limited), False on error.
     """
@@ -551,42 +452,14 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
             ) as resp,
         ):
             status_code = resp.status
+            # Capture updated mam_id cookie if MAM rotated it (rolling session cookie),
+            # mirroring get_status()'s handling for jsonLoad.php.
+            updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
             try:
                 result = await resp.json()
             except Exception:
                 text = await resp.text()
                 result = {"msg": text[:200]}
-
-            if status_code == 429 or (
-                isinstance(result.get("msg"), str) and "too recent" in result.get("msg", "")
-            ):
-                # Rate-limited — MAM still received the request; counts as keepalive activity
-                _logger.info(
-                    "[Keepalive] label=%s Rate-limited (429) — session activity confirmed.", label
-                )
-            elif status_code == 200:
-                _logger.info(
-                    "[Keepalive] label=%s Keepalive successful (200). msg=%s",
-                    label,
-                    result.get("msg", ""),
-                )
-            else:
-                _logger.warning(
-                    "[Keepalive] label=%s Unexpected response %s: %s",
-                    label,
-                    status_code,
-                    result.get("msg", ""),
-                )
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "keepalive_failure",
-                        "status_message": f"[Keepalive] Unexpected response {status_code} from MAM: {result.get('msg', '')}",
-                    }
-                )
-                return False
-
     except Exception as e:
         _logger.warning("[Keepalive] label=%s Network error during keepalive: %s", label, e)
         append_ui_event_log(
@@ -599,22 +472,45 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
         )
         return False
 
-    # Update keepalive timestamp and reset the session creation date so the
-    # expiry notification timer reflects this confirmed activity.
+    msg = result.get("msg", "") if isinstance(result.get("msg"), str) else ""
+    classification = classify_mam_response(status_code, msg)
+
+    if classification == "ok":
+        _logger.info(
+            "[Keepalive] label=%s Keepalive successful (status=%s). msg=%s", label, status_code, msg
+        )
+    else:
+        _logger.warning("[Keepalive] label=%s Unexpected response %s: %s", label, status_code, msg)
+        append_ui_event_log(
+            {
+                "timestamp": now.isoformat(),
+                "label": label,
+                "event_type": "keepalive_failure",
+                "status_message": f"[Keepalive] Unexpected response {status_code} from MAM: {msg}",
+            }
+        )
+
     try:
         fresh_cfg = load_session(label)
-        fresh_cfg["last_mam_keepalive"] = now.isoformat()
-        fresh_cfg["mam_session_created_date"] = now.isoformat()
+        if classification == "ok":
+            fresh_cfg["last_mam_keepalive"] = now.isoformat()
+        await apply_mam_validity_classification(fresh_cfg, label, classification, now, detail=msg)
+        _prev_mam_id: str | None = None
+        if updated_mam_id and updated_mam_id != fresh_cfg.get("mam", {}).get("mam_id"):
+            _prev_mam_id = fresh_cfg.get("mam", {}).get("mam_id")
+            fresh_cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
+            _logger.info(
+                "[Keepalive] label=%s mam_id cookie rotated by MAM; adopting new value.", label
+            )
         save_session(fresh_cfg, old_label=label)
-        _logger.info(
-            "[Keepalive] label=%s Updated last_mam_keepalive and reset mam_session_created_date.",
-            label,
-        )
+        if _prev_mam_id is not None:
+            await _sync_integrations_if_mam_id_changed(
+                fresh_cfg, label, updated_mam_id, _prev_mam_id
+            )
     except Exception as e:
-        _logger.warning("[Keepalive] label=%s Failed to save keepalive timestamp: %s", label, e)
-        # Non-fatal — the network call succeeded
+        _logger.warning("[Keepalive] label=%s Failed to save keepalive state: %s", label, e)
 
-    return True
+    return classification == "ok"
 
 
 async def auto_update_seedbox_if_needed(
@@ -785,6 +681,31 @@ async def auto_update_seedbox_if_needed(
                     text = await resp.text()
                     result = {"Success": False, "msg": f"Non-JSON response: {text}"}
 
+                # Capture updated mam_id cookie if MAM rotated it (rolling session cookie),
+                # mirroring get_status()'s handling for jsonLoad.php. Saved immediately so
+                # it persists regardless of which branch below is taken (not every branch
+                # below calls save_session, e.g. rate-limited/error responses).
+                updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
+                if updated_mam_id and updated_mam_id != cfg.get("mam", {}).get("mam_id"):
+                    _prev_mam_id = cfg.get("mam", {}).get("mam_id")
+                    cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
+                    _logger.info(
+                        "[AutoUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.",
+                        label,
+                    )
+                    try:
+                        save_session(cfg, old_label=label)
+                    except Exception as e:
+                        _logger.error(
+                            "[AutoUpdate][ERROR] label=%s save_session failed while persisting "
+                            "rotated mam_id: %s",
+                            label,
+                            e,
+                        )
+                    await _sync_integrations_if_mam_id_changed(
+                        cfg, label, updated_mam_id, _prev_mam_id
+                    )
+
                 if resp.status == 200 and result.get("Success"):
                     # Update last_seedbox_ip and mam_ip to the new detected/proxied IP
                     proxied_ip = cfg.get("proxied_public_ip")
@@ -796,6 +717,7 @@ async def auto_update_seedbox_if_needed(
                     cfg["mam_ip"] = new_ip
                     cfg["last_seedbox_update"] = now.isoformat()
                     cfg["last_seedbox_asn"] = asn
+                    await apply_mam_validity_classification(cfg, label, "ok", now)
                     try:
                         save_session(cfg, old_label=label)
                     except Exception as e:
@@ -830,6 +752,7 @@ async def auto_update_seedbox_if_needed(
                     cfg["mam_ip"] = new_ip
                     cfg["last_seedbox_update"] = now.isoformat()
                     cfg["last_seedbox_asn"] = asn
+                    await apply_mam_validity_classification(cfg, label, "ok", now)
                     try:
                         save_session(cfg, old_label=label)
                     except Exception as e:
@@ -880,8 +803,27 @@ async def auto_update_seedbox_if_needed(
                     reason,
                 )
 
-                # Check if this is an ASN mismatch issue for ASN Locked sessions
+                # Classify the failure so a genuinely dead mam_id (as opposed to an
+                # IP/ASN lock mismatch or MAM session-settings issue — see issue #28)
+                # can raise a real notification rather than relying on elapsed time.
                 error_msg = result.get("msg", "Unknown error")
+                _classification = classify_mam_response(
+                    resp.status, error_msg if isinstance(error_msg, str) else ""
+                )
+                await apply_mam_validity_classification(
+                    cfg, label, _classification, now, detail=str(error_msg)
+                )
+                try:
+                    save_session(cfg, old_label=label)
+                except Exception as e:
+                    _logger.error(
+                        "[AutoUpdate][ERROR] label=%s save_session failed while persisting "
+                        "validity state: %s",
+                        label,
+                        e,
+                    )
+
+                # Check if this is an ASN mismatch issue for ASN Locked sessions
                 if session_type == "asn locked" and (
                     "Invalid session" in error_msg or resp.status == 403
                 ):
@@ -1166,6 +1108,8 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
             "proxied_public_ip_asn": proxied_public_ip_asn,
             "proxied_public_ip_as": proxied_public_ip_as,
             "ip_monitoring_mode": ip_monitoring_mode,
+            "last_mam_valid_check": cfg.get("last_mam_valid_check"),
+            "mam_invalid_since": cfg.get("mam_invalid_since"),
         }
 
     if force or not status:
@@ -1428,6 +1372,8 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         "check_freq": check_freq_minutes,
         "status_message": status.get("status_message"),
         "details": status,
+        "last_mam_valid_check": cfg.get("last_mam_valid_check"),
+        "mam_invalid_since": cfg.get("mam_invalid_since"),
     }
 
 
@@ -1707,6 +1653,10 @@ async def api_save_session(request: Request) -> dict[str, Any]:
             "points",
             "vip_active",
             "perk_automation",
+            "last_mam_keepalive",
+            "mam_invalid_notified",
+            "mam_invalid_since",
+            "last_mam_valid_check",
         ]
         # If prev_cfg not set above, try to load it now
         if prev_cfg is None:
@@ -1983,6 +1933,9 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             ):
                 resp_status = resp.status
                 resp_text = await resp.text()
+                # Capture updated mam_id cookie if MAM rotated it (rolling session cookie),
+                # mirroring get_status()'s handling for jsonLoad.php.
+                _updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
                 try:
                     result = await resp.json()
                 except Exception:
@@ -1990,6 +1943,25 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
         except Exception as e:
             _logger.warning("[SeedboxUpdate] HTTP request failed: %s", e)
             return {"success": False, "error": str(e)}
+
+        if _updated_mam_id and _updated_mam_id != cfg.get("mam", {}).get("mam_id"):
+            _prev_mam_id = cfg.get("mam", {}).get("mam_id")
+            cfg.setdefault("mam", {})["mam_id"] = _updated_mam_id
+            _logger.info(
+                "[SeedboxUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.", label
+            )
+            # Save immediately so it persists even if the branch below (e.g.
+            # rate-limited/error) doesn't itself call save_session.
+            try:
+                save_session(cfg, old_label=label)
+            except Exception as e:
+                _logger.error(
+                    "[SeedboxUpdate] label=%s save_session failed while persisting rotated "
+                    "mam_id: %s",
+                    label,
+                    e,
+                )
+            await _sync_integrations_if_mam_id_changed(cfg, label, _updated_mam_id, _prev_mam_id)
 
         _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp_status == 200 and result.get("Success"):
@@ -2028,100 +2000,6 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
 
 
 # PROWLARR INTEGRATION ENDPOINTS
-
-
-@app.post("/api/prowlarr/test_expiry_notification")
-async def api_test_expiry_notification(request: Request) -> dict[str, Any]:
-    """Manually trigger a test MAM session expiry notification.
-
-    Expects JSON with: label (session label)
-    This is for testing the notification system without waiting for actual expiry.
-    """
-    try:
-        data = await request.json()
-        label = data.get("label", "").strip()
-
-        if not label:
-            return {"success": False, "message": "Session label required"}
-
-        # Load session
-        cfg = load_session(label)
-        if not cfg:
-            return {"success": False, "message": f"Session '{label}' not found"}
-
-        prowlarr_cfg = cfg.get("prowlarr", {})
-        if not prowlarr_cfg.get("enabled"):
-            return {"success": False, "message": "Prowlarr not enabled for this session"}
-
-        # Get created date or simulate one
-        created_date_str = cfg.get("mam_session_created_date")
-        if created_date_str:
-            try:
-                if "T" in created_date_str and len(created_date_str) == 16:
-                    created_date = datetime.fromisoformat(created_date_str)
-                else:
-                    created_date = datetime.fromisoformat(created_date_str)
-            except Exception:
-                created_date = datetime.now(UTC) - timedelta(days=25)
-        else:
-            # Simulate a session expiring in 5 days
-            created_date = datetime.now(UTC) - timedelta(days=25)
-
-        expiry_date = created_date + timedelta(days=30)
-        days_until_expiry = (expiry_date - datetime.now(UTC)).days
-
-        # Get MAM ID and redact for security
-        mam_id = cfg.get("mam", {}).get("mam_id", "N/A")
-        redacted_mam_id = redact_mam_id(mam_id) if mam_id != "N/A" else "N/A"
-
-        # Prepare test notification message
-        message = (
-            f"⚠️ MAM Session Expiring Soon! [TEST NOTIFICATION]\n\n"
-            f"Session: {label}\n"
-            f"{redacted_mam_id}\n"
-            f"Created: {created_date.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Expires: {expiry_date.strftime('%Y-%m-%d %H:%M')}\n"
-            f"Days Remaining: {days_until_expiry} day{'s' if days_until_expiry != 1 else ''}\n\n"
-            f"You will need to refresh your MAM session and update Prowlarr.\n"
-        )
-
-        if prowlarr_cfg.get("host"):
-            message += f"Prowlarr: {prowlarr_cfg['host']}:{prowlarr_cfg.get('port', 9696)}"
-
-        details = {
-            "session_label": label,
-            "mam_id": redacted_mam_id,  # Use redacted version in details too
-            "created_date": created_date.isoformat(),
-            "expiry_date": expiry_date.isoformat(),
-            "days_remaining": days_until_expiry,
-            "prowlarr_host": prowlarr_cfg.get("host", "N/A"),
-            "test_notification": True,
-        }
-
-        _logger.info("[Prowlarr] Sending test expiry notification for session '%s'", label)
-
-        # Send test notification
-        await notify_event(
-            event_type="mam_session_expiry",
-            label=label,
-            status="WARNING",
-            message=message,
-            details=details,
-        )
-
-        return {
-            "success": True,
-            "message": f"Test notification sent for session '{label}'",
-            "details": {
-                "created": created_date.strftime("%Y-%m-%d %H:%M"),
-                "expires": expiry_date.strftime("%Y-%m-%d %H:%M"),
-                "days_remaining": days_until_expiry,
-            },
-        }
-
-    except Exception as e:
-        _logger.exception("[Prowlarr] Failed to send test expiry notification")
-        return {"success": False, "message": f"Error: {e!s}"}
 
 
 @app.post("/api/session/test_asn_notifications")
@@ -3017,8 +2895,10 @@ async def session_check_job(label: str) -> None:
                 await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
-            # MAM session keepalive: call dynamicSeedbox.php every 7 days to prevent
-            # the ~30-day session expiry, independent of whether the IP has changed.
+            # MAM session keepalive: call dynamicSeedbox.php daily to prevent the
+            # ~30-day session expiry, independent of whether the IP has changed, and
+            # to classify the response for cookie-validity detection (see
+            # classify_mam_response / apply_mam_validity_classification).
             # Uses last_mam_keepalive if present, otherwise falls back to last_seedbox_update,
             # so existing installs get a keepalive on their first run after this change.
             if status.get("mam_cookie_exists"):
@@ -3030,12 +2910,12 @@ async def session_check_job(label: str) -> None:
                     try:
                         _last_keepalive_dt = datetime.fromisoformat(_last_keepalive_str)
                         _days_since = (now - _last_keepalive_dt).days
-                        _needs_keepalive = _days_since >= 7
+                        _needs_keepalive = _days_since >= 1
                     except Exception:
                         _needs_keepalive = True  # Unparseable date — keepalive to be safe
                 if _needs_keepalive:
                     _logger.info(
-                        "[Keepalive] label=%s Triggering session keepalive (>= 7 days since last contact).",
+                        "[Keepalive] label=%s Triggering session keepalive (>= 1 day since last contact).",
                         label,
                     )
                     await keepalive_mam_session(cfg, label, now)

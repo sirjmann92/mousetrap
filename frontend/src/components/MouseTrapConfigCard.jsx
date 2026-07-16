@@ -62,10 +62,6 @@ export default function MouseTrapConfigCard({
     setAudiobookrequest,
     autobrr,
     setAutobrr,
-    mamSessionCreatedDate,
-    setMamSessionCreatedDate,
-    notifyBeforeExpiryDays,
-    setNotifyBeforeExpiryDays,
   } = useSession();
 
   // Local state for editing label
@@ -196,8 +192,6 @@ export default function MouseTrapConfigCard({
         session_type: sessionType,
       },
       mam_ip: mamIp,
-      mam_session_created_date: mamSessionCreatedDate || null,
-      notify_before_expiry_days: notifyBeforeExpiryDays ?? 7,
       old_label: oldLabel,
       prowlarr: prowlarrWithDefaults,
       chaptarr: chaptarrWithDefaults,
@@ -468,89 +462,6 @@ export default function MouseTrapConfigCard({
             </Tooltip>
           </Box>
 
-          {/* MAM Session Created Date */}
-          <Box sx={{ mb: 2 }}>
-            <Box sx={{ alignItems: 'flex-start', display: 'flex', gap: 2 }}>
-              <TextField
-                helperText="Necessary for expiry tracking"
-                label="MAM Session Created Date"
-                onChange={(e) => setMamSessionCreatedDate(e.target.value || null)}
-                size="small"
-                slotProps={{
-                  inputLabel: {
-                    shrink: true,
-                  },
-                }}
-                sx={{
-                  width: 320,
-                  // Tell browser to use dark mode for the native picker popup
-                  '& input[type="datetime-local"]': {
-                    colorScheme: (theme) => theme.palette.mode,
-                  },
-                  // Make the calendar icon more visible in dark mode
-                  '& input[type="datetime-local"]::-webkit-calendar-picker-indicator': {
-                    filter: (theme) =>
-                      theme.palette.mode === 'dark' ? 'brightness(0) invert(0.7)' : 'none',
-                    cursor: 'pointer',
-                  },
-                }}
-                type="datetime-local"
-                value={mamSessionCreatedDate || ''}
-              />
-              <Button
-                onClick={async () => {
-                  // Get current server time in server's timezone
-                  try {
-                    const response = await fetch('/api/server_time');
-                    const data = await response.json();
-                    // server_time is in ISO format with timezone (e.g., "2025-10-02T19:27:35.151188-05:00")
-                    // We need to extract just the date and time portion for datetime-local
-                    // which expects format: YYYY-MM-DDTHH:MM
-                    const isoString = data.server_time;
-                    const dateTimeLocal = isoString.substring(0, 16); // Extract YYYY-MM-DDTHH:MM
-                    setMamSessionCreatedDate(dateTimeLocal);
-                  } catch (error) {
-                    console.error('Failed to get server time:', error);
-                    // Fallback to local time if server request fails
-                    const now = new Date();
-                    const year = now.getFullYear();
-                    const month = String(now.getMonth() + 1).padStart(2, '0');
-                    const day = String(now.getDate()).padStart(2, '0');
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    setMamSessionCreatedDate(`${year}-${month}-${day}T${hours}:${minutes}`);
-                  }
-                }}
-                size="small"
-                sx={{ height: 40, mt: 0 }}
-                variant="outlined"
-              >
-                Now
-              </Button>
-            </Box>
-          </Box>
-
-          {/* Notify Before Expiry */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-            <TextField
-              label="Notify Before Expiry (days)"
-              onChange={(e) => setNotifyBeforeExpiryDays(Number.parseInt(e.target.value, 10) || 7)}
-              size="small"
-              sx={{ width: 220 }}
-              type="number"
-              value={notifyBeforeExpiryDays ?? 7}
-            />
-            <Tooltip
-              arrow
-              placement="right"
-              title="MouseTrap pings MAM every 7 days to reset the 30-day session expiry automatically. This is a failsafe alert — it fires only after (30 − N) consecutive days of keepalive failure, where N is this value. At the default of 7, that means 23 days of failure before you're notified. Under normal operation you should never see this notification. If you do, check your proxy/VPN connection."
-            >
-              <IconButton size="small">
-                <InfoOutlinedIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
-
           <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2, mb: 3 }}>
             <Box sx={{ width: '100%' }}>
               <Box sx={{ alignItems: 'center', display: 'flex', gap: 2 }}>
@@ -674,7 +585,6 @@ export default function MouseTrapConfigCard({
 
           {/* Indexer Integrations (Prowlarr, Chaptarr, Jackett, & AudioBookRequest) */}
           <IndexerIntegrations
-            _mamSessionCreatedDate={mamSessionCreatedDate}
             audiobookrequestConfig={audiobookrequest}
             autobrrConfig={autobrr}
             chaptarrConfig={chaptarr}

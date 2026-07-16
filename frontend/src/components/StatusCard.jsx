@@ -535,6 +535,32 @@ const StatusCard = forwardRef(
                         );
                       })()}
                     </Typography>
+                    {/* Read-only MAM cookie-validity timestamp (not editable — see notify_event
+                        "mam_session_invalid" for the actionable alert) */}
+                    {(status.last_mam_valid_check || status.mam_invalid_since) && (
+                      <Box sx={{ mt: 0.5, textAlign: 'center' }}>
+                        <Typography
+                          sx={{
+                            color: (theme) =>
+                              status.mam_invalid_since
+                                ? theme.palette.error.main
+                                : theme.palette.mode === 'dark'
+                                  ? '#b0b0b0'
+                                  : 'text.secondary',
+                          }}
+                          variant="caption"
+                        >
+                          {(() => {
+                            const ts = status.mam_invalid_since || status.last_mam_valid_check;
+                            const d = new Date(ts);
+                            if (Number.isNaN(d.getTime())) return null;
+                            return status.mam_invalid_since
+                              ? `MAM session invalid since ${d.toLocaleString()}`
+                              : `Last confirmed active: ${d.toLocaleString()}`;
+                          })()}
+                        </Typography>
+                      </Box>
+                    )}
                     {/* Proxy/VPN error warning below timer/status */}
                     {status.proxy_error && (
                       <Box sx={{ mb: 1, mt: 2 }}>

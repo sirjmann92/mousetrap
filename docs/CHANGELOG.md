@@ -1,3 +1,48 @@
+# July 15, 2026
+
+## Replaced Calendar-Based MAM Expiry Tracking with Response-Based Validity Detection 🔔
+
+### **Why**
+The 30-day calendar countdown from `mam_session_created_date` proved unreliable: the
+7-day auto-keepalive reset the field using a timezone-aware, microsecond-precision
+timestamp that the frontend's `datetime-local` input couldn't parse (rendering as a
+garbled, locale-specific empty placeholder), and the resulting format mismatch also
+made the expiry-check's date subtraction raise and silently disable notifications for
+affected sessions. More fundamentally, a countdown from "last reset" is a proxy for
+session validity, not the real signal — MAM can invalidate a cookie for reasons
+unrelated to elapsed time.
+
+### **Removed**
+- The "MAM Session Created Date" field and "Now" button
+- The "Notify Before Expiry (days)" setting
+- The daily `check_mam_session_expiry` scheduler job and `mam_session_expiry`
+  notification event
+- The `/api/prowlarr/test_expiry_notification` endpoint (had no frontend caller)
+
+### **Added**
+- `classify_mam_response()` (`backend/mam_api.py`), built from MAM's own documented
+  `dynamicSeedbox.php` message taxonomy (see
+  [issue #28](https://github.com/sirjmann92/mousetrap/issues/28)): only
+  `Invalid session` / `Invalid session - Invalid Cookie` are treated as a dead cookie.
+  IP/ASN lock mismatches and MAM session-settings issues are classified separately,
+  since regenerating the cookie wouldn't fix those.
+- A new `mam_session_invalid` notification event (Notifications card, alongside
+  "Seedbox Update"), fired the first time a session's cookie is confirmed dead —
+  routed through the real notification channel rather than the UI-only event log
+  keepalive failures previously vanished into.
+- A read-only "Last confirmed active" timestamp on the status card, replacing the
+  editable date field.
+- The keepalive ping now runs daily instead of every 7 days.
+- All three `dynamicSeedbox.php` call sites (daily keepalive, IP/ASN auto-update, and
+  the manual "force update" endpoint) now capture and adopt a rotated `mam_id` cookie
+  if MAM issues one in the response, mirroring the rotation handling `get_status()`
+  already had for `jsonLoad.php`. Previously only `jsonLoad.php` responses could
+  refresh a rotated cookie — the seedbox-API paths were silently discarding any
+  `Set-Cookie` MAM sent back, which may have been letting sessions go stale by
+  presenting the client with a superseded cookie value.
+
+---
+
 # March 18, 2026
 
 ## Session-Level Expiry Notification Setting 🔔

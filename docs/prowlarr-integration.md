@@ -1,6 +1,6 @@
 # Prowlarr Integration
 
-MouseTrap can automatically sync your MAM session ID with Prowlarr's MyAnonamouse indexer, ensuring your indexer stays up-to-date without manual intervention. Additionally, it tracks MAM session expiry (90 days) and sends notifications before your session expires.
+MouseTrap can automatically sync your MAM session ID with Prowlarr's MyAnonamouse indexer, ensuring your indexer stays up-to-date without manual intervention. Additionally, it detects when MAM has actually invalidated your session cookie and sends a notification so you can refresh it.
 
 ---
 
@@ -12,17 +12,15 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr's MyAnonamous
 - **Event logging**: All operations logged for audit trail
 - **Auto-update on save**: Seamlessly syncs when you update your session
 
-### Session Expiry Tracking
-- **90-day monitoring**: MAM sessions expire 90 days after creation
-- **Daily checks**: Automated scheduler checks all sessions at 8:00 AM
-- **Configurable warnings**: Set notification threshold (default: 7 days before expiry)
-- **Multi-channel alerts**: Email, Webhook, or Apprise notifications
+### MAM Session Validity Detection
+- **Response-based, not time-based**: MouseTrap pings MAM's seedbox API daily and classifies the response using MAM's own documented error messages — it doesn't guess based on elapsed time
+- **Fires on the real signal**: Only a confirmed "cookie is dead" response (MAM's `Invalid session` / `Invalid session - Invalid Cookie` messages) triggers a notification — IP/ASN lock mismatches and MAM session-settings issues are surfaced differently since regenerating your cookie wouldn't fix those
+- **Multi-channel alerts**: Email, Webhook, Apprise, or Pushover notifications
 - **Secure notifications**: MAM IDs redacted (shows only last 8 characters)
 
 ### Testing & Validation
 - **Connection testing**: Verify Prowlarr connectivity before enabling
 - **Indexer discovery**: Automatically finds MyAnonamouse indexer ID
-- **Test notifications**: Manual trigger to validate notification workflow
 - **Real-time feedback**: UI shows test results and indexer status
 
 ---
@@ -32,7 +30,7 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr's MyAnonamous
 1. **Prowlarr instance** running and accessible
 2. **Prowlarr API key** (Settings → General → API Key)
 3. **MyAnonamouse indexer** already configured in Prowlarr
-4. **Notification channels** configured (optional, for expiry warnings)
+4. **Notification channels** configured (optional, for validity alerts)
 
 ---
 
@@ -44,7 +42,7 @@ In your MouseTrap session configuration:
 
 1. **Enable Prowlarr Integration**:
    - Toggle "Enable Prowlarr Integration" switch
-   
+
 2. **Enter Prowlarr Details**:
    - **Host**: Hostname or IP only — do not include `http://` or a port (e.g., `192.168.1.100`, `prowlarr.local`, or `prowlarr.example.com`). For HTTPS reverse proxies use port `443`.
    - **Port**: Prowlarr port (default: `9696`; use `443` for HTTPS reverse proxy)
@@ -55,33 +53,26 @@ In your MouseTrap session configuration:
    - Verify green success message
    - Confirm indexer ID is found
 
-4. **Set MAM Session Created Date**:
-   - Click "NOW" button to use current server time
-   - Or manually select the date/time when you created your MAM session
-
-5. **Configure Expiry Notification** (optional):
-   - Set "Notify Before Expiry (days)" (default: 7)
-   - This sends a warning X days before the 90-day expiry
-
-6. **Save Configuration**:
+4. **Save Configuration**:
    - Click "Save Configuration"
    - If MAM ID changed, Prowlarr updates automatically
    - Check event log for confirmation
 
-### 2. Enable Expiry Notifications
+### 2. Enable Session Validity Notifications
 
 Edit `/config/notify.yaml`:
 
 ```yaml
 event_rules:
-  mam_session_expiry:
+  mam_session_invalid:
     enabled: true
     email: true      # Send via SMTP
     webhook: true    # Send to webhook
     apprise: false   # Send via Apprise
+    pushover: false  # Send via Pushover
 ```
 
-Configure your notification channels (SMTP, Webhook, or Apprise) in the same file.
+Configure your notification channels (SMTP, Webhook, Apprise, or Pushover) in the same file, or via the Notifications card in the UI.
 
 ---
 
@@ -95,8 +86,6 @@ Configure your notification channels (SMTP, Webhook, or Apprise) in the same fil
 | **Host** | Prowlarr server IP/hostname | `192.168.1.100` |
 | **Port** | Prowlarr service port | `9696` |
 | **API Key** | Prowlarr API key | `abc123...` |
-| **MAM Session Created** | When session was created | `2025-10-02 19:45` |
-| **Notify Before Expiry** | Warning threshold in days | `7` (default) |
 
 ### Auto-Update Behavior
 
@@ -113,70 +102,25 @@ Configure your notification channels (SMTP, Webhook, or Apprise) in the same fil
 
 ## 📊 Notification Format
 
-When a session is approaching expiry, you'll receive:
+When MAM confirms your session's mam_id is invalid, you'll receive:
 
 ### Email Subject
 ```
-[MouseTrap] mam_session_expiry - WARNING
+[MouseTrap] mam_session_invalid - INVALID
 ```
 
 ### Email Body
 ```
-⚠️ MAM Session Expiring Soon!
-
 Session: DirectSession
 MAM ID ending in ...N4k3Jrmn
-Created: 2025-10-02 19:45
-Expires: 2025-12-31 19:45
-Days Remaining: 7 days
 
-You will need to refresh your MAM session and update Prowlarr.
-Prowlarr: 192.168.0.130:9696
+MAM reports this session's mam_id is invalid.
+MAM message: Invalid session
+
+You will need to generate a new MAM session ID and update it in MouseTrap.
 ```
 
 **Security Note**: Only the last 8 characters of your MAM ID are shown, similar to credit card masking.
-
----
-
-## 🧪 Testing Expiry Notifications
-
-### Using the Test Script
-
-Run the included test script from your host:
-
-```bash
-cd /home/jase/docker/mousetrap
-python3 tests/test_expiry_notification.py DirectSession
-```
-
-The script will:
-1. Show your session configuration
-2. Display current expiry status
-3. Send a test notification
-4. Show expected notification format
-
-### Using the API Endpoint
-
-Send a POST request to trigger a test notification:
-
-```bash
-curl -X POST http://localhost:39842/api/prowlarr/test_expiry_notification \
-  -H "Content-Type: application/json" \
-  -d '{"label": "DirectSession"}'
-```
-
-Response:
-```json
-{
-  "success": true,
-  "message": "Test notification sent for session 'DirectSession'",
-  "details": {
-    "created": "2025-10-02 19:45",
-    "expires": "2025-12-31 19:45",
-    "days_remaining": 89
-  }
-}
-```
 
 ---
 
@@ -214,17 +158,16 @@ Response:
 - Enable `LOGLEVEL=DEBUG` and check logs for detailed error messages
 - Verify Prowlarr API key has write permissions
 
-### Expiry Notifications Not Received
+### Session Invalid Notifications Not Received
 
-**Problem**: No notification sent before expiry
+**Problem**: No notification sent even though MAM has invalidated the session
 
 **Solutions**:
-- Check `/config/notify.yaml` has `mam_session_expiry: enabled: true`
-- Verify notification channels (SMTP/Webhook/Apprise) are configured
+- Check `/config/notify.yaml` has `mam_session_invalid: enabled: true`
+- Verify notification channels (SMTP/Webhook/Apprise/Pushover) are configured
 - Test notification channels with other events first
-- Run test script: `python3 tests/test_expiry_notification.py DirectSession`
-- Check logs for scheduler errors: `docker compose logs mousetrap | grep ExpiryCheck`
-- Verify "MAM Session Created" date is set correctly
+- Check logs for keepalive/auto-update errors: `docker compose logs mousetrap | grep -E "Keepalive|AutoUpdate"`
+- Note: a `403` from MAM isn't always a dead cookie — IP/ASN lock mismatches and MAM session-settings issues (see [issue #28](https://github.com/sirjmann92/mousetrap/issues/28)) are intentionally *not* classified as "invalid" since a new cookie wouldn't fix them; check the event log for the actual MAM message
 
 ### Wrong Timezone in Notifications
 
@@ -233,7 +176,6 @@ Response:
 **Solutions**:
 - Set `TZ` environment variable in `compose.yaml` (e.g., `TZ=America/Chicago`)
 - Restart container after changing timezone
-- Use "NOW" button for current server time (respects TZ setting)
 - Verify timezone with: `docker compose exec mousetrap date`
 
 ---
@@ -250,7 +192,7 @@ All Prowlarr operations are logged to the UI event log:
 | `prowlarr_manual_update` | Manual update via button |
 | `prowlarr_test` | Connection test result |
 | `prowlarr_find_indexer` | Indexer discovery |
-| `mam_session_expiry` | Expiry warning notification |
+| `mam_session_invalid` | MAM confirmed this session's mam_id is dead |
 
 ### Viewing Logs
 
@@ -267,8 +209,8 @@ Example log entries:
 [2025-10-02 19:46:33] prowlarr_test - SUCCESS
   Connection successful, MyAnonamouse indexer found (ID: 42)
 
-[2025-12-24 08:00:15] mam_session_expiry - WARNING
-  Session expires in 7 days
+[2025-12-24 08:00:15] mam_session_invalid - INVALID
+  MAM reports this session's mam_id is invalid.
 ```
 
 ---
@@ -284,7 +226,6 @@ Example log entries:
 ### MAM ID Redaction
 - Notifications show only last 8 characters: `MAM ID ending in ...abcd1234`
 - Event logs may show full MAM ID (stored locally in `/config`)
-- Logs directory is mounted locally (protect with appropriate permissions)
 
 ### Network Security
 - Use internal Docker networks for Prowlarr communication
@@ -320,28 +261,20 @@ Log event to UI event log
 Show success notification
 ```
 
-### Expiry Check Flow
+### Validity Check Flow
 
 ```
-Daily at 8:00 AM (server time)
+Daily keepalive ping (dynamicSeedbox.php), or any IP/ASN-triggered seedbox update
     ↓
-Load all sessions
+Classify MAM's response (see classify_mam_response)
     ↓
-For each session:
-    ↓
-  Prowlarr enabled? ── No → Skip
+"Invalid session" / "Invalid session - Invalid Cookie"? ── No → No action
     ↓ Yes
-  MAM Session Created set? ── No → Skip
-    ↓ Yes
-  Calculate expiry (created + 90 days)
+Already notified for this session? ── Yes → No action (avoid repeat alerts)
+    ↓ No
+Send notification (SMTP/Webhook/Apprise/Pushover)
     ↓
-  Calculate days remaining
-    ↓
-  Days ≤ notify threshold? ── No → Skip
-    ↓ Yes
-  Send notification (SMTP/Webhook/Apprise)
-    ↓
-  Log event to UI event log
+Mark session as notified (cleared automatically once MAM responds OK again)
 ```
 
 ---
@@ -394,29 +327,6 @@ Update MAM ID in Prowlarr indexer.
 }
 ```
 
-### POST `/api/prowlarr/test_expiry_notification`
-Send test expiry notification.
-
-**Request**:
-```json
-{
-  "label": "DirectSession"
-}
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Test notification sent for session 'DirectSession'",
-  "details": {
-    "created": "2025-10-02 19:45",
-    "expires": "2025-12-31 19:45",
-    "days_remaining": 89
-  }
-}
-```
-
 ### GET `/api/server_time`
 Get current server time in ISO format.
 
@@ -431,16 +341,6 @@ Get current server time in ISO format.
 
 ## 💡 Tips & Best Practices
 
-### Session Creation Date
-- **Use NOW button**: Automatically uses server timezone
-- **Set immediately**: Record date when you first create your MAM session
-- **Track manually**: If you don't know exact creation date, estimate conservatively (earlier is safer)
-
-### Notification Timing
-- **7 days default**: Good balance between warning time and noise
-- **Adjust threshold**: Increase for slower response times (e.g., 14 days)
-- **Multiple sessions**: Each session has independent expiry tracking
-
 ### Prowlarr Management
 - **One source of truth**: Let MouseTrap manage MAM ID updates
 - **Verify updates**: Check Prowlarr UI after updates to confirm
@@ -449,17 +349,16 @@ Get current server time in ISO format.
 
 ### Monitoring
 - **Check event log**: Regularly review for failed updates
-- **Enable notifications**: Get alerts for expiry warnings
-- **Set calendar reminder**: Backup reminder at 85 days (5 days before default warning)
-- **Document rotation**: Keep track of when you refresh MAM sessions
+- **Enable notifications**: Get alerts when MAM invalidates your session
+- **Read the MAM message**: The notification includes MAM's own error text — it tells you whether you need a new cookie or just a config fix (e.g. an IP/ASN lock mismatch)
 
 ---
 
 ## 📅 Session Refresh Workflow
 
-When your MAM session expires (or is about to):
+When MouseTrap notifies you that MAM has invalidated your session:
 
-1. **Get notification** from MouseTrap (7 days before expiry)
+1. **Get notification** from MouseTrap, including MAM's own error message
 2. **Log into MAM** with your browser
 3. **Generate new session ID**:
    - MyAnonamouse → Security → API Credentials
@@ -467,7 +366,6 @@ When your MAM session expires (or is about to):
 4. **Update MouseTrap**:
    - Open session config
    - Paste new MAM ID
-   - Click "NOW" button for new creation date
    - Save configuration
 5. **Verify Prowlarr update**:
    - Check event log for success
@@ -486,9 +384,8 @@ You'll know everything is working when:
 - ✅ "TEST PROWLARR" shows green success message
 - ✅ Event log shows `prowlarr_auto_update - SUCCESS`
 - ✅ Prowlarr indexer shows updated MAM ID
-- ✅ Test notification received via configured channels
 - ✅ Prowlarr searches complete successfully
-- ✅ Event log shows no errors for 90 days
+- ✅ No `mam_session_invalid` events in the log
 
 ---
 

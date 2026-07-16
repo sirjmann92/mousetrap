@@ -135,13 +135,13 @@ def load_session(label: str) -> dict[str, Any]:
     for k, v in prowlarr_defaults.items():
         prowlarr_cfg.setdefault(k, v)
 
-    # MAM session created date (for 90-day expiry tracking)
-    if "mam_session_created_date" not in cfg:
-        cfg["mam_session_created_date"] = None
-
-    # Session-level expiry notification setting
-    if "notify_before_expiry_days" not in cfg:
-        cfg["notify_before_expiry_days"] = 7
+    # MAM cookie-validity tracking (response-based, see classify_mam_response)
+    if "mam_invalid_notified" not in cfg:
+        cfg["mam_invalid_notified"] = False
+    if "mam_invalid_since" not in cfg:
+        cfg["mam_invalid_since"] = None
+    if "last_mam_valid_check" not in cfg:
+        cfg["last_mam_valid_check"] = None
 
     return cfg
 
