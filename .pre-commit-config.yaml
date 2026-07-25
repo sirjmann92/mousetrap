@@ -60,8 +60,6 @@ repos:
     hooks:
       - id: biome-check
         files: ^frontend/
-        additional_dependencies:
-          - '@biomejs/biome@2.5.5'
 
 ci:
   autofix_commit_msg: |
