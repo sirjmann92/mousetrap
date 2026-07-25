@@ -283,17 +283,16 @@ Use the local development commands when changing the Python backend or React
 frontend. Production and Docker deployments use `start.sh` instead.
 
 ```bash
-# Python 3.13 backend environment
-python3.13 -m venv .venv
-.venv/bin/python -m pip install --upgrade "pip>=25.1"
-.venv/bin/python -m pip install --group dev
-
-# Node.js 22.20.0 or newer
-npm ci --prefix frontend
+# Requires Python 3.13 or newer and Node.js 22.20.0 or newer.
+./scripts/setup.sh
 
 # Start both the FastAPI backend and Vite frontend with live reload
 npm run dev
 ```
+
+The setup helper creates or reuses `.venv`, installs the Python `dev`
+dependency group, validates the Node.js version, and installs the frontend
+dependencies exactly as pinned in `frontend/package-lock.json`.
 
 Run the same backend and frontend linting, formatting, and type checks used by
 the GitHub lint workflow:

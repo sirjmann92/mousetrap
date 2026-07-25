@@ -25,6 +25,8 @@ account management.
 - `docs/`: user and implementation documentation.
 - `scripts/start-backend.sh`: local-only FastAPI launcher used by
   `npm run backend` and `npm run dev`; production containers use `start.sh`.
+- `scripts/setup.sh`: creates the Python virtual environment and installs
+  Python and frontend development dependencies.
 - `scripts/lint.sh`: repository-wide lint, format, and type-check wrapper matching
   the GitHub lint workflow.
 - `Dockerfile`: production image build.
@@ -86,21 +88,15 @@ account management.
 
 ## Local Setup
 
-Backend setup:
+Set up both backend and frontend development environments:
 
 ```bash
-python3.13 -m venv .venv
-. .venv/bin/activate
-python -m pip install --upgrade "pip>=25.1"
-python -m pip install --group dev
+./scripts/setup.sh
 ```
 
-Frontend setup:
-
-```bash
-# Requires Node.js 22.20.0 or newer.
-npm ci --prefix frontend
-```
+The helper requires Python 3.13 or newer and Node.js 22.20.0 or newer. It
+creates or reuses `.venv`, installs the Python `dev` dependency group, and runs
+`npm ci` against the frontend lockfile.
 
 The root `package.json` forwards frontend commands into `frontend/`.
 
