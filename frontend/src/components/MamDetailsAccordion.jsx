@@ -41,7 +41,7 @@ export default function MamDetailsAccordion({ status }) {
           sx={{
             display: 'grid',
             gap: 3,
-            gridTemplateColumns: '1fr 1fr',
+            gridTemplateColumns: { sm: '1fr 1fr', xs: '1fr' },
             m: 0,
             p: 0,
           }}

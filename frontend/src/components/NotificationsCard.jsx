@@ -473,7 +473,16 @@ export default function NotificationsCard() {
             </Alert>
           )}
           <FormGroup sx={{ mb: 3 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                minWidth: 0,
+                overflowX: 'auto',
+                width: '100%',
+              }}
+            >
               {/* Paired Events (Success/Failure) */}
               {pairedEvents.map((group) => (
                 <Box
