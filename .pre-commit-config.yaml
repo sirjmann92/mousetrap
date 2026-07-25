@@ -50,7 +50,7 @@ repos:
     hooks:
       - id: tsc
         name: tsc check
-        entry: bash -c "cd frontend && npx tsc --noEmit"
+        entry: npm --prefix frontend run tsc
         language: system
         types_or: [ts, tsx, javascript, jsx]
         pass_filenames: false
