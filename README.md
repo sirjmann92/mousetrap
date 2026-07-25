@@ -277,6 +277,42 @@ cd mousetrap
 docker compose up --build -d
 ```
 
+### Local Source Development
+
+Use the local development commands when changing the Python backend or React
+frontend. Production and Docker deployments use `start.sh` instead.
+
+```bash
+# Python 3.13 backend environment
+python3.13 -m venv .venv
+.venv/bin/python -m pip install --upgrade "pip>=25.1"
+.venv/bin/python -m pip install --group dev
+
+# Node.js 22.20.0 or newer
+npm ci --prefix frontend
+
+# Start both the FastAPI backend and Vite frontend with live reload
+npm run dev
+```
+
+Open the Vite URL printed by npm, normally
+[http://localhost:5173](http://localhost:5173). The backend runs on
+[http://localhost:39842](http://localhost:39842).
+
+The `npm run dev` command uses `scripts/start-backend.sh`. That helper stores
+local configuration, sessions, notifications, proxies, port-monitor state, and
+the SQLite event log under the repository's ignored `config/` directory instead
+of the production `/config` path.
+
+- Use `npm run backend` when only the FastAPI service is needed.
+- Set `CONFIG_DIR` to use a different local data directory.
+- Set `VITE_BACKEND_PORT` when changing the backend port for `npm run dev`, so
+  Vite and Uvicorn stay aligned. For example:
+
+  ```bash
+  VITE_BACKEND_PORT=39843 npm run dev
+  ```
+
 ---
 
 ## 🌐 VPN Integration

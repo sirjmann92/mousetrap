@@ -23,6 +23,8 @@ account management.
 - `frontend/`: React/Vite application.
 - `tests/`: Python pytest suite.
 - `docs/`: user and implementation documentation.
+- `scripts/start-backend.sh`: local-only FastAPI launcher used by
+  `npm run backend` and `npm run dev`; production containers use `start.sh`.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
   configuration.
@@ -99,6 +101,25 @@ npm ci --prefix frontend
 ```
 
 The root `package.json` forwards frontend commands into `frontend/`.
+
+For local source development:
+
+```bash
+# Start only FastAPI with reload.
+npm run backend
+
+# Start FastAPI and Vite together with reload.
+npm run dev
+```
+
+The local backend helper defaults `CONFIG_DIR` to the repository's ignored
+`config/` directory so development never writes configuration, session state,
+notifications, proxies, port-monitor state, or the SQLite event log to
+production's `/config` path. Preserve explicit `CONFIG_DIR` and per-file path
+overrides when changing the helper. Use `VITE_BACKEND_PORT` to change the
+backend port for the combined `npm run dev` command; the helper also accepts
+`PORT` when starting only the backend. Do not use `scripts/start-backend.sh` as
+a production entrypoint.
 
 ## Validation Commands
 
