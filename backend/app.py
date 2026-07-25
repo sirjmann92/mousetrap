@@ -1621,11 +1621,24 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         proxy_cfg = cfg.get("proxy", {}) or {}
         prev_cfg = None
 
+        def load_previous_config(label: str) -> dict[str, Any] | None:
+            """Load prior state, allowing valid UI data to replace corrupt YAML."""
+            try:
+                return load_session(label)
+            except YamlStoreError as err:
+                _logger.warning(
+                    "[Session] Could not load existing session '%s'; "
+                    "saving without preserved fields: %s",
+                    label,
+                    err,
+                )
+                return None
+
         if "proxy" in cfg:
             if old_label:
-                prev_cfg = load_session(old_label)
+                prev_cfg = load_previous_config(old_label)
             elif cfg.get("label"):
-                prev_cfg = load_session(cfg["label"])
+                prev_cfg = load_previous_config(cfg["label"])
             # If password is missing but previous session had one, keep it
             if (
                 isinstance(proxy_cfg, dict)
@@ -1657,9 +1670,9 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         # If prev_cfg not set above, try to load it now
         if prev_cfg is None:
             if old_label:
-                prev_cfg = load_session(old_label)
+                prev_cfg = load_previous_config(old_label)
             elif cfg.get("label"):
-                prev_cfg = load_session(cfg["label"])
+                prev_cfg = load_previous_config(cfg["label"])
         if prev_cfg:
             for field in backend_fields:
                 if field in prev_cfg and field not in cfg:
