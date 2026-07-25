@@ -12,9 +12,10 @@ def test_delete_proxy_marks_session_save_as_existing_update(
 ) -> None:
     """Guard proxy cleanup writes against recreating a retired session."""
     saved_sessions: list[tuple[dict[str, Any], str | None]] = []
+    saved_proxies: list[dict[str, dict[str, Any]]] = []
 
     monkeypatch.setattr(api_proxy, "load_proxies", lambda: {"VPN": {"host": "proxy"}})
-    monkeypatch.setattr(api_proxy, "save_proxies", lambda proxies: None)
+    monkeypatch.setattr(api_proxy, "save_proxies", saved_proxies.append)
     monkeypatch.setattr(api_proxy, "list_sessions", lambda: ["Session1"])
     monkeypatch.setattr(
         api_proxy,
@@ -30,4 +31,6 @@ def test_delete_proxy_marks_session_save_as_existing_update(
     result = api_proxy.delete_proxy("VPN")
 
     assert result == {"success": True}
+    assert saved_proxies == [{}]
+    assert "VPN" not in saved_proxies[0]
     assert saved_sessions == [({"label": "Session1", "proxy": {}}, "Session1")]

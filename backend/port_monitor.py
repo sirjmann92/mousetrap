@@ -551,6 +551,7 @@ class PortMonitorStackManager:
 
         while self.running:
             now = time.time()
+            cycle_changed = False
             for stack in self.stacks:
                 # Only check if enough time has passed since last check
                 interval_min = getattr(stack, "interval", 60)  # interval in minutes
@@ -562,6 +563,7 @@ class PortMonitorStackManager:
                     stack.last_checked = time.time()
                     stack.last_result = result
                     stack.status = "OK" if result else "Failed"
+                    cycle_changed = True
                     _logger.info(
                         "[PortMonitorStack] Port check for %s:%s (stack '%s'): %s",
                         stack.primary_container,
@@ -623,7 +625,6 @@ class PortMonitorStackManager:
                                     message=f"Manual IP {manual_ip} unreachable for 3+ cycles. Auto-restart paused until user updates or disables manual IP.",
                                     details={},
                                 )
-                                self.save_stacks()
                                 continue  # Skip restart
                         else:
                             stack.consecutive_manual_ip_failures = 0
@@ -644,7 +645,9 @@ class PortMonitorStackManager:
                             },
                         )
                         await self.restart_stack(stack)
-                    self.save_stacks()
+                        cycle_changed = False
+            if cycle_changed:
+                self.save_stacks()
             await asyncio.sleep(5)
 
     def start(self) -> None:

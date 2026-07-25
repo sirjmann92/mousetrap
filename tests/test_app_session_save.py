@@ -146,7 +146,7 @@ async def test_api_save_persists_once_before_create_or_update_side_effects(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "label", ["../outside", "nested/session", r"nested\\session", "nul\x00label"]
+    "label", ["../outside", "nested/session", "nested\\session", "nul\x00label"]
 )
 async def test_api_rejects_unsafe_label_without_persistence_artifacts(
     monkeypatch: pytest.MonkeyPatch,

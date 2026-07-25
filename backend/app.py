@@ -503,7 +503,13 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
             _logger.info(
                 "[Keepalive] label=%s mam_id cookie rotated by MAM; adopting new value.", label
             )
-        save_session(fresh_cfg, old_label=label)
+        save_result = save_session(fresh_cfg, old_label=label)
+        if save_result is SaveSessionResult.STALE:
+            _logger.warning(
+                "[Keepalive] label=%s Session was deleted during keepalive; "
+                "discarding background keepalive state update.",
+                label,
+            )
         if _prev_mam_id is not None:
             await _sync_integrations_if_mam_id_changed(
                 fresh_cfg, label, updated_mam_id, _prev_mam_id
@@ -695,7 +701,13 @@ async def auto_update_seedbox_if_needed(
                         label,
                     )
                     try:
-                        save_session(cfg, old_label=label)
+                        save_result = save_session(cfg, old_label=label)
+                        if save_result is SaveSessionResult.STALE:
+                            _logger.warning(
+                                "[AutoUpdate] label=%s Session was deleted during background "
+                                "update; discarding rotated mam_id update.",
+                                label,
+                            )
                     except Exception as e:
                         _logger.error(
                             "[AutoUpdate][ERROR] label=%s save_session failed while persisting "

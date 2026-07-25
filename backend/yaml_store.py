@@ -16,9 +16,11 @@ import logging
 import os
 from pathlib import Path
 import shutil
-import tempfile
+import stat
 import threading
+import time
 from typing import Any
+import uuid
 
 import yaml
 
@@ -125,32 +127,32 @@ def _load_yaml_file_unlocked(
     return backup_data
 
 
-def write_yaml_file(path: Path, data: Any) -> None:
+def write_yaml_file(path: Path, data: Any, *, refresh_backup: bool = True) -> None:
     """Atomically write YAML and refresh the last-known-good backup.
 
     Args:
         path: Destination YAML path.
         data: YAML-serializable value to persist.
+        refresh_backup: Whether to refresh the adjacent last-known-good backup.
     """
     with _lock_for_path(path):
-        _write_yaml_file_unlocked(path, data)
+        _write_yaml_file_unlocked(path, data, refresh_backup=refresh_backup)
 
 
-def _write_yaml_file_unlocked(path: Path, data: Any) -> None:
+def _write_yaml_file_unlocked(path: Path, data: Any, *, refresh_backup: bool = True) -> None:
     """Atomically write YAML while the caller holds the path lock.
 
     Args:
         path: Destination YAML path.
         data: YAML-serializable value to persist.
+        refresh_backup: Whether to refresh the adjacent last-known-good backup.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp_name = tempfile.mkstemp(
-        dir=str(path.parent),
+    fd, temp_path = _create_persistent_temp(
+        path,
         prefix=".yaml-write-",
         suffix=".tmp",
-        text=True,
     )
-    temp_path = Path(temp_name)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as file_obj:
             yaml.safe_dump(data, file_obj)
@@ -159,10 +161,11 @@ def _write_yaml_file_unlocked(path: Path, data: Any) -> None:
 
         temp_path.replace(path)
         _fsync_directory(path.parent)
-        try:
-            _atomic_copy(path, backup_path(path))
-        except OSError as err:
-            _logger.warning("[ConfigStore] Backup refresh failed for %s: %s", path, err)
+        if refresh_backup:
+            try:
+                _atomic_copy(path, backup_path(path))
+            except OSError as err:
+                _logger.warning("[ConfigStore] Backup refresh failed for %s: %s", path, err)
     finally:
         if temp_path.exists():
             temp_path.unlink()
@@ -219,12 +222,11 @@ def _atomic_copy(src: Path, dst: Path) -> None:
         src: Source file to copy.
         dst: Destination file to replace atomically.
     """
-    fd, temp_name = tempfile.mkstemp(
-        dir=str(dst.parent),
+    fd, temp_path = _create_persistent_temp(
+        dst,
         prefix=".yaml-copy-",
         suffix=".tmp",
     )
-    temp_path = Path(temp_name)
     try:
         with os.fdopen(fd, "wb") as out_file, src.open("rb") as in_file:
             shutil.copyfileobj(in_file, out_file)
@@ -236,6 +238,87 @@ def _atomic_copy(src: Path, dst: Path) -> None:
     finally:
         if temp_path.exists():
             temp_path.unlink()
+
+
+def _create_persistent_temp(
+    destination: Path,
+    *,
+    prefix: str,
+    suffix: str,
+) -> tuple[int, Path]:
+    """Create a replacement temp with the destination's persistent mode.
+
+    For a new destination, ``os.open`` applies the current process umask
+    atomically in the kernel. This avoids temporarily changing the
+    process-global umask.
+    """
+    try:
+        mode = stat.S_IMODE(destination.stat().st_mode)
+    except FileNotFoundError:
+        mode = None
+
+    for _attempt in range(100):
+        temp_path = destination.parent / f"{prefix}{uuid.uuid4().hex}{suffix}"
+        try:
+            fd = os.open(
+                temp_path,
+                os.O_RDWR | os.O_CREAT | os.O_EXCL,
+                0o666 if mode is None else mode,
+            )
+        except FileExistsError:
+            continue
+        if mode is not None:
+            try:
+                os.fchmod(fd, mode)
+            except BaseException:
+                try:
+                    os.close(fd)
+                finally:
+                    temp_path.unlink(missing_ok=True)
+                raise
+        return fd, temp_path
+    raise FileExistsError(f"Could not allocate persistent temp beside {destination}")
+
+
+def cleanup_store_temp_artifacts(directory: Path, *, min_age_seconds: float = 3600) -> int:
+    """Remove old, narrowly store-owned crash temporary files.
+
+    Age gating prevents cleanup from deleting a temporary file owned by an
+    active writer. Callers should invoke this from a recovery/startup path.
+
+    Args:
+        directory: Store directory to inspect.
+        min_age_seconds: Minimum artifact age required for removal.
+
+    Returns:
+        Number of artifacts removed.
+    """
+    if not directory.exists():
+        return 0
+    cutoff = time.time() - min_age_seconds
+    removed = 0
+    patterns = (
+        ".yaml-write-*.tmp",
+        ".yaml-copy-*.tmp",
+        ".session-rename-*.json.*.tmp",
+        ".session-rename-*.pending.yaml.*.tmp",
+    )
+    for pattern in patterns:
+        for candidate in directory.glob(pattern):
+            try:
+                if not candidate.is_file() or candidate.stat().st_mtime > cutoff:
+                    continue
+                candidate.unlink()
+                removed += 1
+            except OSError as err:
+                _logger.warning(
+                    "[ConfigStore] Could not remove stale store temp %s: %s",
+                    candidate,
+                    err,
+                )
+    if removed:
+        _fsync_directory(directory)
+    return removed
 
 
 def _read_yaml_file(path: Path) -> Any:

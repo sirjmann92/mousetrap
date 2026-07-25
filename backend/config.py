@@ -18,7 +18,13 @@ import uuid
 
 import yaml
 
-from backend.yaml_store import backup_path, load_yaml_file, lock_yaml_files, write_yaml_file
+from backend.yaml_store import (
+    backup_path,
+    cleanup_store_temp_artifacts,
+    load_yaml_file,
+    lock_yaml_files,
+    write_yaml_file,
+)
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
@@ -34,6 +40,7 @@ MAX_SESSION_LABEL_BYTES = NAME_MAX_BYTES - len(
 _logger = logging.getLogger(__name__)
 RENAME_JOURNAL_GLOB = ".session-rename-*.json"
 RENAME_PENDING_GLOB = ".session-rename-*.pending.yaml"
+RENAME_QUARANTINE_SUFFIX = ".corrupt"
 _RENAME_LOCK = threading.RLock()
 
 
@@ -77,16 +84,27 @@ def list_sessions() -> list[str]:
     Scans the ``CONFIG_DIR`` for files that match the session naming
     convention, including backup-only files, and returns the extracted labels.
     """
-    _recover_rename_transactions()
-    labels = {
-        f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX)]
-        for f in CONFIG_DIR.glob(f"{SESSION_PREFIX}*{SESSION_SUFFIX}")
-    }
-    labels.update(
-        f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX + BACKUP_SUFFIX)]
-        for f in CONFIG_DIR.glob(f"{SESSION_PREFIX}*{SESSION_SUFFIX}{BACKUP_SUFFIX}")
-    )
-    return sorted(labels)
+    with _RENAME_LOCK:
+        _recover_rename_transactions()
+        labels: set[str] = set()
+        scans = (
+            (f"{SESSION_PREFIX}*{SESSION_SUFFIX}", SESSION_SUFFIX),
+            (f"{SESSION_PREFIX}*{SESSION_SUFFIX}{BACKUP_SUFFIX}", SESSION_SUFFIX + BACKUP_SUFFIX),
+        )
+        for pattern, suffix in scans:
+            for file_path in CONFIG_DIR.glob(pattern):
+                label = file_path.name[len(SESSION_PREFIX) : -len(suffix)]
+                try:
+                    get_session_path(label)
+                except ValueError as err:
+                    _logger.warning(
+                        "[ConfigStore] Skipping invalid legacy session file %s: %s",
+                        file_path,
+                        err,
+                    )
+                    continue
+                labels.add(label)
+        return sorted(labels)
 
 
 def encrypt_password(password: str) -> str:
@@ -335,7 +353,7 @@ def _complete_rename_transaction(journal: Path) -> None:
             _fsync_config_dir()
         write_yaml_file(new_path, pending_cfg)
         if not new_backup.exists():
-            _write_pending_config(new_backup, pending_cfg)
+            write_yaml_file(new_backup, pending_cfg, refresh_backup=False)
         _rename_fault_point("publish")
     elif not new_path.exists():
         raise FileNotFoundError(f"Rename pending payload missing: {pending}")
@@ -358,17 +376,31 @@ def _recover_rename_transactions() -> None:
     if not CONFIG_DIR.exists():
         return
     with _RENAME_LOCK:
+        cleanup_store_temp_artifacts(CONFIG_DIR)
         referenced_pending: set[Path] = set()
         for journal in sorted(CONFIG_DIR.glob(RENAME_JOURNAL_GLOB)):
+            try:
+                transaction_id = _journal_transaction_id(journal.name)
+            except (TypeError, ValueError) as err:
+                _quarantine_invalid_journal(journal, None, err)
+                continue
+            associated_pending = CONFIG_DIR / f".session-rename-{transaction_id}.pending.yaml"
+            referenced_pending.add(associated_pending)
+            quarantine_pending = associated_pending
             try:
                 transaction = json.loads(journal.read_text(encoding="utf-8"))
                 old_path = _journal_session_path(transaction["old"])
                 new_path = _journal_session_path(transaction["new"])
-                referenced_pending.add(_journal_pending_path(transaction["pending"]))
+                pending = _journal_pending_path(transaction["pending"])
+                quarantine_pending = pending
+                referenced_pending.discard(associated_pending)
+                referenced_pending.add(pending)
                 with lock_yaml_files(old_path, new_path):
                     _complete_rename_transaction(journal)
-            except (KeyError, TypeError, ValueError, OSError, json.JSONDecodeError) as err:
+            except OSError as err:
                 _logger.error("[ConfigStore] Could not recover rename journal %s: %s", journal, err)
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError) as err:
+                _quarantine_invalid_journal(journal, quarantine_pending, err)
         for pending in CONFIG_DIR.glob(RENAME_PENDING_GLOB):
             if pending not in referenced_pending:
                 try:
@@ -380,6 +412,49 @@ def _recover_rename_transactions() -> None:
                         pending,
                         err,
                     )
+
+
+def _quarantine_invalid_journal(
+    journal: Path,
+    pending: Path | None,
+    err: Exception,
+) -> None:
+    """Durably quarantine a structurally invalid journal and its secret payload."""
+    quarantine = journal.with_name(f"{journal.name}{RENAME_QUARANTINE_SUFFIX}")
+    if quarantine.exists():
+        quarantine = journal.with_name(
+            f"{journal.name}.{uuid.uuid4().hex}{RENAME_QUARANTINE_SUFFIX}"
+        )
+    try:
+        journal.replace(quarantine)
+    except OSError as quarantine_err:
+        _logger.error(
+            "[ConfigStore] Could not quarantine invalid rename journal %s: %s",
+            journal,
+            quarantine_err,
+        )
+        return
+
+    _fsync_config_dir()
+    _logger.error(
+        "[ConfigStore] Quarantined invalid rename journal %s as %s: %s",
+        journal,
+        quarantine,
+        err,
+    )
+    if pending is None or not pending.exists():
+        return
+    try:
+        pending.unlink()
+        _fsync_config_dir()
+    except OSError as unlink_err:
+        _logger.error(
+            "[ConfigStore] Quarantined invalid rename journal %s but could not "
+            "remove pending payload %s: %s",
+            journal,
+            pending,
+            unlink_err,
+        )
 
 
 def _journal_session_path(name: str) -> Path:
@@ -470,9 +545,13 @@ def _delete_session_file_with_backup(path: Path) -> None:
     Args:
         path: Session YAML path.
     """
+    removed = False
     for candidate in (path, backup_path(path)):
         if candidate.exists():
             candidate.unlink()
+            removed = True
+    if removed:
+        _fsync_config_dir()
 
 
 def _load_config_mapping(path: Path, default: dict[str, Any]) -> dict[str, Any]:

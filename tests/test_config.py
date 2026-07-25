@@ -1,5 +1,7 @@
 """Tests for durable session configuration persistence."""
 
+import json
+import os
 from pathlib import Path
 import stat
 import threading
@@ -59,7 +61,7 @@ def test_load_session_recovers_from_empty_file_backup(temp_config_paths: Path) -
 
 @pytest.mark.parametrize(
     "label",
-    ["../outside", "nested/session", r"nested\\session", "nul\x00label", ".", "..", "", 123, None],
+    ["../outside", "nested/session", "nested\\session", "nul\x00label", ".", "..", "", 123, None],
 )
 def test_session_paths_reject_invalid_labels_before_file_io(
     temp_config_paths: Path,
@@ -286,6 +288,26 @@ def test_delete_session_removes_primary_and_backup(temp_config_paths: Path) -> N
 
     assert not path.exists()
     assert not backup.exists()
+
+
+def test_delete_session_fsyncs_directory_after_removal(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Flush directory metadata after removing session persistence files."""
+    config.save_session({"label": "Session1"})
+    fsync_calls = 0
+
+    def record_fsync() -> None:
+        """Record a requested config-directory metadata flush."""
+        nonlocal fsync_calls
+        fsync_calls += 1
+
+    monkeypatch.setattr(config, "_fsync_config_dir", record_fsync)
+
+    config.delete_session("Session1")
+
+    assert fsync_calls == 1
 
 
 def test_save_session_renames_existing_backup(temp_config_paths: Path) -> None:
@@ -571,6 +593,30 @@ def test_rename_pending_payload_is_private_and_orphan_is_removed(
     assert not list(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
 
 
+def test_rename_publishes_backup_with_persistent_permissions(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Use normal persistent permissions for rename backup fallback."""
+    old_path = config.get_session_path("Old")
+    old_path.write_text("label: Old\n", encoding="utf-8")
+    previous_umask = os.umask(0o027)
+
+    def fail_backup_copy(src: Path, dst: Path) -> None:
+        """Force rename completion through its durable backup fallback."""
+        raise OSError("simulated backup failure")
+
+    monkeypatch.setattr(yaml_store, "_atomic_copy", fail_backup_copy)
+    try:
+        config.save_session({"label": "New"}, old_label="Old")
+    finally:
+        os.umask(previous_umask)
+
+    new_path = config.get_session_path("New")
+    assert stat.S_IMODE(new_path.stat().st_mode) == 0o640
+    assert stat.S_IMODE(backup_path(new_path).stat().st_mode) == 0o640
+
+
 def test_rename_recovery_preserves_unrelated_backup_only_session(
     monkeypatch: pytest.MonkeyPatch,
     temp_config_paths: Path,
@@ -665,4 +711,147 @@ def test_malformed_journal_pending_type_does_not_block_discovery(
     )
 
     assert config.list_sessions() == ["Existing"]
-    assert "Could not recover rename journal" in caplog.text
+    assert "Quarantined invalid rename journal" in caplog.text
+    assert not journal.exists()
+    assert journal.with_name(f"{journal.name}{config.RENAME_QUARANTINE_SUFFIX}").exists()
+
+
+@pytest.mark.parametrize(
+    "transaction",
+    [
+        None,
+        {"old": 123, "new": "session-New.yaml", "pending": "unused"},
+        {
+            "old": "../session-Old.yaml",
+            "new": "session-New.yaml",
+            "pending": "unused",
+        },
+    ],
+)
+def test_structurally_invalid_rename_journal_is_durably_quarantined(
+    caplog: pytest.LogCaptureFixture,
+    temp_config_paths: Path,
+    transaction: dict[str, object] | None,
+) -> None:
+    """Quarantine permanent journal corruption and remove its secret payload."""
+    transaction_id = "c" * 32
+    journal = temp_config_paths / f".session-rename-{transaction_id}.json"
+    pending = temp_config_paths / f".session-rename-{transaction_id}.pending.yaml"
+    pending.write_text("mam:\n  mam_id: secret\n", encoding="utf-8")
+    if transaction is None:
+        journal.write_text("{broken", encoding="utf-8")
+    else:
+        transaction["pending"] = pending.name
+        journal.write_text(json.dumps(transaction), encoding="utf-8")
+
+    assert config.list_sessions() == []
+
+    quarantine = journal.with_name(f"{journal.name}{config.RENAME_QUARANTINE_SUFFIX}")
+    assert quarantine.exists()
+    assert not journal.exists()
+    assert not pending.exists()
+    assert "Quarantined invalid rename journal" in caplog.text
+
+
+def test_transient_rename_journal_read_error_keeps_artifacts_for_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Retain a journal and pending secret payload after a transient OS error."""
+    transaction_id = "d" * 32
+    journal = temp_config_paths / f".session-rename-{transaction_id}.json"
+    pending = temp_config_paths / f".session-rename-{transaction_id}.pending.yaml"
+    journal.write_text("{}", encoding="utf-8")
+    pending.write_text("mam:\n  mam_id: secret\n", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def fail_journal_read(path: Path, *args: Any, **kwargs: Any) -> str:
+        """Fail only the journal read with a retryable filesystem error."""
+        if path == journal:
+            raise OSError("transient")
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", fail_journal_read)
+
+    assert config.list_sessions() == []
+    assert journal.exists()
+    assert pending.exists()
+    assert not list(temp_config_paths.glob(f"*{config.RENAME_QUARANTINE_SUFFIX}"))
+
+
+def test_mismatched_pending_id_quarantine_removes_exact_secret_payload(
+    temp_config_paths: Path,
+) -> None:
+    """Remove the parsed pending payload when its ID mismatches the journal."""
+    journal_id = "e" * 32
+    pending_id = "f" * 32
+    journal = temp_config_paths / f".session-rename-{journal_id}.json"
+    pending = temp_config_paths / f".session-rename-{pending_id}.pending.yaml"
+    pending.write_text("mam:\n  mam_id: secret\n", encoding="utf-8")
+    journal.write_text(
+        json.dumps(
+            {
+                "old": "session-Old.yaml",
+                "new": "session-New.yaml",
+                "pending": pending.name,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert config.list_sessions() == []
+
+    assert not pending.exists()
+    assert not journal.exists()
+    assert journal.with_name(f"{journal.name}{config.RENAME_QUARANTINE_SUFFIX}").exists()
+
+
+@pytest.mark.parametrize("label", ["bad\\name", ".", "..", "x" * 239])
+def test_list_sessions_skips_invalid_legacy_labels_without_mutation(
+    caplog: pytest.LogCaptureFixture,
+    temp_config_paths: Path,
+    label: str,
+) -> None:
+    """Ignore invalid legacy filenames without migrating or deleting them."""
+    legacy = temp_config_paths / f"{config.SESSION_PREFIX}{label}{config.SESSION_SUFFIX}"
+    legacy.write_text("label: legacy\n", encoding="utf-8")
+
+    assert config.list_sessions() == []
+    assert legacy.exists()
+    assert "Skipping invalid legacy session file" in caplog.text
+
+
+def test_list_sessions_holds_rename_lock_through_both_scans(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Prevent enumeration from observing old and new labels mid-publication."""
+    config.save_session({"label": "Old"})
+    published = threading.Event()
+    allow_cleanup = threading.Event()
+    result: list[str] = []
+
+    def pause_after_publish(step: str) -> None:
+        """Pause after new publication while the old label still exists."""
+        if step == "publish":
+            published.set()
+            assert allow_cleanup.wait(timeout=2)
+
+    monkeypatch.setattr(config, "_rename_fault_point", pause_after_publish)
+    rename_thread = threading.Thread(
+        target=config.save_session,
+        args=({"label": "New"}, "Old"),
+    )
+    rename_thread.start()
+    assert published.wait(timeout=2)
+
+    list_thread = threading.Thread(target=lambda: result.extend(config.list_sessions()))
+    list_thread.start()
+    list_thread.join(timeout=0.05)
+    assert list_thread.is_alive()
+
+    allow_cleanup.set()
+    rename_thread.join(timeout=2)
+    list_thread.join(timeout=2)
+
+    assert result == ["New"]

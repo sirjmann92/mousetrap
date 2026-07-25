@@ -1,6 +1,8 @@
 """Tests for atomic YAML store helpers."""
 
+import os
 from pathlib import Path
+import stat
 import threading
 import time
 from typing import Any
@@ -21,6 +23,64 @@ def test_write_yaml_file_creates_backup(tmp_path: Path) -> None:
 
     assert yaml.safe_load(path.read_text(encoding="utf-8")) == data
     assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == data
+
+
+def test_new_persistent_files_follow_process_umask(tmp_path: Path) -> None:
+    """Apply normal creation permissions to new primary and backup files."""
+    path = tmp_path / "settings.yaml"
+    previous_umask = os.umask(0o027)
+    try:
+        write_yaml_file(path, {"label": "Session1"})
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o640
+    assert stat.S_IMODE(backup_path(path).stat().st_mode) == 0o640
+
+
+def test_atomic_replace_preserves_existing_primary_and_backup_modes(tmp_path: Path) -> None:
+    """Retain each destination's existing mode across atomic replacement."""
+    path = tmp_path / "settings.yaml"
+    backup = backup_path(path)
+    path.write_text("label: old\n", encoding="utf-8")
+    backup.write_text("label: old\n", encoding="utf-8")
+    path.chmod(0o664)
+    backup.chmod(0o604)
+
+    write_yaml_file(path, {"label": "new"})
+
+    assert stat.S_IMODE(path.stat().st_mode) == 0o664
+    assert stat.S_IMODE(backup.stat().st_mode) == 0o604
+
+
+def test_persistent_temp_chmod_failure_closes_and_removes_temp(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Clean the descriptor and artifact when existing-mode setup fails."""
+    path = tmp_path / "settings.yaml"
+    path.write_text("label: old\n", encoding="utf-8")
+    closed_descriptors: list[int] = []
+    original_close = os.close
+
+    def fail_fchmod(file_descriptor: int, mode: int) -> None:
+        """Fail after temp creation but before it can be returned."""
+        raise OSError("simulated chmod failure")
+
+    def record_close(file_descriptor: int) -> None:
+        """Record and perform descriptor cleanup."""
+        closed_descriptors.append(file_descriptor)
+        original_close(file_descriptor)
+
+    monkeypatch.setattr(yaml_store.os, "fchmod", fail_fchmod)
+    monkeypatch.setattr(yaml_store.os, "close", record_close)
+
+    with pytest.raises(OSError, match="simulated chmod failure"):
+        write_yaml_file(path, {"label": "new"})
+
+    assert len(closed_descriptors) == 1
+    assert not list(tmp_path.glob(".yaml-write-*.tmp"))
+    assert path.read_text(encoding="utf-8") == "label: old\n"
 
 
 def test_write_yaml_file_creates_nested_missing_parent(tmp_path: Path) -> None:
@@ -107,12 +167,43 @@ def test_write_yaml_file_serializes_same_path_operations(
     assert max_active_writes == 1
 
 
-def test_locking_does_not_retain_per_path_lock_entries(tmp_path: Path) -> None:
-    """Avoid retaining one permanent lock entry per arbitrary YAML path."""
+def test_locking_uses_fixed_bounded_stripe_collection(tmp_path: Path) -> None:
+    """Keep the actual striped lock collection fixed across arbitrary paths."""
+    original_stripes = yaml_store._LOCK_STRIPES
     for index in range(100):
         load_yaml_file(tmp_path / f"missing-{index}.yaml", {})
 
-    assert not hasattr(yaml_store, "_PATH_LOCKS")
+    assert yaml_store._LOCK_STRIPES is original_stripes
+    assert len(yaml_store._LOCK_STRIPES) == yaml_store._LOCK_STRIPE_COUNT == 64
+
+
+def test_cleanup_store_temp_artifacts_removes_only_old_owned_files(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Remove stale store temps while preserving active and unrelated files."""
+    old_owned = [
+        tmp_path / ".yaml-write-old.tmp",
+        tmp_path / ".yaml-copy-old.tmp",
+        tmp_path / f".session-rename-{'a' * 32}.json.dead.tmp",
+        tmp_path / f".session-rename-{'b' * 32}.pending.yaml.dead.tmp",
+    ]
+    recent_owned = tmp_path / ".yaml-write-active.tmp"
+    unrelated = tmp_path / ".other-write-old.tmp"
+    for candidate in (*old_owned, recent_owned, unrelated):
+        candidate.write_text("secret", encoding="utf-8")
+    for candidate in (*old_owned, unrelated):
+        os.utime(candidate, (1, 1))
+    fsync_calls: list[Path] = []
+    monkeypatch.setattr(yaml_store, "_fsync_directory", fsync_calls.append)
+
+    removed = yaml_store.cleanup_store_temp_artifacts(tmp_path, min_age_seconds=60)
+
+    assert removed == len(old_owned)
+    assert all(not candidate.exists() for candidate in old_owned)
+    assert recent_owned.exists()
+    assert unrelated.exists()
+    assert fsync_calls == [tmp_path]
 
 
 def test_load_yaml_file_uses_default_without_file(
