@@ -26,9 +26,9 @@ echo "Updating pre-commit hook revisions..."
 "$PRE_COMMIT" autoupdate
 
 echo "Updating frontend dependencies within package.json constraints..."
-npm --prefix frontend update
+npm --prefix frontend update --no-fund
 
 echo "Auditing the updated frontend dependency tree..."
-npm --prefix frontend audit
+npm --prefix frontend audit --no-fund
 
 echo "Dependency update complete. Review and validate the changed files."
