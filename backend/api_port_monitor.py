@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 
 from backend.event_log import append_ui_event_log
 from backend.port_monitor import port_monitor_manager
+from backend.yaml_store import YamlStoreError
 
 _logger: logging.Logger = logging.getLogger(__name__)
 _CONTAINER_WARN_INTERVAL = 60
@@ -90,13 +91,19 @@ def update_stack(
         "primary_port": stack.primary_port,
         "secondary_containers": stack.secondary_containers,
         "interval": stack.interval,
+        "public_ip": stack.public_ip,
     }
     stack.primary_container = req.primary_container
     stack.primary_port = req.primary_port
     stack.secondary_containers = req.secondary_containers
     stack.interval = req.interval
     stack.public_ip = req.public_ip
-    port_monitor_manager.save_stacks()
+    try:
+        port_monitor_manager.save_stacks()
+    except YamlStoreError:
+        for field, value in old_values.items():
+            setattr(stack, field, value)
+        raise
     # Immediately recheck status after edit
     port_monitor_manager.recheck_stack(name)
     if changed:
@@ -258,9 +265,8 @@ def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str,
     stack = port_monitor_manager.get_stack(name)
     if not stack:
         raise HTTPException(status_code=404, detail="Stack not found")
-    # Set status to 'Restarting' and save immediately
+    # Set runtime status immediately; status is not part of persisted configuration.
     stack.status = "Restarting"
-    port_monitor_manager.save_stacks()
     _logger.info("[PortMonitorStackAPI] Stack '%s' status set to 'Restarting'", name)
     append_ui_event_log(
         {
@@ -300,7 +306,6 @@ def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str,
                 "level": "info",
             }
         )
-        port_monitor_manager.recheck_stack(stack.name)
         _logger.info("[PortMonitorStackAPI] Status recheck complete for stack '%s'", name)
         append_ui_event_log(
             {

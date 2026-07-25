@@ -178,6 +178,13 @@ class PortMonitorStackManager:
             ],
         )
 
+    def _save_stacks_best_effort(self) -> None:
+        """Persist runtime state without terminating background monitoring."""
+        try:
+            self.save_stacks()
+        except YamlStoreError:
+            _logger.exception("[PortMonitorStack] Failed to persist background status update")
+
     def get_docker_client(self) -> Any:
         """Return a cached Docker client or create one from the environment.
 
@@ -354,7 +361,6 @@ class PortMonitorStackManager:
         """
         # Set status to 'Restarting...'
         stack.status = "Restarting..."
-        self.save_stacks()
 
         # Log restart event
         append_ui_event_log(
@@ -447,6 +453,7 @@ class PortMonitorStackManager:
                     message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
                     details={},
                 )
+                self.recheck_stack(stack.name)
                 return  # Do not restart secondaries
 
         # Restart all secondaries
@@ -487,7 +494,11 @@ class PortMonitorStackManager:
         stack.last_result = result
         stack.status = "OK" if result else "Failed"
         self.stacks.append(stack)
-        self.save_stacks()
+        try:
+            self.save_stacks()
+        except YamlStoreError:
+            self.stacks.remove(stack)
+            raise
 
         _logger.info(
             "[PortMonitorStack] Added stack '%s' with initial status: %s",
@@ -507,15 +518,20 @@ class PortMonitorStackManager:
         stack.last_checked = time.time()
         stack.last_result = result
         stack.status = "OK" if result else "Failed"
-        self.save_stacks()
+        self._save_stacks_best_effort()
         return True
 
     def remove_stack(self, name: str) -> None:
         """Remove a stack by name and persist the updated stack list."""
         if not self._config_loaded:
             raise YamlStoreError("Port-monitor configuration is unavailable")
+        previous_stacks = self.stacks
         self.stacks = [s for s in self.stacks if s.name != name]
-        self.save_stacks()
+        try:
+            self.save_stacks()
+        except YamlStoreError:
+            self.stacks = previous_stacks
+            raise
 
     def get_stack(self, name: str) -> PortMonitorStack | None:
         """Return the stack with the given name or None if not found."""
@@ -548,7 +564,7 @@ class PortMonitorStackManager:
                 stack.name,
                 "OK" if result else "FAILED",
             )
-        self.save_stacks()
+        self._save_stacks_best_effort()
         _logger.info(
             "[PortMonitorStack] Initial status checks complete, beginning periodic monitoring..."
         )
@@ -627,7 +643,7 @@ class PortMonitorStackManager:
                                     message=f"Manual IP {manual_ip} unreachable for 3+ cycles. Auto-restart paused until user updates or disables manual IP.",
                                     details={},
                                 )
-                                self.save_stacks()
+                                self._save_stacks_best_effort()
                                 continue  # Skip restart
                         else:
                             stack.consecutive_manual_ip_failures = 0
@@ -648,7 +664,7 @@ class PortMonitorStackManager:
                             },
                         )
                         await self.restart_stack(stack)
-                    self.save_stacks()
+                    self._save_stacks_best_effort()
             await asyncio.sleep(5)
 
     def _run_monitor_loop(self) -> None:
