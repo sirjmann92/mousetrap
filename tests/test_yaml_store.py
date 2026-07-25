@@ -23,6 +23,17 @@ def test_write_yaml_file_creates_backup(tmp_path: Path) -> None:
     assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == data
 
 
+def test_write_yaml_file_creates_nested_missing_parent(tmp_path: Path) -> None:
+    """Create missing parent directories before persisting YAML and its backup."""
+    path = tmp_path / "nested" / "config" / "settings.yaml"
+    data = {"label": "Session1"}
+
+    write_yaml_file(path, data)
+
+    assert yaml.safe_load(path.read_text(encoding="utf-8")) == data
+    assert yaml.safe_load(backup_path(path).read_text(encoding="utf-8")) == data
+
+
 def test_write_yaml_file_round_trips_yaml_null(tmp_path: Path) -> None:
     """Preserve a top-level YAML null as valid data instead of corruption."""
     path = tmp_path / "settings.yaml"

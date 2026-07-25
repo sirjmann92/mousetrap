@@ -89,9 +89,5 @@ def load_proxies() -> dict[str, Any]:
 
 
 def save_proxies(proxies: dict[str, Any]) -> None:
-    """Persist the given proxies mapping to PROXIES_PATH as YAML.
-
-    Ensures the parent directory exists before attempting to write.
-    """
-    Path(PROXIES_PATH).parent.mkdir(parents=True, exist_ok=True)
+    """Persist the given proxies mapping to PROXIES_PATH as YAML."""
     write_yaml_file(Path(PROXIES_PATH), proxies)

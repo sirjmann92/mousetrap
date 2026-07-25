@@ -196,8 +196,7 @@ def save_session(cfg: dict, old_label: str | None = None) -> SaveSessionResult:
     """Persist a session configuration to disk.
 
     If ``old_label`` is provided and different from the new label the
-    existing file will be renamed. The function ensures the containing
-    directory exists and writes the YAML representation of ``cfg``.
+    existing file will be renamed.
 
     Returns:
         The persistence outcome, including a stale update that was discarded.
@@ -219,7 +218,6 @@ def save_session(cfg: dict, old_label: str | None = None) -> SaveSessionResult:
             journal = _begin_rename_transaction(old_path, path, cfg)
             _complete_rename_transaction(journal)
             return SaveSessionResult.SAVED
-        path.parent.mkdir(parents=True, exist_ok=True)
         # No encryption: just save password as-is
         if "browser_cookie" not in cfg:
             cfg["browser_cookie"] = ""
@@ -266,13 +264,8 @@ def load_config() -> dict[str, Any]:
 
 
 def save_config(cfg: dict[str, Any]) -> None:
-    """Persist the given global configuration to CONFIG_PATH.
-
-    Ensures the config directory exists and writes the YAML file.
-    """
+    """Persist the given global configuration to CONFIG_PATH."""
     # Save to config.yaml (for defaults)
-    config_dir = CONFIG_PATH.parent
-    config_dir.mkdir(parents=True, exist_ok=True)
     write_yaml_file(CONFIG_PATH, cfg)
 
 

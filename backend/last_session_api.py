@@ -34,7 +34,6 @@ def write_last_session(label: str | None) -> None:
     Args:
         label: The session label to persist.
     """
-    LAST_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
     write_yaml_file(LAST_SESSION_FILE, {"label": label or ""})
 
 

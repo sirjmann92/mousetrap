@@ -33,7 +33,6 @@ def save_notify_config(cfg: dict[str, Any]) -> None:
 
     """
     path = Path(NOTIFY_CONFIG_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
     write_yaml_file(path, cfg)
 
 
