@@ -34,6 +34,8 @@ env/
 favicon_io/
 frontend/.cache/
 frontend/node_modules/
+frontend/playwright-report/
+frontend/test-results/
 htmlcov/
 junit.xml
 last_session.yaml*

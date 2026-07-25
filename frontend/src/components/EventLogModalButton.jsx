@@ -155,7 +155,12 @@ export default function EventLogModalButton({ sessionLabel }) {
   return (
     <>
       <Tooltip title="View Event Log">
-        <IconButton color="inherit" onClick={() => setOpen(true)} size="medium">
+        <IconButton
+          aria-label="View event log"
+          color="inherit"
+          onClick={() => setOpen(true)}
+          size="medium"
+        >
           <DescriptionIcon />
         </IconButton>
       </Tooltip>
@@ -188,7 +193,12 @@ export default function EventLogModalButton({ sessionLabel }) {
           <DialogTitle sx={{ borderRadius: 0, p: 0 }}>Event Log</DialogTitle>
           <Box sx={{ borderRadius: 2 }}>
             <Tooltip title="Refresh">
-              <IconButton onClick={fetchLog} size="small" sx={{ mr: 1 }}>
+              <IconButton
+                aria-label="Refresh event log"
+                onClick={fetchLog}
+                size="small"
+                sx={{ mr: 1 }}
+              >
                 <svg
                   aria-label="Refresh"
                   fill="none"
@@ -210,7 +220,12 @@ export default function EventLogModalButton({ sessionLabel }) {
               </IconButton>
             </Tooltip>
             <Tooltip title="Clear log">
-              <IconButton onClick={handleClear} size="small" sx={{ mr: 1 }}>
+              <IconButton
+                aria-label="Clear event log"
+                onClick={handleClear}
+                size="small"
+                sx={{ mr: 1 }}
+              >
                 <svg
                   aria-label="Clear log"
                   fill="none"
@@ -235,7 +250,7 @@ export default function EventLogModalButton({ sessionLabel }) {
               </IconButton>
             </Tooltip>
             <Tooltip title="Close">
-              <IconButton onClick={() => setOpen(false)} size="small">
+              <IconButton aria-label="Close event log" onClick={() => setOpen(false)} size="small">
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Tooltip>

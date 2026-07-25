@@ -27,6 +27,7 @@ lint = [
 ]
 test = [
     { include-group = "runtime" },
+    "httpx",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
@@ -52,6 +53,10 @@ addopts = """
 """
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "integration: public API tests spanning multiple backend modules",
+    "workflow: end-to-end user workflow tests through the ASGI boundary",
+]
 
 [tool.coverage.run]
 branch = true

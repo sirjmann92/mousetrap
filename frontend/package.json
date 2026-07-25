@@ -21,6 +21,9 @@
     "lint": "biome check . --config-path=../biome.json --vcs-root=..",
     "lint:fix": "biome check . --write --config-path=../biome.json --vcs-root=..",
     "tsc": "tsc --noEmit",
+    "test:e2e": "playwright test --grep-invert @container",
+    "test:e2e:container": "playwright test --grep @container",
+    "test:e2e:install": "playwright install chromium",
     "backend": "cd .. && ./scripts/start-backend.sh",
     "dev": "concurrently \"npm:backend\" \"npm:start\" -k --names \"backend,frontend\" --prefix \"[{name}]\""
   },
@@ -38,6 +41,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
+    "@playwright/test": "^1.62.0",
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^9.2.1",
     "typescript": "^5.9.2",

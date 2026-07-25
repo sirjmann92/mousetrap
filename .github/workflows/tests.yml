@@ -1,0 +1,242 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements.txt
+
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            -r requirements.txt \
+            httpx \
+            pytest \
+            pytest-asyncio \
+            pytest-cov \
+            pytest-timeout
+
+      - name: Run all backend tests
+        run: |
+          set -o pipefail
+          npm run test:backend:all -- --junitxml=junit.xml \
+            2>&1 | tee backend-tests.log
+
+      - name: Upload backend failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-test-diagnostics
+          path: |
+            backend-tests.log
+            junit.xml
+            htmlcov/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  playwright:
+    name: Development Playwright tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            backend/requirements.txt
+            requirements.txt
+
+      - name: Install backend runtime dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Set up Node.js 22.20
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.20.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run development end-to-end tests
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee playwright-dev.log
+
+      - name: Upload Playwright failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-dev-diagnostics
+          path: |
+            playwright-dev.log
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  container:
+    name: Docker container smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_CONTAINER_NAME: mousetrap-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+      E2E_IMAGE_NAME: mousetrap-e2e:${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js 22.20
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22.20.0"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build test image
+        run: docker build --tag "$E2E_IMAGE_NAME" .
+
+      - name: Start test container
+        run: |
+          E2E_CONFIG_DIR="$RUNNER_TEMP/mousetrap-e2e-config"
+          mkdir -p "$E2E_CONFIG_DIR"
+          chmod 0777 "$E2E_CONFIG_DIR"
+          docker run --detach \
+            --name "$E2E_CONTAINER_NAME" \
+            --publish 127.0.0.1:39842:39842 \
+            --volume "$E2E_CONFIG_DIR:/config" \
+            "$E2E_IMAGE_NAME"
+
+      - name: Wait for container health
+        run: |
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:39842/api/version > /dev/null; then
+              exit 0
+            fi
+            if ! docker inspect \
+              --format '{{.State.Running}}' "$E2E_CONTAINER_NAME" \
+              | grep -qx true; then
+              docker logs "$E2E_CONTAINER_NAME"
+              exit 1
+            fi
+            sleep 2
+          done
+          docker logs "$E2E_CONTAINER_NAME"
+          exit 1
+
+      - name: Verify session persistence and restart container
+        run: |
+          curl --fail --silent --show-error \
+            --header 'Content-Type: application/json' \
+            --data '{"label":"container-smoke"}' \
+            http://127.0.0.1:39842/api/session/save
+          curl --fail --silent --show-error \
+            http://127.0.0.1:39842/api/session/container-smoke
+          test -s "$RUNNER_TEMP/mousetrap-e2e-config/session-container-smoke.yaml"
+          curl --fail --silent --show-error \
+            --request DELETE \
+            http://127.0.0.1:39842/api/session/delete/container-smoke
+          curl --fail --silent --show-error \
+            --header 'Content-Type: application/json' \
+            --data '{"label":"container-smoke-proxy","host":"127.0.0.1","port":8080}' \
+            http://127.0.0.1:39842/api/proxies
+          docker restart "$E2E_CONTAINER_NAME"
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:39842/api/version > /dev/null; then
+              exit 0
+            fi
+            if ! docker inspect \
+              --format '{{.State.Running}}' "$E2E_CONTAINER_NAME" \
+              | grep -qx true; then
+              docker logs "$E2E_CONTAINER_NAME"
+              exit 1
+            fi
+            sleep 2
+          done
+          docker logs "$E2E_CONTAINER_NAME"
+          exit 1
+
+      - name: Run container smoke tests
+        env:
+          E2E_BASE_URL: http://127.0.0.1:39842
+        run: |
+          set -o pipefail
+          npm run test:e2e:container 2>&1 | tee playwright-container.log
+
+      - name: Collect container diagnostics
+        if: failure()
+        run: |
+          mkdir -p container-diagnostics
+          docker ps -a \
+            --filter "name=^/${E2E_CONTAINER_NAME}$" \
+            > container-diagnostics/docker-ps.txt
+          docker inspect "$E2E_CONTAINER_NAME" \
+            > container-diagnostics/container-inspect.json || true
+          docker logs "$E2E_CONTAINER_NAME" \
+            > container-diagnostics/container.log 2>&1 || true
+
+      - name: Upload container failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: container-smoke-diagnostics
+          path: |
+            playwright-container.log
+            container-diagnostics/
+            frontend/playwright-report/
+            frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Clean up test containers
+        if: always()
+        run: |
+          docker rm --force "$E2E_CONTAINER_NAME" 2>/dev/null || true
+          docker image rm "$E2E_IMAGE_NAME" 2>/dev/null || true

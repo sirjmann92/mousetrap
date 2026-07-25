@@ -351,6 +351,7 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
                         <Box>
                           <Tooltip title="Test Proxy">
                             <IconButton
+                              aria-label={`Test proxy ${label}`}
                               disabled={testingProxy === label}
                               onClick={() => handleTestProxy(label)}
                               size="small"
@@ -368,12 +369,20 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Edit Proxy">
-                            <IconButton onClick={() => handleEdit(label)} size="small">
+                            <IconButton
+                              aria-label={`Edit proxy ${label}`}
+                              onClick={() => handleEdit(label)}
+                              size="small"
+                            >
                               <EditIcon color="primary" fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete Proxy">
-                            <IconButton onClick={() => handleDelete(label)} size="small">
+                            <IconButton
+                              aria-label={`Delete proxy ${label}`}
+                              onClick={() => handleDelete(label)}
+                              size="small"
+                            >
                               <DeleteIcon color="error" fontSize="small" />
                             </IconButton>
                           </Tooltip>

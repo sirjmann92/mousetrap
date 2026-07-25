@@ -326,6 +326,7 @@ export default function MouseTrapConfigCard({
               </InputLabel>
               <Select
                 error={showValidation && !!sessionTypeError}
+                inputProps={{ 'aria-label': 'Session Type' }}
                 label="Session Type"
                 MenuProps={{ disableScrollLock: true }}
                 onChange={(e) => setSessionType(e.target.value)}
@@ -343,6 +344,7 @@ export default function MouseTrapConfigCard({
               <FormControl size="small" sx={{ maxWidth: 175, minWidth: 130 }}>
                 <InputLabel>IP Monitoring</InputLabel>
                 <Select
+                  inputProps={{ 'aria-label': 'IP Monitoring' }}
                   label="IP Monitoring"
                   MenuProps={{ disableScrollLock: true }}
                   onChange={(e) => setIpMonitoringMode(/** @type {any} */ (e.target.value))}
@@ -381,6 +383,7 @@ export default function MouseTrapConfigCard({
               >
                 <InputLabel>Interval*</InputLabel>
                 <Select
+                  inputProps={{ 'aria-label': 'Interval' }}
                   label="Interval"
                   MenuProps={{ disableScrollLock: true }}
                   onChange={(e) => {
@@ -534,6 +537,7 @@ export default function MouseTrapConfigCard({
                   <InputLabel shrink>Proxy</InputLabel>
                   <Select
                     displayEmpty
+                    inputProps={{ 'aria-label': 'Proxy' }}
                     label="Proxy"
                     MenuProps={{
                       disableScrollLock: true,
