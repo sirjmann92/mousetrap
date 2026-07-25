@@ -16,6 +16,11 @@
       "trailingCommas": "all"
     }
   },
+  "html": {
+    "formatter": {
+      "enabled": true
+    }
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",

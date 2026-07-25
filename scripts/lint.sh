@@ -33,3 +33,8 @@ fi
 
 echo "Running repository lint, format, and type checks..."
 "$PRE_COMMIT" run --all-files
+
+# Build the production bundle to catch module-resolution and bundler errors
+# that static linting and TypeScript checks cannot detect.
+echo "Building the frontend production bundle..."
+npm --prefix frontend run build

@@ -53,5 +53,8 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
+      - name: Build frontend production bundle
+        run: npm --prefix frontend run build
+
       - uses: pre-commit-ci/lite-action@v1.1.0
         if: always()
