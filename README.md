@@ -304,6 +304,19 @@ the GitHub lint workflow:
 Some hooks apply safe fixes and formatting changes. Review any modified files
 before committing.
 
+For routine dependency maintenance:
+
+```bash
+./scripts/update-dependencies.sh
+./scripts/lint.sh
+```
+
+The dependency helper upgrades and checks `.venv` when it exists, or skips that
+step when local Python setup has not been run. It updates available pre-commit
+hooks and frontend dependencies, normalizes the frontend lockfile, performs a
+clean frontend install, and runs dependency consistency and security checks.
+Review generated configuration and lockfile changes before committing.
+
 Open the Vite URL printed by npm, normally
 [http://localhost:5173](http://localhost:5173). The backend runs on
 [http://localhost:39842](http://localhost:39842).

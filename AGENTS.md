@@ -125,9 +125,13 @@ For routine dependency maintenance, run:
 ./scripts/update-dependencies.sh
 ```
 
-The helper runs `pre-commit autoupdate`, updates frontend dependencies within
-the constraints in `frontend/package.json`, and audits the resulting npm
-dependency tree. Review its manifest and lockfile changes before committing.
+When `.venv` exists, the update helper upgrades its Python `dev` dependency
+group and verifies it with `pip check`; otherwise it skips that step. It updates
+pre-commit hooks through the project or global installation when available,
+updates frontend dependencies within the constraints in `frontend/package.json`,
+normalizes the lockfile, synchronizes `frontend/node_modules` with a clean
+install, and audits the resulting npm dependency tree. Review its configuration
+and lockfile changes before committing.
 
 ## Validation Commands
 
