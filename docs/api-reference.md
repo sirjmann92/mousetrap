@@ -423,18 +423,7 @@ Clear all event log entries.
 
 ---
 
-## Health & Information
-
-### GET `/api/health`
-Basic health check endpoint.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-09-04T12:00:00Z"
-}
-```
+## Application Information
 
 ### GET `/api/version`
 Get application version information.
@@ -442,9 +431,7 @@ Get application version information.
 **Response:**
 ```json
 {
-  "version": "1.0.0",
-  "build_date": "2025-09-04",
-  "git_commit": "abc123"
+  "version": "2.3.46"
 }
 ```
 
