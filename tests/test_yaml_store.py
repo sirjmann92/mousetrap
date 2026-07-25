@@ -1,5 +1,6 @@
 """Interface tests for YAML persistence."""
 
+import os
 from pathlib import Path
 import stat
 
@@ -56,7 +57,44 @@ def test_write_round_trips_and_creates_owner_only_file(tmp_path: Path) -> None:
     write_yaml_file(path, data)
     assert load_yaml_file(path, {}, expected_type=dict) == data
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    assert not list(path.parent.glob(f".{path.name}.*.tmp"))
+    assert not list(path.parent.glob(".yaml-*.tmp"))
+
+
+def test_write_supports_maximum_length_basename(tmp_path: Path) -> None:
+    """Write a file whose basename reaches the filesystem component limit."""
+    name_max = os.pathconf(tmp_path, "PC_NAME_MAX")
+    path = tmp_path / f"{'a' * (name_max - len('.yaml'))}.yaml"
+
+    write_yaml_file(path, {"saved": True})
+
+    assert load_yaml_file(path, {}) == {"saved": True}
+
+
+def test_write_through_symlink_preserves_link_and_updates_target(
+    tmp_path: Path,
+) -> None:
+    """Replace a symlink target atomically without replacing the link itself."""
+    target = tmp_path / "target.yaml"
+    target.write_text("old: true\n", encoding="utf-8")
+    path = tmp_path / "settings.yaml"
+    path.symlink_to(target.name)
+
+    write_yaml_file(path, {"new": True})
+
+    assert path.is_symlink()
+    assert path.readlink() == Path(target.name)
+    assert load_yaml_file(target, {}) == {"new": True}
+
+
+def test_write_cyclic_symlink_raises_store_error(tmp_path: Path) -> None:
+    """Report cyclic-link resolution through the public store exception."""
+    first = tmp_path / "first.yaml"
+    second = tmp_path / "second.yaml"
+    first.symlink_to(second.name)
+    second.symlink_to(first.name)
+
+    with pytest.raises(YamlStoreError, match=r"Could not write YAML file .*first\.yaml"):
+        write_yaml_file(first, {"new": True})
 
 
 def test_write_preserves_existing_mode(tmp_path: Path) -> None:
@@ -83,4 +121,4 @@ def test_failed_replace_keeps_destination_and_cleans_temp(
     with pytest.raises(YamlStoreError, match="replace failed"):
         write_yaml_file(path, {"new": True})
     assert load_yaml_file(path, {}) == {"old": True}
-    assert not list(tmp_path.glob(f".{path.name}.*.tmp"))
+    assert not list(tmp_path.glob(".yaml-*.tmp"))

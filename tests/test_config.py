@@ -50,13 +50,61 @@ def test_label_byte_limit_uses_primary_filename(config_dir: Path) -> None:
 
 def test_save_update_rename_and_delete(config_dir: Path) -> None:
     """Support the complete primary-file lifecycle."""
-    assert config.save_session({"label": "Old", "value": 1}) is None
+    config.save_session({"label": "Old", "value": 1})
     config.save_session({"label": "Old", "value": 2}, old_label="Old")
     config.save_session({"label": "New", "value": 3}, old_label="Old")
     assert config.list_sessions() == ["New"]
     assert config.load_session("New")["value"] == 3
     config.delete_session("New")
     assert config.list_sessions() == []
+
+
+def test_rename_write_failure_preserves_old_session(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Keep the source session intact when writing its renamed copy fails."""
+    config.save_session({"label": "Old", "value": 1})
+    old_path = config.get_session_path("Old")
+    new_path = config.get_session_path("New")
+
+    def fail_write(_path: Path, _data: dict[str, Any]) -> None:
+        """Simulate an ordinary destination write failure."""
+        raise YamlStoreError("disk full")
+
+    monkeypatch.setattr(config, "write_yaml_file", fail_write)
+
+    with pytest.raises(YamlStoreError, match="disk full"):
+        config.save_session({"label": "New", "value": 2}, old_label="Old")
+
+    assert config.load_session("Old")["value"] == 1
+    assert old_path.exists()
+    assert not new_path.exists()
+
+
+def test_rename_unlink_failure_leaves_two_complete_sessions(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Expose source cleanup failure after the renamed copy is durable."""
+    config.save_session({"label": "Old", "value": 1})
+    old_path = config.get_session_path("Old")
+    new_path = config.get_session_path("New")
+    real_unlink = Path.unlink
+
+    def fail_old_unlink(path: Path, *args: Any, **kwargs: Any) -> None:
+        """Fail only the source cleanup step."""
+        if path == old_path:
+            raise OSError("unlink denied")
+        real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_old_unlink)
+
+    with pytest.raises(OSError, match="unlink denied"):
+        config.save_session({"label": "New", "value": 2}, old_label="Old")
+
+    assert old_path.read_text(encoding="utf-8")
+    assert new_path.read_text(encoding="utf-8")
+    assert config.load_session("Old")["value"] == 1
+    assert config.load_session("New")["value"] == 2
 
 
 def test_filename_label_is_canonical(config_dir: Path) -> None:

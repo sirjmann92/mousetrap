@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from backend import port_monitor
+from backend import notifications_backend, port_monitor
 from backend.port_monitor import PortMonitorStack, PortMonitorStackManager
 from backend.yaml_store import YamlStoreError
 
@@ -89,7 +90,7 @@ async def test_monitor_cycle_saves_each_due_stack_before_continue(
         manager.running = False
 
     monkeypatch.setattr("backend.port_monitor.asyncio.sleep", stop_after_cycle)
-    monkeypatch.setattr("backend.port_monitor.notify_event", AsyncMock())
+    monkeypatch.setattr("backend.port_monitor.safe_notify_event", AsyncMock())
     monkeypatch.setattr("backend.port_monitor.append_ui_event_log", Mock())
 
     await manager.monitor_loop()
@@ -122,10 +123,76 @@ async def test_monitor_cycle_saves_due_stack_before_restart_transition(
 
     manager.restart_stack = AsyncMock(side_effect=restart_and_save)
     monkeypatch.setattr("backend.port_monitor.asyncio.sleep", stop_after_cycle)
-    monkeypatch.setattr("backend.port_monitor.notify_event", AsyncMock())
+    monkeypatch.setattr("backend.port_monitor.safe_notify_event", AsyncMock())
     monkeypatch.setattr("backend.port_monitor.append_ui_event_log", Mock())
 
     await manager.monitor_loop()
 
     manager.restart_stack.assert_awaited_once_with(stack)
     assert manager.save_stacks.call_count == 3
+
+
+def test_save_stacks_logs_yaml_store_error(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Log typed persistence failures without raising them to callers."""
+    manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
+    manager.stacks = [PortMonitorStack("stack", "primary", 8000, [])]
+
+    def fail_write(*_args: object, **_kwargs: object) -> None:
+        raise YamlStoreError("disk unavailable")
+
+    monkeypatch.setattr(port_monitor, "write_yaml_file", fail_write)
+
+    with caplog.at_level(logging.ERROR, logger=port_monitor.__name__):
+        manager.save_stacks()
+
+    assert "Failed to save stacks: disk unavailable" in caplog.text
+
+
+def test_save_stacks_propagates_serialization_programming_error() -> None:
+    """Do not hide programming errors while constructing persisted stack data."""
+    manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
+
+    class InvalidStack:
+        @property
+        def name(self) -> str:
+            raise RuntimeError("broken stack serialization")
+
+    manager.stacks = [InvalidStack()]  # type: ignore[list-item]
+
+    with pytest.raises(RuntimeError, match="broken stack serialization"):
+        manager.save_stacks()
+
+
+@pytest.mark.asyncio
+async def test_notification_failure_does_not_prevent_monitor_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Continue the failed-port recovery path when notification delivery raises."""
+    manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
+    stack = PortMonitorStack("failed", "primary", 8000, [], interval=0)
+    manager.stacks = [stack]
+    manager.running = False
+    manager.thread = None
+    manager._docker_client = None
+    manager._last_warning_times = {}
+    manager.check_port = Mock(side_effect=[True, False])
+    manager.save_stacks = Mock()
+    manager.restart_stack = AsyncMock()
+
+    async def stop_after_cycle(_seconds: float) -> None:
+        manager.running = False
+
+    monkeypatch.setattr("backend.port_monitor.asyncio.sleep", stop_after_cycle)
+    monkeypatch.setattr("backend.port_monitor.append_ui_event_log", Mock())
+    monkeypatch.setattr(
+        notifications_backend,
+        "notify_event",
+        AsyncMock(side_effect=RuntimeError("notification config failed")),
+    )
+
+    await manager.monitor_loop()
+
+    manager.restart_stack.assert_awaited_once_with(stack)

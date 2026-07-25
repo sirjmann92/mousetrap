@@ -201,11 +201,11 @@ def save_session(cfg: dict[str, Any], old_label: str | None = None) -> None:
     with _SESSION_LOCK:
         if old_path is not None and not old_path.exists():
             raise StaleSessionError(f"Session no longer exists: {old_label}")
-        if old_path is not None and old_path != path:
-            old_path.replace(path)
         if "browser_cookie" not in cfg:
             cfg["browser_cookie"] = ""
         write_yaml_file(path, cfg)
+        if old_path is not None and old_path != path:
+            old_path.unlink()
 
 
 def get_default_config(label: str | None = None) -> dict[str, Any]:

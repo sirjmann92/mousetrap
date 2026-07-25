@@ -17,7 +17,7 @@ from typing import Any
 
 from backend.config import CONFIG_DIR
 from backend.event_log import append_ui_event_log
-from backend.notifications_backend import notify_event
+from backend.notifications_backend import safe_notify_event
 from backend.yaml_store import YamlStoreError, load_yaml_file, write_yaml_file
 
 try:
@@ -173,7 +173,7 @@ class PortMonitorStackManager:
                     for s in self.stacks
                 ],
             )
-        except Exception as e:
+        except YamlStoreError as e:
             _logger.error("[PortMonitorStack] Failed to save stacks: %s", e)
 
     def get_docker_client(self) -> Any:
@@ -414,7 +414,7 @@ class PortMonitorStackManager:
                         "level": "warning",
                     }
                 )
-                await notify_event(
+                await safe_notify_event(
                     event_type="port_monitor_failure",
                     label=stack.name,
                     status="WARNING",
@@ -438,7 +438,7 @@ class PortMonitorStackManager:
                         "level": "error",
                     }
                 )
-                await notify_event(
+                await safe_notify_event(
                     event_type="port_monitor_failure",
                     label=stack.name,
                     status="ERROR",
@@ -616,7 +616,7 @@ class PortMonitorStackManager:
                                         "level": "error",
                                     }
                                 )
-                                await notify_event(
+                                await safe_notify_event(
                                     event_type="port_monitor_failure",
                                     label=stack.name,
                                     status="ERROR",
@@ -632,7 +632,7 @@ class PortMonitorStackManager:
                     if not result:
                         if getattr(stack, "manual_ip_paused", False):
                             continue  # Don't restart if paused
-                        await notify_event(
+                        await safe_notify_event(
                             event_type="port_monitor_failure",
                             label=stack.name,
                             status="FAILED",

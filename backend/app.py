@@ -68,6 +68,7 @@ from backend.prowlarr_integration import (
 )
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils import build_proxy_dict, build_status_message, extract_asn_number, setup_logging
+from backend.yaml_store import YamlStoreError
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_BUILD_DIR = (Path(BASE_DIR) / "../frontend/build").resolve()
@@ -2909,10 +2910,12 @@ async def session_check_job(label: str) -> None:
             if _refreshed_mam_id and _refreshed_mam_id != mam_id:
                 _prev_mam_id = mam_id
                 mam_id = _refreshed_mam_id
-                cfg["mam"]["mam_id"] = _refreshed_mam_id
+                fresh_cfg = load_session(label)
+                fresh_cfg.setdefault("mam", {})["mam_id"] = _refreshed_mam_id
                 _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
-                save_session(cfg, old_label=label)
-                await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
+                save_session(fresh_cfg, old_label=label)
+                cfg = fresh_cfg
+                await _sync_integrations_if_mam_id_changed(fresh_cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # MAM session keepalive: call dynamicSeedbox.php daily to prevent the
@@ -3141,7 +3144,14 @@ def register_all_session_jobs() -> None:
     """
     session_labels = list_sessions()
     for label in session_labels:
-        register_session_job(label)
+        try:
+            register_session_job(label)
+        except YamlStoreError as err:
+            _logger.error(
+                "[APScheduler] Failed to load session '%s'; skipping job registration: %s",
+                label,
+                err,
+            )
 
 
 # Immediate session check for all sessions at startup

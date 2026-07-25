@@ -68,13 +68,17 @@ def write_yaml_file(path: Path, data: Any) -> None:
     """
     temp_path: Path | None = None
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        destination = path.resolve()
+    except (OSError, RuntimeError) as err:
+        raise YamlStoreError(f"Could not write YAML file {path}: {err}") from err
+    try:
+        destination.parent.mkdir(parents=True, exist_ok=True)
         try:
-            mode = stat.S_IMODE(path.stat().st_mode)
+            mode = stat.S_IMODE(destination.stat().st_mode)
         except FileNotFoundError:
             mode = 0o600
         descriptor, temp_name = tempfile.mkstemp(
-            prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+            prefix=".yaml-", suffix=".tmp", dir=destination.parent
         )
         temp_path = Path(temp_name)
         try:
@@ -86,9 +90,9 @@ def write_yaml_file(path: Path, data: Any) -> None:
             yaml.safe_dump(data, file_obj)
             file_obj.flush()
             os.fsync(file_obj.fileno())
-        temp_path.replace(path)
+        temp_path.replace(destination)
         temp_path = None
-        _fsync_directory(path.parent)
+        _fsync_directory(destination.parent)
     except (OSError, yaml.YAMLError) as err:
         raise YamlStoreError(f"Could not write YAML file {path}: {err}") from err
     finally:
