@@ -25,6 +25,8 @@ account management.
 - `docs/`: user and implementation documentation.
 - `scripts/start-backend.sh`: local-only FastAPI launcher used by
   `npm run backend` and `npm run dev`; production containers use `start.sh`.
+- `scripts/lint.sh`: repository-wide lint, format, and type-check wrapper matching
+  the GitHub lint workflow.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
   configuration.
@@ -134,7 +136,12 @@ dependency tree. Review its manifest and lockfile changes before committing.
 ## Validation Commands
 
 Run the checks that match the files you changed. For cross-cutting changes, run
-all relevant checks.
+the same repository-wide checks as CI. Some hooks apply safe fixes and
+formatting changes, so review the working tree afterward.
+
+```bash
+./scripts/lint.sh
+```
 
 Python tests:
 

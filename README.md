@@ -295,6 +295,16 @@ npm ci --prefix frontend
 npm run dev
 ```
 
+Run the same backend and frontend linting, formatting, and type checks used by
+the GitHub lint workflow:
+
+```bash
+./scripts/lint.sh
+```
+
+Some hooks apply safe fixes and formatting changes. Review any modified files
+before committing.
+
 Open the Vite URL printed by npm, normally
 [http://localhost:5173](http://localhost:5173). The backend runs on
 [http://localhost:39842](http://localhost:39842).
