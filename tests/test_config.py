@@ -56,6 +56,29 @@ def test_load_session_recovers_from_empty_file_backup(temp_config_paths: Path) -
     assert persisted.get("mam", {}).get("mam_id") == "secret-cookie"
 
 
+@pytest.mark.parametrize(
+    "label",
+    ["../outside", "nested/session", r"nested\\session", "nul\x00label", ".", "..", "", 123, None],
+)
+def test_session_paths_reject_invalid_labels_before_file_io(
+    temp_config_paths: Path,
+    label: object,
+) -> None:
+    """Reject traversal, separators, and non-string labels before persistence."""
+    with pytest.raises(ValueError, match="Session label"):
+        config.save_session({"label": label, "mam": {"mam_id": "secret"}})
+
+    assert not list(temp_config_paths.iterdir())
+    assert not (temp_config_paths.parent / "session-outside.yaml").exists()
+
+
+def test_session_paths_preserve_spaces(temp_config_paths: Path) -> None:
+    """Allow legitimate labels containing spaces."""
+    config.save_session({"label": "Living Room"})
+
+    assert config.get_session_path("Living Room").exists()
+
+
 def test_load_session_recovers_from_malformed_file_backup(temp_config_paths: Path) -> None:
     """Recover a session from backup when the main YAML file is malformed."""
     session: dict[str, Any] = {
@@ -282,11 +305,11 @@ def test_save_session_rename_removes_old_backup(temp_config_paths: Path) -> None
     assert config.load_session("Old")["mam"]["mam_id"] == ""
 
 
-def test_save_session_rename_removes_stale_destination_backup(
+def test_save_session_rename_replaces_stale_destination_backup(
     monkeypatch: pytest.MonkeyPatch,
     temp_config_paths: Path,
 ) -> None:
-    """Remove an unrelated destination backup when no source backup exists."""
+    """Replace an unrelated destination backup even if normal refresh fails."""
     old_path = config.get_session_path("Old")
     new_path = config.get_session_path("New")
     old_path.write_text(yaml.safe_dump({"label": "Old"}), encoding="utf-8")
@@ -305,7 +328,7 @@ def test_save_session_rename_removes_stale_destination_backup(
     config.save_session({"label": "New", "mam": {"mam_id": "fresh"}}, old_label="Old")
 
     assert not backup_path(old_path).exists()
-    assert not stale_new_backup.exists()
+    assert yaml.safe_load(stale_new_backup.read_text(encoding="utf-8"))["mam"]["mam_id"] == "fresh"
 
 
 def test_queued_save_cannot_recreate_deleted_session(
@@ -447,3 +470,101 @@ def test_save_session_without_old_label_creates_new_session(
     config.save_session({"label": "New", "mam": {"mam_id": "created"}})
 
     assert config.load_session("New")["mam"]["mam_id"] == "created"
+
+
+@pytest.mark.parametrize("failure_step", ["journal", "publish", "cleanup", "pending_cleanup"])
+def test_rename_recovers_after_every_durable_lifecycle_step(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+    failure_step: str,
+) -> None:
+    """Complete toward the new label after interruption at every rename step."""
+    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
+    original_fault_point = config._rename_fault_point
+
+    def interrupt_at_step(step: str) -> None:
+        """Simulate process death immediately after the selected durable step."""
+        if step == failure_step:
+            raise OSError(f"interrupted after {step}")
+
+    monkeypatch.setattr(config, "_rename_fault_point", interrupt_at_step)
+    with pytest.raises(OSError, match=f"interrupted after {failure_step}"):
+        config.save_session(
+            {"label": "New", "mam": {"mam_id": "new-secret"}},
+            old_label="Old",
+        )
+    monkeypatch.setattr(config, "_rename_fault_point", original_fault_point)
+
+    assert config.list_sessions() == ["New"]
+    recovered = config.load_session("New")
+    assert recovered["label"] == "New"
+    assert recovered["mam"]["mam_id"] == "new-secret"
+    new_path = config.get_session_path("New")
+    for persisted_path in (new_path, backup_path(new_path)):
+        persisted = yaml.safe_load(persisted_path.read_text(encoding="utf-8"))
+        assert persisted["label"] == "New"
+        assert persisted["mam"]["mam_id"] == "new-secret"
+    assert not config.get_session_path("Old").exists()
+    assert not backup_path(config.get_session_path("Old")).exists()
+    assert not list(temp_config_paths.glob(config.RENAME_JOURNAL_GLOB))
+    assert not list(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
+    secret_files = [
+        path
+        for path in temp_config_paths.glob("session-*.yaml*")
+        if "mam_id" in path.read_text(encoding="utf-8")
+    ]
+    assert len(secret_files) <= 2
+
+
+def test_rename_pending_payload_is_private_and_orphan_is_removed(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Clean a private pending payload when interruption precedes journal commit."""
+    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
+    pending_mode: list[int] = []
+
+    def interrupt_after_pending(step: str) -> None:
+        """Inspect and interrupt after the pending payload is durable."""
+        if step == "pending":
+            pending = next(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
+            pending_mode.append(pending.stat().st_mode & 0o777)
+            raise OSError("interrupted after pending")
+
+    monkeypatch.setattr(config, "_rename_fault_point", interrupt_after_pending)
+    with pytest.raises(OSError, match="interrupted after pending"):
+        config.save_session(
+            {"label": "New", "mam": {"mam_id": "new-secret"}},
+            old_label="Old",
+        )
+    monkeypatch.setattr(config, "_rename_fault_point", lambda step: None)
+
+    assert config.list_sessions() == ["Old"]
+    assert pending_mode == [0o600]
+    assert not list(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
+
+
+def test_rename_recovery_preserves_unrelated_backup_only_session(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Leave unrelated backup-only recovery data untouched."""
+    unrelated = config.get_session_path("Unrelated")
+    backup_path(unrelated).write_text(
+        yaml.safe_dump({"label": "Unrelated", "mam": {"mam_id": "other-secret"}}),
+        encoding="utf-8",
+    )
+    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
+
+    def interrupt_after_publish(step: str) -> None:
+        """Interrupt once the pending config has been published."""
+        if step == "publish":
+            raise OSError("interrupted")
+
+    monkeypatch.setattr(config, "_rename_fault_point", interrupt_after_publish)
+    with pytest.raises(OSError, match="interrupted"):
+        config.save_session({"label": "New"}, old_label="Old")
+    monkeypatch.setattr(config, "_rename_fault_point", lambda step: None)
+
+    assert config.list_sessions() == ["New", "Unrelated"]
+    assert backup_path(unrelated).exists()

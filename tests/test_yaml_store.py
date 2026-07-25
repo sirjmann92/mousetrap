@@ -104,13 +104,17 @@ def test_locking_does_not_retain_per_path_lock_entries(tmp_path: Path) -> None:
     assert not hasattr(yaml_store, "_PATH_LOCKS")
 
 
-def test_load_yaml_file_uses_default_without_file(tmp_path: Path) -> None:
+def test_load_yaml_file_uses_default_without_file(
+    caplog: pytest.LogCaptureFixture,
+    tmp_path: Path,
+) -> None:
     """Return the caller-provided default when no settings file exists."""
     default = {"label": "default"}
 
     loaded = load_yaml_file(tmp_path / "missing.yaml", default)
 
     assert loaded == default
+    assert not caplog.records
 
 
 @pytest.mark.parametrize("primary_content", ["", "label: [unterminated\n"])

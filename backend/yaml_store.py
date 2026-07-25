@@ -81,10 +81,11 @@ def _load_yaml_file_unlocked(
     Returns:
         Parsed YAML content, backup content, or ``default``.
     """
+    primary_missing = False
     try:
         data = _read_yaml_file(path)
     except FileNotFoundError:
-        _logger.warning("[ConfigStore] YAML file missing at %s; attempting backup recovery", path)
+        primary_missing = True
     except (OSError, UnicodeError, yaml.YAMLError) as err:
         _logger.warning("[ConfigStore] Could not read YAML at %s: %s", path, err)
     else:
@@ -101,6 +102,8 @@ def _load_yaml_file_unlocked(
     try:
         backup_data = _read_yaml_file(backup)
     except FileNotFoundError:
+        if primary_missing:
+            return default
         _logger.warning("[ConfigStore] No backup found for %s; using defaults", path)
         return default
     except (OSError, UnicodeError, yaml.YAMLError) as err:
@@ -112,6 +115,8 @@ def _load_yaml_file_unlocked(
         _logger.warning("[ConfigStore] Backup YAML is %s at %s; using defaults", reason, backup)
         return default
 
+    if primary_missing:
+        _logger.warning("[ConfigStore] YAML file missing at %s; recovering backup", path)
     _logger.warning("[ConfigStore] Recovered %s from backup %s", path, backup)
     try:
         write_yaml_file(path, backup_data)
