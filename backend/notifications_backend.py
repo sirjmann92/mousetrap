@@ -16,9 +16,8 @@ from typing import Any
 
 import aiohttp
 
-from backend.yaml_store import load_yaml_file
-
 from backend.config import CONFIG_DIR
+from backend.yaml_store import load_yaml_file
 
 _logger: logging.Logger = logging.getLogger(__name__)
 # Notification config: explicit NOTIFY_CONFIG_PATH override, else derived from CONFIG_DIR

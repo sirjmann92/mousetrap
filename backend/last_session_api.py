@@ -11,9 +11,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend.yaml_store import load_yaml_file, write_yaml_file
-
 from backend.config import CONFIG_DIR
+from backend.yaml_store import load_yaml_file, write_yaml_file
 
 router = APIRouter()
 LAST_SESSION_FILE = CONFIG_DIR / "last_session.yaml"
