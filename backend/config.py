@@ -14,6 +14,7 @@ from pathlib import Path
 import tempfile
 import threading
 from typing import Any
+import uuid
 
 import yaml
 
@@ -26,6 +27,10 @@ CONFIG_PATH = CONFIG_DIR / "config.yaml"
 SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
 BACKUP_SUFFIX = ".bak"
+NAME_MAX_BYTES = 255
+MAX_SESSION_LABEL_BYTES = NAME_MAX_BYTES - len(
+    f"{SESSION_PREFIX}{SESSION_SUFFIX}{BACKUP_SUFFIX}".encode()
+)
 _logger = logging.getLogger(__name__)
 RENAME_JOURNAL_GLOB = ".session-rename-*.json"
 RENAME_PENDING_GLOB = ".session-rename-*.pending.yaml"
@@ -54,6 +59,12 @@ def get_session_path(label: str) -> Path:
         or label in {".", ".."}
     ):
         raise ValueError("Session label must be a non-empty filesystem basename.")
+    try:
+        label_bytes = label.encode("utf-8")
+    except UnicodeEncodeError as err:
+        raise ValueError("Session label must be valid UTF-8.") from err
+    if len(label_bytes) > MAX_SESSION_LABEL_BYTES:
+        raise ValueError(f"Session label must be at most {MAX_SESSION_LABEL_BYTES} UTF-8 bytes.")
     filename = f"{SESSION_PREFIX}{label}{SESSION_SUFFIX}"
     if Path(filename).name != filename:
         raise ValueError("Session label must resolve directly within the config directory.")
@@ -277,12 +288,9 @@ def delete_session(label: str) -> None:
 def _begin_rename_transaction(old_path: Path, new_path: Path, cfg: dict[str, Any]) -> Path:
     """Durably stage the exact new config and record its rename transaction."""
     old_path.parent.mkdir(parents=True, exist_ok=True)
-    journal = old_path.parent / (
-        f".session-rename-{old_path.name.removeprefix(SESSION_PREFIX)}.json"
-    )
-    pending = old_path.parent / (
-        f".session-rename-{old_path.name.removeprefix(SESSION_PREFIX)}.pending.yaml"
-    )
+    transaction_id = uuid.uuid4().hex
+    journal = old_path.parent / f".session-rename-{transaction_id}.json"
+    pending = old_path.parent / f".session-rename-{transaction_id}.pending.yaml"
     if "browser_cookie" not in cfg:
         cfg["browser_cookie"] = ""
     _write_pending_config(pending, cfg)
@@ -316,10 +324,13 @@ def _complete_rename_transaction(journal: Path) -> None:
     Args:
         journal: Rename journal containing source and destination basenames.
     """
+    transaction_id = _journal_transaction_id(journal.name)
     transaction = json.loads(journal.read_text(encoding="utf-8"))
     old_path = _journal_session_path(transaction["old"])
     new_path = _journal_session_path(transaction["new"])
     pending = _journal_pending_path(transaction["pending"])
+    if _pending_transaction_id(pending.name) != transaction_id:
+        raise ValueError("Rename journal and pending payload IDs do not match.")
     old_backup = backup_path(old_path)
     if pending.exists():
         pending_cfg = yaml.safe_load(pending.read_text(encoding="utf-8"))
@@ -367,8 +378,15 @@ def _recover_rename_transactions() -> None:
                 _logger.error("[ConfigStore] Could not recover rename journal %s: %s", journal, err)
         for pending in CONFIG_DIR.glob(RENAME_PENDING_GLOB):
             if pending not in referenced_pending:
-                pending.unlink()
-                _fsync_config_dir()
+                try:
+                    pending.unlink()
+                    _fsync_config_dir()
+                except OSError as err:
+                    _logger.error(
+                        "[ConfigStore] Could not remove orphan rename payload %s: %s",
+                        pending,
+                        err,
+                    )
 
 
 def _journal_session_path(name: str) -> Path:
@@ -384,13 +402,38 @@ def _journal_session_path(name: str) -> Path:
 
 def _journal_pending_path(name: str) -> Path:
     """Resolve and validate a pending payload basename from a rename journal."""
+    _pending_transaction_id(name)
+    return CONFIG_DIR / name
+
+
+def _journal_transaction_id(name: str) -> str:
+    """Validate a journal basename and return its transaction ID."""
+    return _transaction_id_from_name(name, ".json")
+
+
+def _pending_transaction_id(name: str) -> str:
+    """Validate a pending payload basename and return its transaction ID."""
+    return _transaction_id_from_name(name, ".pending.yaml")
+
+
+def _transaction_id_from_name(name: str, suffix: str) -> str:
+    """Validate a transaction artifact basename and return its UUID hex ID."""
+    if not isinstance(name, str):
+        raise TypeError("Rename transaction artifact name must be a string.")
+    prefix = ".session-rename-"
+    transaction_id = name.removeprefix(prefix).removesuffix(suffix)
     if (
         Path(name).name != name
-        or not name.startswith(".session-rename-")
-        or not name.endswith(".pending.yaml")
+        or not _is_transaction_id(transaction_id)
+        or not (name.startswith(prefix) and name.endswith(suffix))
     ):
-        raise ValueError(f"Invalid pending path in rename journal: {name!r}")
-    return CONFIG_DIR / name
+        raise ValueError(f"Invalid rename transaction artifact name: {name!r}")
+    return transaction_id
+
+
+def _is_transaction_id(value: str) -> bool:
+    """Return whether a rename transaction ID is a lowercase UUID hex value."""
+    return len(value) == 32 and all(character in "0123456789abcdef" for character in value)
 
 
 def _write_pending_config(pending: Path, cfg: dict[str, Any]) -> None:
@@ -418,6 +461,8 @@ def _fsync_config_dir() -> None:
         return
     try:
         os.fsync(directory_fd)
+    except OSError as err:
+        _logger.debug("[ConfigStore] Could not fsync config directory %s: %s", CONFIG_DIR, err)
     finally:
         os.close(directory_fd)
 

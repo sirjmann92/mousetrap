@@ -93,3 +93,21 @@ async def test_api_rejects_unsafe_label_without_persistence_artifacts(
     assert raised.value.status_code == 400
     assert not list(tmp_path.iterdir())
     assert not (tmp_path.parent / "session-outside.yaml").exists()
+
+
+@pytest.mark.asyncio
+async def test_api_rejects_label_above_utf8_byte_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Return HTTP 400 before persistence when a label exceeds NAME_MAX."""
+    monkeypatch.setattr(config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(app_module, "get_session_path", config.get_session_path)
+
+    with pytest.raises(HTTPException) as raised:
+        await app_module.api_save_session(  # type: ignore[arg-type]
+            _PayloadRequest({"label": "é" * 120, "mam": {"mam_id": "secret"}})
+        )
+
+    assert raised.value.status_code == 400
+    assert not list(tmp_path.iterdir())

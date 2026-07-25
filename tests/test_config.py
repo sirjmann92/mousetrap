@@ -1,6 +1,7 @@
 """Tests for durable session configuration persistence."""
 
 from pathlib import Path
+import stat
 import threading
 from typing import Any
 
@@ -77,6 +78,32 @@ def test_session_paths_preserve_spaces(temp_config_paths: Path) -> None:
     config.save_session({"label": "Living Room"})
 
     assert config.get_session_path("Living Room").exists()
+
+
+@pytest.mark.parametrize("label", ["a" * 238, "é" * 119])
+def test_session_label_accepts_exact_utf8_byte_boundary(
+    temp_config_paths: Path,
+    label: str,
+) -> None:
+    """Allow ASCII and multibyte labels at the persistent filename boundary."""
+    config.save_session({"label": label})
+
+    path = config.get_session_path(label)
+    assert len(backup_path(path).name.encode("utf-8")) == config.NAME_MAX_BYTES
+    assert path.exists()
+    assert backup_path(path).exists()
+
+
+@pytest.mark.parametrize("label", ["a" * 239, "é" * 120])
+def test_session_label_rejects_above_utf8_byte_boundary(
+    temp_config_paths: Path,
+    label: str,
+) -> None:
+    """Reject ASCII and multibyte labels exceeding the longest persistent name."""
+    with pytest.raises(ValueError, match="238 UTF-8 bytes"):
+        config.save_session({"label": label})
+
+    assert not list(temp_config_paths.iterdir())
 
 
 def test_load_session_recovers_from_malformed_file_backup(temp_config_paths: Path) -> None:
@@ -568,3 +595,74 @@ def test_rename_recovery_preserves_unrelated_backup_only_session(
 
     assert config.list_sessions() == ["New", "Unrelated"]
     assert backup_path(unrelated).exists()
+
+
+def test_rename_recovery_tolerates_directory_fsync_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Complete an interrupted rename when directory fsync is unsupported."""
+    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
+    original_fsync = config.os.fsync
+
+    def fail_directory_fsync(file_descriptor: int) -> None:
+        """Fail only directory fsync calls."""
+        if stat.S_ISDIR(config.os.fstat(file_descriptor).st_mode):
+            raise OSError("directory fsync unsupported")
+        original_fsync(file_descriptor)
+
+    def interrupt_after_journal(step: str) -> None:
+        """Interrupt after the durable journal step."""
+        if step == "journal":
+            raise OSError("interrupted")
+
+    monkeypatch.setattr(config.os, "fsync", fail_directory_fsync)
+    monkeypatch.setattr(config, "_rename_fault_point", interrupt_after_journal)
+    with pytest.raises(OSError, match="interrupted"):
+        config.save_session(
+            {"label": "New", "mam": {"mam_id": "new-secret"}},
+            old_label="Old",
+        )
+    monkeypatch.setattr(config, "_rename_fault_point", lambda step: None)
+
+    assert config.list_sessions() == ["New"]
+    assert config.load_session("New")["mam"]["mam_id"] == "new-secret"
+
+
+def test_orphan_pending_unlink_failure_does_not_block_discovery(
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Log an orphan cleanup failure without blocking session discovery."""
+    config.save_session({"label": "Existing"})
+    orphan = temp_config_paths / f".session-rename-{'a' * 32}.pending.yaml"
+    orphan.write_text("label: Orphan\n", encoding="utf-8")
+    original_unlink = Path.unlink
+
+    def fail_orphan_unlink(path: Path, *args: Any, **kwargs: Any) -> None:
+        """Fail only removal of the selected orphan payload."""
+        if path == orphan:
+            raise OSError("simulated unlink failure")
+        original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_orphan_unlink)
+
+    assert config.list_sessions() == ["Existing"]
+    assert "Could not remove orphan rename payload" in caplog.text
+
+
+def test_malformed_journal_pending_type_does_not_block_discovery(
+    caplog: pytest.LogCaptureFixture,
+    temp_config_paths: Path,
+) -> None:
+    """Log a non-string pending artifact name and continue discovery."""
+    config.save_session({"label": "Existing"})
+    journal = temp_config_paths / f".session-rename-{'a' * 32}.json"
+    journal.write_text(
+        '{"old": "session-Old.yaml", "new": "session-New.yaml", "pending": 123}',
+        encoding="utf-8",
+    )
+
+    assert config.list_sessions() == ["Existing"]
+    assert "Could not recover rename journal" in caplog.text

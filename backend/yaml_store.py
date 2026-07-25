@@ -146,7 +146,7 @@ def _write_yaml_file_unlocked(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, temp_name = tempfile.mkstemp(
         dir=str(path.parent),
-        prefix=f".{path.name}.",
+        prefix=".yaml-write-",
         suffix=".tmp",
         text=True,
     )
@@ -221,7 +221,7 @@ def _atomic_copy(src: Path, dst: Path) -> None:
     """
     fd, temp_name = tempfile.mkstemp(
         dir=str(dst.parent),
-        prefix=f".{dst.name}.",
+        prefix=".yaml-copy-",
         suffix=".tmp",
     )
     temp_path = Path(temp_name)
