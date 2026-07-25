@@ -157,31 +157,26 @@ class PortMonitorStackManager:
     def save_stacks(self) -> None:
         """Persist the current stack list to the configured YAML path.
 
-        Persistence write errors are logged and not raised to the caller.
-
         Raises:
-            YamlStoreError: If the configuration was not successfully loaded.
+            YamlStoreError: If configuration was not loaded or persistence fails.
         """
         if not self._config_loaded:
             raise YamlStoreError("Port-monitor configuration is unavailable")
-        try:
-            write_yaml_file(
-                PORT_MONITOR_CONFIG_PATH,
-                [
-                    {
-                        "name": s.name,
-                        "primary_container": s.primary_container,
-                        "primary_port": s.primary_port,
-                        "secondary_containers": s.secondary_containers,
-                        "interval": getattr(s, "interval", 60),
-                        "public_ip": getattr(s, "public_ip", None),
-                        "public_ip_detected": getattr(s, "public_ip_detected", None),
-                    }
-                    for s in self.stacks
-                ],
-            )
-        except YamlStoreError as e:
-            _logger.error("[PortMonitorStack] Failed to save stacks: %s", e)
+        write_yaml_file(
+            PORT_MONITOR_CONFIG_PATH,
+            [
+                {
+                    "name": s.name,
+                    "primary_container": s.primary_container,
+                    "primary_port": s.primary_port,
+                    "secondary_containers": s.secondary_containers,
+                    "interval": getattr(s, "interval", 60),
+                    "public_ip": getattr(s, "public_ip", None),
+                    "public_ip_detected": getattr(s, "public_ip_detected", None),
+                }
+                for s in self.stacks
+            ],
+        )
 
     def get_docker_client(self) -> Any:
         """Return a cached Docker client or create one from the environment.
@@ -637,7 +632,6 @@ class PortMonitorStackManager:
                         else:
                             stack.consecutive_manual_ip_failures = 0
                             stack.manual_ip_paused = False
-                    self.save_stacks()
                     if not result:
                         if getattr(stack, "manual_ip_paused", False):
                             continue  # Don't restart if paused
@@ -654,12 +648,16 @@ class PortMonitorStackManager:
                             },
                         )
                         await self.restart_stack(stack)
+                    self.save_stacks()
             await asyncio.sleep(5)
 
     def _run_monitor_loop(self) -> None:
         """Run the asynchronous monitor loop and release worker ownership."""
         try:
             asyncio.run(self.monitor_loop())
+        except Exception:
+            _logger.exception("[PortMonitorStack] Monitor loop terminated unexpectedly")
+            raise
         finally:
             self.running = False
 
@@ -670,19 +668,6 @@ class PortMonitorStackManager:
         spawns the monitoring thread if it is not already running. Invalid
         configuration disables monitoring without modifying the source file.
         """
-        existing_thread = self.thread
-        if existing_thread is not None:
-            if existing_thread.is_alive():
-                self.running = False
-                if existing_thread is threading.current_thread():
-                    _logger.error(
-                        "[PortMonitorStack] Cannot restart monitoring from its own thread"
-                    )
-                    return
-                existing_thread.join()
-            else:
-                self.running = False
-            self.thread = None
         try:
             self.load_stacks()
         except YamlStoreError as e:
@@ -693,13 +678,6 @@ class PortMonitorStackManager:
                 e,
             )
             return
-        # Perform initial status checks for all stacks
-        for stack in self.stacks:
-            result = self.check_port(stack.primary_container, stack.primary_port)
-            stack.last_checked = time.time()
-            stack.last_result = result
-            stack.status = "OK" if result else "Failed"
-        self.save_stacks()
         if not self.running:
             self.running = True
             self.thread = threading.Thread(target=self._run_monitor_loop, daemon=True)

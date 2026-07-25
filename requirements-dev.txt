@@ -1,3 +1,2 @@
 # Lint includes the full requirements.txt
 -r requirements-lint.txt
-pytest-asyncio

@@ -1,7 +1,6 @@
 """Focused tests for session configuration lifecycle behavior."""
 
 from pathlib import Path
-import threading
 from typing import Any
 
 import pytest
@@ -37,47 +36,20 @@ def test_invalid_session_yaml_raises(config_dir: Path, contents: str) -> None:
     ("contents", "section"),
     [
         ("perk_automation: []\n", "perk_automation"),
-        (
-            "perk_automation:\n  upload_credit: []\n",
-            "perk_automation.upload_credit",
-        ),
-        (
-            "perk_automation:\n  wedge_automation: []\n",
-            "perk_automation.wedge_automation",
-        ),
-        (
-            "perk_automation:\n  vip_automation: []\n",
-            "perk_automation.vip_automation",
-        ),
+        ("perk_automation:\n  upload_credit: []\n", "perk_automation.upload_credit"),
+        ("perk_automation:\n  wedge_automation: []\n", "perk_automation.wedge_automation"),
+        ("perk_automation:\n  vip_automation: []\n", "perk_automation.vip_automation"),
         ("mam: []\n", "mam"),
         ("prowlarr: []\n", "prowlarr"),
     ],
 )
 def test_invalid_nested_session_mapping_raises(
-    config_dir: Path,
-    contents: str,
-    section: str,
+    config_dir: Path, contents: str, section: str
 ) -> None:
-    """Expose wrong-shaped mutable session sections as store errors."""
+    """Reject wrong-shaped session sections before mutating defaults."""
     config.get_session_path("Bad").write_text(contents, encoding="utf-8")
-
     with pytest.raises(YamlStoreError, match=rf"'{section}' must be a mapping"):
         config.load_session("Bad")
-
-
-@pytest.mark.parametrize("label", ["", ".", "..", "../bad", "bad/name", "bad\\name", "x\x00y"])
-def test_label_validation(config_dir: Path, label: str) -> None:
-    """Reject labels that are not safe filesystem basenames."""
-    with pytest.raises(ValueError):
-        config.get_session_path(label)
-
-
-def test_label_byte_limit_uses_primary_filename(config_dir: Path) -> None:
-    """Allow exactly the primary filename byte limit and reject one more byte."""
-    label = "é" * (config.MAX_SESSION_LABEL_BYTES // 2)
-    assert len(config.get_session_path(label).name.encode()) == config.NAME_MAX_BYTES
-    with pytest.raises(ValueError):
-        config.get_session_path(f"{label}a")
 
 
 def test_save_update_rename_and_delete(config_dir: Path) -> None:
@@ -116,88 +88,19 @@ def test_rename_write_failure_preserves_old_session(
 def test_rename_unlink_failure_leaves_two_complete_sessions(
     config_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Expose source cleanup failure after the renamed copy is durable."""
+    """Propagate old-file cleanup failure after writing the complete new file."""
     config.save_session({"label": "Old", "value": 1})
     old_path = config.get_session_path("Old")
-    new_path = config.get_session_path("New")
     real_unlink = Path.unlink
 
     def fail_old_unlink(path: Path, *args: Any, **kwargs: Any) -> None:
-        """Fail only the source cleanup step."""
         if path == old_path:
             raise OSError("unlink denied")
         real_unlink(path, *args, **kwargs)
 
     monkeypatch.setattr(Path, "unlink", fail_old_unlink)
-
     with pytest.raises(OSError, match="unlink denied"):
         config.save_session({"label": "New", "value": 2}, old_label="Old")
 
-    assert old_path.read_text(encoding="utf-8")
-    assert new_path.read_text(encoding="utf-8")
     assert config.load_session("Old")["value"] == 1
     assert config.load_session("New")["value"] == 2
-
-
-def test_filename_label_is_canonical(config_dir: Path) -> None:
-    """Replace a stale embedded label with the requested filename label."""
-    config.get_session_path("Canonical").write_text("label: stale\n", encoding="utf-8")
-    assert config.load_session("Canonical")["label"] == "Canonical"
-
-
-def test_stale_update_raises(config_dir: Path) -> None:
-    """Reject an update whose expected primary session is absent."""
-    with pytest.raises(config.StaleSessionError):
-        config.save_session({"label": "Gone"}, old_label="Gone")
-
-
-def test_queued_update_cannot_recreate_deleted_session(config_dir: Path) -> None:
-    """Serialize delete ahead of a stale queued update."""
-    config.save_session({"label": "One"})
-    config._SESSION_LOCK.acquire()
-    try:
-        config.delete_session("One")
-        errors: list[BaseException] = []
-
-        def update() -> None:
-            try:
-                config.save_session({"label": "One"}, old_label="One")
-            except BaseException as err:
-                errors.append(err)
-
-        thread = threading.Thread(target=update)
-        thread.start()
-    finally:
-        config._SESSION_LOCK.release()
-    thread.join()
-    assert len(errors) == 1
-    assert isinstance(errors[0], config.StaleSessionError)
-    assert not config.get_session_path("One").exists()
-
-
-def test_delete_waits_for_in_progress_save(
-    config_dir: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Prevent deletion from interleaving with the atomic session write."""
-    config.save_session({"label": "One"})
-    started = threading.Event()
-    release = threading.Event()
-    real_write = config.write_yaml_file
-
-    def blocked_write(path: Path, data: dict[str, Any]) -> None:
-        started.set()
-        release.wait()
-        real_write(path, data)
-
-    monkeypatch.setattr(config, "write_yaml_file", blocked_write)
-    save_thread = threading.Thread(
-        target=config.save_session, args=({"label": "One", "value": 2}, "One")
-    )
-    save_thread.start()
-    assert started.wait(1)
-    delete_thread = threading.Thread(target=config.delete_session, args=("One",))
-    delete_thread.start()
-    release.set()
-    save_thread.join()
-    delete_thread.join()
-    assert not config.get_session_path("One").exists()

@@ -5,7 +5,6 @@ from __future__ import annotations
 from contextlib import suppress
 import os
 from pathlib import Path
-import stat
 import tempfile
 from typing import Any
 
@@ -67,14 +66,13 @@ def write_yaml_file(path: Path, data: Any) -> None:
         YamlStoreError: If serialization or persistence fails.
     """
     temp_path: Path | None = None
+    destination = path
     try:
-        destination = path.resolve()
-    except (OSError, RuntimeError) as err:
-        raise YamlStoreError(f"Could not write YAML file {path}: {err}") from err
-    try:
+        if destination.is_symlink():
+            raise YamlStoreError(f"Refusing to replace symlink YAML file {path}")
         destination.parent.mkdir(parents=True, exist_ok=True)
         try:
-            mode = stat.S_IMODE(destination.stat().st_mode)
+            mode = destination.stat().st_mode & 0o7777
         except FileNotFoundError:
             mode = 0o600
         descriptor, temp_name = tempfile.mkstemp(
@@ -92,27 +90,14 @@ def write_yaml_file(path: Path, data: Any) -> None:
             os.fsync(file_obj.fileno())
         temp_path.replace(destination)
         temp_path = None
-        _fsync_directory(destination.parent)
+    except YamlStoreError:
+        raise
     except (OSError, yaml.YAMLError) as err:
         raise YamlStoreError(f"Could not write YAML file {path}: {err}") from err
     finally:
         if temp_path is not None:
             with suppress(OSError):
                 temp_path.unlink()
-
-
-def _fsync_directory(directory: Path) -> None:
-    """Best-effort sync a directory after replacing an entry."""
-    try:
-        descriptor = os.open(directory, os.O_RDONLY)
-    except OSError:
-        return
-    try:
-        os.fsync(descriptor)
-    except OSError:
-        pass
-    finally:
-        os.close(descriptor)
 
 
 def _type_name(expected_type: type[Any] | tuple[type[Any], ...]) -> str:

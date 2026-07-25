@@ -41,7 +41,6 @@ from backend.chaptarr_integration import (
     test_chaptarr_connection,
 )
 from backend.config import (
-    StaleSessionError,
     delete_session,
     get_session_path,
     list_sessions,
@@ -509,12 +508,6 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
             await _sync_integrations_if_mam_id_changed(
                 fresh_cfg, label, updated_mam_id, _prev_mam_id
             )
-    except StaleSessionError:
-        _logger.warning(
-            "[Keepalive] label=%s Session was deleted during keepalive; "
-            "discarding background keepalive state update.",
-            label,
-        )
     except Exception as e:
         _logger.warning("[Keepalive] label=%s Failed to save keepalive state: %s", label, e)
 
@@ -703,12 +696,6 @@ async def auto_update_seedbox_if_needed(
                     )
                     try:
                         save_session(cfg, old_label=label)
-                    except StaleSessionError:
-                        _logger.warning(
-                            "[AutoUpdate] label=%s Session was deleted during background "
-                            "update; discarding rotated mam_id update.",
-                            label,
-                        )
                     except Exception as e:
                         _logger.error(
                             "[AutoUpdate][ERROR] label=%s save_session failed while persisting "
@@ -716,10 +703,9 @@ async def auto_update_seedbox_if_needed(
                             label,
                             e,
                         )
-                    else:
-                        await _sync_integrations_if_mam_id_changed(
-                            cfg, label, updated_mam_id, _prev_mam_id
-                        )
+                    await _sync_integrations_if_mam_id_changed(
+                        cfg, label, updated_mam_id, _prev_mam_id
+                    )
 
                 if resp.status == 200 and result.get("Success"):
                     # Update last_seedbox_ip and mam_ip to the new detected/proxied IP
@@ -1628,6 +1614,7 @@ async def api_save_session(request: Request) -> dict[str, Any]:
     """
     global session_status_cache
 
+    saved = False
     try:
         cfg = await request.json()
         old_label = cfg.get("old_label")
@@ -1683,6 +1670,7 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         is_new = not Path(session_path).exists()
 
         save_session(cfg, old_label=old_label)
+        saved = True
 
         if is_new:
             # Clear any old event log entries for this session label
@@ -1737,16 +1725,14 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
         await _sync_integrations_if_mam_id_changed(cfg, label, new_mam_id, prev_mam_id)
 
-    except HTTPException:
-        raise
-    except StaleSessionError as e:
-        raise HTTPException(
-            status_code=409,
-            detail=f"Session '{old_label}' no longer exists",
-        ) from e
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid session configuration: {e}") from e
     except Exception as e:
+        if saved:
+            _logger.exception(
+                "[Session] Post-save side effect failed for label=%s; "
+                "session persistence already completed",
+                cfg.get("label"),
+            )
+            return {"success": True}
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
     else:
         return {"success": True}
@@ -1965,12 +1951,6 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             # rate-limited/error) doesn't itself call save_session.
             try:
                 save_session(cfg, old_label=label)
-            except StaleSessionError:
-                _logger.warning(
-                    "[SeedboxUpdate] label=%s Session was deleted while persisting rotated "
-                    "mam_id; skipping integration sync.",
-                    label,
-                )
             except Exception as e:
                 _logger.error(
                     "[SeedboxUpdate] label=%s save_session failed while persisting rotated "
@@ -1978,10 +1958,7 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
                     label,
                     e,
                 )
-            else:
-                await _sync_integrations_if_mam_id_changed(
-                    cfg, label, _updated_mam_id, _prev_mam_id
-                )
+            await _sync_integrations_if_mam_id_changed(cfg, label, _updated_mam_id, _prev_mam_id)
 
         _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp_status == 200 and result.get("Success"):
@@ -2910,12 +2887,9 @@ async def session_check_job(label: str) -> None:
             if _refreshed_mam_id and _refreshed_mam_id != mam_id:
                 _prev_mam_id = mam_id
                 mam_id = _refreshed_mam_id
-                fresh_cfg = load_session(label)
-                fresh_cfg.setdefault("mam", {})["mam_id"] = _refreshed_mam_id
+                cfg["mam"]["mam_id"] = _refreshed_mam_id
                 _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
-                save_session(fresh_cfg, old_label=label)
-                cfg = fresh_cfg
-                await _sync_integrations_if_mam_id_changed(fresh_cfg, label, mam_id, _prev_mam_id)
+                await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # MAM session keepalive: call dynamicSeedbox.php daily to prevent the
