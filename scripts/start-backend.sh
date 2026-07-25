@@ -27,8 +27,8 @@ if [ ! -w "$CONFIG_DIR" ]; then
 fi
 
 # VITE_BACKEND_PORT is shared with Vite during `npm run dev`; PORT remains the
-# direct backend override. Defaults keep both services aligned on port 39842.
-PORT="${PORT:-${VITE_BACKEND_PORT:-39842}}"
+# direct backend fallback. Defaults keep both services aligned on port 39842.
+PORT="${VITE_BACKEND_PORT:-${PORT:-39842}}"
 
 # Prefer the repository virtual environment so local runs use the dependencies
 # declared in pyproject.toml.
