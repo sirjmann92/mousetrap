@@ -8,12 +8,13 @@ MouseTrap. It is intended to stand alone for the upstream repository.
 MouseTrap is a Docker-first web app for automating MyAnonaMouse seedbox and
 account management.
 
-- Backend: Python 3.13, FastAPI, YAML-backed configuration/state files.
+- Backend: Python 3.13, FastAPI, YAML-backed configuration/state files, and a
+  SQLite-backed event log.
 - Frontend: React 19, Vite, Material UI, TypeScript checking, Biome formatting.
 - Runtime: Docker image serving the built frontend and FastAPI backend on port
   `39842`.
-- Persistent data: user configuration and state live under `/config` in the
-  container.
+- Persistent data: user configuration and state default to `/config` in the
+  container and can be relocated with the `CONFIG_DIR` environment variable.
 
 ## Repository Layout
 
@@ -31,8 +32,9 @@ account management.
 - Prefer root-cause fixes over narrow patches that only mask symptoms.
 - Keep changes scoped to the requested behavior and adjacent code needed to make
   it correct.
-- Preserve user data compatibility. Treat files under `/config` as persistent
-  production data that may already exist in user deployments.
+- Preserve user data compatibility. Treat files in the configured persistent
+  data directory (default `/config`) as production data that may already exist
+  in user deployments.
 - Do not introduce migrations or schema changes without backward-compatible
   loading behavior and clear docs.
 - Avoid broad rewrites unless the requested change explicitly calls for them.
@@ -90,6 +92,7 @@ pip install -r requirements-dev.txt
 Frontend setup:
 
 ```bash
+# Requires Node.js 22.20.0 or newer.
 npm ci --prefix frontend
 ```
 
