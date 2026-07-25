@@ -121,6 +121,16 @@ backend port for the combined `npm run dev` command; the helper also accepts
 `PORT` when starting only the backend. Do not use `scripts/start-backend.sh` as
 a production entrypoint.
 
+For routine dependency maintenance, run:
+
+```bash
+./scripts/update-dependencies.sh
+```
+
+The helper runs `pre-commit autoupdate`, updates frontend dependencies within
+the constraints in `frontend/package.json`, and audits the resulting npm
+dependency tree. Review its manifest and lockfile changes before committing.
+
 ## Validation Commands
 
 Run the checks that match the files you changed. For cross-cutting changes, run
