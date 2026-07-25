@@ -22,7 +22,10 @@ def read_last_session() -> str | None:
     """Read the last session label from disk.
 
     Returns:
-        The saved label string, or None if the file does not exist or is malformed.
+        The saved label string, or None if the file does not exist.
+
+    Raises:
+        YamlStoreError: If the existing settings file is invalid.
     """
     data = load_yaml_file(LAST_SESSION_FILE, {}, expected_type=dict)
     return data.get("label")

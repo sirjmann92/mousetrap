@@ -10,7 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from backend.config import list_sessions, load_session, save_session
+from backend.config import StaleSessionError, list_sessions, load_session, save_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.proxy_config import load_proxies, save_proxies
 
@@ -81,5 +81,9 @@ def delete_proxy(label: str) -> dict[str, Any]:
         proxy_cfg = cfg.get("proxy", {})
         if isinstance(proxy_cfg, dict) and proxy_cfg.get("label") == label:
             cfg["proxy"] = {}  # Remove proxy reference
-            save_session(cfg, old_label=sess_label)
+            try:
+                save_session(cfg, old_label=sess_label)
+            except StaleSessionError:
+                # The session was deleted or renamed after discovery.
+                continue
     return {"success": True}

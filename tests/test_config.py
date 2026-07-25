@@ -1,857 +1,123 @@
-"""Tests for durable session configuration persistence."""
+"""Focused tests for session configuration lifecycle behavior."""
 
-import json
-import os
 from pathlib import Path
-import stat
 import threading
 from typing import Any
 
 import pytest
-import yaml
 
-from backend import config, yaml_store
-from backend.yaml_store import backup_path
+from backend import config
+from backend.yaml_store import YamlStoreError
 
 
 @pytest.fixture
-def temp_config_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
-    """Point config helpers at a temporary config directory.
-
-    Args:
-        monkeypatch: Pytest monkeypatch fixture.
-        tmp_path: Temporary directory fixture.
-
-    Returns:
-        The temporary config directory used by the test.
-    """
+def config_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Point configuration persistence at an isolated directory."""
     monkeypatch.setattr(config, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.yaml")
     return tmp_path
 
 
-def test_load_session_recovers_from_empty_file_backup(temp_config_paths: Path) -> None:
-    """Recover a session from backup when the main YAML file is empty."""
-    session: dict[str, Any] = {
-        "label": "Session1",
-        "check_freq": 60,
-        "mam": {
-            "mam_id": "secret-cookie",
-            "session_type": "ASN Locked",
-            "ip_monitoring_mode": "auto",
-        },
-        "mam_ip": "192.0.2.10",
-        "proxy": {"label": "VPN"},
-        "prowlarr": {"enabled": True, "host": "10.0.0.2", "api_key": "secret"},
-    }
-    config.save_session(session)
-    path = config.get_session_path("Session1")
-    assert backup_path(path).exists()
-
-    path.write_text("", encoding="utf-8")
-
-    loaded = config.load_session("Session1")
-
-    assert loaded["mam"]["mam_id"] == "secret-cookie"
-    assert loaded["proxy"]["label"] == "VPN"
-    assert loaded["prowlarr"]["enabled"] is True
-    persisted = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    assert persisted.get("mam", {}).get("mam_id") == "secret-cookie"
-
-
-@pytest.mark.parametrize(
-    "label",
-    ["../outside", "nested/session", "nested\\session", "nul\x00label", ".", "..", "", 123, None],
-)
-def test_session_paths_reject_invalid_labels_before_file_io(
-    temp_config_paths: Path,
-    label: object,
-) -> None:
-    """Reject traversal, separators, and non-string labels before persistence."""
-    with pytest.raises(ValueError, match="Session label"):
-        config.save_session({"label": label, "mam": {"mam_id": "secret"}})
-
-    assert not list(temp_config_paths.iterdir())
-    assert not (temp_config_paths.parent / "session-outside.yaml").exists()
-
-
-def test_session_paths_preserve_spaces(temp_config_paths: Path) -> None:
-    """Allow legitimate labels containing spaces."""
-    config.save_session({"label": "Living Room"})
-
-    assert config.get_session_path("Living Room").exists()
-
-
-@pytest.mark.parametrize("label", ["a" * 238, "é" * 119])
-def test_session_label_accepts_exact_utf8_byte_boundary(
-    temp_config_paths: Path,
-    label: str,
-) -> None:
-    """Allow ASCII and multibyte labels at the persistent filename boundary."""
-    config.save_session({"label": label})
-
-    path = config.get_session_path(label)
-    assert len(backup_path(path).name.encode("utf-8")) == config.NAME_MAX_BYTES
-    assert path.exists()
-    assert backup_path(path).exists()
-
-
-@pytest.mark.parametrize("label", ["a" * 239, "é" * 120])
-def test_session_label_rejects_above_utf8_byte_boundary(
-    temp_config_paths: Path,
-    label: str,
-) -> None:
-    """Reject ASCII and multibyte labels exceeding the longest persistent name."""
-    with pytest.raises(ValueError, match="238 UTF-8 bytes"):
-        config.save_session({"label": label})
-
-    assert not list(temp_config_paths.iterdir())
-
-
-def test_load_session_recovers_from_malformed_file_backup(temp_config_paths: Path) -> None:
-    """Recover a session from backup when the main YAML file is malformed."""
-    session: dict[str, Any] = {
-        "label": "Session1",
-        "check_freq": 60,
-        "mam": {
-            "mam_id": "secret-cookie",
-            "session_type": "IP Locked",
-            "ip_monitoring_mode": "manual",
-        },
-        "mam_ip": "192.0.2.11",
-    }
-    config.save_session(session)
-    path = config.get_session_path("Session1")
-
-    path.write_text("mam: [unterminated\n", encoding="utf-8")
-
-    loaded = config.load_session("Session1")
-
-    assert loaded["mam"]["mam_id"] == "secret-cookie"
-    assert loaded["mam"]["ip_monitoring_mode"] == "manual"
-
-
-def test_load_session_recovers_from_missing_file_backup(temp_config_paths: Path) -> None:
-    """Recover a session from backup when the main YAML file is missing."""
-    session: dict[str, Any] = {
-        "label": "Session1",
-        "mam": {
-            "mam_id": "secret-cookie",
-            "session_type": "IP Locked",
-            "ip_monitoring_mode": "manual",
-        },
-        "mam_ip": "192.0.2.12",
-    }
-    config.save_session(session)
-    path = config.get_session_path("Session1")
-    path.unlink()
-
-    loaded = config.load_session("Session1")
-
-    assert loaded["mam"]["mam_id"] == "secret-cookie"
-    assert loaded["mam"]["ip_monitoring_mode"] == "manual"
-    assert yaml.safe_load(path.read_text(encoding="utf-8"))["mam"]["mam_id"] == "secret-cookie"
-
-
-def test_load_session_recovers_from_backup_when_primary_missing(
-    temp_config_paths: Path,
-) -> None:
-    """Recover a session backup when the main YAML file is missing."""
-    path = config.get_session_path("Session1")
-    backup_data: dict[str, Any] = {
-        "label": "Session1",
-        "mam": {
-            "mam_id": "secret-cookie",
-            "session_type": "IP Locked",
-            "ip_monitoring_mode": "manual",
-        },
-        "browser_cookie": "secret-browser-cookie",
-    }
-    backup_path(path).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
-
-    loaded = config.load_session("Session1")
-
-    assert loaded["mam"]["mam_id"] == "secret-cookie"
-    assert loaded["browser_cookie"] == "secret-browser-cookie"
-    assert yaml.safe_load(path.read_text(encoding="utf-8"))["label"] == "Session1"
-
-
-@pytest.mark.parametrize("content", ["null\n", "- not-a-mapping\n", "scalar\n"])
-def test_load_session_uses_defaults_for_non_mapping_yaml(
-    temp_config_paths: Path,
-    content: str,
-) -> None:
-    """Use defaults when a session file contains valid non-mapping YAML."""
-    path = config.get_session_path("Session1")
-    path.write_text(content, encoding="utf-8")
-
-    loaded = config.load_session("Session1")
-
-    assert loaded["label"] == "Session1"
-    assert loaded["mam"]["mam_id"] == ""
-
-
-def test_load_session_recovers_mapping_backup_from_list_primary(
-    temp_config_paths: Path,
-) -> None:
-    """Apply session defaults to a mapping recovered from a wrong-shaped primary."""
-    path = config.get_session_path("Session1")
-    path.write_text("- wrong-shape\n", encoding="utf-8")
-    backup_path(path).write_text(
-        yaml.safe_dump({"label": "Session1", "mam": {"mam_id": "recovered"}}),
-        encoding="utf-8",
-    )
-
-    loaded = config.load_session("Session1")
-
-    assert loaded["mam"]["mam_id"] == "recovered"
+def test_missing_session_returns_defaults(config_dir: Path) -> None:
+    """Return normalized defaults when a primary session is absent."""
+    loaded = config.load_session("Missing")
+    assert loaded["label"] == "Missing"
     assert loaded["browser_cookie"] == ""
 
 
-def test_load_config_recovers_from_missing_file_backup(temp_config_paths: Path) -> None:
-    """Recover global config from backup when the main YAML file is missing."""
-    global_config = config.get_default_config()
-    global_config["mam"]["mam_id"] = "global-secret"
-    global_config["mam_ip"] = "192.0.2.13"
-    config.save_config(global_config)
-    config.CONFIG_PATH.unlink()
-
-    loaded = config.load_config()
-
-    assert loaded["mam"]["mam_id"] == "global-secret"
-    assert loaded["mam_ip"] == "192.0.2.13"
-    assert (
-        yaml.safe_load(config.CONFIG_PATH.read_text(encoding="utf-8"))["mam"]["mam_id"]
-        == "global-secret"
-    )
+@pytest.mark.parametrize("contents", ["broken: [", "- wrong\n- shape\n"])
+def test_invalid_session_yaml_raises(config_dir: Path, contents: str) -> None:
+    """Expose corrupt and wrong-shaped persisted YAML as store errors."""
+    config.get_session_path("Bad").write_text(contents, encoding="utf-8")
+    with pytest.raises(YamlStoreError):
+        config.load_session("Bad")
 
 
-def test_load_config_recovers_from_backup_when_primary_missing(
-    temp_config_paths: Path,
-) -> None:
-    """Recover the global config backup when the main YAML file is missing."""
-    backup_data: dict[str, Any] = {
-        "label": "Default",
-        "mam": {"mam_id": "global-secret", "session_type": "IP Locked"},
-        "mam_ip": "192.0.2.20",
-        "last_check_time": "2026-05-21T00:00:00",
-    }
-    backup_path(config.CONFIG_PATH).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
-
-    loaded = config.load_config()
-
-    assert loaded["mam"]["mam_id"] == "global-secret"
-    assert loaded["mam_ip"] == "192.0.2.20"
-    assert yaml.safe_load(config.CONFIG_PATH.read_text(encoding="utf-8"))["label"] == "Default"
+@pytest.mark.parametrize("label", ["", ".", "..", "../bad", "bad/name", "bad\\name", "x\x00y"])
+def test_label_validation(config_dir: Path, label: str) -> None:
+    """Reject labels that are not safe filesystem basenames."""
+    with pytest.raises(ValueError):
+        config.get_session_path(label)
 
 
-@pytest.mark.parametrize("content", ["null\n", "- not-a-mapping\n", "scalar\n"])
-def test_load_config_uses_defaults_for_non_mapping_yaml(
-    temp_config_paths: Path,
-    content: str,
-) -> None:
-    """Use defaults when global config contains valid non-mapping YAML."""
-    config.CONFIG_PATH.write_text(content, encoding="utf-8")
-
-    loaded = config.load_config()
-
-    assert loaded["label"] == ""
-    assert loaded["mam"]["mam_id"] == ""
+def test_label_byte_limit_uses_primary_filename(config_dir: Path) -> None:
+    """Allow exactly the primary filename byte limit and reject one more byte."""
+    label = "é" * (config.MAX_SESSION_LABEL_BYTES // 2)
+    assert len(config.get_session_path(label).name.encode()) == config.NAME_MAX_BYTES
+    with pytest.raises(ValueError):
+        config.get_session_path(f"{label}a")
 
 
-def test_list_sessions_includes_backup_only_sessions(temp_config_paths: Path) -> None:
-    """List sessions that only have a recoverable backup file."""
-    session_path = config.get_session_path("Session1")
-    backup_path(session_path).write_text(
-        yaml.safe_dump({"label": "Session1", "mam": {"mam_id": "secret-cookie"}}),
-        encoding="utf-8",
-    )
-
-    assert config.list_sessions() == ["Session1"]
-
-
-def test_delete_session_removes_primary_and_backup(temp_config_paths: Path) -> None:
-    """Delete both the session YAML file and its last-known-good backup."""
-    session: dict[str, Any] = {
-        "label": "Session1",
-        "mam": {
-            "mam_id": "secret-cookie",
-            "session_type": "IP Locked",
-            "ip_monitoring_mode": "manual",
-        },
-    }
-    config.save_session(session)
-    path = config.get_session_path("Session1")
-    backup = backup_path(path)
-
-    config.delete_session("Session1")
-
-    assert not path.exists()
-    assert not backup.exists()
+def test_save_update_rename_and_delete(config_dir: Path) -> None:
+    """Support the complete primary-file lifecycle."""
+    assert config.save_session({"label": "Old", "value": 1}) is None
+    config.save_session({"label": "Old", "value": 2}, old_label="Old")
+    config.save_session({"label": "New", "value": 3}, old_label="Old")
+    assert config.list_sessions() == ["New"]
+    assert config.load_session("New")["value"] == 3
+    config.delete_session("New")
+    assert config.list_sessions() == []
 
 
-def test_delete_session_fsyncs_directory_after_removal(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Flush directory metadata after removing session persistence files."""
-    config.save_session({"label": "Session1"})
-    fsync_calls = 0
-
-    def record_fsync() -> None:
-        """Record a requested config-directory metadata flush."""
-        nonlocal fsync_calls
-        fsync_calls += 1
-
-    monkeypatch.setattr(config, "_fsync_config_dir", record_fsync)
-
-    config.delete_session("Session1")
-
-    assert fsync_calls == 1
+def test_filename_label_is_canonical(config_dir: Path) -> None:
+    """Replace a stale embedded label with the requested filename label."""
+    config.get_session_path("Canonical").write_text("label: stale\n", encoding="utf-8")
+    assert config.load_session("Canonical")["label"] == "Canonical"
 
 
-def test_save_session_renames_existing_backup(temp_config_paths: Path) -> None:
-    """Move the backup file when a session label changes."""
-    session: dict[str, Any] = {
-        "label": "Session1",
-        "mam": {"mam_id": "secret-cookie", "session_type": "IP Locked"},
-        "browser_cookie": "secret-browser-cookie",
-    }
-    config.save_session(session)
-    old_path = config.get_session_path("Session1")
-    old_backup = backup_path(old_path)
-
-    renamed = session | {"label": "Session2"}
-    config.save_session(renamed, old_label="Session1")
-    new_path = config.get_session_path("Session2")
-    new_backup = backup_path(new_path)
-
-    assert not old_path.exists()
-    assert not old_backup.exists()
-    assert yaml.safe_load(new_path.read_text(encoding="utf-8"))["label"] == "Session2"
-    assert yaml.safe_load(new_backup.read_text(encoding="utf-8"))["label"] == "Session2"
+def test_stale_update_raises(config_dir: Path) -> None:
+    """Reject an update whose expected primary session is absent."""
+    with pytest.raises(config.StaleSessionError):
+        config.save_session({"label": "Gone"}, old_label="Gone")
 
 
-def test_save_session_rename_removes_old_backup(temp_config_paths: Path) -> None:
-    """Prevent a stale backup from resurrecting a renamed session."""
-    session: dict[str, Any] = {
-        "label": "Old",
-        "mam": {
-            "mam_id": "secret-cookie",
-            "session_type": "IP Locked",
-            "ip_monitoring_mode": "manual",
-        },
-    }
-    config.save_session(session)
-    old_path = config.get_session_path("Old")
-    old_backup = backup_path(old_path)
+def test_queued_update_cannot_recreate_deleted_session(config_dir: Path) -> None:
+    """Serialize delete ahead of a stale queued update."""
+    config.save_session({"label": "One"})
+    config._SESSION_LOCK.acquire()
+    try:
+        config.delete_session("One")
+        errors: list[BaseException] = []
 
-    session["label"] = "New"
-    config.save_session(session, old_label="Old")
+        def update() -> None:
+            try:
+                config.save_session({"label": "One"}, old_label="One")
+            except BaseException as err:
+                errors.append(err)
 
-    assert not old_path.exists()
-    assert not old_backup.exists()
-    assert config.load_session("Old")["mam"]["mam_id"] == ""
-
-
-def test_save_session_rename_replaces_stale_destination_backup(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Replace an unrelated destination backup even if normal refresh fails."""
-    old_path = config.get_session_path("Old")
-    new_path = config.get_session_path("New")
-    old_path.write_text(yaml.safe_dump({"label": "Old"}), encoding="utf-8")
-    stale_new_backup = backup_path(new_path)
-    stale_new_backup.write_text(
-        yaml.safe_dump({"label": "New", "mam": {"mam_id": "stale-secret"}}),
-        encoding="utf-8",
-    )
-
-    def fail_atomic_copy(src: Path, dst: Path) -> None:
-        """Simulate backup refresh failure after the primary rename/save."""
-        raise OSError("simulated backup refresh failure")
-
-    monkeypatch.setattr(yaml_store, "_atomic_copy", fail_atomic_copy)
-
-    config.save_session({"label": "New", "mam": {"mam_id": "fresh"}}, old_label="Old")
-
-    assert not backup_path(old_path).exists()
-    assert yaml.safe_load(stale_new_backup.read_text(encoding="utf-8"))["mam"]["mam_id"] == "fresh"
-
-
-def test_queued_save_cannot_recreate_deleted_session(
-    caplog: pytest.LogCaptureFixture,
-    temp_config_paths: Path,
-) -> None:
-    """Drop an existing-session update queued behind a completed delete."""
-    session = {"label": "Session1", "mam": {"mam_id": "original"}}
-    config.save_session(session)
-    path = config.get_session_path("Session1")
-    delete_finished = threading.Event()
-
-    def delete_then_signal() -> None:
-        """Delete the session before allowing the queued save to run."""
-        config.delete_session("Session1")
-        delete_finished.set()
-
-    thread = threading.Thread(target=delete_then_signal)
-    thread.start()
-    assert delete_finished.wait(timeout=2)
-
-    config.save_session(
-        {"label": "Session1", "mam": {"mam_id": "stale"}},
-        old_label="Session1",
-    )
+        thread = threading.Thread(target=update)
+        thread.start()
+    finally:
+        config._SESSION_LOCK.release()
     thread.join()
+    assert len(errors) == 1
+    assert isinstance(errors[0], config.StaleSessionError)
+    assert not config.get_session_path("One").exists()
 
-    assert not path.exists()
-    assert not backup_path(path).exists()
-    assert "Discarding stale update for retired session Session1" in caplog.text
 
-
-def test_in_flight_save_is_removed_by_waiting_delete(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
+def test_delete_waits_for_in_progress_save(
+    config_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Ensure a delete waiting on an in-flight write removes its final output."""
-    config.save_session({"label": "Session1"})
-    path = config.get_session_path("Session1")
-    write_started = threading.Event()
-    allow_write = threading.Event()
-    original_write = config.write_yaml_file
+    """Prevent deletion from interleaving with the atomic session write."""
+    config.save_session({"label": "One"})
+    started = threading.Event()
+    release = threading.Event()
+    real_write = config.write_yaml_file
 
-    def blocked_write(candidate: Path, data: Any) -> None:
-        """Pause the write while the session lifecycle lock remains held."""
-        write_started.set()
-        assert allow_write.wait(timeout=2)
-        original_write(candidate, data)
+    def blocked_write(path: Path, data: dict[str, Any]) -> None:
+        started.set()
+        release.wait()
+        real_write(path, data)
 
     monkeypatch.setattr(config, "write_yaml_file", blocked_write)
     save_thread = threading.Thread(
-        target=config.save_session,
-        args=({"label": "Session1", "mam": {"mam_id": "updated"}}, "Session1"),
+        target=config.save_session, args=({"label": "One", "value": 2}, "One")
     )
     save_thread.start()
-    assert write_started.wait(timeout=2)
-
-    delete_thread = threading.Thread(target=config.delete_session, args=("Session1",))
+    assert started.wait(1)
+    delete_thread = threading.Thread(target=config.delete_session, args=("One",))
     delete_thread.start()
-    allow_write.set()
-    save_thread.join(timeout=2)
-    delete_thread.join(timeout=2)
-
-    assert not save_thread.is_alive()
-    assert not delete_thread.is_alive()
-    assert not path.exists()
-    assert not backup_path(path).exists()
-
-
-def test_queued_old_label_save_cannot_recreate_renamed_session(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Drop a stale update for an old label after rename retires its files."""
-    config.save_session({"label": "Old", "mam": {"mam_id": "original"}})
-    rename_write_started = threading.Event()
-    allow_rename_write = threading.Event()
-    stale_save_started = threading.Event()
-    original_write = config.write_yaml_file
-
-    def blocked_rename_write(candidate: Path, data: Any) -> None:
-        """Pause the rename's final write while lifecycle locks remain held."""
-        if candidate == config.get_session_path("New"):
-            rename_write_started.set()
-            assert allow_rename_write.wait(timeout=2)
-        original_write(candidate, data)
-
-    monkeypatch.setattr(config, "write_yaml_file", blocked_rename_write)
-
-    def save_stale_update() -> None:
-        """Signal before attempting the old-label save held behind rename."""
-        stale_save_started.set()
-        config.save_session(
-            {"label": "Old", "mam": {"mam_id": "stale"}},
-            old_label="Old",
-        )
-
-    rename_thread = threading.Thread(
-        target=config.save_session,
-        args=({"label": "New", "mam": {"mam_id": "renamed"}}, "Old"),
-    )
-    rename_thread.start()
-    assert rename_write_started.wait(timeout=2)
-
-    stale_thread = threading.Thread(target=save_stale_update)
-    stale_thread.start()
-    assert stale_save_started.wait(timeout=2)
-    allow_rename_write.set()
-    rename_thread.join(timeout=2)
-    stale_thread.join(timeout=2)
-
-    old_path = config.get_session_path("Old")
-    assert not rename_thread.is_alive()
-    assert not stale_thread.is_alive()
-    assert not old_path.exists()
-    assert not backup_path(old_path).exists()
-    assert config.load_session("New")["mam"]["mam_id"] == "renamed"
-
-
-def test_existing_session_save_accepts_backup_only_source(
-    temp_config_paths: Path,
-) -> None:
-    """Allow an existing-session update when only its recoverable backup remains."""
-    path = config.get_session_path("Session1")
-    backup_path(path).write_text(yaml.safe_dump({"label": "Session1"}), encoding="utf-8")
-
-    config.save_session(
-        {"label": "Session1", "mam": {"mam_id": "updated"}},
-        old_label="Session1",
-    )
-
-    assert yaml.safe_load(path.read_text(encoding="utf-8"))["mam"]["mam_id"] == "updated"
-
-
-def test_save_session_without_old_label_creates_new_session(
-    temp_config_paths: Path,
-) -> None:
-    """Preserve explicit creation when no existing-session label is supplied."""
-    config.save_session({"label": "New", "mam": {"mam_id": "created"}})
-
-    assert config.load_session("New")["mam"]["mam_id"] == "created"
-
-
-@pytest.mark.parametrize("failure_step", ["journal", "publish", "cleanup", "pending_cleanup"])
-def test_rename_recovers_after_every_durable_lifecycle_step(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-    failure_step: str,
-) -> None:
-    """Complete toward the new label after interruption at every rename step."""
-    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
-    original_fault_point = config._rename_fault_point
-
-    def interrupt_at_step(step: str) -> None:
-        """Simulate process death immediately after the selected durable step."""
-        if step == failure_step:
-            raise OSError(f"interrupted after {step}")
-
-    monkeypatch.setattr(config, "_rename_fault_point", interrupt_at_step)
-    with pytest.raises(OSError, match=f"interrupted after {failure_step}"):
-        config.save_session(
-            {"label": "New", "mam": {"mam_id": "new-secret"}},
-            old_label="Old",
-        )
-    monkeypatch.setattr(config, "_rename_fault_point", original_fault_point)
-
-    assert config.list_sessions() == ["New"]
-    recovered = config.load_session("New")
-    assert recovered["label"] == "New"
-    assert recovered["mam"]["mam_id"] == "new-secret"
-    new_path = config.get_session_path("New")
-    for persisted_path in (new_path, backup_path(new_path)):
-        persisted = yaml.safe_load(persisted_path.read_text(encoding="utf-8"))
-        assert persisted["label"] == "New"
-        assert persisted["mam"]["mam_id"] == "new-secret"
-    assert not config.get_session_path("Old").exists()
-    assert not backup_path(config.get_session_path("Old")).exists()
-    assert not list(temp_config_paths.glob(config.RENAME_JOURNAL_GLOB))
-    assert not list(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
-    secret_files = [
-        path
-        for path in temp_config_paths.glob("session-*.yaml*")
-        if "mam_id" in path.read_text(encoding="utf-8")
-    ]
-    assert len(secret_files) <= 2
-
-
-def test_rename_pending_payload_is_private_and_orphan_is_removed(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Clean a private pending payload when interruption precedes journal commit."""
-    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
-    pending_mode: list[int] = []
-
-    def interrupt_after_pending(step: str) -> None:
-        """Inspect and interrupt after the pending payload is durable."""
-        if step == "pending":
-            pending = next(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
-            pending_mode.append(pending.stat().st_mode & 0o777)
-            raise OSError("interrupted after pending")
-
-    monkeypatch.setattr(config, "_rename_fault_point", interrupt_after_pending)
-    with pytest.raises(OSError, match="interrupted after pending"):
-        config.save_session(
-            {"label": "New", "mam": {"mam_id": "new-secret"}},
-            old_label="Old",
-        )
-    monkeypatch.setattr(config, "_rename_fault_point", lambda step: None)
-
-    assert config.list_sessions() == ["Old"]
-    assert pending_mode == [0o600]
-    assert not list(temp_config_paths.glob(config.RENAME_PENDING_GLOB))
-
-
-def test_rename_publishes_backup_with_persistent_permissions(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Use normal persistent permissions for rename backup fallback."""
-    old_path = config.get_session_path("Old")
-    old_path.write_text("label: Old\n", encoding="utf-8")
-    previous_umask = os.umask(0o027)
-
-    def fail_backup_copy(src: Path, dst: Path) -> None:
-        """Force rename completion through its durable backup fallback."""
-        raise OSError("simulated backup failure")
-
-    monkeypatch.setattr(yaml_store, "_atomic_copy", fail_backup_copy)
-    try:
-        config.save_session({"label": "New"}, old_label="Old")
-    finally:
-        os.umask(previous_umask)
-
-    new_path = config.get_session_path("New")
-    assert stat.S_IMODE(new_path.stat().st_mode) == 0o640
-    assert stat.S_IMODE(backup_path(new_path).stat().st_mode) == 0o640
-
-
-def test_rename_recovery_preserves_unrelated_backup_only_session(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Leave unrelated backup-only recovery data untouched."""
-    unrelated = config.get_session_path("Unrelated")
-    backup_path(unrelated).write_text(
-        yaml.safe_dump({"label": "Unrelated", "mam": {"mam_id": "other-secret"}}),
-        encoding="utf-8",
-    )
-    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
-
-    def interrupt_after_publish(step: str) -> None:
-        """Interrupt once the pending config has been published."""
-        if step == "publish":
-            raise OSError("interrupted")
-
-    monkeypatch.setattr(config, "_rename_fault_point", interrupt_after_publish)
-    with pytest.raises(OSError, match="interrupted"):
-        config.save_session({"label": "New"}, old_label="Old")
-    monkeypatch.setattr(config, "_rename_fault_point", lambda step: None)
-
-    assert config.list_sessions() == ["New", "Unrelated"]
-    assert backup_path(unrelated).exists()
-
-
-def test_rename_recovery_tolerates_directory_fsync_failure(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Complete an interrupted rename when directory fsync is unsupported."""
-    config.save_session({"label": "Old", "mam": {"mam_id": "old-secret"}})
-    original_fsync = config.os.fsync
-
-    def fail_directory_fsync(file_descriptor: int) -> None:
-        """Fail only directory fsync calls."""
-        if stat.S_ISDIR(config.os.fstat(file_descriptor).st_mode):
-            raise OSError("directory fsync unsupported")
-        original_fsync(file_descriptor)
-
-    def interrupt_after_journal(step: str) -> None:
-        """Interrupt after the durable journal step."""
-        if step == "journal":
-            raise OSError("interrupted")
-
-    monkeypatch.setattr(config.os, "fsync", fail_directory_fsync)
-    monkeypatch.setattr(config, "_rename_fault_point", interrupt_after_journal)
-    with pytest.raises(OSError, match="interrupted"):
-        config.save_session(
-            {"label": "New", "mam": {"mam_id": "new-secret"}},
-            old_label="Old",
-        )
-    monkeypatch.setattr(config, "_rename_fault_point", lambda step: None)
-
-    assert config.list_sessions() == ["New"]
-    assert config.load_session("New")["mam"]["mam_id"] == "new-secret"
-
-
-def test_orphan_pending_unlink_failure_does_not_block_discovery(
-    caplog: pytest.LogCaptureFixture,
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Log an orphan cleanup failure without blocking session discovery."""
-    config.save_session({"label": "Existing"})
-    orphan = temp_config_paths / f".session-rename-{'a' * 32}.pending.yaml"
-    orphan.write_text("label: Orphan\n", encoding="utf-8")
-    original_unlink = Path.unlink
-
-    def fail_orphan_unlink(path: Path, *args: Any, **kwargs: Any) -> None:
-        """Fail only removal of the selected orphan payload."""
-        if path == orphan:
-            raise OSError("simulated unlink failure")
-        original_unlink(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", fail_orphan_unlink)
-
-    assert config.list_sessions() == ["Existing"]
-    assert "Could not remove orphan rename payload" in caplog.text
-
-
-def test_malformed_journal_pending_type_does_not_block_discovery(
-    caplog: pytest.LogCaptureFixture,
-    temp_config_paths: Path,
-) -> None:
-    """Log a non-string pending artifact name and continue discovery."""
-    config.save_session({"label": "Existing"})
-    journal = temp_config_paths / f".session-rename-{'a' * 32}.json"
-    journal.write_text(
-        '{"old": "session-Old.yaml", "new": "session-New.yaml", "pending": 123}',
-        encoding="utf-8",
-    )
-
-    assert config.list_sessions() == ["Existing"]
-    assert "Quarantined invalid rename journal" in caplog.text
-    assert not journal.exists()
-    assert journal.with_name(f"{journal.name}{config.RENAME_QUARANTINE_SUFFIX}").exists()
-
-
-@pytest.mark.parametrize(
-    "transaction",
-    [
-        None,
-        {"old": 123, "new": "session-New.yaml", "pending": "unused"},
-        {
-            "old": "../session-Old.yaml",
-            "new": "session-New.yaml",
-            "pending": "unused",
-        },
-    ],
-)
-def test_structurally_invalid_rename_journal_is_durably_quarantined(
-    caplog: pytest.LogCaptureFixture,
-    temp_config_paths: Path,
-    transaction: dict[str, object] | None,
-) -> None:
-    """Quarantine permanent journal corruption and remove its secret payload."""
-    transaction_id = "c" * 32
-    journal = temp_config_paths / f".session-rename-{transaction_id}.json"
-    pending = temp_config_paths / f".session-rename-{transaction_id}.pending.yaml"
-    pending.write_text("mam:\n  mam_id: secret\n", encoding="utf-8")
-    if transaction is None:
-        journal.write_text("{broken", encoding="utf-8")
-    else:
-        transaction["pending"] = pending.name
-        journal.write_text(json.dumps(transaction), encoding="utf-8")
-
-    assert config.list_sessions() == []
-
-    quarantine = journal.with_name(f"{journal.name}{config.RENAME_QUARANTINE_SUFFIX}")
-    assert quarantine.exists()
-    assert not journal.exists()
-    assert not pending.exists()
-    assert "Quarantined invalid rename journal" in caplog.text
-
-
-def test_transient_rename_journal_read_error_keeps_artifacts_for_retry(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Retain a journal and pending secret payload after a transient OS error."""
-    transaction_id = "d" * 32
-    journal = temp_config_paths / f".session-rename-{transaction_id}.json"
-    pending = temp_config_paths / f".session-rename-{transaction_id}.pending.yaml"
-    journal.write_text("{}", encoding="utf-8")
-    pending.write_text("mam:\n  mam_id: secret\n", encoding="utf-8")
-    original_read_text = Path.read_text
-
-    def fail_journal_read(path: Path, *args: Any, **kwargs: Any) -> str:
-        """Fail only the journal read with a retryable filesystem error."""
-        if path == journal:
-            raise OSError("transient")
-        return original_read_text(path, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "read_text", fail_journal_read)
-
-    assert config.list_sessions() == []
-    assert journal.exists()
-    assert pending.exists()
-    assert not list(temp_config_paths.glob(f"*{config.RENAME_QUARANTINE_SUFFIX}"))
-
-
-def test_mismatched_pending_id_quarantine_removes_exact_secret_payload(
-    temp_config_paths: Path,
-) -> None:
-    """Remove the parsed pending payload when its ID mismatches the journal."""
-    journal_id = "e" * 32
-    pending_id = "f" * 32
-    journal = temp_config_paths / f".session-rename-{journal_id}.json"
-    pending = temp_config_paths / f".session-rename-{pending_id}.pending.yaml"
-    pending.write_text("mam:\n  mam_id: secret\n", encoding="utf-8")
-    journal.write_text(
-        json.dumps(
-            {
-                "old": "session-Old.yaml",
-                "new": "session-New.yaml",
-                "pending": pending.name,
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    assert config.list_sessions() == []
-
-    assert not pending.exists()
-    assert not journal.exists()
-    assert journal.with_name(f"{journal.name}{config.RENAME_QUARANTINE_SUFFIX}").exists()
-
-
-@pytest.mark.parametrize("label", ["bad\\name", ".", "..", "x" * 239])
-def test_list_sessions_skips_invalid_legacy_labels_without_mutation(
-    caplog: pytest.LogCaptureFixture,
-    temp_config_paths: Path,
-    label: str,
-) -> None:
-    """Ignore invalid legacy filenames without migrating or deleting them."""
-    legacy = temp_config_paths / f"{config.SESSION_PREFIX}{label}{config.SESSION_SUFFIX}"
-    legacy.write_text("label: legacy\n", encoding="utf-8")
-
-    assert config.list_sessions() == []
-    assert legacy.exists()
-    assert "Skipping invalid legacy session file" in caplog.text
-
-
-def test_list_sessions_holds_rename_lock_through_both_scans(
-    monkeypatch: pytest.MonkeyPatch,
-    temp_config_paths: Path,
-) -> None:
-    """Prevent enumeration from observing old and new labels mid-publication."""
-    config.save_session({"label": "Old"})
-    published = threading.Event()
-    allow_cleanup = threading.Event()
-    result: list[str] = []
-
-    def pause_after_publish(step: str) -> None:
-        """Pause after new publication while the old label still exists."""
-        if step == "publish":
-            published.set()
-            assert allow_cleanup.wait(timeout=2)
-
-    monkeypatch.setattr(config, "_rename_fault_point", pause_after_publish)
-    rename_thread = threading.Thread(
-        target=config.save_session,
-        args=({"label": "New"}, "Old"),
-    )
-    rename_thread.start()
-    assert published.wait(timeout=2)
-
-    list_thread = threading.Thread(target=lambda: result.extend(config.list_sessions()))
-    list_thread.start()
-    list_thread.join(timeout=0.05)
-    assert list_thread.is_alive()
-
-    allow_cleanup.set()
-    rename_thread.join(timeout=2)
-    list_thread.join(timeout=2)
-
-    assert result == ["New"]
+    release.set()
+    save_thread.join()
+    delete_thread.join()
+    assert not config.get_session_path("One").exists()

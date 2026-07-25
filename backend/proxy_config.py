@@ -82,8 +82,11 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
 def load_proxies() -> dict[str, Any]:
     """Load proxies from PROXIES_PATH.
 
-    Returns a dict parsed from YAML or an empty dict if the file does not
-    exist or is empty.
+    Returns:
+        A parsed proxy mapping, or an empty mapping if the file is missing.
+
+    Raises:
+        YamlStoreError: If the existing file is invalid or not a mapping.
     """
     return load_yaml_file(Path(PROXIES_PATH), {}, expected_type=dict)
 

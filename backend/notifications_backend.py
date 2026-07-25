@@ -272,13 +272,13 @@ def load_notify_config() -> dict[str, Any]:
     """Load notification configuration from a YAML file.
 
     The path is taken from the NOTIFY_CONFIG_PATH environment variable or
-    a sensible default. Returns an empty dict when the file does not exist
-    or cannot be parsed.
+    a sensible default.
 
-    Returns
-    -------
-    dict
-        Parsed YAML as a dictionary, or an empty dict on failure.
+    Returns:
+        Parsed YAML as a dictionary, or an empty dict if the file is missing.
+
+    Raises:
+        YamlStoreError: If the existing file is invalid or not a mapping.
     """
     return load_yaml_file(Path(NOTIFY_CONFIG_PATH), {}, expected_type=dict)
 

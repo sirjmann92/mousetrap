@@ -41,7 +41,7 @@ from backend.chaptarr_integration import (
     test_chaptarr_connection,
 )
 from backend.config import (
-    SaveSessionResult,
+    StaleSessionError,
     delete_session,
     get_session_path,
     list_sessions,
@@ -503,17 +503,17 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
             _logger.info(
                 "[Keepalive] label=%s mam_id cookie rotated by MAM; adopting new value.", label
             )
-        save_result = save_session(fresh_cfg, old_label=label)
-        if save_result is SaveSessionResult.STALE:
-            _logger.warning(
-                "[Keepalive] label=%s Session was deleted during keepalive; "
-                "discarding background keepalive state update.",
-                label,
-            )
+        save_session(fresh_cfg, old_label=label)
         if _prev_mam_id is not None:
             await _sync_integrations_if_mam_id_changed(
                 fresh_cfg, label, updated_mam_id, _prev_mam_id
             )
+    except StaleSessionError:
+        _logger.warning(
+            "[Keepalive] label=%s Session was deleted during keepalive; "
+            "discarding background keepalive state update.",
+            label,
+        )
     except Exception as e:
         _logger.warning("[Keepalive] label=%s Failed to save keepalive state: %s", label, e)
 
@@ -701,13 +701,13 @@ async def auto_update_seedbox_if_needed(
                         label,
                     )
                     try:
-                        save_result = save_session(cfg, old_label=label)
-                        if save_result is SaveSessionResult.STALE:
-                            _logger.warning(
-                                "[AutoUpdate] label=%s Session was deleted during background "
-                                "update; discarding rotated mam_id update.",
-                                label,
-                            )
+                        save_session(cfg, old_label=label)
+                    except StaleSessionError:
+                        _logger.warning(
+                            "[AutoUpdate] label=%s Session was deleted during background "
+                            "update; discarding rotated mam_id update.",
+                            label,
+                        )
                     except Exception as e:
                         _logger.error(
                             "[AutoUpdate][ERROR] label=%s save_session failed while persisting "
@@ -715,9 +715,10 @@ async def auto_update_seedbox_if_needed(
                             label,
                             e,
                         )
-                    await _sync_integrations_if_mam_id_changed(
-                        cfg, label, updated_mam_id, _prev_mam_id
-                    )
+                    else:
+                        await _sync_integrations_if_mam_id_changed(
+                            cfg, label, updated_mam_id, _prev_mam_id
+                        )
 
                 if resp.status == 200 and result.get("Success"):
                     # Update last_seedbox_ip and mam_ip to the new detected/proxied IP
@@ -1634,15 +1635,9 @@ async def api_save_session(request: Request) -> dict[str, Any]:
 
         if "proxy" in cfg:
             if old_label:
-                try:
-                    prev_cfg = load_session(old_label)
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_session(old_label)
             elif cfg.get("label"):
-                try:
-                    prev_cfg = load_session(cfg["label"])
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_session(cfg["label"])
             # If password is missing but previous session had one, keep it
             if (
                 isinstance(proxy_cfg, dict)
@@ -1674,15 +1669,9 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         # If prev_cfg not set above, try to load it now
         if prev_cfg is None:
             if old_label:
-                try:
-                    prev_cfg = load_session(old_label)
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_session(old_label)
             elif cfg.get("label"):
-                try:
-                    prev_cfg = load_session(cfg["label"])
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_session(cfg["label"])
         if prev_cfg:
             for field in backend_fields:
                 if field in prev_cfg and field not in cfg:
@@ -1692,12 +1681,7 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         session_path = get_session_path(label)
         is_new = not Path(session_path).exists()
 
-        save_result = save_session(cfg, old_label=old_label)
-        if save_result is SaveSessionResult.STALE:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Session '{old_label}' no longer exists",
-            )
+        save_session(cfg, old_label=old_label)
 
         if is_new:
             # Clear any old event log entries for this session label
@@ -1754,6 +1738,11 @@ async def api_save_session(request: Request) -> dict[str, Any]:
 
     except HTTPException:
         raise
+    except StaleSessionError as e:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Session '{old_label}' no longer exists",
+        ) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Invalid session configuration: {e}") from e
     except Exception as e:
@@ -1975,6 +1964,12 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             # rate-limited/error) doesn't itself call save_session.
             try:
                 save_session(cfg, old_label=label)
+            except StaleSessionError:
+                _logger.warning(
+                    "[SeedboxUpdate] label=%s Session was deleted while persisting rotated "
+                    "mam_id; skipping integration sync.",
+                    label,
+                )
             except Exception as e:
                 _logger.error(
                     "[SeedboxUpdate] label=%s save_session failed while persisting rotated "
@@ -1982,7 +1977,10 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
                     label,
                     e,
                 )
-            await _sync_integrations_if_mam_id_changed(cfg, label, _updated_mam_id, _prev_mam_id)
+            else:
+                await _sync_integrations_if_mam_id_changed(
+                    cfg, label, _updated_mam_id, _prev_mam_id
+                )
 
         _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp_status == 200 and result.get("Success"):
@@ -2913,6 +2911,7 @@ async def session_check_job(label: str) -> None:
                 mam_id = _refreshed_mam_id
                 cfg["mam"]["mam_id"] = _refreshed_mam_id
                 _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
+                save_session(cfg, old_label=label)
                 await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()

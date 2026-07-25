@@ -18,7 +18,7 @@ from typing import Any
 from backend.config import CONFIG_DIR
 from backend.event_log import append_ui_event_log
 from backend.notifications_backend import notify_event
-from backend.yaml_store import load_yaml_file, write_yaml_file
+from backend.yaml_store import YamlStoreError, load_yaml_file, write_yaml_file
 
 try:
     import docker
@@ -118,14 +118,15 @@ class PortMonitorStackManager:
     def load_stacks(self) -> None:
         """Load stacks from the configured YAML file.
 
-        If the config file does not exist an empty stack list is used. Any
-        parse or IO errors are caught and logged; in that case the stacks
-        list will be empty.
+        If the config file does not exist an empty stack list is used. Store
+        corruption is propagated so startup cannot overwrite it with an empty
+        configuration; malformed stack entries are logged and ignored.
         """
+        data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [], expected_type=list)
+
         try:
-            data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [], expected_type=list)
             seen = set()
-            unique_stacks = []
+            unique_stacks: list[PortMonitorStack] = []
             for d in data:
                 name = d["name"]
                 if name in seen:
@@ -148,9 +149,8 @@ class PortMonitorStackManager:
                 )
             self.stacks = unique_stacks
             _logger.info("[PortMonitorStack] Loaded stacks: %s", [s.name for s in self.stacks])
-        except Exception as e:
-            _logger.error("[PortMonitorStack] Failed to load stacks: %s", e)
-            self.stacks = []
+        except (KeyError, TypeError, ValueError) as e:
+            raise YamlStoreError(f"Invalid port-monitor stack configuration: {e}") from e
 
     def save_stacks(self) -> None:
         """Persist the current stack list to the configured YAML path.
@@ -551,7 +551,6 @@ class PortMonitorStackManager:
 
         while self.running:
             now = time.time()
-            cycle_changed = False
             for stack in self.stacks:
                 # Only check if enough time has passed since last check
                 interval_min = getattr(stack, "interval", 60)  # interval in minutes
@@ -563,7 +562,6 @@ class PortMonitorStackManager:
                     stack.last_checked = time.time()
                     stack.last_result = result
                     stack.status = "OK" if result else "Failed"
-                    cycle_changed = True
                     _logger.info(
                         "[PortMonitorStack] Port check for %s:%s (stack '%s'): %s",
                         stack.primary_container,
@@ -625,10 +623,12 @@ class PortMonitorStackManager:
                                     message=f"Manual IP {manual_ip} unreachable for 3+ cycles. Auto-restart paused until user updates or disables manual IP.",
                                     details={},
                                 )
+                                self.save_stacks()
                                 continue  # Skip restart
                         else:
                             stack.consecutive_manual_ip_failures = 0
                             stack.manual_ip_paused = False
+                    self.save_stacks()
                     if not result:
                         if getattr(stack, "manual_ip_paused", False):
                             continue  # Don't restart if paused
@@ -645,9 +645,6 @@ class PortMonitorStackManager:
                             },
                         )
                         await self.restart_stack(stack)
-                        cycle_changed = False
-            if cycle_changed:
-                self.save_stacks()
             await asyncio.sleep(5)
 
     def start(self) -> None:

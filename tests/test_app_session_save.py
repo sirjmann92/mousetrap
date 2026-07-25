@@ -7,7 +7,7 @@ from fastapi import HTTPException
 import pytest
 
 from backend import app as app_module, config
-from backend.config import SaveSessionResult
+from backend.config import StaleSessionError
 
 
 class _JsonRequest:
@@ -30,6 +30,12 @@ class _PayloadRequest:
         return self._payload
 
 
+def _raise_stale_session(_cfg: dict[str, Any], old_label: str | None = None) -> None:
+    """Raise the persistence error used for a retired session."""
+    del old_label
+    raise StaleSessionError("retired")
+
+
 @pytest.mark.asyncio
 async def test_api_stale_save_returns_conflict_without_side_effects(
     monkeypatch: pytest.MonkeyPatch,
@@ -41,7 +47,7 @@ async def test_api_stale_save_returns_conflict_without_side_effects(
     monkeypatch.setattr(
         app_module,
         "save_session",
-        lambda cfg, old_label=None: SaveSessionResult.STALE,
+        _raise_stale_session,
     )
     monkeypatch.setattr(
         app_module,
@@ -73,6 +79,57 @@ async def test_api_stale_save_returns_conflict_without_side_effects(
 
 
 @pytest.mark.asyncio
+async def test_api_update_does_not_overwrite_malformed_existing_session(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Fail closed when an existing session cannot be parsed for an update."""
+    monkeypatch.setattr(config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.yaml")
+    corrupt_path = config.get_session_path("Existing")
+    corrupt_text = "mam: [unterminated\n"
+    corrupt_path.write_text(corrupt_text, encoding="utf-8")
+    side_effects: list[str] = []
+    monkeypatch.setattr(
+        app_module,
+        "save_session",
+        lambda *_args, **_kwargs: side_effects.append("save"),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "clear_ui_event_log_for_session",
+        lambda _label: side_effects.append("clear"),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "append_ui_event_log",
+        lambda _event: side_effects.append("event"),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "register_session_job",
+        lambda _label: side_effects.append("scheduler"),
+    )
+
+    async def record_integration_sync(*_args: Any) -> None:
+        """Record any integration sync that would violate fail-closed behavior."""
+        side_effects.append("integration")
+
+    monkeypatch.setattr(app_module, "_sync_integrations_if_mam_id_changed", record_integration_sync)
+
+    with pytest.raises(HTTPException) as raised:
+        await app_module.api_save_session(  # type: ignore[arg-type]
+            _PayloadRequest(
+                {"label": "Existing", "old_label": "Existing", "mam": {"mam_id": "new"}}
+            )
+        )
+
+    assert raised.value.status_code == 500
+    assert corrupt_path.read_text(encoding="utf-8") == corrupt_text
+    assert side_effects == []
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("is_new", "expected_event", "expected_branch_side_effect"),
     [
@@ -100,11 +157,10 @@ async def test_api_save_persists_once_before_create_or_update_side_effects(
     def record_save(
         cfg: dict[str, Any],
         old_label: str | None = None,
-    ) -> SaveSessionResult:
+    ) -> None:
         """Record the persistence call without writing to disk."""
         calls.append("save")
         saved_configs.append((cfg, old_label))
-        return SaveSessionResult.SAVED
 
     monkeypatch.setattr(app_module, "save_session", record_save)
     monkeypatch.setattr(
@@ -175,10 +231,16 @@ async def test_api_rejects_label_above_utf8_byte_boundary(
     """Return HTTP 400 before persistence when a label exceeds NAME_MAX."""
     monkeypatch.setattr(config, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(app_module, "get_session_path", config.get_session_path)
+    oversized_label = "é" * (config.MAX_SESSION_LABEL_BYTES // len("é".encode()) + 1)
 
     with pytest.raises(HTTPException) as raised:
         await app_module.api_save_session(  # type: ignore[arg-type]
-            _PayloadRequest({"label": "é" * 120, "mam": {"mam_id": "secret"}})
+            _PayloadRequest(
+                {
+                    "label": oversized_label,
+                    "mam": {"mam_id": "secret"},
+                }
+            )
         )
 
     assert raised.value.status_code == 400

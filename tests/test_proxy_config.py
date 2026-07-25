@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from backend import proxy_config
+from backend.yaml_store import YamlStoreError
 
 
 @pytest.fixture
@@ -24,11 +25,12 @@ def temp_proxy_path(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize("content", ["null\n", "- not-a-mapping\n", "scalar\n"])
-def test_load_proxies_returns_empty_dict_for_non_mapping_yaml(
+def test_load_proxies_rejects_non_mapping_yaml(
     temp_proxy_path: Path,
     content: str,
 ) -> None:
-    """Return an empty mapping when proxies YAML has a valid non-mapping shape."""
+    """Reject proxies YAML that violates the mapping contract."""
     temp_proxy_path.write_text(content, encoding="utf-8")
 
-    assert proxy_config.load_proxies() == {}
+    with pytest.raises(YamlStoreError):
+        proxy_config.load_proxies()

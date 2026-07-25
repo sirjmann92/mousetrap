@@ -6,14 +6,49 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
+from backend import port_monitor
 from backend.port_monitor import PortMonitorStack, PortMonitorStackManager
+from backend.yaml_store import YamlStoreError
+
+
+def test_load_stacks_propagates_yaml_store_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Do not replace a corrupt port-monitor configuration with an empty one."""
+    manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
+
+    def fail_load(*_args: object, **_kwargs: object) -> list[object]:
+        """Model a typed YAML corruption failure."""
+        raise YamlStoreError("corrupt stack configuration")
+
+    monkeypatch.setattr(port_monitor, "load_yaml_file", fail_load)
+
+    with pytest.raises(YamlStoreError, match="corrupt stack configuration"):
+        manager.load_stacks()
+
+
+def test_load_stacks_rejects_invalid_entry_without_clearing_runtime_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Keep active stacks intact when persisted entries are semantically invalid."""
+    manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
+    existing_stack = PortMonitorStack("existing", "primary", 8000, [])
+    manager.stacks = [existing_stack]
+    monkeypatch.setattr(
+        port_monitor,
+        "load_yaml_file",
+        lambda *_args, **_kwargs: [{"name": "invalid"}],
+    )
+
+    with pytest.raises(YamlStoreError, match="Invalid port-monitor stack configuration"):
+        manager.load_stacks()
+
+    assert manager.stacks == [existing_stack]
 
 
 @pytest.mark.asyncio
-async def test_monitor_cycle_saves_due_stacks_once_after_continue(
+async def test_monitor_cycle_saves_each_due_stack_before_continue(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Persist all due-stack changes once, including a paused stack's state."""
+    """Persist each due stack, including state before a pause continues."""
     manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
     paused_stack = PortMonitorStack(
         "paused",
@@ -59,16 +94,16 @@ async def test_monitor_cycle_saves_due_stacks_once_after_continue(
 
     await manager.monitor_loop()
 
-    assert manager.save_stacks.call_count == 2
-    assert saved_states == [(False, 2), (True, 3)]
+    assert manager.save_stacks.call_count == 3
+    assert saved_states == [(False, 2), (True, 3), (True, 3)]
     assert healthy_stack.status == "OK"
 
 
 @pytest.mark.asyncio
-async def test_monitor_cycle_does_not_save_again_after_last_stack_restart(
+async def test_monitor_cycle_saves_due_stack_before_restart_transition(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Do not duplicate the explicit restart save at the end of the cycle."""
+    """Persist the due check before the restart transition is persisted."""
     manager = PortMonitorStackManager.__new__(PortMonitorStackManager)
     stack = PortMonitorStack("failed", "primary", 8000, [], interval=0)
     manager.stacks = [stack]
@@ -93,4 +128,4 @@ async def test_monitor_cycle_does_not_save_again_after_last_stack_restart(
     await manager.monitor_loop()
 
     manager.restart_stack.assert_awaited_once_with(stack)
-    assert manager.save_stacks.call_count == 2
+    assert manager.save_stacks.call_count == 3
