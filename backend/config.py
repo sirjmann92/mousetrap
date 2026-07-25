@@ -7,14 +7,12 @@ the backend to locate and manage session files.
 
 from os import environ
 from pathlib import Path
-import threading
 from typing import Any
 
-import yaml
+from backend.yaml_store import YamlStoreError, load_yaml_file, write_yaml_file
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
-_LOCK = threading.Lock()
 
 
 SESSION_PREFIX = "session-"
@@ -34,7 +32,7 @@ def list_sessions() -> list[str]:
     """Return a list of session labels present in the config directory.
 
     Scans the ``CONFIG_DIR`` for files that match the session naming
-    convention and returns the extracted labels (without prefix/suffix).
+    convention and returns the extracted labels.
     """
     files = list(CONFIG_DIR.glob(f"{SESSION_PREFIX}*{SESSION_SUFFIX}"))
     return [f.name[len(SESSION_PREFIX) : -len(SESSION_SUFFIX)] for f in files]
@@ -59,21 +57,23 @@ def decrypt_password(token: str) -> str:
     return token
 
 
+def _ensure_mapping(parent: dict[str, Any], key: str, section: str) -> dict[str, Any]:
+    """Return a mutable config section, rejecting persisted non-mappings."""
+    value = parent.setdefault(key, {})
+    if not isinstance(value, dict):
+        raise YamlStoreError(f"Session section '{section}' must be a mapping.")
+    return value
+
+
 def load_session(label: str) -> dict[str, Any]:
     """Load a session configuration by label.
 
-    If the session file does not exist the default config is returned. The
-    returned dictionary is guaranteed to contain keys expected by the
-    application (some defaults are populated if missing).
+    The returned dictionary contains the keys expected by the application.
     """
     path = get_session_path(label)
-    if not path.exists():
-        cfg = get_default_config(label)
-    else:
-        with _LOCK, path.open(encoding="utf-8") as f:
-            cfg = yaml.safe_load(f) or get_default_config(label)
+    cfg = load_yaml_file(path, get_default_config(label), expected_type=dict)
     # --- Ensure all perk automation configs are always present and complete ---
-    perk_auto = cfg.setdefault("perk_automation", {})
+    perk_auto = _ensure_mapping(cfg, "perk_automation", "perk_automation")
     # Upload Credit Automation defaults
     upload_defaults = {
         "enabled": False,
@@ -84,7 +84,11 @@ def load_session(label: str) -> dict[str, Any]:
         "trigger_days": 7,
         "trigger_point_threshold": 50000,
     }
-    upload_auto = perk_auto.setdefault("upload_credit", {})
+    upload_auto = _ensure_mapping(
+        perk_auto,
+        "upload_credit",
+        "perk_automation.upload_credit",
+    )
     for k, v in upload_defaults.items():
         upload_auto.setdefault(k, v)
 
@@ -95,7 +99,11 @@ def load_session(label: str) -> dict[str, Any]:
         "trigger_point_threshold": 50000,
         "trigger_type": "time",
     }
-    wedge_auto = perk_auto.setdefault("wedge_automation", {})
+    wedge_auto = _ensure_mapping(
+        perk_auto,
+        "wedge_automation",
+        "perk_automation.wedge_automation",
+    )
     for k, v in wedge_defaults.items():
         wedge_auto.setdefault(k, v)
 
@@ -107,15 +115,20 @@ def load_session(label: str) -> dict[str, Any]:
         "trigger_point_threshold": 50000,
         "weeks": 4,
     }
-    vip_auto = perk_auto.setdefault("vip_automation", {})
+    vip_auto = _ensure_mapping(
+        perk_auto,
+        "vip_automation",
+        "perk_automation.vip_automation",
+    )
     for k, v in vip_defaults.items():
         vip_auto.setdefault(k, v)
 
     if "mam_ip" not in cfg:
         cfg["mam_ip"] = ""
     # Backward compatibility for ip_monitoring_mode
-    if "ip_monitoring_mode" not in cfg.get("mam", {}):
-        cfg.setdefault("mam", {})["ip_monitoring_mode"] = "auto"
+    mam_cfg = _ensure_mapping(cfg, "mam", "mam")
+    if "ip_monitoring_mode" not in mam_cfg:
+        mam_cfg["ip_monitoring_mode"] = "auto"
     if "last_check_time" not in cfg:
         cfg["last_check_time"] = None
     if "label" not in cfg:
@@ -131,7 +144,7 @@ def load_session(label: str) -> dict[str, Any]:
         "api_key": "",
         "auto_update_on_save": False,
     }
-    prowlarr_cfg = cfg.setdefault("prowlarr", {})
+    prowlarr_cfg = _ensure_mapping(cfg, "prowlarr", "prowlarr")
     for k, v in prowlarr_defaults.items():
         prowlarr_cfg.setdefault(k, v)
 
@@ -146,29 +159,24 @@ def load_session(label: str) -> dict[str, Any]:
     return cfg
 
 
-def save_session(cfg: dict, old_label: str | None = None) -> None:
+def save_session(cfg: dict[str, Any], old_label: str | None = None) -> None:
     """Persist a session configuration to disk.
 
     If ``old_label`` is provided and different from the new label the
-    existing file will be renamed. The function ensures the containing
-    directory exists and writes the YAML representation of ``cfg``.
+    new file is written completely before the old file is removed. An old-file
+    unlink failure is propagated and may leave both complete files present.
     """
     label = cfg.get("label")
     if not label:
         raise ValueError("Session label is required to save a session.")
     path = get_session_path(label)
-    # If label changed, rename file
+    if "browser_cookie" not in cfg:
+        cfg["browser_cookie"] = ""
+    write_yaml_file(path, cfg)
     if old_label and old_label != label:
         old_path = get_session_path(old_label)
         if old_path.exists():
-            old_path.rename(path)
-    config_dir = path.parent
-    config_dir.mkdir(parents=True, exist_ok=True)
-    # No encryption: just save password as-is
-    if "browser_cookie" not in cfg:
-        cfg["browser_cookie"] = ""
-    with _LOCK, path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f)
+            old_path.unlink()
 
 
 def get_default_config(label: str | None = None) -> dict[str, Any]:
@@ -196,38 +204,27 @@ def get_default_config(label: str | None = None) -> dict[str, Any]:
 def load_config() -> dict[str, Any]:
     """Load the global default configuration from CONFIG_PATH.
 
-    If the config file does not exist returns a default config. Ensures a
-    few expected keys are present before returning.
+    If the config file does not exist, defaults are returned. Existing corrupt
+    or wrong-shaped YAML raises ``YamlStoreError``. Ensures a few expected keys
+    are present before returning.
     """
-    # Load default config.yaml for defaults only
-    if not CONFIG_PATH.exists():
-        return get_default_config()
-    with _LOCK, CONFIG_PATH.open(encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or get_default_config()
-        if "mam_ip" not in cfg:
-            cfg["mam_ip"] = ""
-        if "last_check_time" not in cfg:
-            cfg["last_check_time"] = None
-        if "label" not in cfg:
-            cfg["label"] = ""
-        return cfg
+    cfg = load_yaml_file(CONFIG_PATH, get_default_config(), expected_type=dict)
+    if "mam_ip" not in cfg:
+        cfg["mam_ip"] = ""
+    if "last_check_time" not in cfg:
+        cfg["last_check_time"] = None
+    if "label" not in cfg:
+        cfg["label"] = ""
+    return cfg
 
 
 def save_config(cfg: dict[str, Any]) -> None:
-    """Persist the given global configuration to CONFIG_PATH.
-
-    Ensures the config directory exists and writes the YAML file.
-    """
+    """Persist the given global configuration to CONFIG_PATH."""
     # Save to config.yaml (for defaults)
-    config_dir = CONFIG_PATH.parent
-    config_dir.mkdir(parents=True, exist_ok=True)
-    with _LOCK, CONFIG_PATH.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f)
+    write_yaml_file(CONFIG_PATH, cfg)
 
 
 def delete_session(label: str) -> None:
-    """Delete the session file for a given label if it exists."""
-
+    """Delete the primary session file for a given label if it exists."""
     path = get_session_path(label)
-    if path.exists():
-        path.unlink()
+    path.unlink(missing_ok=True)

@@ -6,6 +6,7 @@ public IP and ASN. It also ensures sessions referencing deleted proxies are
 cleaned up.
 """
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -13,8 +14,10 @@ from fastapi import APIRouter, HTTPException
 from backend.config import list_sessions, load_session, save_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.proxy_config import load_proxies, save_proxies
+from backend.yaml_store import YamlStoreError
 
 router = APIRouter()
+_logger: logging.Logger = logging.getLogger(__name__)
 
 
 @router.get("/proxy_test/{label}")
@@ -77,7 +80,15 @@ def delete_proxy(label: str) -> dict[str, Any]:
 
     sessions = list_sessions()
     for sess_label in sessions:
-        cfg = load_session(sess_label)
+        try:
+            cfg = load_session(sess_label)
+        except YamlStoreError as err:
+            _logger.warning(
+                "Skipping proxy cleanup for corrupt session '%s': %s",
+                sess_label,
+                err,
+            )
+            continue
         proxy_cfg = cfg.get("proxy", {})
         if isinstance(proxy_cfg, dict) and proxy_cfg.get("label") == label:
             cfg["proxy"] = {}  # Remove proxy reference

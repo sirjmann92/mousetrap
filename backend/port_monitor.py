@@ -15,11 +15,10 @@ import threading
 import time
 from typing import Any
 
-import yaml
-
 from backend.config import CONFIG_DIR
 from backend.event_log import append_ui_event_log
-from backend.notifications_backend import notify_event
+from backend.notifications_backend import safe_notify_event
+from backend.yaml_store import YamlStoreError, load_yaml_file, write_yaml_file
 
 try:
     import docker
@@ -92,7 +91,7 @@ class PortMonitorStackManager:
     """
 
     def __init__(self) -> None:
-        """Initialize the PortMonitorStackManager and load configured stacks.
+        """Initialize the PortMonitorStackManager.
 
         The manager holds a list of PortMonitorStack objects and manages
         background monitoring state, docker client caching, and rate limiting
@@ -103,7 +102,7 @@ class PortMonitorStackManager:
         self.thread: threading.Thread | None = None
         self._docker_client: Any = None  # docker.DockerClient when available
         self._last_warning_times: dict[str, Any] = {}  # Rate limiting for warnings
-        self.load_stacks()
+        self._config_loaded: bool = False
 
     def _should_log_warning(self, key: str, min_interval: int = 30) -> bool:
         """Rate limit warnings to prevent log spam."""
@@ -119,19 +118,16 @@ class PortMonitorStackManager:
     def load_stacks(self) -> None:
         """Load stacks from the configured YAML file.
 
-        If the config file does not exist an empty stack list is used. Any
-        parse or IO errors are caught and logged; in that case the stacks
-        list will be empty.
+        If the config file does not exist an empty stack list is used. Store
+        corruption is propagated so startup cannot overwrite it with an empty
+        configuration; malformed stack entries are logged and ignored.
         """
-        if not Path(PORT_MONITOR_CONFIG_PATH).exists():
-            self.stacks = []
-            _logger.info("[PortMonitor] No config found at %s", PORT_MONITOR_CONFIG_PATH)
-            return
+        self._config_loaded = False
+        data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [], expected_type=list)
+
         try:
-            with PORT_MONITOR_CONFIG_PATH.open(encoding="utf-8") as f:
-                data = yaml.safe_load(f) or []
             seen = set()
-            unique_stacks = []
+            unique_stacks: list[PortMonitorStack] = []
             for d in data:
                 name = d["name"]
                 if name in seen:
@@ -153,35 +149,41 @@ class PortMonitorStackManager:
                     )
                 )
             self.stacks = unique_stacks
+            self._config_loaded = True
             _logger.info("[PortMonitorStack] Loaded stacks: %s", [s.name for s in self.stacks])
-        except Exception as e:
-            _logger.error("[PortMonitorStack] Failed to load stacks: %s", e)
-            self.stacks = []
+        except (KeyError, TypeError, ValueError) as e:
+            raise YamlStoreError(f"Invalid port-monitor stack configuration: {e}") from e
 
     def save_stacks(self) -> None:
         """Persist the current stack list to the configured YAML path.
 
-        Errors during writing are logged but not raised to the caller.
+        Raises:
+            YamlStoreError: If configuration was not loaded or persistence fails.
         """
+        if not self._config_loaded:
+            raise YamlStoreError("Port-monitor configuration is unavailable")
+        write_yaml_file(
+            PORT_MONITOR_CONFIG_PATH,
+            [
+                {
+                    "name": s.name,
+                    "primary_container": s.primary_container,
+                    "primary_port": s.primary_port,
+                    "secondary_containers": s.secondary_containers,
+                    "interval": getattr(s, "interval", 60),
+                    "public_ip": getattr(s, "public_ip", None),
+                    "public_ip_detected": getattr(s, "public_ip_detected", None),
+                }
+                for s in self.stacks
+            ],
+        )
+
+    def _save_stacks_best_effort(self) -> None:
+        """Persist runtime state without terminating background monitoring."""
         try:
-            with PORT_MONITOR_CONFIG_PATH.open("w", encoding="utf-8") as f:
-                yaml.safe_dump(
-                    [
-                        {
-                            "name": s.name,
-                            "primary_container": s.primary_container,
-                            "primary_port": s.primary_port,
-                            "secondary_containers": s.secondary_containers,
-                            "interval": getattr(s, "interval", 60),
-                            "public_ip": getattr(s, "public_ip", None),
-                            "public_ip_detected": getattr(s, "public_ip_detected", None),
-                        }
-                        for s in self.stacks
-                    ],
-                    f,
-                )
-        except Exception as e:
-            _logger.error("[PortMonitorStack] Failed to save stacks: %s", e)
+            self.save_stacks()
+        except YamlStoreError:
+            _logger.exception("[PortMonitorStack] Failed to persist background status update")
 
     def get_docker_client(self) -> Any:
         """Return a cached Docker client or create one from the environment.
@@ -359,7 +361,6 @@ class PortMonitorStackManager:
         """
         # Set status to 'Restarting...'
         stack.status = "Restarting..."
-        self.save_stacks()
 
         # Log restart event
         append_ui_event_log(
@@ -421,7 +422,7 @@ class PortMonitorStackManager:
                         "level": "warning",
                     }
                 )
-                await notify_event(
+                await safe_notify_event(
                     event_type="port_monitor_failure",
                     label=stack.name,
                     status="WARNING",
@@ -445,13 +446,14 @@ class PortMonitorStackManager:
                         "level": "error",
                     }
                 )
-                await notify_event(
+                await safe_notify_event(
                     event_type="port_monitor_failure",
                     label=stack.name,
                     status="ERROR",
                     message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
                     details={},
                 )
+                self.recheck_stack(stack.name)
                 return  # Do not restart secondaries
 
         # Restart all secondaries
@@ -475,6 +477,8 @@ class PortMonitorStackManager:
         If a stack with the same name already exists the operation is
         ignored.
         """
+        if not self._config_loaded:
+            raise YamlStoreError("Port-monitor configuration is unavailable")
         # Prevent duplicate stack names
         if any(s.name == name for s in self.stacks):
             _logger.warning(
@@ -490,7 +494,11 @@ class PortMonitorStackManager:
         stack.last_result = result
         stack.status = "OK" if result else "Failed"
         self.stacks.append(stack)
-        self.save_stacks()
+        try:
+            self.save_stacks()
+        except YamlStoreError:
+            self.stacks.remove(stack)
+            raise
 
         _logger.info(
             "[PortMonitorStack] Added stack '%s' with initial status: %s",
@@ -510,13 +518,20 @@ class PortMonitorStackManager:
         stack.last_checked = time.time()
         stack.last_result = result
         stack.status = "OK" if result else "Failed"
-        self.save_stacks()
+        self._save_stacks_best_effort()
         return True
 
     def remove_stack(self, name: str) -> None:
         """Remove a stack by name and persist the updated stack list."""
+        if not self._config_loaded:
+            raise YamlStoreError("Port-monitor configuration is unavailable")
+        previous_stacks = self.stacks
         self.stacks = [s for s in self.stacks if s.name != name]
-        self.save_stacks()
+        try:
+            self.save_stacks()
+        except YamlStoreError:
+            self.stacks = previous_stacks
+            raise
 
     def get_stack(self, name: str) -> PortMonitorStack | None:
         """Return the stack with the given name or None if not found."""
@@ -535,8 +550,6 @@ class PortMonitorStackManager:
         Periodically checks configured stacks and triggers restarts/notifications
         when a primary port is unreachable according to configured guardrails.
         """
-        self.running = True
-
         # Perform initial status checks immediately at startup
         _logger.info("[PortMonitorStack] Starting port monitoring with immediate initial checks...")
         for stack in self.stacks:
@@ -551,7 +564,7 @@ class PortMonitorStackManager:
                 stack.name,
                 "OK" if result else "FAILED",
             )
-        self.save_stacks()
+        self._save_stacks_best_effort()
         _logger.info(
             "[PortMonitorStack] Initial status checks complete, beginning periodic monitoring..."
         )
@@ -623,14 +636,14 @@ class PortMonitorStackManager:
                                         "level": "error",
                                     }
                                 )
-                                await notify_event(
+                                await safe_notify_event(
                                     event_type="port_monitor_failure",
                                     label=stack.name,
                                     status="ERROR",
                                     message=f"Manual IP {manual_ip} unreachable for 3+ cycles. Auto-restart paused until user updates or disables manual IP.",
                                     details={},
                                 )
-                                self.save_stacks()
+                                self._save_stacks_best_effort()
                                 continue  # Skip restart
                         else:
                             stack.consecutive_manual_ip_failures = 0
@@ -638,7 +651,7 @@ class PortMonitorStackManager:
                     if not result:
                         if getattr(stack, "manual_ip_paused", False):
                             continue  # Don't restart if paused
-                        await notify_event(
+                        await safe_notify_event(
                             event_type="port_monitor_failure",
                             label=stack.name,
                             status="FAILED",
@@ -651,27 +664,39 @@ class PortMonitorStackManager:
                             },
                         )
                         await self.restart_stack(stack)
-                    self.save_stacks()
+                    self._save_stacks_best_effort()
             await asyncio.sleep(5)
+
+    def _run_monitor_loop(self) -> None:
+        """Run the asynchronous monitor loop and release worker ownership."""
+        try:
+            asyncio.run(self.monitor_loop())
+        except Exception:
+            _logger.exception("[PortMonitorStack] Monitor loop terminated unexpectedly")
+            raise
+        finally:
+            self.running = False
 
     def start(self) -> None:
         """Start background monitoring in a daemon thread.
 
-        This initializes stack status and spawns the monitoring thread if it
-        is not already running.
+        This loads the optional configuration, initializes stack status, and
+        spawns the monitoring thread if it is not already running. Invalid
+        configuration disables monitoring without modifying the source file.
         """
-        self.load_stacks()
-        # Perform initial status checks for all stacks
-        for stack in self.stacks:
-            result = self.check_port(stack.primary_container, stack.primary_port)
-            stack.last_checked = time.time()
-            stack.last_result = result
-            stack.status = "OK" if result else "Failed"
-        self.save_stacks()
-        if not self.running:
-            self.thread = threading.Thread(
-                target=lambda: asyncio.run(self.monitor_loop()), daemon=True
+        try:
+            self.load_stacks()
+        except YamlStoreError as e:
+            self.running = False
+            self.stacks = []
+            _logger.error(
+                "[PortMonitorStack] Failed to load stacks; port monitoring disabled: %s",
+                e,
             )
+            return
+        if not self.running:
+            self.running = True
+            self.thread = threading.Thread(target=self._run_monitor_loop, daemon=True)
             self.thread.start()
 
     def stop(self) -> None:

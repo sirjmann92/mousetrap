@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-import yaml
 
 from backend.notifications_backend import (
     NOTIFY_CONFIG_PATH,
@@ -21,6 +20,7 @@ from backend.notifications_backend import (
     send_smtp_notification,
     send_webhook_notification,
 )
+from backend.yaml_store import write_yaml_file
 
 router = APIRouter()
 
@@ -33,9 +33,7 @@ def save_notify_config(cfg: dict[str, Any]) -> None:
 
     """
     path = Path(NOTIFY_CONFIG_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        yaml.safe_dump(cfg, f)
+    write_yaml_file(path, cfg)
 
 
 @router.get("/notify/config")

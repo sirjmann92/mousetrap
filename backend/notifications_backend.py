@@ -15,9 +15,9 @@ import smtplib
 from typing import Any
 
 import aiohttp
-import yaml
 
 from backend.config import CONFIG_DIR
+from backend.yaml_store import load_yaml_file
 
 _logger: logging.Logger = logging.getLogger(__name__)
 # Notification config: explicit NOTIFY_CONFIG_PATH override, else derived from CONFIG_DIR
@@ -272,18 +272,15 @@ def load_notify_config() -> dict[str, Any]:
     """Load notification configuration from a YAML file.
 
     The path is taken from the NOTIFY_CONFIG_PATH environment variable or
-    a sensible default. Returns an empty dict when the file does not exist
-    or cannot be parsed.
+    a sensible default.
 
-    Returns
-    -------
-    dict
-        Parsed YAML as a dictionary, or an empty dict on failure.
+    Returns:
+        Parsed YAML as a dictionary, or an empty dict if the file is missing.
+
+    Raises:
+        YamlStoreError: If the existing file is invalid or not a mapping.
     """
-    if not Path(NOTIFY_CONFIG_PATH).exists():
-        return {}
-    with Path(NOTIFY_CONFIG_PATH).open(encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+    return load_yaml_file(Path(NOTIFY_CONFIG_PATH), {}, expected_type=dict)
 
 
 async def notify_event(

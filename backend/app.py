@@ -67,6 +67,7 @@ from backend.prowlarr_integration import (
 )
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils import build_proxy_dict, build_status_message, extract_asn_number, setup_logging
+from backend.yaml_store import YamlStoreError
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_BUILD_DIR = (Path(BASE_DIR) / "../frontend/build").resolve()
@@ -1033,7 +1034,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     mam_seen_asn = str(mam_seen.get("ASN")) if mam_seen.get("ASN") is not None else None
     mam_seen_as = mam_seen.get("AS")
     tz_env = os.environ.get("TZ")
-    timezone_used = tz_env if tz_env else "UTC"
+    timezone_used = tz_env or "UTC"
     now = datetime.now(UTC)
     # Remove timer persistence: do not use session file for last_check_time
     cache = session_status_cache.get(label, {})
@@ -1613,23 +1614,31 @@ async def api_save_session(request: Request) -> dict[str, Any]:
     """
     global session_status_cache
 
+    saved = False
     try:
         cfg = await request.json()
         old_label = cfg.get("old_label")
         proxy_cfg = cfg.get("proxy", {}) or {}
         prev_cfg = None
 
+        def load_previous_config(label: str) -> dict[str, Any] | None:
+            """Load prior state, allowing valid UI data to replace corrupt YAML."""
+            try:
+                return load_session(label)
+            except YamlStoreError as err:
+                _logger.warning(
+                    "[Session] Could not load existing session '%s'; "
+                    "saving without preserved fields: %s",
+                    label,
+                    err,
+                )
+                return None
+
         if "proxy" in cfg:
             if old_label:
-                try:
-                    prev_cfg = load_session(old_label)
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_previous_config(old_label)
             elif cfg.get("label"):
-                try:
-                    prev_cfg = load_session(cfg["label"])
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_previous_config(cfg["label"])
             # If password is missing but previous session had one, keep it
             if (
                 isinstance(proxy_cfg, dict)
@@ -1661,15 +1670,9 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         # If prev_cfg not set above, try to load it now
         if prev_cfg is None:
             if old_label:
-                try:
-                    prev_cfg = load_session(old_label)
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_previous_config(old_label)
             elif cfg.get("label"):
-                try:
-                    prev_cfg = load_session(cfg["label"])
-                except Exception:
-                    prev_cfg = None
+                prev_cfg = load_previous_config(cfg["label"])
         if prev_cfg:
             for field in backend_fields:
                 if field in prev_cfg and field not in cfg:
@@ -1679,12 +1682,13 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         session_path = get_session_path(label)
         is_new = not Path(session_path).exists()
 
+        save_session(cfg, old_label=old_label)
+        saved = True
+
         if is_new:
             # Clear any old event log entries for this session label
-
             clear_ui_event_log_for_session(label)
             # Only log creation event
-            save_session(cfg, old_label=old_label)
             _logger.info("[Session] Created session: label=%s", label)
             append_ui_event_log(
                 {
@@ -1701,7 +1705,6 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 session_status_cache[label]["suppress_next_event"] = True
         else:
             # Only log save event (update)
-            save_session(cfg, old_label=old_label)
             _logger.info("[Session] Saved session: label=%s old_label=%s", label, old_label)
             append_ui_event_log(
                 {
@@ -1736,6 +1739,13 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         await _sync_integrations_if_mam_id_changed(cfg, label, new_mam_id, prev_mam_id)
 
     except Exception as e:
+        if saved:
+            _logger.exception(
+                "[Session] Post-save side effect failed for label=%s; "
+                "session persistence already completed",
+                cfg.get("label"),
+            )
+            return {"success": True}
         raise HTTPException(status_code=500, detail=f"Failed to save session: {e}") from e
     else:
         return {"success": True}
@@ -3121,7 +3131,14 @@ def register_all_session_jobs() -> None:
     """
     session_labels = list_sessions()
     for label in session_labels:
-        register_session_job(label)
+        try:
+            register_session_job(label)
+        except YamlStoreError as err:
+            _logger.error(
+                "[APScheduler] Failed to load session '%s'; skipping job registration: %s",
+                label,
+                err,
+            )
 
 
 # Immediate session check for all sessions at startup
