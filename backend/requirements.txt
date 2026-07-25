@@ -1,7 +1,0 @@
-aiohttp
-apscheduler
-docker
-fastapi
-pyyaml
-starlette
-uvicorn

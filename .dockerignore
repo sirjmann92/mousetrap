@@ -1,12 +1,19 @@
 # Node and Python cache
 frontend/node_modules
 frontend/build
+node_modules
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 backend/venv/
 backend/__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+htmlcov/
+venv/
 
 # Logs
 logs/
@@ -45,9 +52,6 @@ images/
 .pre-commit-config.yaml
 .nvmrc
 biome.json
-pyproject.toml
-requirements-dev.txt
-requirements-lint.txt
 
 # Specific empty/stub files
 backend/millionaires_vault.py

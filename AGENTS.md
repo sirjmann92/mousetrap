@@ -24,7 +24,8 @@ account management.
 - `tests/`: Python pytest suite.
 - `docs/`: user and implementation documentation.
 - `Dockerfile`: production image build.
-- `pyproject.toml`: pytest, coverage, mypy, and Ruff configuration.
+- `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
+  configuration.
 - `.pre-commit-config.yaml`: repository hook configuration.
 
 ## General Working Rules
@@ -86,7 +87,8 @@ Backend setup:
 ```bash
 python3.13 -m venv .venv
 . .venv/bin/activate
-pip install -r requirements-dev.txt
+python -m pip install --upgrade "pip>=25.1"
+python -m pip install --group dev
 ```
 
 Frontend setup:

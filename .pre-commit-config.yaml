@@ -56,12 +56,12 @@ repos:
         pass_filenames: false
 
   - repo: https://github.com/biomejs/pre-commit
-    rev: 'v2.2.4'
+    rev: 'v2.5.5'
     hooks:
       - id: biome-check
         files: ^frontend/
         additional_dependencies:
-          - '@biomejs/biome'
+          - '@biomejs/biome@2.5.5'
 
 ci:
   autofix_commit_msg: |

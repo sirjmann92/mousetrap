@@ -10,6 +10,10 @@ on:
       - 'tests/**'
   workflow_dispatch:
 
+concurrency:
+  group: docker-publish
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -41,11 +45,6 @@ jobs:
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $NEW_VERSION"
-
-      - name: Create version tag
-        run: |
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -94,6 +93,11 @@ jobs:
           cache-from: |
             type=gha
           cache-to: type=gha,mode=max
+
+      - name: Create version tag
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Create GitHub Release
         env:
