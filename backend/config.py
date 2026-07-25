@@ -11,7 +11,7 @@ from pathlib import Path
 import threading
 from typing import Any
 
-from backend.yaml_store import load_yaml_file, write_yaml_file
+from backend.yaml_store import YamlStoreError, load_yaml_file, write_yaml_file
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
@@ -98,6 +98,14 @@ def decrypt_password(token: str) -> str:
     return token
 
 
+def _ensure_mapping(parent: dict[str, Any], key: str, section: str) -> dict[str, Any]:
+    """Return a mutable config section, rejecting persisted non-mappings."""
+    value = parent.setdefault(key, {})
+    if not isinstance(value, dict):
+        raise YamlStoreError(f"Session section '{section}' must be a mapping.")
+    return value
+
+
 def _load_session_unlocked(label: str) -> dict[str, Any]:
     """Load a session configuration by label.
 
@@ -106,7 +114,7 @@ def _load_session_unlocked(label: str) -> dict[str, Any]:
     path = get_session_path(label)
     cfg = _load_config_mapping(path, get_default_config(label))
     # --- Ensure all perk automation configs are always present and complete ---
-    perk_auto = cfg.setdefault("perk_automation", {})
+    perk_auto = _ensure_mapping(cfg, "perk_automation", "perk_automation")
     # Upload Credit Automation defaults
     upload_defaults = {
         "enabled": False,
@@ -117,7 +125,11 @@ def _load_session_unlocked(label: str) -> dict[str, Any]:
         "trigger_days": 7,
         "trigger_point_threshold": 50000,
     }
-    upload_auto = perk_auto.setdefault("upload_credit", {})
+    upload_auto = _ensure_mapping(
+        perk_auto,
+        "upload_credit",
+        "perk_automation.upload_credit",
+    )
     for k, v in upload_defaults.items():
         upload_auto.setdefault(k, v)
 
@@ -128,7 +140,11 @@ def _load_session_unlocked(label: str) -> dict[str, Any]:
         "trigger_point_threshold": 50000,
         "trigger_type": "time",
     }
-    wedge_auto = perk_auto.setdefault("wedge_automation", {})
+    wedge_auto = _ensure_mapping(
+        perk_auto,
+        "wedge_automation",
+        "perk_automation.wedge_automation",
+    )
     for k, v in wedge_defaults.items():
         wedge_auto.setdefault(k, v)
 
@@ -140,15 +156,20 @@ def _load_session_unlocked(label: str) -> dict[str, Any]:
         "trigger_point_threshold": 50000,
         "weeks": 4,
     }
-    vip_auto = perk_auto.setdefault("vip_automation", {})
+    vip_auto = _ensure_mapping(
+        perk_auto,
+        "vip_automation",
+        "perk_automation.vip_automation",
+    )
     for k, v in vip_defaults.items():
         vip_auto.setdefault(k, v)
 
     if "mam_ip" not in cfg:
         cfg["mam_ip"] = ""
     # Backward compatibility for ip_monitoring_mode
-    if "ip_monitoring_mode" not in cfg.get("mam", {}):
-        cfg.setdefault("mam", {})["ip_monitoring_mode"] = "auto"
+    mam_cfg = _ensure_mapping(cfg, "mam", "mam")
+    if "ip_monitoring_mode" not in mam_cfg:
+        mam_cfg["ip_monitoring_mode"] = "auto"
     if "last_check_time" not in cfg:
         cfg["last_check_time"] = None
     cfg["label"] = label
@@ -163,7 +184,7 @@ def _load_session_unlocked(label: str) -> dict[str, Any]:
         "api_key": "",
         "auto_update_on_save": False,
     }
-    prowlarr_cfg = cfg.setdefault("prowlarr", {})
+    prowlarr_cfg = _ensure_mapping(cfg, "prowlarr", "prowlarr")
     for k, v in prowlarr_defaults.items():
         prowlarr_cfg.setdefault(k, v)
 

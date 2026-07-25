@@ -33,6 +33,38 @@ def test_invalid_session_yaml_raises(config_dir: Path, contents: str) -> None:
         config.load_session("Bad")
 
 
+@pytest.mark.parametrize(
+    ("contents", "section"),
+    [
+        ("perk_automation: []\n", "perk_automation"),
+        (
+            "perk_automation:\n  upload_credit: []\n",
+            "perk_automation.upload_credit",
+        ),
+        (
+            "perk_automation:\n  wedge_automation: []\n",
+            "perk_automation.wedge_automation",
+        ),
+        (
+            "perk_automation:\n  vip_automation: []\n",
+            "perk_automation.vip_automation",
+        ),
+        ("mam: []\n", "mam"),
+        ("prowlarr: []\n", "prowlarr"),
+    ],
+)
+def test_invalid_nested_session_mapping_raises(
+    config_dir: Path,
+    contents: str,
+    section: str,
+) -> None:
+    """Expose wrong-shaped mutable session sections as store errors."""
+    config.get_session_path("Bad").write_text(contents, encoding="utf-8")
+
+    with pytest.raises(YamlStoreError, match=rf"'{section}' must be a mapping"):
+        config.load_session("Bad")
+
+
 @pytest.mark.parametrize("label", ["", ".", "..", "../bad", "bad/name", "bad\\name", "x\x00y"])
 def test_label_validation(config_dir: Path, label: str) -> None:
     """Reject labels that are not safe filesystem basenames."""
