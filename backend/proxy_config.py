@@ -10,8 +10,6 @@ from pathlib import Path
 import time
 from typing import Any
 
-import yaml
-
 from backend.config import CONFIG_DIR
 from backend.yaml_store import load_yaml_file, write_yaml_file
 
@@ -87,14 +85,7 @@ def load_proxies() -> dict[str, Any]:
     Returns a dict parsed from YAML or an empty dict if the file does not
     exist or is empty.
     """
-    try:
-        proxies = load_yaml_file(Path(PROXIES_PATH), {}, expected_type=dict)
-        return proxies if isinstance(proxies, dict) else {}
-    except FileNotFoundError:
-        return {}
-    except yaml.YAMLError as e:
-        _logger.warning("[load_proxies] Malformed YAML at %s: %s", PROXIES_PATH, e)
-        return {}
+    return load_yaml_file(Path(PROXIES_PATH), {}, expected_type=dict)
 
 
 def save_proxies(proxies: dict[str, Any]) -> None:

@@ -74,6 +74,78 @@ async def test_api_stale_save_returns_conflict_without_side_effects(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    ("is_new", "expected_event", "expected_branch_side_effect"),
+    [
+        (True, "session_created", "clear"),
+        (False, "session_saved", None),
+    ],
+)
+async def test_api_save_persists_once_before_create_or_update_side_effects(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    is_new: bool,
+    expected_event: str,
+    expected_branch_side_effect: str | None,
+) -> None:
+    """Persist once and emit the branch-specific event for creates and updates."""
+    session_path = tmp_path / "session-example.yaml"
+    if not is_new:
+        session_path.touch()
+
+    calls: list[str] = []
+    saved_configs: list[tuple[dict[str, Any], str | None]] = []
+    monkeypatch.setattr(app_module, "load_session", lambda label: {})
+    monkeypatch.setattr(app_module, "get_session_path", lambda label: session_path)
+
+    def record_save(
+        cfg: dict[str, Any],
+        old_label: str | None = None,
+    ) -> SaveSessionResult:
+        """Record the persistence call without writing to disk."""
+        calls.append("save")
+        saved_configs.append((cfg, old_label))
+        return SaveSessionResult.SAVED
+
+    monkeypatch.setattr(app_module, "save_session", record_save)
+    monkeypatch.setattr(
+        app_module,
+        "clear_ui_event_log_for_session",
+        lambda label: calls.append("clear"),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "append_ui_event_log",
+        lambda event: calls.append(f"event:{event['event']}"),
+    )
+    monkeypatch.setattr(
+        app_module,
+        "register_session_job",
+        lambda label: calls.append("scheduler"),
+    )
+
+    async def record_integration_sync(*args: Any) -> None:
+        """Record the integration check following persistence."""
+        calls.append("integration")
+
+    monkeypatch.setattr(app_module, "_sync_integrations_if_mam_id_changed", record_integration_sync)
+
+    payload = {
+        "label": "Example",
+        "old_label": None if is_new else "Example",
+        "mam": {"mam_id": "secret"},
+    }
+    result = await app_module.api_save_session(_PayloadRequest(payload))  # type: ignore[arg-type]
+
+    assert result == {"success": True}
+    assert saved_configs == [(payload, payload["old_label"])]
+    assert calls.count("save") == 1
+    assert calls.index("save") < calls.index(f"event:{expected_event}")
+    assert calls.count("clear") == (1 if expected_branch_side_effect == "clear" else 0)
+    assert calls[-2:] == ["scheduler", "integration"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "label", ["../outside", "nested/session", r"nested\\session", "nul\x00label"]
 )
 async def test_api_rejects_unsafe_label_without_persistence_artifacts(

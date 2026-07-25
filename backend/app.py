@@ -1680,13 +1680,14 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         session_path = get_session_path(label)
         is_new = not Path(session_path).exists()
 
+        save_result = save_session(cfg, old_label=old_label)
+        if save_result is SaveSessionResult.STALE:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Session '{old_label}' no longer exists",
+            )
+
         if is_new:
-            save_result = save_session(cfg, old_label=old_label)
-            if save_result is SaveSessionResult.STALE:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Session '{old_label}' no longer exists",
-                )
             # Clear any old event log entries for this session label
             clear_ui_event_log_for_session(label)
             # Only log creation event
@@ -1706,12 +1707,6 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                 session_status_cache[label]["suppress_next_event"] = True
         else:
             # Only log save event (update)
-            save_result = save_session(cfg, old_label=old_label)
-            if save_result is SaveSessionResult.STALE:
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Session '{old_label}' no longer exists",
-                )
             _logger.info("[Session] Saved session: label=%s old_label=%s", label, old_label)
             append_ui_event_log(
                 {
