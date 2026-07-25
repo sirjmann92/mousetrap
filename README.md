@@ -279,23 +279,26 @@ docker compose up --build -d
 
 ### Run the Test Suites
 
-Backend integration and workflow tests use the repository virtual environment:
+Install the backend development requirements and frontend browser dependencies
+once:
 
 ```bash
-./.venv/bin/python -m pytest
-./.venv/bin/python -m pytest -m integration
-./.venv/bin/python -m pytest -m workflow
-```
-
-Browser tests start isolated Vite and FastAPI development servers and use a temporary
-configuration directory:
-
-```bash
+./.venv/bin/python -m pip install -r requirements-dev.txt
 cd frontend
 npm ci
 npx playwright install chromium
-npm run test:e2e
+cd ..
 ```
+
+Then run the complete backend and frontend test gate with one command:
+
+```bash
+./scripts/run-tests.sh
+```
+
+The script runs the full pytest suite, then starts isolated Vite and FastAPI
+development servers for the Playwright suite using a temporary configuration
+directory.
 
 The `test:e2e:container` command runs the production-image smoke scenarios against the
 URL supplied in `E2E_BASE_URL`. The GitHub Actions test workflow builds, seeds, restarts,
