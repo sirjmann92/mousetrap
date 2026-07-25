@@ -143,6 +143,91 @@ def test_load_yaml_file_recovers_from_backup_when_primary_missing(tmp_path: Path
     assert yaml.safe_load(path.read_text(encoding="utf-8")) == backup_data
 
 
+def test_load_yaml_file_recovers_when_primary_has_wrong_shape(tmp_path: Path) -> None:
+    """Recover a mapping backup when the primary contains a valid YAML list."""
+    path = tmp_path / "settings.yaml"
+    backup_data = {"label": "backup"}
+    path.write_text("- wrong\n- shape\n", encoding="utf-8")
+    backup_path(path).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
+
+    loaded = load_yaml_file(path, {}, expected_type=dict)
+
+    assert loaded == backup_data
+    assert yaml.safe_load(path.read_text(encoding="utf-8")) == backup_data
+
+
+def test_load_yaml_file_uses_default_when_backup_has_wrong_shape(tmp_path: Path) -> None:
+    """Reject a syntactically valid backup with the wrong top-level shape."""
+    path = tmp_path / "settings.yaml"
+    default = {"label": "default"}
+    path.write_text("- wrong\n", encoding="utf-8")
+    backup_path(path).write_text("- also-wrong\n", encoding="utf-8")
+
+    assert load_yaml_file(path, default, expected_type=dict) == default
+
+
+def test_load_yaml_file_recovers_from_invalid_utf8_primary(tmp_path: Path) -> None:
+    """Recover from backup when the primary cannot be decoded as UTF-8."""
+    path = tmp_path / "settings.yaml"
+    backup_data = {"label": "backup"}
+    path.write_bytes(b"\xff\xfe")
+    backup_path(path).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
+
+    assert load_yaml_file(path, {}, expected_type=dict) == backup_data
+
+
+def test_load_yaml_file_uses_default_for_invalid_utf8_backup(tmp_path: Path) -> None:
+    """Return defaults when both primary and backup fail UTF-8 decoding."""
+    path = tmp_path / "settings.yaml"
+    path.write_bytes(b"\xff")
+    backup_path(path).write_bytes(b"\xfe")
+
+    assert load_yaml_file(path, {"label": "default"}, expected_type=dict) == {"label": "default"}
+
+
+def test_load_yaml_file_recovers_from_primary_read_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Recover from backup when reading the primary raises an OS error."""
+    path = tmp_path / "settings.yaml"
+    backup_data = {"label": "backup"}
+    backup_path(path).write_text(yaml.safe_dump(backup_data), encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def read_text(candidate: Path, *args: Any, **kwargs: Any) -> str:
+        """Fail only the primary read and delegate all other reads."""
+        if candidate == path:
+            raise OSError("simulated read failure")
+        return original_read_text(candidate, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    assert load_yaml_file(path, {}, expected_type=dict) == backup_data
+
+
+def test_load_yaml_file_uses_default_for_backup_read_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """Return defaults when the backup read raises an OS error."""
+    path = tmp_path / "settings.yaml"
+    backup = backup_path(path)
+    path.write_text("", encoding="utf-8")
+    backup.write_text("label: backup\n", encoding="utf-8")
+    original_read_text = Path.read_text
+
+    def read_text(candidate: Path, *args: Any, **kwargs: Any) -> str:
+        """Fail only the backup read and delegate all other reads."""
+        if candidate == backup:
+            raise OSError("simulated backup read failure")
+        return original_read_text(candidate, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+
+    assert load_yaml_file(path, {"label": "default"}, expected_type=dict) == {"label": "default"}
+
+
 @pytest.mark.parametrize("primary_exists", [False, True])
 def test_load_yaml_file_uses_default_when_backup_empty(
     tmp_path: Path,

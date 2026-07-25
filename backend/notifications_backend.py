@@ -280,7 +280,7 @@ def load_notify_config() -> dict[str, Any]:
     dict
         Parsed YAML as a dictionary, or an empty dict on failure.
     """
-    return load_yaml_file(Path(NOTIFY_CONFIG_PATH), {})
+    return load_yaml_file(Path(NOTIFY_CONFIG_PATH), {}, expected_type=dict)
 
 
 async def notify_event(

@@ -10,6 +10,8 @@ last-known-good backup for recovery.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 import logging
 import os
 from pathlib import Path
@@ -38,7 +40,11 @@ def backup_path(path: Path) -> Path:
     return path.with_name(f"{path.name}.bak")
 
 
-def load_yaml_file(path: Path, default: Any) -> Any:
+def load_yaml_file(
+    path: Path,
+    default: Any,
+    expected_type: type[Any] | tuple[type[Any], ...] | None = None,
+) -> Any:
     """Load YAML from a file, falling back to the last-known-good backup.
 
     Empty and malformed YAML files are treated as corrupt instead of as a valid
@@ -49,21 +55,28 @@ def load_yaml_file(path: Path, default: Any) -> Any:
         path: YAML file to load.
         default: Value returned when neither the main file nor backup can be
             loaded.
+        expected_type: Optional required top-level type. Data of another type
+            is treated as corrupt and triggers backup recovery.
 
     Returns:
         Parsed YAML content, backup content, or ``default``.
     """
     with _lock_for_path(path):
-        return _load_yaml_file_unlocked(path, default)
+        return _load_yaml_file_unlocked(path, default, expected_type)
 
 
-def _load_yaml_file_unlocked(path: Path, default: Any) -> Any:
+def _load_yaml_file_unlocked(
+    path: Path,
+    default: Any,
+    expected_type: type[Any] | tuple[type[Any], ...] | None,
+) -> Any:
     """Load YAML while the caller holds the path lock.
 
     Args:
         path: YAML file to load.
         default: Value returned when neither the main file nor backup can be
             loaded.
+        expected_type: Optional required top-level type.
 
     Returns:
         Parsed YAML content, backup content, or ``default``.
@@ -72,12 +85,17 @@ def _load_yaml_file_unlocked(path: Path, default: Any) -> Any:
         data = _read_yaml_file(path)
     except FileNotFoundError:
         _logger.warning("[ConfigStore] YAML file missing at %s; attempting backup recovery", path)
-    except yaml.YAMLError as err:
-        _logger.warning("[ConfigStore] Malformed YAML at %s: %s", path, err)
+    except (OSError, UnicodeError, yaml.YAMLError) as err:
+        _logger.warning("[ConfigStore] Could not read YAML at %s: %s", path, err)
     else:
-        if data is not _EMPTY_YAML:
+        if data is not _EMPTY_YAML and _matches_expected_type(data, expected_type):
             return data
-        _logger.warning("[ConfigStore] Empty YAML at %s; attempting backup recovery", path)
+        reason = "empty" if data is _EMPTY_YAML else "wrong-shaped"
+        _logger.warning(
+            "[ConfigStore] YAML at %s is %s; attempting backup recovery",
+            path,
+            reason,
+        )
 
     backup = backup_path(path)
     try:
@@ -85,12 +103,13 @@ def _load_yaml_file_unlocked(path: Path, default: Any) -> Any:
     except FileNotFoundError:
         _logger.warning("[ConfigStore] No backup found for %s; using defaults", path)
         return default
-    except yaml.YAMLError as err:
-        _logger.warning("[ConfigStore] Backup YAML is malformed at %s: %s", backup, err)
+    except (OSError, UnicodeError, yaml.YAMLError) as err:
+        _logger.warning("[ConfigStore] Could not read backup YAML at %s: %s", backup, err)
         return default
 
-    if backup_data is _EMPTY_YAML:
-        _logger.warning("[ConfigStore] Backup YAML is empty at %s; using defaults", backup)
+    if backup_data is _EMPTY_YAML or not _matches_expected_type(backup_data, expected_type):
+        reason = "empty" if backup_data is _EMPTY_YAML else "wrong-shaped"
+        _logger.warning("[ConfigStore] Backup YAML is %s at %s; using defaults", reason, backup)
         return default
 
     _logger.warning("[ConfigStore] Recovered %s from backup %s", path, backup)
@@ -155,6 +174,37 @@ def _lock_for_path(path: Path) -> threading.RLock:
     """
     lock_key = path.resolve(strict=False)
     return _LOCK_STRIPES[hash(lock_key) % _LOCK_STRIPE_COUNT]
+
+
+@contextmanager
+def lock_yaml_files(*paths: Path) -> Iterator[None]:
+    """Lock multiple YAML primary paths in stable order.
+
+    Args:
+        paths: Primary YAML paths whose lifecycle must be serialized.
+
+    Yields:
+        Control while all corresponding re-entrant path locks are held.
+    """
+    stripe_indexes = sorted(
+        {hash(path.resolve(strict=False)) % _LOCK_STRIPE_COUNT for path in paths}
+    )
+    locks = [_LOCK_STRIPES[index] for index in stripe_indexes]
+    for lock in locks:
+        lock.acquire()
+    try:
+        yield
+    finally:
+        for lock in reversed(locks):
+            lock.release()
+
+
+def _matches_expected_type(
+    data: Any,
+    expected_type: type[Any] | tuple[type[Any], ...] | None,
+) -> bool:
+    """Return whether parsed YAML satisfies an optional top-level type."""
+    return expected_type is None or isinstance(data, expected_type)
 
 
 def _atomic_copy(src: Path, dst: Path) -> None:

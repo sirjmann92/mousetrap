@@ -81,5 +81,5 @@ def delete_proxy(label: str) -> dict[str, Any]:
         proxy_cfg = cfg.get("proxy", {})
         if isinstance(proxy_cfg, dict) and proxy_cfg.get("label") == label:
             cfg["proxy"] = {}  # Remove proxy reference
-            save_session(cfg)
+            save_session(cfg, old_label=sess_label)
     return {"success": True}

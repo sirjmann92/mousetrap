@@ -5,11 +5,12 @@ configuration files, a default global config, and simple helpers used by
 the backend to locate and manage session files.
 """
 
+import logging
 from os import environ
 from pathlib import Path
 from typing import Any
 
-from backend.yaml_store import backup_path, load_yaml_file, write_yaml_file
+from backend.yaml_store import backup_path, load_yaml_file, lock_yaml_files, write_yaml_file
 
 CONFIG_DIR = Path(environ.get("CONFIG_DIR", "/config"))
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
@@ -18,6 +19,7 @@ CONFIG_PATH = CONFIG_DIR / "config.yaml"
 SESSION_PREFIX = "session-"
 SESSION_SUFFIX = ".yaml"
 BACKUP_SUFFIX = ".bak"
+_logger = logging.getLogger(__name__)
 
 
 def get_session_path(label: str) -> Path:
@@ -159,17 +161,22 @@ def save_session(cfg: dict, old_label: str | None = None) -> None:
     if not label:
         raise ValueError("Session label is required to save a session.")
     path = get_session_path(label)
-    # If label changed, rename file
-    if old_label and old_label != label:
-        old_path = get_session_path(old_label)
-        if old_path.exists():
+    old_path = get_session_path(old_label) if old_label else None
+    lock_paths = (path,) if old_path is None else (old_path, path)
+    with lock_yaml_files(*lock_paths):
+        if old_path is not None and not (old_path.exists() or backup_path(old_path).exists()):
+            _logger.warning(
+                "[ConfigStore] Discarding stale update for retired session %s",
+                old_label,
+            )
+            return
+        if old_path is not None and old_path != path:
             _rename_session_file_with_backup(old_path, path)
-    config_dir = path.parent
-    config_dir.mkdir(parents=True, exist_ok=True)
-    # No encryption: just save password as-is
-    if "browser_cookie" not in cfg:
-        cfg["browser_cookie"] = ""
-    write_yaml_file(path, cfg)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # No encryption: just save password as-is
+        if "browser_cookie" not in cfg:
+            cfg["browser_cookie"] = ""
+        write_yaml_file(path, cfg)
 
 
 def get_default_config(label: str | None = None) -> dict[str, Any]:
@@ -225,7 +232,8 @@ def delete_session(label: str) -> None:
     """Delete the session file and backup for a given label if they exist."""
 
     path = get_session_path(label)
-    _delete_session_file_with_backup(path)
+    with lock_yaml_files(path):
+        _delete_session_file_with_backup(path)
 
 
 def _rename_session_file_with_backup(old_path: Path, new_path: Path) -> None:
@@ -235,7 +243,8 @@ def _rename_session_file_with_backup(old_path: Path, new_path: Path) -> None:
         old_path: Current session YAML path.
         new_path: New session YAML path.
     """
-    old_path.rename(new_path)
+    if old_path.exists():
+        old_path.rename(new_path)
     old_backup = backup_path(old_path)
     new_backup = backup_path(new_path)
     if old_backup.exists():
@@ -265,7 +274,4 @@ def _load_config_mapping(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Parsed config mapping or ``default``.
     """
-    cfg = load_yaml_file(path, default)
-    if not isinstance(cfg, dict):
-        return default
-    return cfg
+    return load_yaml_file(path, default, expected_type=dict)

@@ -24,7 +24,7 @@ def read_last_session() -> str | None:
     Returns:
         The saved label string, or None if the file does not exist or is malformed.
     """
-    data = load_yaml_file(LAST_SESSION_FILE, {})
+    data = load_yaml_file(LAST_SESSION_FILE, {}, expected_type=dict)
     return data.get("label") if isinstance(data, dict) else None
 
 

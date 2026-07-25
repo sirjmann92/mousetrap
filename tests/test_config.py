@@ -1,6 +1,7 @@
 """Tests for durable session configuration persistence."""
 
 from pathlib import Path
+import threading
 from typing import Any
 
 import pytest
@@ -136,6 +137,23 @@ def test_load_session_uses_defaults_for_non_mapping_yaml(
 
     assert loaded["label"] == "Session1"
     assert loaded["mam"]["mam_id"] == ""
+
+
+def test_load_session_recovers_mapping_backup_from_list_primary(
+    temp_config_paths: Path,
+) -> None:
+    """Apply session defaults to a mapping recovered from a wrong-shaped primary."""
+    path = config.get_session_path("Session1")
+    path.write_text("- wrong-shape\n", encoding="utf-8")
+    backup_path(path).write_text(
+        yaml.safe_dump({"label": "Session1", "mam": {"mam_id": "recovered"}}),
+        encoding="utf-8",
+    )
+
+    loaded = config.load_session("Session1")
+
+    assert loaded["mam"]["mam_id"] == "recovered"
+    assert loaded["browser_cookie"] == ""
 
 
 def test_load_config_recovers_from_missing_file_backup(temp_config_paths: Path) -> None:
@@ -288,3 +306,144 @@ def test_save_session_rename_removes_stale_destination_backup(
 
     assert not backup_path(old_path).exists()
     assert not stale_new_backup.exists()
+
+
+def test_queued_save_cannot_recreate_deleted_session(
+    caplog: pytest.LogCaptureFixture,
+    temp_config_paths: Path,
+) -> None:
+    """Drop an existing-session update queued behind a completed delete."""
+    session = {"label": "Session1", "mam": {"mam_id": "original"}}
+    config.save_session(session)
+    path = config.get_session_path("Session1")
+    delete_finished = threading.Event()
+
+    def delete_then_signal() -> None:
+        """Delete the session before allowing the queued save to run."""
+        config.delete_session("Session1")
+        delete_finished.set()
+
+    thread = threading.Thread(target=delete_then_signal)
+    thread.start()
+    assert delete_finished.wait(timeout=2)
+
+    config.save_session(
+        {"label": "Session1", "mam": {"mam_id": "stale"}},
+        old_label="Session1",
+    )
+    thread.join()
+
+    assert not path.exists()
+    assert not backup_path(path).exists()
+    assert "Discarding stale update for retired session Session1" in caplog.text
+
+
+def test_in_flight_save_is_removed_by_waiting_delete(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Ensure a delete waiting on an in-flight write removes its final output."""
+    config.save_session({"label": "Session1"})
+    path = config.get_session_path("Session1")
+    write_started = threading.Event()
+    allow_write = threading.Event()
+    original_write = config.write_yaml_file
+
+    def blocked_write(candidate: Path, data: Any) -> None:
+        """Pause the write while the session lifecycle lock remains held."""
+        write_started.set()
+        assert allow_write.wait(timeout=2)
+        original_write(candidate, data)
+
+    monkeypatch.setattr(config, "write_yaml_file", blocked_write)
+    save_thread = threading.Thread(
+        target=config.save_session,
+        args=({"label": "Session1", "mam": {"mam_id": "updated"}}, "Session1"),
+    )
+    save_thread.start()
+    assert write_started.wait(timeout=2)
+
+    delete_thread = threading.Thread(target=config.delete_session, args=("Session1",))
+    delete_thread.start()
+    allow_write.set()
+    save_thread.join(timeout=2)
+    delete_thread.join(timeout=2)
+
+    assert not save_thread.is_alive()
+    assert not delete_thread.is_alive()
+    assert not path.exists()
+    assert not backup_path(path).exists()
+
+
+def test_queued_old_label_save_cannot_recreate_renamed_session(
+    monkeypatch: pytest.MonkeyPatch,
+    temp_config_paths: Path,
+) -> None:
+    """Drop a stale update for an old label after rename retires its files."""
+    config.save_session({"label": "Old", "mam": {"mam_id": "original"}})
+    rename_write_started = threading.Event()
+    allow_rename_write = threading.Event()
+    stale_save_started = threading.Event()
+    original_write = config.write_yaml_file
+
+    def blocked_rename_write(candidate: Path, data: Any) -> None:
+        """Pause the rename's final write while lifecycle locks remain held."""
+        if candidate == config.get_session_path("New"):
+            rename_write_started.set()
+            assert allow_rename_write.wait(timeout=2)
+        original_write(candidate, data)
+
+    monkeypatch.setattr(config, "write_yaml_file", blocked_rename_write)
+
+    def save_stale_update() -> None:
+        """Signal before attempting the old-label save held behind rename."""
+        stale_save_started.set()
+        config.save_session(
+            {"label": "Old", "mam": {"mam_id": "stale"}},
+            old_label="Old",
+        )
+
+    rename_thread = threading.Thread(
+        target=config.save_session,
+        args=({"label": "New", "mam": {"mam_id": "renamed"}}, "Old"),
+    )
+    rename_thread.start()
+    assert rename_write_started.wait(timeout=2)
+
+    stale_thread = threading.Thread(target=save_stale_update)
+    stale_thread.start()
+    assert stale_save_started.wait(timeout=2)
+    allow_rename_write.set()
+    rename_thread.join(timeout=2)
+    stale_thread.join(timeout=2)
+
+    old_path = config.get_session_path("Old")
+    assert not rename_thread.is_alive()
+    assert not stale_thread.is_alive()
+    assert not old_path.exists()
+    assert not backup_path(old_path).exists()
+    assert config.load_session("New")["mam"]["mam_id"] == "renamed"
+
+
+def test_existing_session_save_accepts_backup_only_source(
+    temp_config_paths: Path,
+) -> None:
+    """Allow an existing-session update when only its recoverable backup remains."""
+    path = config.get_session_path("Session1")
+    backup_path(path).write_text(yaml.safe_dump({"label": "Session1"}), encoding="utf-8")
+
+    config.save_session(
+        {"label": "Session1", "mam": {"mam_id": "updated"}},
+        old_label="Session1",
+    )
+
+    assert yaml.safe_load(path.read_text(encoding="utf-8"))["mam"]["mam_id"] == "updated"
+
+
+def test_save_session_without_old_label_creates_new_session(
+    temp_config_paths: Path,
+) -> None:
+    """Preserve explicit creation when no existing-session label is supplied."""
+    config.save_session({"label": "New", "mam": {"mam_id": "created"}})
+
+    assert config.load_session("New")["mam"]["mam_id"] == "created"

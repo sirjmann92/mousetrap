@@ -123,7 +123,7 @@ class PortMonitorStackManager:
         list will be empty.
         """
         try:
-            data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [])
+            data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [], expected_type=list)
             seen = set()
             unique_stacks = []
             for d in data:
