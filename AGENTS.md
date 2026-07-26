@@ -25,14 +25,14 @@ account management.
 - `docs/`: user and implementation documentation.
 - `scripts/start-backend.sh`: local-only FastAPI launcher used by
   `npm run backend` and `npm run dev`; production containers use `start.sh`.
-- `scripts/setup.sh`: creates the Python virtual environment and installs
-  Python and frontend development dependencies.
+- `scripts/setup.sh`: creates the Python virtual environment, installs Python
+  and frontend development dependencies, and installs the prek Git hook.
 - `scripts/lint.sh`: repository-wide lint, format, and type-check wrapper matching
   the GitHub lint workflow.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
   configuration.
-- `.pre-commit-config.yaml`: repository hook configuration.
+- `prek.toml`: repository hook configuration.
 
 ## General Working Rules
 
@@ -127,7 +127,7 @@ For routine dependency maintenance, run:
 
 When `.venv` exists, the update helper upgrades its Python `dev` dependency
 group and verifies it with `pip check`; otherwise it skips that step. It updates
-pre-commit hooks through the project or global installation when available,
+prek hooks through the project or global installation when available,
 updates frontend dependencies within the constraints in `frontend/package.json`,
 normalizes the lockfile, synchronizes `frontend/node_modules` with a clean
 install, and audits the resulting npm dependency tree. Review its configuration
@@ -180,10 +180,10 @@ Frontend production build:
 npm run build
 ```
 
-Pre-commit hooks:
+Prek hooks:
 
 ```bash
-.venv/bin/pre-commit run --all-files
+.venv/bin/prek run --all-files
 ```
 
 Docker build smoke check:

@@ -7,6 +7,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   linters:
     name: Run Linters
@@ -14,30 +17,6 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v7
-
-      - name: Setup Python 3 (with caching)
-        uses: actions/setup-python@v7
-        id: setup-python
-        with:
-          python-version: '3.13'
-          cache: 'pip'
-          cache-dependency-path: pyproject.toml
-
-      - name: Install backend Python linting dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install --group lint
-
-      - name: Cache pre-commit and mypy
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cache/pre-commit
-            .mypy_cache
-            .ruff_cache
-          key: ${{ runner.os }}-lint-py${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/.pre-commit-config.yaml', '**/pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-lint-
 
       - name: Setup Node.js (for frontend linting)
         uses: actions/setup-node@v7
@@ -48,13 +27,10 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm ci --no-fund
 
-      - name: Run pre-commit
-        uses: pre-commit/action@v3.0.1
+      - name: Run prek
+        uses: j178/prek-action@v2
 
       - name: Build frontend production bundle
         run: npm --prefix frontend run build
-
-      - uses: pre-commit-ci/lite-action@v1.1.0
-        if: always()

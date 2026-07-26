@@ -49,7 +49,7 @@ images/
 
 # CI/CD and linting config (not needed in image)
 .github/
-.pre-commit-config.yaml
+prek.toml
 .nvmrc
 biome.json
 

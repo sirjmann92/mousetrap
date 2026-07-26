@@ -1,0 +1,121 @@
+# Configuration file for `prek`, a git hook framework written in Rust.
+# See https://prek.j178.dev for more information.
+#:schema https://www.schemastore.org/prek.json
+
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [
+  {
+    id = "trailing-whitespace",
+    exclude = '.*\.md$'
+  },
+  {
+    id = "end-of-file-fixer",
+    exclude = '.*\.md$'
+  },
+  { id = "check-yaml" },
+  { id = "check-toml" },
+  { id = "check-added-large-files" },
+  { id = "check-merge-conflict" },
+  { id = "check-json" },
+  { id = "detect-private-key" }
+]
+
+[[repos]]
+repo = "https://github.com/rhysd/actionlint"
+rev = "v1.7.12"
+hooks = [
+  { id = "actionlint" }
+]
+
+[[repos]]
+repo = "https://github.com/shellcheck-py/shellcheck-py"
+rev = "v0.11.0.1"
+hooks = [
+  {
+    id = "shellcheck",
+    types = ["shell"],
+    args = ["-x"]
+  }
+]
+
+[[repos]]
+repo = "https://github.com/codespell-project/codespell"
+rev = "v2.4.3"
+hooks = [
+  {
+    id = "codespell",
+    additional_dependencies = ["tomli"]
+  }
+]
+
+[[repos]]
+repo = "https://github.com/pre-commit/mirrors-mypy"
+rev = "v2.3.0"
+hooks = [
+  {
+    id = "mypy",
+    language_version = "python3.13",
+    args = ["--config-file=pyproject.toml"],
+    additional_dependencies = [
+      "aiohttp",
+      "apscheduler",
+      "docker",
+      "fastapi",
+      "pydantic",
+      "pyyaml",
+      "starlette",
+      "types-cffi",
+      "types-docker",
+      "types-PyMySQL",
+      "types-pyRFC3339",
+      "types-python-dateutil",
+      "types-PySocks",
+      "types-PyYAML",
+      "types-requests",
+      "types-setuptools",
+      "uvicorn",
+      "yarl"
+    ]
+  }
+]
+
+[[repos]]
+repo = "https://github.com/astral-sh/ruff-pre-commit"
+rev = "v0.16.0"
+hooks = [
+  {
+    id = "ruff-check",
+    args = ["--fix"]
+  },
+  { id = "ruff-format" }
+]
+
+[[repos]]
+repo = "local"
+hooks = [
+  {
+    id = "tsc",
+    name = "tsc check",
+    entry = "npm --prefix frontend run tsc",
+    language = "system",
+    types_or = [
+      "ts",
+      "tsx",
+      "javascript",
+      "jsx"
+    ],
+    pass_filenames = false
+  }
+]
+
+[[repos]]
+repo = "https://github.com/biomejs/pre-commit"
+rev = "v2.5.5"
+hooks = [
+  {
+    id = "biome-check",
+    files = "^frontend/"
+  }
+]

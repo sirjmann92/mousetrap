@@ -7,7 +7,7 @@ set -eu
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
-VENV_PRE_COMMIT="$REPO_ROOT/.venv/bin/pre-commit"
+VENV_PREK="$REPO_ROOT/.venv/bin/prek"
 
 cd "$REPO_ROOT"
 
@@ -21,21 +21,21 @@ else
   echo "Skipping local Python dependency updates because .venv is not set up."
 fi
 
-# Prefer the project installation. A global pre-commit can still update hook
+# Prefer the project installation. A global prek can still update hook
 # revisions when .venv is absent; otherwise leave that step explicitly skipped.
-if [ -x "$VENV_PRE_COMMIT" ]; then
-  PRE_COMMIT="$VENV_PRE_COMMIT"
-elif command -v pre-commit >/dev/null 2>&1; then
-  PRE_COMMIT="$(command -v pre-commit)"
+if [ -x "$VENV_PREK" ]; then
+  PREK="$VENV_PREK"
+elif command -v prek >/dev/null 2>&1; then
+  PREK="$(command -v prek)"
 else
-  PRE_COMMIT=""
+  PREK=""
 fi
 
-if [ -n "$PRE_COMMIT" ]; then
-  echo "Updating pre-commit hook revisions..."
-  "$PRE_COMMIT" autoupdate
+if [ -n "$PREK" ]; then
+  echo "Updating prek hook revisions..."
+  "$PREK" update
 else
-  echo "Skipping pre-commit hook updates because pre-commit is not installed."
+  echo "Skipping prek hook updates because prek is not installed."
 fi
 
 echo "Updating frontend dependencies within package.json constraints..."

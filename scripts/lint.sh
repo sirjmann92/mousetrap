@@ -6,7 +6,7 @@ set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-VENV_PRE_COMMIT="$REPO_ROOT/.venv/bin/pre-commit"
+VENV_PREK="$REPO_ROOT/.venv/bin/prek"
 FRONTEND_TSC="$REPO_ROOT/frontend/node_modules/.bin/tsc"
 
 cd "$REPO_ROOT"
@@ -19,20 +19,20 @@ if ! command -v npm >/dev/null 2>&1 || [ ! -x "$FRONTEND_TSC" ]; then
   exit 1
 fi
 
-# Prefer the project environment used by local development, with a global
-# pre-commit installation as a convenience fallback.
-if [ -x "$VENV_PRE_COMMIT" ]; then
-  PRE_COMMIT="$VENV_PRE_COMMIT"
-elif command -v pre-commit >/dev/null 2>&1; then
-  PRE_COMMIT="$(command -v pre-commit)"
+# Prefer the project environment used by local development, with a global prek
+# installation as a convenience fallback.
+if [ -x "$VENV_PREK" ]; then
+  PREK="$VENV_PREK"
+elif command -v prek >/dev/null 2>&1; then
+  PREK="$(command -v prek)"
 else
-  echo "pre-commit was not found. Install the development dependency group:" >&2
+  echo "prek was not found. Install the development dependency group:" >&2
   echo "  .venv/bin/python -m pip install --group dev" >&2
   exit 1
 fi
 
 echo "Running repository lint, format, and type checks..."
-"$PRE_COMMIT" run --all-files
+"$PREK" run --all-files
 
 # Build the production bundle to catch module-resolution and bundler errors
 # that static linting and TypeScript checks cannot detect.

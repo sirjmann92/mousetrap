@@ -8,6 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VENV_DIR="$REPO_ROOT/.venv"
 VENV_PYTHON="$VENV_DIR/bin/python"
+VENV_PREK="$VENV_DIR/bin/prek"
 
 cd "$REPO_ROOT"
 
@@ -41,6 +42,11 @@ fi
 echo "Installing Python development dependencies..."
 "$VENV_PYTHON" -m pip install --upgrade "pip>=25.1"
 "$VENV_PYTHON" -m pip install --group dev
+
+# Install the repository-managed Git hook, replacing a pre-commit shim left by
+# an older checkout when necessary.
+echo "Installing the prek Git hook..."
+"$VENV_PREK" install -f
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Node.js 22.20.0 or newer and npm are required." >&2
