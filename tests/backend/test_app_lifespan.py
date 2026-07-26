@@ -32,10 +32,10 @@ def test_lifespan_cleans_up_when_scheduler_initialization_fails(
     assert events == ["monitor-start", "scheduler-start", "monitor-stop", "db-close"]
 
 
-def test_lifespan_waits_for_scheduler_before_closing_database(
+def test_lifespan_stops_monitor_before_waiting_for_scheduler(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Running scheduler jobs finish before persistence is closed."""
+    """Signal the monitor before draining jobs and closing persistence."""
     events: list[str] = []
     monkeypatch.setattr(app, "start_port_monitor_manager", lambda: events.append("monitor-start"))
 
@@ -67,7 +67,7 @@ def test_lifespan_waits_for_scheduler_before_closing_database(
         "monitor-start",
         "scheduler-start",
         "serving",
-        "scheduler-stop:True",
         "monitor-stop",
+        "scheduler-stop:True",
         "db-close",
     ]

@@ -107,6 +107,7 @@ class PortMonitorStackManager:
         self._shutdown_event = threading.Event()
         self._restart_tasks: set[asyncio.Task[Any]] = set()
         self._restart_tasks_lock = threading.Lock()
+        self._worker_lock = threading.Lock()
 
     def _should_log_warning(self, key: str, min_interval: int = 30) -> bool:
         """Rate limit warnings to prevent log spam."""
@@ -726,7 +727,10 @@ class PortMonitorStackManager:
             _logger.exception("[PortMonitorStack] Monitor loop terminated unexpectedly")
             raise
         finally:
-            self.running = False
+            with self._worker_lock:
+                self.running = False
+                if self.thread is threading.current_thread():
+                    self.thread = None
 
     def start(self) -> None:
         """Start background monitoring in a daemon thread.
@@ -735,6 +739,11 @@ class PortMonitorStackManager:
         spawns the monitoring thread if it is not already running. Invalid
         configuration disables monitoring without modifying the source file.
         """
+        with self._worker_lock:
+            if self.thread is not None:
+                if self.thread.is_alive():
+                    return
+                self.thread = None
         try:
             self.load_stacks()
         except YamlStoreError as e:
@@ -745,7 +754,7 @@ class PortMonitorStackManager:
                 e,
             )
             return
-        if not self.running:
+        with self._worker_lock:
             self._shutdown_event = threading.Event()
             self.running = True
             self.thread = threading.Thread(target=self._run_monitor_loop, daemon=True)
@@ -776,6 +785,10 @@ class PortMonitorStackManager:
                     "continuing shutdown",
                     PORT_MONITOR_STOP_TIMEOUT_SECONDS,
                 )
+            else:
+                with self._worker_lock:
+                    if self.thread is thread:
+                        self.thread = None
 
 
 # Singleton instance

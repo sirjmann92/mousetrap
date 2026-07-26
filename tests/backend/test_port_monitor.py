@@ -123,6 +123,39 @@ def test_stop_bounds_join_for_blocked_worker(
         manager.thread.join(timeout=1)
 
 
+def test_start_does_not_replace_blocked_stopping_worker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A timed-out stop prevents reload and replacement until worker exit."""
+    manager = port_monitor.PortMonitorStackManager()
+    manager.running = True
+    release_worker = threading.Event()
+    worker_started = threading.Event()
+
+    def blocked_worker() -> None:
+        worker_started.set()
+        release_worker.wait()
+
+    original_thread = threading.Thread(target=blocked_worker, daemon=True)
+    manager.thread = original_thread
+    original_thread.start()
+    assert worker_started.wait(timeout=1)
+    load_stacks = Mock()
+    monkeypatch.setattr(manager, "load_stacks", load_stacks)
+    monkeypatch.setattr(port_monitor, "PORT_MONITOR_STOP_TIMEOUT_SECONDS", 0.01)
+
+    try:
+        manager.stop()
+        manager.start()
+
+        assert manager.thread is original_thread
+        assert original_thread.is_alive()
+        load_stacks.assert_not_called()
+    finally:
+        release_worker.set()
+        original_thread.join(timeout=1)
+
+
 @pytest.mark.parametrize("shutdown_during_check", [False, True])
 def test_initial_checks_skip_state_and_save_after_shutdown(
     monkeypatch: pytest.MonkeyPatch, shutdown_during_check: bool

@@ -84,6 +84,7 @@ ASSETS_DIR = Path(FRONTEND_BUILD_DIR) / "assets"
 # Set up global logging configuration
 setup_logging()
 _logger: logging.Logger = logging.getLogger(__name__)
+AUTOMATION_JOB_TIMEOUT_SECONDS = 300
 
 
 @asynccontextmanager
@@ -94,9 +95,9 @@ async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await initialize_scheduler()
         yield
     finally:
+        port_monitor_manager.stop()
         if scheduler.running:
             scheduler.shutdown(wait=True)
-        port_monitor_manager.stop()
         close_connection()
 
 
@@ -3068,12 +3069,22 @@ def sync_session_check_job(label: str) -> None:
 
 
 def sync_automation_jobs() -> None:
-    """Sync wrapper for async run_all_automation_jobs to work with BackgroundScheduler."""
+    """Run aggregate automation from APScheduler with an overall timeout."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    task = loop.create_task(run_all_automation_jobs())
     try:
-        loop.run_until_complete(run_all_automation_jobs())
+        loop.run_until_complete(asyncio.wait_for(task, timeout=AUTOMATION_JOB_TIMEOUT_SECONDS))
+    except TimeoutError:
+        task.cancel()
+        _logger.error(
+            "[APScheduler] Aggregate automation job timed out after %s seconds and was cancelled",
+            AUTOMATION_JOB_TIMEOUT_SECONDS,
+        )
     finally:
+        if not task.done():
+            task.cancel()
+            loop.run_until_complete(asyncio.gather(task, return_exceptions=True))
         loop.close()
 
 
