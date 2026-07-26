@@ -21,7 +21,7 @@ account management.
 - `backend/`: FastAPI app, integrations, automation logic, config/state helpers,
   notifications, proxy handling, event log, and port monitoring.
 - `frontend/`: React/Vite application.
-- `tests/`: Python pytest suite.
+- `tests/backend/`: Python pytest suite.
 - `docs/`: user and implementation documentation.
 - `scripts/`: local setup, backend launch, lint, and dependency-maintenance
   helpers; production containers use `start.sh`.
@@ -138,7 +138,7 @@ formatting changes, so review the working tree afterward.
 Python tests:
 
 ```bash
-.venv/bin/pytest
+.venv/bin/pytest tests/backend
 ```
 
 Docker build smoke check:

@@ -1,4 +1,4 @@
-"""Focused tests for session configuration lifecycle behavior."""
+"""Focused backend tests for session configuration lifecycle behavior."""
 
 from pathlib import Path
 from typing import Any

@@ -1,1 +1,1 @@
-"""Backend regression tests."""
+"""MouseTrap test suites."""

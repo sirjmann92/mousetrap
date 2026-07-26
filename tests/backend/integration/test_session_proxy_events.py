@@ -1,4 +1,4 @@
-"""Public-API integration coverage for sessions, proxies, and event persistence."""
+"""Backend public-API integration coverage for sessions, proxies, and event persistence."""
 
 from pathlib import Path
 

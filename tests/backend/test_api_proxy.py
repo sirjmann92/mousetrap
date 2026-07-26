@@ -1,4 +1,4 @@
-"""Focused proxy-cleanup persistence tests."""
+"""Focused backend proxy-cleanup persistence tests."""
 
 from typing import Any
 

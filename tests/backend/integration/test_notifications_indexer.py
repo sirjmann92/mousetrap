@@ -1,4 +1,4 @@
-"""Integration tests for deterministic external-service seams."""
+"""Backend integration tests for deterministic external-service seams."""
 
 from httpx import AsyncClient
 import pytest

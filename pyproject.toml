@@ -51,7 +51,7 @@ addopts = """
   --cov-report=term-missing
   --cov-report=html
 """
-testpaths = ["tests"]
+testpaths = ["tests/backend"]
 asyncio_mode = "auto"
 markers = [
     "integration: public API tests spanning multiple backend modules",
@@ -94,7 +94,7 @@ warn_return_any = false
 warn_unreachable = false
 
 [[tool.mypy.overrides]]
-module = "tests.*"
+module = "tests.backend.*"
 ignore_missing_imports = true
 disallow_untyped_defs = false
 disallow_untyped_calls = false
@@ -276,7 +276,7 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = [
+"tests/backend/**/*.py" = [
     "SLF001",  # Private member accessed
     #"D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",  # Docstring rules
     "PLR2004", # Magic value used in comparison

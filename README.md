@@ -291,7 +291,7 @@ Then run the complete backend and frontend test gate with one command:
 ./scripts/test.sh
 ```
 
-The script runs the full pytest suite, then starts isolated Vite and FastAPI
+The script runs the full backend pytest suite, then starts isolated Vite and FastAPI
 development servers for the Playwright suite using a temporary configuration
 directory.
 

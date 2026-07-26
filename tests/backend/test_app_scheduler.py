@@ -1,4 +1,4 @@
-"""Focused scheduler persistence tests."""
+"""Focused backend scheduler persistence tests."""
 
 import logging
 

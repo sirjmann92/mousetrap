@@ -1,4 +1,4 @@
-"""Focused port-monitor persistence tests."""
+"""Focused backend port-monitor persistence tests."""
 
 import asyncio
 from pathlib import Path

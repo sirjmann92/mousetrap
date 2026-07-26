@@ -1,4 +1,4 @@
-"""Public workflow coverage for port-monitor stack management."""
+"""Backend workflow coverage for port-monitor stack management."""
 
 from httpx import AsyncClient
 import pytest

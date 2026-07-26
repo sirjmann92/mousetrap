@@ -1,4 +1,4 @@
-"""Tests for proxy configuration helpers."""
+"""Backend tests for proxy configuration helpers."""
 
 from pathlib import Path
 

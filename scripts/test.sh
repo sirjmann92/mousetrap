@@ -33,7 +33,7 @@ echo "Running backend tests..."
 (
   # Run from the repository root so pytest uses the project configuration.
   cd "$REPO_ROOT"
-  "$VENV_PYTHON" -m pytest
+  "$VENV_PYTHON" -m pytest tests/backend
 )
 
 echo "Running frontend end-to-end tests..."

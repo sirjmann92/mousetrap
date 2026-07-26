@@ -1,4 +1,4 @@
-"""Focused API session-persistence tests."""
+"""Focused backend API session-persistence tests."""
 
 import asyncio
 from pathlib import Path

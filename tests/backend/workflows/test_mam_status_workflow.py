@@ -1,4 +1,4 @@
-"""Public MAM status workflow with deterministic network seams."""
+"""Backend MAM status workflow with deterministic network seams."""
 
 from typing import Any
 

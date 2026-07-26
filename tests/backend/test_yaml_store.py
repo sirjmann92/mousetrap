@@ -1,4 +1,4 @@
-"""Interface tests for YAML persistence."""
+"""Backend interface tests for YAML persistence."""
 
 from pathlib import Path
 import stat
