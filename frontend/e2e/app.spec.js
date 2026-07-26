@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/coverage-fixture.js';
 
 async function choose(page, label, option) {
   await page.getByRole('combobox', { name: label, exact: true }).click();

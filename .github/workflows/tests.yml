@@ -38,6 +38,15 @@ jobs:
           python -m pytest tests/backend --junitxml=junit.xml \
             2>&1 | tee backend-tests.log
 
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-coverage
+          path: coverage/backend/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload backend failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v6
@@ -46,7 +55,6 @@ jobs:
           path: |
             backend-tests.log
             junit.xml
-            htmlcov/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -90,6 +98,15 @@ jobs:
           set -o pipefail
           npm run test:e2e 2>&1 | tee playwright-dev.log
 
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-coverage
+          path: frontend/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Upload Playwright failure diagnostics
         if: failure()
         uses: actions/upload-artifact@v6
@@ -101,6 +118,39 @@ jobs:
             frontend/test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  coverage:
+    name: Coverage summary
+    needs:
+      - backend
+      - playwright
+    if: ${{ needs.backend.result == 'success' && needs.playwright.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/Krypton"
+
+      - name: Download backend coverage
+        uses: actions/download-artifact@v7
+        with:
+          name: backend-coverage
+          path: coverage/backend
+
+      - name: Download frontend coverage
+        uses: actions/download-artifact@v7
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+
+      - name: Publish separate backend and frontend coverage
+        run: node scripts/coverage-summary.mjs
 
   container:
     name: Docker container smoke tests

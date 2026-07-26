@@ -12,6 +12,7 @@
 		"lint": "npm --prefix frontend run lint",
 		"lint:fix": "npm --prefix frontend run lint:fix",
 		"tsc": "npm --prefix frontend run tsc",
+		"coverage:summary": "node scripts/coverage-summary.mjs",
 		"backend": "npm --prefix frontend run backend",
 		"dev": "npm --prefix frontend run dev",
 		"test:backend:integration": ".venv/bin/python -m pytest tests/backend -m integration",

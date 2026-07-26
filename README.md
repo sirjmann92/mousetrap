@@ -293,7 +293,18 @@ Then run the complete backend and frontend test gate with one command:
 
 The script runs the full backend pytest suite, then starts isolated Vite and FastAPI
 development servers for the Playwright suite using a temporary configuration
-directory.
+directory. It reports backend and frontend line and branch coverage separately;
+it does not calculate a cross-language aggregate.
+
+Detailed reports are written to:
+
+- `coverage/backend/html/index.html` for backend pytest coverage.
+- `frontend/coverage/index.html` for frontend Playwright E2E coverage.
+- `coverage/backend/coverage.xml` and `frontend/coverage/lcov.info` for external
+  reporting tools.
+
+GitHub Actions uploads both report directories as separate artifacts and publishes
+the backend and frontend percentages together in the coverage-summary job.
 
 To add the production-image smoke test, or run only that test:
 

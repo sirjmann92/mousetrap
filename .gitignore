@@ -25,6 +25,7 @@ compose.yaml*
 compose.yml*
 config.yaml*
 config/
+coverage/
 coverage.xml
 dist/
 docker-compose.yaml*
@@ -33,6 +34,8 @@ env.bak/
 env/
 favicon_io/
 frontend/.cache/
+frontend/.nyc_output/
+frontend/coverage/
 frontend/node_modules/
 frontend/playwright-report/
 frontend/test-results/

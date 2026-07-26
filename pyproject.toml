@@ -48,8 +48,11 @@ addopts = """
   --timeout=20
   --durations=10
   -o console_output_style=progress
+  --cov=backend
   --cov-report=term-missing
-  --cov-report=html
+  --cov-report=html:coverage/backend/html
+  --cov-report=json:coverage/backend/coverage-summary.json
+  --cov-report=xml:coverage/backend/coverage.xml
 """
 testpaths = ["tests/backend"]
 asyncio_mode = "auto"

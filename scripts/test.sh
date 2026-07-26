@@ -78,6 +78,8 @@ if [ "$RUN_DEVELOPMENT" = true ]; then
   echo "Running frontend end-to-end tests..."
   # Playwright's configuration starts and cleans up the isolated development servers.
   npm --prefix "$FRONTEND_DIR" run test:e2e
+
+  node "$SCRIPT_DIR/coverage-summary.mjs"
 fi
 
 if [ "$RUN_CONTAINER" = true ]; then
