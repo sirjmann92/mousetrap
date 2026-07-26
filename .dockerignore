@@ -50,7 +50,6 @@ images/
 # CI/CD and linting config (not needed in image)
 .github/
 prek.toml
-.nvmrc
 biome.json
 
 # Specific empty/stub files
@@ -58,7 +57,6 @@ backend/millionaires_vault.py
 backend/mam_vault_discovery.py
 
 # Backup and duplicate files
-*.bak
 *.backup
 *copy.jsx
 *Copy.jsx
