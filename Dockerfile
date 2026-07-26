@@ -5,7 +5,8 @@
 FROM --platform=$BUILDPLATFORM node:22.20.0-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
-RUN npm ci --silent
+RUN npm install --global npm@11 --no-fund \
+    && npm ci --silent --no-fund
 COPY frontend/ ./
 # Build the frontend using devDependencies (Vite and plugins).
 RUN npm run build
