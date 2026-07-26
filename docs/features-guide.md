@@ -482,6 +482,7 @@ services:
 - **REST API**: Full REST API available for external integrations
 - **Webhook endpoints**: Receive webhooks from external systems
 - **Event data**: Structured event data for monitoring systems
+- **Health checks**: Built-in health check endpoints for monitoring
 
 ### Custom Automations
 - **Trigger combinations**: Mix time and point triggers for sophisticated automation
