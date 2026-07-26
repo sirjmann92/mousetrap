@@ -61,6 +61,11 @@ parallel = false
 [tool.coverage.report]
 show_missing = true
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+
 [tool.mypy]
 python_version = "3.13"
 platform = "linux"
