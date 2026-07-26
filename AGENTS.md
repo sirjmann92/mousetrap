@@ -141,6 +141,13 @@ Python tests:
 .venv/bin/pytest tests/backend
 ```
 
+Complete local test gate:
+
+```bash
+./scripts/test.sh
+./scripts/test.sh --full  # Also build and test the production Docker image.
+```
+
 Docker build smoke check:
 
 ```bash

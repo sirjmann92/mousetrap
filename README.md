@@ -295,9 +295,17 @@ The script runs the full backend pytest suite, then starts isolated Vite and Fas
 development servers for the Playwright suite using a temporary configuration
 directory.
 
-The `test:e2e:container` command runs the production-image smoke scenarios against the
-URL supplied in `E2E_BASE_URL`. The GitHub Actions test workflow builds, seeds, restarts,
-and cleans up that container automatically.
+To add the production-image smoke test, or run only that test:
+
+```bash
+./scripts/test.sh --full
+./scripts/test.sh --container
+```
+
+The container test requires a running Docker daemon. It builds the production image,
+mounts temporary configuration, verifies persistence across a restart, runs the tagged
+Playwright scenario, captures failure diagnostics, and cleans up its container and image.
+The GitHub Actions test workflow uses the same container harness.
 
 ---
 

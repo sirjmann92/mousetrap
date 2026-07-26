@@ -130,89 +130,10 @@ jobs:
       - name: Install Chromium
         run: npm --prefix frontend exec -- playwright install --with-deps chromium
 
-      - name: Build test image
-        run: docker build --tag "$E2E_IMAGE_NAME" .
-
-      - name: Start test container
-        run: |
-          E2E_CONFIG_DIR="$RUNNER_TEMP/mousetrap-e2e-config"
-          mkdir -p "$E2E_CONFIG_DIR"
-          chmod 0777 "$E2E_CONFIG_DIR"
-          docker run --detach \
-            --name "$E2E_CONTAINER_NAME" \
-            --publish 127.0.0.1:39842:39842 \
-            --volume "$E2E_CONFIG_DIR:/config" \
-            "$E2E_IMAGE_NAME"
-
-      - name: Wait for container health
-        run: |
-          for _ in $(seq 1 60); do
-            if curl --fail --silent --show-error \
-              http://127.0.0.1:39842/api/version > /dev/null; then
-              exit 0
-            fi
-            if ! docker inspect \
-              --format '{{.State.Running}}' "$E2E_CONTAINER_NAME" \
-              | grep -qx true; then
-              docker logs "$E2E_CONTAINER_NAME"
-              exit 1
-            fi
-            sleep 2
-          done
-          docker logs "$E2E_CONTAINER_NAME"
-          exit 1
-
-      - name: Verify session persistence and restart container
-        run: |
-          curl --fail --silent --show-error \
-            --header 'Content-Type: application/json' \
-            --data '{"label":"container-smoke"}' \
-            http://127.0.0.1:39842/api/session/save
-          curl --fail --silent --show-error \
-            http://127.0.0.1:39842/api/session/container-smoke
-          test -s "$RUNNER_TEMP/mousetrap-e2e-config/session-container-smoke.yaml"
-          curl --fail --silent --show-error \
-            --request DELETE \
-            http://127.0.0.1:39842/api/session/delete/container-smoke
-          curl --fail --silent --show-error \
-            --header 'Content-Type: application/json' \
-            --data '{"label":"container-smoke-proxy","host":"127.0.0.1","port":8080}' \
-            http://127.0.0.1:39842/api/proxies
-          docker restart "$E2E_CONTAINER_NAME"
-          for _ in $(seq 1 60); do
-            if curl --fail --silent --show-error \
-              http://127.0.0.1:39842/api/version > /dev/null; then
-              exit 0
-            fi
-            if ! docker inspect \
-              --format '{{.State.Running}}' "$E2E_CONTAINER_NAME" \
-              | grep -qx true; then
-              docker logs "$E2E_CONTAINER_NAME"
-              exit 1
-            fi
-            sleep 2
-          done
-          docker logs "$E2E_CONTAINER_NAME"
-          exit 1
-
-      - name: Run container smoke tests
+      - name: Run production container smoke tests
         env:
-          E2E_BASE_URL: http://127.0.0.1:39842
-        run: |
-          set -o pipefail
-          npm run test:e2e:container 2>&1 | tee playwright-container.log
-
-      - name: Collect container diagnostics
-        if: failure()
-        run: |
-          mkdir -p container-diagnostics
-          docker ps -a \
-            --filter "name=^/${E2E_CONTAINER_NAME}$" \
-            > container-diagnostics/docker-ps.txt
-          docker inspect "$E2E_CONTAINER_NAME" \
-            > container-diagnostics/container-inspect.json || true
-          docker logs "$E2E_CONTAINER_NAME" \
-            > container-diagnostics/container.log 2>&1 || true
+          E2E_ARTIFACT_DIR: container-diagnostics
+        run: ./scripts/test-container.sh
 
       - name: Upload container failure diagnostics
         if: failure()
@@ -220,15 +141,8 @@ jobs:
         with:
           name: container-smoke-diagnostics
           path: |
-            playwright-container.log
             container-diagnostics/
             frontend/playwright-report/
             frontend/test-results/
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Clean up test containers
-        if: always()
-        run: |
-          docker rm --force "$E2E_CONTAINER_NAME" 2>/dev/null || true
-          docker image rm "$E2E_IMAGE_NAME" 2>/dev/null || true
