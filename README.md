@@ -277,56 +277,6 @@ cd mousetrap
 docker compose up --build -d
 ```
 
-### Run the Test Suites
-
-Install the backend and frontend dependencies, including Chromium, once:
-
-```bash
-./scripts/setup.sh
-```
-
-Then run the complete backend and frontend test gate with one command:
-
-```bash
-./scripts/test.sh
-```
-
-The script runs the full backend pytest suite, then starts isolated Vite and FastAPI
-development servers for the Playwright suite using a temporary configuration
-directory. It reports backend and frontend line and branch coverage separately;
-it does not calculate a cross-language aggregate.
-
-Detailed reports are written to:
-
-- `coverage/backend/html/index.html` for backend pytest coverage.
-- `frontend/coverage/index.html` for frontend Playwright E2E coverage.
-- `coverage/backend/coverage.xml` and `frontend/coverage/lcov.info` for external
-  reporting tools.
-
-GitHub Actions runs separate backend, development Playwright, Docker smoke, and
-coverage-summary jobs. It uploads the backend and frontend reports as separate
-artifacts; coverage remains separate by test surface rather than using a
-cross-language aggregate.
-
-For pull requests, the trusted coverage reporter runs after the test workflow
-finishes. It does not check out pull-request code. It creates one marked PR
-comment, updates that same comment on later runs, and removes duplicate marked
-comments if they exist. It reports `PASS`, `FAIL`, or `SKIPPED` for each test
-surface alongside separate backend and frontend coverage. The reporter becomes
-active only after its workflow file is present on the repository's default branch.
-
-To add the production-image smoke test, or run only that test:
-
-```bash
-./scripts/test.sh --full
-./scripts/test.sh --container
-```
-
-The container test requires a running Docker daemon. It builds the production image,
-mounts temporary configuration, verifies persistence across a restart, runs the tagged
-Playwright scenario, captures failure diagnostics, and cleans up its container and image.
-The GitHub Actions test workflow uses the same container harness.
-
 ---
 
 ## 🌐 VPN Integration
@@ -613,5 +563,39 @@ The `npm run dev` command uses `scripts/start-backend.sh`. That helper defaults 
   ```bash
   VITE_BACKEND_PORT=39843 npm run dev
   ```
+
+### Run the Test Suites
+
+Install the backend and frontend dependencies, including Chromium, once:
+
+```bash
+./scripts/setup.sh
+```
+
+Then run the complete backend and frontend test gate with one command:
+
+```bash
+./scripts/test.sh
+```
+
+The script runs the full backend pytest suite, then starts isolated Vite and FastAPI development servers for the Playwright suite using a temporary configuration directory. It reports backend and frontend line and branch coverage separately.
+
+To add the production-image smoke test, or run only that test:
+
+```bash
+./scripts/test.sh --full
+./scripts/test.sh --container
+```
+
+The container test requires a running Docker daemon. It builds the production image, mounts temporary configuration, verifies persistence across a restart, runs the tagged Playwright scenario, captures failure diagnostics, and cleans up its container and image.
+
+Detailed reports are written to:
+
+- `coverage/backend/html/index.html` for backend pytest coverage.
+- `frontend/coverage/index.html` for frontend Playwright E2E coverage.
+- `coverage/backend/coverage.xml` and `frontend/coverage/lcov.info` for external
+  reporting tools.
+
+The GitHub Actions test workflow uses the same container harness and runs separate backend, development Playwright, Docker smoke, and coverage-summary jobs. It uploads the backend and frontend reports as separate artifacts and will post the coverage to the PR.
 
 </details>
