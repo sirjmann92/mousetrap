@@ -14,7 +14,6 @@ backend/__pycache__/
 .venv/
 .e2e-tmp/
 coverage/
-htmlcov/
 venv/
 
 # Logs

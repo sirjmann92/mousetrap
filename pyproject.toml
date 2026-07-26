@@ -64,6 +64,7 @@ markers = [
 
 [tool.coverage.run]
 branch = true
+data_file = "coverage/backend/.coverage"
 relative_files = true
 parallel = false
 
