@@ -89,6 +89,18 @@ wait_for_health() {
   return 1
 }
 
+refresh_base_url() {
+  published_address="$(docker port "$CONTAINER_NAME" 39842/tcp)"
+  published_port="${published_address##*:}"
+  case "$published_port" in
+    "" | *[!0-9]*)
+      echo "Could not determine the container's published port: $published_address" >&2
+      return 1
+      ;;
+  esac
+  BASE_URL="http://127.0.0.1:$published_port"
+}
+
 trap cleanup 0 HUP INT TERM
 
 if [ "$#" -ne 0 ]; then
@@ -136,15 +148,7 @@ docker run --detach \
   "$IMAGE_NAME" >/dev/null
 CONTAINER_STARTED=true
 
-PUBLISHED_ADDRESS="$(docker port "$CONTAINER_NAME" 39842/tcp)"
-PUBLISHED_PORT="${PUBLISHED_ADDRESS##*:}"
-case "$PUBLISHED_PORT" in
-  "" | *[!0-9]*)
-    echo "Could not determine the container's published port: $PUBLISHED_ADDRESS" >&2
-    exit 1
-    ;;
-esac
-BASE_URL="http://127.0.0.1:$PUBLISHED_PORT"
+refresh_base_url
 
 echo "Waiting for the production API at $BASE_URL..."
 wait_for_health
@@ -165,6 +169,7 @@ curl --fail --silent --show-error \
   --data '{"label":"container-smoke-proxy","host":"127.0.0.1","port":8080}' \
   "$BASE_URL/api/proxies" >/dev/null
 docker restart "$CONTAINER_NAME" >/dev/null
+refresh_base_url
 wait_for_health
 
 echo "Running production container Playwright tests..."
