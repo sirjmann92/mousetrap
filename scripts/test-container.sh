@@ -85,8 +85,11 @@ cleanup() {
 
 wait_for_health() {
   attempts=0
-  while [ "$attempts" -lt 60 ]; do
-    if curl --connect-timeout 5 --max-time 15 --fail --silent \
+  max_attempts=20
+  request_timeout=5
+  retry_delay=1
+  while [ "$attempts" -lt "$max_attempts" ]; do
+    if curl --connect-timeout "$request_timeout" --max-time "$request_timeout" --fail --silent \
       "$BASE_URL/api/version" >/dev/null; then
       return 0
     fi
@@ -96,7 +99,9 @@ wait_for_health() {
       return 1
     fi
     attempts=$((attempts + 1))
-    sleep 2
+    if [ "$attempts" -lt "$max_attempts" ]; then
+      sleep "$retry_delay"
+    fi
   done
 
   echo "Timed out waiting for $BASE_URL/api/version" >&2

@@ -21,6 +21,9 @@ def test_lifespan_cleans_up_when_scheduler_initialization_fails(
     monkeypatch.setattr(app, "initialize_scheduler", fail_scheduler)
     monkeypatch.setattr(app, "scheduler", type("SchedulerStub", (), {"running": False})())
     monkeypatch.setattr(app.port_monitor_manager, "stop", lambda: events.append("monitor-stop"))
+    monkeypatch.setattr(
+        app, "request_automation_shutdown", lambda: events.append("automation-stop")
+    )
     monkeypatch.setattr(app, "close_connection", lambda: events.append("db-close"))
 
     async def run_lifespan() -> None:
@@ -29,7 +32,13 @@ def test_lifespan_cleans_up_when_scheduler_initialization_fails(
                 pytest.fail("startup failure must not yield")
 
     asyncio.run(run_lifespan())
-    assert events == ["monitor-start", "scheduler-start", "monitor-stop", "db-close"]
+    assert events == [
+        "monitor-start",
+        "scheduler-start",
+        "monitor-stop",
+        "automation-stop",
+        "db-close",
+    ]
 
 
 def test_lifespan_stops_monitor_before_waiting_for_scheduler(
@@ -56,6 +65,9 @@ def test_lifespan_stops_monitor_before_waiting_for_scheduler(
         )(),
     )
     monkeypatch.setattr(app.port_monitor_manager, "stop", lambda: events.append("monitor-stop"))
+    monkeypatch.setattr(
+        app, "request_automation_shutdown", lambda: events.append("automation-stop")
+    )
     monkeypatch.setattr(app, "close_connection", lambda: events.append("db-close"))
 
     async def run_lifespan() -> None:
@@ -68,6 +80,7 @@ def test_lifespan_stops_monitor_before_waiting_for_scheduler(
         "scheduler-start",
         "serving",
         "monitor-stop",
+        "automation-stop",
         "scheduler-stop:True",
         "db-close",
     ]

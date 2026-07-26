@@ -156,6 +156,102 @@ def test_start_does_not_replace_blocked_stopping_worker(
         original_thread.join(timeout=1)
 
 
+def test_shutdown_event_replacement_and_restart_registration_share_lock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Start cannot replace the shutdown event during restart registration."""
+    manager = port_monitor.PortMonitorStackManager()
+    registration_holds_lock = threading.Event()
+    release_registration = threading.Event()
+    registered = threading.Event()
+
+    class BlockingEvent:
+        def is_set(self) -> bool:
+            registration_holds_lock.set()
+            assert release_registration.wait(timeout=1)
+            return False
+
+    manager._shutdown_event = BlockingEvent()  # type: ignore[assignment]
+    monkeypatch.setattr(manager, "load_stacks", lambda: None)
+    monkeypatch.setattr(manager, "_run_monitor_loop", lambda: None)
+
+    async def register_restart() -> None:
+        task = manager._register_restart_task()
+        assert task is asyncio.current_task()
+        registered.set()
+        manager._unregister_restart_task(task)
+
+    registration_thread = threading.Thread(target=lambda: asyncio.run(register_restart()))
+    start_thread = threading.Thread(target=manager.start)
+    registration_thread.start()
+    assert registration_holds_lock.wait(timeout=1)
+    original_event = manager._shutdown_event
+    start_thread.start()
+    start_thread.join(timeout=0.05)
+    assert start_thread.is_alive()
+    assert manager._shutdown_event is original_event
+
+    release_registration.set()
+    registration_thread.join(timeout=1)
+    start_thread.join(timeout=1)
+
+    assert registered.is_set()
+    assert not registration_thread.is_alive()
+    assert not start_thread.is_alive()
+    assert manager._shutdown_event is not original_event
+
+
+def test_concurrent_stop_signals_worker_published_by_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stop cannot slip between shutdown-event reset and worker publication."""
+    manager = port_monitor.PortMonitorStackManager()
+    start_publishing = threading.Event()
+
+    class TrackingWorkerLock:
+        def __init__(self) -> None:
+            self._lock = threading.Lock()
+            self._start_acquisitions = 0
+
+        def __enter__(self) -> None:
+            self._lock.acquire()
+            if threading.current_thread().name == "start":
+                self._start_acquisitions += 1
+                if self._start_acquisitions == 2:
+                    start_publishing.set()
+
+        def __exit__(self, *_args: object) -> None:
+            self._lock.release()
+
+    manager._worker_lock = TrackingWorkerLock()  # type: ignore[assignment]
+    monkeypatch.setattr(manager, "load_stacks", lambda: None)
+
+    def wait_for_shutdown() -> None:
+        manager._shutdown_event.wait()
+
+    monkeypatch.setattr(manager, "_run_monitor_loop", wait_for_shutdown)
+
+    manager._restart_tasks_lock.acquire()
+    start_thread = threading.Thread(target=manager.start, name="start")
+    stop_thread = threading.Thread(target=manager.stop, name="stop")
+    try:
+        start_thread.start()
+        assert start_publishing.wait(timeout=1)
+        stop_thread.start()
+        stop_thread.join(timeout=0.05)
+        assert stop_thread.is_alive()
+    finally:
+        manager._restart_tasks_lock.release()
+        start_thread.join(timeout=1)
+        stop_thread.join(timeout=1)
+
+    assert not start_thread.is_alive()
+    assert not stop_thread.is_alive()
+    assert manager._shutdown_event.is_set()
+    assert not manager.running
+    assert manager.thread is None
+
+
 @pytest.mark.parametrize("shutdown_during_check", [False, True])
 def test_initial_checks_skip_state_and_save_after_shutdown(
     monkeypatch: pytest.MonkeyPatch, shutdown_during_check: bool

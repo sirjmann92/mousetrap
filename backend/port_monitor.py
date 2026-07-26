@@ -357,13 +357,13 @@ class PortMonitorStackManager:
         else:
             return True
 
-    def _register_restart_task(self, shutdown_event: threading.Event) -> asyncio.Task[Any] | None:
+    def _register_restart_task(self) -> asyncio.Task[Any] | None:
         """Register the current task unless its monitor run is already stopping."""
         task = asyncio.current_task()
         if task is None:
             raise RuntimeError("Stack restart requires an active asyncio task")
         with self._restart_tasks_lock:
-            if shutdown_event.is_set():
+            if self._shutdown_event.is_set():
                 return None
             self._restart_tasks.add(task)
         return task
@@ -393,7 +393,7 @@ class PortMonitorStackManager:
         """
         restart_task: asyncio.Task[Any] | None = None
         if cancel_on_shutdown:
-            restart_task = self._register_restart_task(self._shutdown_event)
+            restart_task = self._register_restart_task()
             if restart_task is None:
                 return False
 
@@ -755,7 +755,8 @@ class PortMonitorStackManager:
             )
             return
         with self._worker_lock:
-            self._shutdown_event = threading.Event()
+            with self._restart_tasks_lock:
+                self._shutdown_event = threading.Event()
             self.running = True
             self.thread = threading.Thread(target=self._run_monitor_loop, daemon=True)
             self.thread.start()
@@ -767,16 +768,17 @@ class PortMonitorStackManager:
         must not wait indefinitely. Any active restart coroutine is cancelled
         through its owning event loop before the monitor thread is joined.
         """
-        with self._restart_tasks_lock:
-            self._shutdown_event.set()
-            restart_tasks = tuple(self._restart_tasks)
+        with self._worker_lock:
+            with self._restart_tasks_lock:
+                self._shutdown_event.set()
+                restart_tasks = tuple(self._restart_tasks)
+            self.running = False
+            thread = self.thread
         for task in restart_tasks:
             try:
                 task.get_loop().call_soon_threadsafe(task.cancel)
             except RuntimeError:
                 _logger.debug("[PortMonitorStack] Restart task loop already closed")
-        self.running = False
-        thread = self.thread
         if thread:
             thread.join(timeout=PORT_MONITOR_STOP_TIMEOUT_SECONDS)
             if thread.is_alive():

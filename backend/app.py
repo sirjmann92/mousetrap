@@ -36,7 +36,11 @@ from backend.audiobookrequest_integration import (
     test_audiobookrequest_connection,
 )
 from backend.autobrr_integration import sync_mam_id_to_autobrr, test_autobrr_connection
-from backend.automation import run_all_automation_jobs
+from backend.automation import (
+    request_automation_shutdown,
+    reset_automation_shutdown,
+    run_all_automation_jobs,
+)
 from backend.chaptarr_integration import (
     find_mam_indexer_id as find_mam_indexer_id_chaptarr,
     sync_mam_id_to_chaptarr,
@@ -84,7 +88,6 @@ ASSETS_DIR = Path(FRONTEND_BUILD_DIR) / "assets"
 # Set up global logging configuration
 setup_logging()
 _logger: logging.Logger = logging.getLogger(__name__)
-AUTOMATION_JOB_TIMEOUT_SECONDS = 300
 
 
 @asynccontextmanager
@@ -96,6 +99,7 @@ async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         port_monitor_manager.stop()
+        request_automation_shutdown()
         if scheduler.running:
             scheduler.shutdown(wait=True)
         close_connection()
@@ -344,6 +348,7 @@ def start_port_monitor_manager() -> None:
 # Initialize APScheduler during FastAPI lifespan startup
 async def initialize_scheduler() -> None:
     """Initialize APScheduler and register all session jobs on startup."""
+    reset_automation_shutdown()
     reset_all_last_check_times()
     await run_initial_session_checks()
 
@@ -3069,22 +3074,12 @@ def sync_session_check_job(label: str) -> None:
 
 
 def sync_automation_jobs() -> None:
-    """Run aggregate automation from APScheduler with an overall timeout."""
+    """Run aggregate automation from APScheduler to cooperative completion."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    task = loop.create_task(run_all_automation_jobs())
     try:
-        loop.run_until_complete(asyncio.wait_for(task, timeout=AUTOMATION_JOB_TIMEOUT_SECONDS))
-    except TimeoutError:
-        task.cancel()
-        _logger.error(
-            "[APScheduler] Aggregate automation job timed out after %s seconds and was cancelled",
-            AUTOMATION_JOB_TIMEOUT_SECONDS,
-        )
+        loop.run_until_complete(run_all_automation_jobs())
     finally:
-        if not task.done():
-            task.cancel()
-            loop.run_until_complete(asyncio.gather(task, return_exceptions=True))
         loop.close()
 
 

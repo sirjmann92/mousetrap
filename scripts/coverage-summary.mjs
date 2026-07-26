@@ -10,6 +10,9 @@ function percentage(covered, total) {
   if (!Number.isFinite(covered) || !Number.isFinite(total)) {
     return '—';
   }
+  if (covered < 0 || total < 0 || covered > total) {
+    return '—';
+  }
   return total === 0 ? '—' : `${((covered / total) * 100).toFixed(1)}%`;
 }
 
