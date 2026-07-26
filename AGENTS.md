@@ -23,12 +23,8 @@ account management.
 - `frontend/`: React/Vite application.
 - `tests/`: Python pytest suite.
 - `docs/`: user and implementation documentation.
-- `scripts/start-backend.sh`: local-only FastAPI launcher used by
-  `npm run backend` and `npm run dev`; production containers use `start.sh`.
-- `scripts/setup.sh`: creates the Python virtual environment, installs Python
-  and frontend development dependencies, and installs the prek Git hook.
-- `scripts/lint.sh`: repository-wide lint, format, and type-check wrapper matching
-  the GitHub lint workflow.
+- `scripts/`: local setup, backend launch, lint, and dependency-maintenance
+  helpers; production containers use `start.sh`.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
   configuration.
@@ -125,16 +121,9 @@ For routine dependency maintenance, run:
 ./scripts/update-dependencies.sh
 ```
 
-When `.venv` exists, the update helper upgrades its Python `dev` dependency
-group and verifies it with `pip check`; otherwise it skips that step. It updates
-prek hooks through the project or global installation when available,
-updates frontend dependency declarations within their existing constraints,
-refreshes the exact Biome pin within its current major version, migrates
-`biome.json` when Biome changes, aligns the prek Biome hook, normalizes
-the lockfile, synchronizes `frontend/node_modules` with a clean install, and
-audits the resulting npm dependency tree. npm 11.16.0 or newer is required so
-the frontend's install-script policy is enforced. Review its configuration and
-lockfile changes before committing.
+The helper updates available Python and frontend development dependencies and
+keeps their generated tool configuration synchronized. Review configuration and
+lockfile changes, then run `./scripts/lint.sh` before committing.
 
 ## Validation Commands
 
@@ -150,43 +139,6 @@ Python tests:
 
 ```bash
 .venv/bin/pytest
-```
-
-Python lint and format:
-
-```bash
-.venv/bin/ruff check .
-.venv/bin/ruff format --check .
-```
-
-Python type checking:
-
-```bash
-.venv/bin/mypy backend tests
-```
-
-Frontend lint:
-
-```bash
-npm run lint
-```
-
-Frontend type check:
-
-```bash
-npm run tsc
-```
-
-Frontend production build:
-
-```bash
-npm run build
-```
-
-Prek hooks:
-
-```bash
-.venv/bin/prek run --all-files
 ```
 
 Docker build smoke check:
