@@ -83,11 +83,6 @@ cleanup() {
   exit "$status"
 }
 
-handle_signal() {
-  signal_status="$1"
-  exit "$signal_status"
-}
-
 wait_for_health() {
   attempts=0
   while [ "$attempts" -lt 60 ]; do
@@ -136,9 +131,9 @@ create_config_dir() {
 }
 
 trap cleanup 0
-trap 'handle_signal 129' HUP
-trap 'handle_signal 130' INT
-trap 'handle_signal 143' TERM
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if [ "$#" -ne 0 ]; then
   echo "Usage: ./scripts/test-container.sh" >&2
