@@ -526,7 +526,7 @@ services:
 Use the local development commands when changing the Python backend or React frontend.
 
 ```bash
-# Requires Python 3.13+, Node.js 22.20.0+, and npm 11+.
+# Requires Python 3.13+, Node.js 24.18.0+, and npm 11+.
 ./scripts/setup.sh
 
 # Start both the FastAPI backend and Vite frontend with live reload

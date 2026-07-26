@@ -2,11 +2,10 @@
 # Build on the builder's native platform so Node.js never runs under QEMU.
 # The output is pure static files (JS/CSS/HTML), so it can be copied into
 # images for any target architecture.
-FROM --platform=$BUILDPLATFORM node:22.20.0-alpine AS frontend-build
+FROM --platform=$BUILDPLATFORM node:krypton-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
-RUN npm install --global npm@11 --no-fund \
-    && npm ci --silent --no-fund
+RUN npm ci --silent --no-fund
 COPY frontend/ ./
 # Build the frontend using devDependencies (Vite and plugins).
 RUN npm run build

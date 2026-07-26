@@ -49,7 +49,7 @@ echo "Installing the prek Git hook..."
 "$VENV_PREK" install -f
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-  echo "Node.js 22.20.0 or newer and npm are required." >&2
+  echo "Node.js 24.18.0 or newer and npm are required." >&2
   exit 1
 fi
 
@@ -57,10 +57,10 @@ NODE_VERSION="$(node -p 'process.versions.node')"
 if ! node -e '
 const [major, minor, patch] = process.versions.node.split(".").map(Number);
 process.exit(
-  major > 22 || (major === 22 && (minor > 20 || (minor === 20 && patch >= 0))) ? 0 : 1,
+  major > 24 || (major === 24 && (minor > 18 || (minor === 18 && patch >= 0))) ? 0 : 1,
 );
 '; then
-  echo "Node.js 22.20.0 or newer is required; found $NODE_VERSION." >&2
+  echo "Node.js 24.18.0 or newer is required; found $NODE_VERSION." >&2
   exit 1
 fi
 

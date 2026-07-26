@@ -21,12 +21,9 @@ jobs:
       - name: Setup Node.js (for frontend linting)
         uses: actions/setup-node@v7
         with:
-          node-version: '22.20.0' # LTS
+          node-version: '24.18.0' # LTS
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Use npm 11
-        run: npm install --global npm@11 --no-fund
 
       - name: Install frontend dependencies
         working-directory: frontend

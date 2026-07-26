@@ -94,7 +94,7 @@ Set up both backend and frontend development environments:
 ./scripts/setup.sh
 ```
 
-The helper requires Python 3.13 or newer, Node.js 22.20.0 or newer, and npm 11
+The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm 11
 or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
 group, and runs `npm ci` against the frontend lockfile.
 
