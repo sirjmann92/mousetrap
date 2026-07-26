@@ -28,25 +28,14 @@ if [ ! -x "$VENV_PYTHON" ]; then
     echo "Python 3.13 or newer is required: $PYTHON" >&2
     exit 1
   fi
-
-  echo "Creating Python virtual environment at $VENV_DIR..."
-  "$PYTHON" -m venv "$VENV_DIR"
 fi
 
-if ! "$VENV_PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 13))'; then
+if [ -x "$VENV_PYTHON" ] &&
+  ! "$VENV_PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 13))'; then
   echo "The existing .venv uses Python older than 3.13." >&2
   echo "Recreate it with Python 3.13 or newer." >&2
   exit 1
 fi
-
-echo "Installing Python development dependencies..."
-"$VENV_PYTHON" -m pip install --upgrade "pip>=25.1"
-"$VENV_PYTHON" -m pip install --group dev
-
-# Install the repository-managed Git hook, replacing a pre-commit shim left by
-# an older checkout when necessary.
-echo "Installing the prek Git hook..."
-"$VENV_PREK" install -f
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Node.js 24.18.0 or newer and npm are required." >&2
@@ -79,6 +68,20 @@ process.exit(
   echo "Upgrade it with: npm install --global npm@^11.16.0 --no-fund" >&2
   exit 1
 fi
+
+if [ ! -x "$VENV_PYTHON" ]; then
+  echo "Creating Python virtual environment at $VENV_DIR..."
+  "$PYTHON" -m venv "$VENV_DIR"
+fi
+
+echo "Installing Python development dependencies..."
+"$VENV_PYTHON" -m pip install --upgrade "pip>=25.1"
+"$VENV_PYTHON" -m pip install --group dev
+
+# Install the repository-managed Git hook, replacing a pre-commit shim left by
+# an older checkout when necessary.
+echo "Installing the prek Git hook..."
+"$VENV_PREK" install -f
 
 echo "Installing locked frontend dependencies with Node.js $NODE_VERSION and npm $NPM_VERSION..."
 npm ci --prefix frontend --no-fund

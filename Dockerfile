@@ -4,7 +4,7 @@
 # images for any target architecture.
 FROM --platform=$BUILDPLATFORM node:krypton-alpine AS frontend-build
 WORKDIR /frontend
-COPY frontend/package*.json ./
+COPY frontend/package*.json frontend/.npmrc ./
 RUN npm ci --silent --no-fund
 COPY frontend/ ./
 # Build the frontend using devDependencies (Vite and plugins).
