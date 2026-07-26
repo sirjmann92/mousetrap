@@ -279,15 +279,11 @@ docker compose up --build -d
 
 ### Run the Test Suites
 
-Install the backend development requirements and frontend browser dependencies
-once:
+Install the backend and frontend dependencies, plus Chromium, once:
 
 ```bash
-./.venv/bin/python -m pip install -r requirements-dev.txt
-cd frontend
-npm ci
-npx playwright install chromium
-cd ..
+./scripts/setup.sh
+npm --prefix frontend run test:e2e:install
 ```
 
 Then run the complete backend and frontend test gate with one command:

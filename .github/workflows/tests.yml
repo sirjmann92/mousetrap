@@ -25,25 +25,17 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            requirements.txt
+          cache-dependency-path: pyproject.toml
 
       - name: Install backend test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install \
-            -r requirements.txt \
-            httpx \
-            pytest \
-            pytest-asyncio \
-            pytest-cov \
-            pytest-timeout
+          python -m pip install --group test
 
       - name: Run all backend tests
         run: |
           set -o pipefail
-          npm run test:backend:all -- --junitxml=junit.xml \
+          python -m pytest --junitxml=junit.xml \
             2>&1 | tee backend-tests.log
 
       - name: Upload backend failure diagnostics
@@ -72,27 +64,23 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: |
-            backend/requirements.txt
-            requirements.txt
+          cache-dependency-path: pyproject.toml
 
       - name: Install backend runtime dependencies
-        run: python -m pip install -r requirements.txt
+        run: python -m pip install --group test
 
-      - name: Set up Node.js 22.20
+      - name: Set up Node.js 24.18
         uses: actions/setup-node@v7
         with:
-          node-version: "22.20.0"
+          node-version: "24.18.0"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
+        run: npm ci --prefix frontend --strict-allow-scripts --no-fund
 
       - name: Install Chromium
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npm --prefix frontend exec -- playwright install --with-deps chromium
 
       - name: Run development end-to-end tests
         run: |
@@ -123,20 +111,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Set up Node.js 22.20
+      - name: Set up Node.js 24.18
         uses: actions/setup-node@v7
         with:
-          node-version: "22.20.0"
+          node-version: "24.18.0"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
+        run: npm ci --prefix frontend --strict-allow-scripts --no-fund
 
       - name: Install Chromium
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npm --prefix frontend exec -- playwright install --with-deps chromium
 
       - name: Build test image
         run: docker build --tag "$E2E_IMAGE_NAME" .

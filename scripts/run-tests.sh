@@ -15,7 +15,7 @@ FRONTEND_DIR="$REPO_ROOT/frontend"
 # Fail early with actionable setup instructions instead of partially running the gate.
 if [ ! -x "$VENV_PYTHON" ]; then
   echo "Missing repository virtual environment: $VENV_PYTHON" >&2
-  echo "Create .venv and install requirements-dev.txt before running tests." >&2
+  echo "Run ./scripts/setup.sh before running tests." >&2
   exit 1
 fi
 
@@ -25,7 +25,7 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
-  echo "Missing frontend dependencies. Run: cd frontend && npm ci" >&2
+  echo "Missing frontend dependencies. Run ./scripts/setup.sh before running tests." >&2
   exit 1
 fi
 

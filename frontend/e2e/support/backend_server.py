@@ -9,7 +9,8 @@ from typing import Any
 import uvicorn
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-app_module = importlib.import_module("backend.app")
+app_module: Any = importlib.import_module("backend.app")
+api_proxy_module: Any = importlib.import_module("backend.api_proxy")
 
 
 async def _public_ip(*_args: Any, **_kwargs: Any) -> str:
@@ -43,7 +44,7 @@ app_module.get_ipinfo_with_fallback = _ipinfo
 app_module.get_asn_and_timezone_from_ip = _asn
 app_module.get_mam_seen_ip_info = _mam_seen
 app_module.get_status = _mam_status
-importlib.import_module("backend.api_proxy").get_ipinfo_with_fallback = _ipinfo
+api_proxy_module.get_ipinfo_with_fallback = _ipinfo
 
 if __name__ == "__main__":
     uvicorn.run(
