@@ -33,18 +33,26 @@ const rows = [
   },
 ];
 
-const markdown = [
-  '## Coverage summary',
-  '',
-  '| Test surface | Lines | Branches |',
-  '| --- | ---: | ---: |',
-  ...rows.map((row) => `| ${row.source} | ${row.lines} | ${row.branches} |`),
-  '',
-  'Backend and frontend percentages are reported separately; no cross-language aggregate is calculated.',
-  '',
+const terminal = [
+  'Coverage summary',
+  'Test surface                 Lines  Branches',
+  '---------------------------  -----  --------',
+  ...rows.map(
+    (row) => `${row.source.padEnd(27)}  ${row.lines.padStart(5)}  ${row.branches.padStart(8)}`,
+  ),
 ].join('\n');
 
-console.log(`\n${markdown}`);
+console.log(`\n${terminal}`);
+
 if (process.env.GITHUB_STEP_SUMMARY) {
+  const markdown = [
+    '## Coverage summary',
+    '',
+    '| Test surface | Lines | Branches |',
+    '| --- | ---: | ---: |',
+    ...rows.map((row) => `| ${row.source} | ${row.lines} | ${row.branches} |`),
+    '',
+  ].join('\n');
+
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown);
 }
