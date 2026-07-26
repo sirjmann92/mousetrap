@@ -99,7 +99,10 @@ BIOME_VERSION_AFTER="$(
 )"
 if [ "$BIOME_VERSION_BEFORE" != "$BIOME_VERSION_AFTER" ]; then
   echo "Migrating Biome configuration from $BIOME_VERSION_BEFORE to $BIOME_VERSION_AFTER..."
-  npm --prefix frontend exec -- biome migrate --write
+  (
+    cd frontend
+    npm exec -- biome migrate --write
+  )
 else
   echo "Biome remains at $BIOME_VERSION_AFTER; skipping configuration migration."
 fi

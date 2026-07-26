@@ -45,7 +45,7 @@
     "vite-plugin-svgr": "^4.5.0"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true,
-    "fsevents@2.3.3": true
+    "esbuild": true,
+    "fsevents": true
   }
 }
