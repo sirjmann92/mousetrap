@@ -360,8 +360,13 @@ class PortMonitorStackManager:
         log, restarts the primary container and, if appropriate, restarts
         the secondary containers and rechecks the stack status.
         """
+        cancel_on_shutdown = self.running
+
         # Set status to 'Restarting...'
         stack.status = "Restarting..."
+
+        if cancel_on_shutdown and not self.running:
+            return
 
         # Log restart event
         append_ui_event_log(
@@ -385,17 +390,27 @@ class PortMonitorStackManager:
         )
 
         # Restart primary
+        if cancel_on_shutdown and not self.running:
+            return
         self.restart_container(stack.primary_container)
 
         # Wait for primary to be reachable (up to 60s), fallback to running status
         port_ok = False
         for _ in range(12):  # Wait up to 12*5=60s
+            if cancel_on_shutdown and not self.running:
+                return
             if self.check_port(stack.primary_container, stack.primary_port):
                 port_ok = True
                 break
+            if cancel_on_shutdown and not self.running:
+                return
             await asyncio.sleep(5)
+            if cancel_on_shutdown and not self.running:
+                return
 
         if not port_ok:
+            if cancel_on_shutdown and not self.running:
+                return
             # Check if container is running
             client = self.get_docker_client()
             running = False
@@ -407,6 +422,8 @@ class PortMonitorStackManager:
                     running = False
 
             if running:
+                if cancel_on_shutdown and not self.running:
+                    return
                 # Notify user: port unreachable, but container running, proceeding
                 append_ui_event_log(
                     {
@@ -423,6 +440,8 @@ class PortMonitorStackManager:
                         "level": "warning",
                     }
                 )
+                if cancel_on_shutdown and not self.running:
+                    return
                 await safe_notify_event(
                     event_type="port_monitor_failure",
                     label=stack.name,
@@ -430,7 +449,11 @@ class PortMonitorStackManager:
                     message=f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
                     details={},
                 )
+                if cancel_on_shutdown and not self.running:
+                    return
             else:
+                if cancel_on_shutdown and not self.running:
+                    return
                 # Notify user: container not running
                 append_ui_event_log(
                     {
@@ -447,6 +470,8 @@ class PortMonitorStackManager:
                         "level": "error",
                     }
                 )
+                if cancel_on_shutdown and not self.running:
+                    return
                 await safe_notify_event(
                     event_type="port_monitor_failure",
                     label=stack.name,
@@ -454,14 +479,20 @@ class PortMonitorStackManager:
                     message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
                     details={},
                 )
+                if cancel_on_shutdown and not self.running:
+                    return
                 self.recheck_stack(stack.name)
                 return  # Do not restart secondaries
 
         # Restart all secondaries
         for sec in stack.secondary_containers:
+            if cancel_on_shutdown and not self.running:
+                return
             self.restart_container(sec)
 
         # Immediately recheck status after restart (this will update status and log result)
+        if cancel_on_shutdown and not self.running:
+            return
         self.recheck_stack(stack.name)
 
     def add_stack(

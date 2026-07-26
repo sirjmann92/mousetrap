@@ -175,6 +175,10 @@ else
   CALLER_SUPPLIED_CONFIG_DIR=true
 fi
 if [ "$CALLER_SUPPLIED_CONFIG_DIR" = true ]; then
+  if [ -L "$CONFIG_DIR" ]; then
+    echo "E2E_CONFIG_DIR must not be a symbolic link; provide a real existing empty directory: $CONFIG_DIR" >&2
+    exit 1
+  fi
   if [ ! -d "$CONFIG_DIR" ]; then
     echo "E2E_CONFIG_DIR must be an existing empty directory: $CONFIG_DIR" >&2
     exit 1

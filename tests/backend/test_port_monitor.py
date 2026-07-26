@@ -229,6 +229,42 @@ def test_restart_rechecks_once_on_completion_paths(
     recheck.assert_called_once_with("x")
 
 
+def test_restart_stops_side_effects_when_shutdown_occurs_during_polling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shutdown during primary polling prevents all completion side effects."""
+    manager = port_monitor.PortMonitorStackManager()
+    manager.running = True
+    stack = port_monitor.PortMonitorStack("x", "primary", 80, ["secondary"])
+    manager.stacks = [stack]
+    restart_container = Mock(return_value=True)
+    check_port = Mock(return_value=False)
+    events = Mock()
+    notify = AsyncMock()
+    recheck = Mock(return_value=True)
+    save = Mock()
+
+    async def stop_during_wait(_delay: float) -> None:
+        manager.running = False
+
+    monkeypatch.setattr(manager, "restart_container", restart_container)
+    monkeypatch.setattr(manager, "check_port", check_port)
+    monkeypatch.setattr(manager, "recheck_stack", recheck)
+    monkeypatch.setattr(manager, "_save_stacks_best_effort", save)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", events)
+    monkeypatch.setattr(port_monitor, "safe_notify_event", notify)
+    monkeypatch.setattr(port_monitor.asyncio, "sleep", stop_during_wait)
+
+    asyncio.run(manager.restart_stack(stack))
+
+    restart_container.assert_called_once_with("primary")
+    check_port.assert_called_once_with("primary", 80)
+    events.assert_called_once()
+    notify.assert_not_awaited()
+    recheck.assert_not_called()
+    save.assert_not_called()
+
+
 @pytest.mark.parametrize("operation", ["add", "remove"])
 def test_config_mutation_rolls_back_on_save_failure(
     monkeypatch: pytest.MonkeyPatch, operation: str
