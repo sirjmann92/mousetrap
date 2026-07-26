@@ -12,7 +12,6 @@ CONTAINER_NAME="${E2E_CONTAINER_NAME:-mousetrap-e2e-$RUN_SUFFIX}"
 IMAGE_NAME="${E2E_IMAGE_NAME:-mousetrap-e2e:local-$RUN_SUFFIX}"
 ARTIFACT_DIR="${E2E_ARTIFACT_DIR:-$FRONTEND_DIR/test-results/container-diagnostics-$RUN_SUFFIX}"
 CONFIG_DIR="${E2E_CONFIG_DIR:-}"
-CALLER_SUPPLIED_CONFIG_DIR=false
 OWNS_CONFIG_DIR=false
 OWNS_TEMP_ROOT=false
 IMAGE_BUILT=false
@@ -172,9 +171,6 @@ if [ -z "$CONFIG_DIR" ]; then
   CONFIG_DIR="$(create_config_dir)"
   OWNS_CONFIG_DIR=true
 else
-  CALLER_SUPPLIED_CONFIG_DIR=true
-fi
-if [ "$CALLER_SUPPLIED_CONFIG_DIR" = true ]; then
   if [ -L "$CONFIG_DIR" ]; then
     echo "E2E_CONFIG_DIR must not be a symbolic link; provide a real existing empty directory: $CONFIG_DIR" >&2
     exit 1
