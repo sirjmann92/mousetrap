@@ -4,8 +4,8 @@ set -eu
 # Run the same repository-wide linting, formatting, and type checks as the
 # GitHub lint workflow. Hooks that support automatic fixes may modify files.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
 VENV_PREK="$REPO_ROOT/.venv/bin/prek"
 FRONTEND_TSC="$REPO_ROOT/frontend/node_modules/.bin/tsc"
 

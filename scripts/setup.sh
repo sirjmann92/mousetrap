@@ -4,8 +4,8 @@ set -eu
 # Create the local Python environment and install the locked frontend
 # dependencies required for development, linting, and tests.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
 VENV_DIR="$REPO_ROOT/.venv"
 VENV_PYTHON="$VENV_DIR/bin/python"
 VENV_PREK="$VENV_DIR/bin/prek"
@@ -83,8 +83,28 @@ echo "Installing Python development dependencies..."
 echo "Installing the prek Git hook..."
 "$VENV_PREK" install -f
 
+# Finder can leave .DS_Store files inside generated dependency directories.
+# npm ci removes installed packages before reinstalling them, but these
+# unmanaged files can leave a package scope non-empty and make npm fail with
+# ENOTEMPTY while pruning node_modules.
+if [ -d "$REPO_ROOT/frontend/node_modules" ]; then
+  find "$REPO_ROOT/frontend/node_modules" -type f -name .DS_Store -exec rm -f {} \;
+fi
+
 echo "Installing locked frontend dependencies with Node.js $NODE_VERSION and npm $NPM_VERSION..."
-npm ci --prefix frontend --strict-allow-scripts --no-fund
+if ! npm ci --prefix frontend --strict-allow-scripts --no-fund; then
+  # Finder may recreate .DS_Store while npm is pruning node_modules. Retry only
+  # when that exact condition caused the failed install; other npm errors
+  # should fail setup immediately.
+  if [ -d "$REPO_ROOT/frontend/node_modules" ] &&
+    [ -n "$(find "$REPO_ROOT/frontend/node_modules" -type f -name .DS_Store -print)" ]; then
+    echo "Removing macOS metadata recreated during npm cleanup and retrying..."
+    find "$REPO_ROOT/frontend/node_modules" -type f -name .DS_Store -exec rm -f {} \;
+    npm ci --prefix frontend --strict-allow-scripts --no-fund
+  else
+    exit 1
+  fi
+fi
 
 echo "Installing Playwright Chromium..."
 npm --prefix frontend run test:e2e:install

@@ -4,8 +4,8 @@ set -eu
 # Build and exercise the production Docker image through its public HTTP port.
 # The container, image, and temporary configuration directory are always cleaned up.
 
-SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
-REPO_ROOT="$(dirname -- "$SCRIPT_DIR")"
+SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 RUN_SUFFIX="${E2E_RUN_ID:-$$}"
 CONTAINER_NAME="${E2E_CONTAINER_NAME:-mousetrap-e2e-$RUN_SUFFIX}"
@@ -28,7 +28,7 @@ collect_failure_diagnostics() {
   fi
 
   docker ps -a \
-    --filter "name=^/${CONTAINER_NAME}$" \
+    --filter 'name=^/'"$CONTAINER_NAME"'$' \
     >"$ARTIFACT_DIR/docker-ps.txt" 2>&1 || true
   docker inspect "$CONTAINER_NAME" \
     >"$ARTIFACT_DIR/container-inspect.json" 2>&1 || true
@@ -59,7 +59,7 @@ cleanup() {
   if [ "$OWNS_CONFIG_DIR" = true ]; then
     case "$CONFIG_DIR" in
       "$TEMP_ROOT"/mousetrap-e2e-config.*)
-        rm -rf -- "$CONFIG_DIR"
+        rm -rf "$CONFIG_DIR"
         ;;
       *)
         echo "Refusing to remove unexpected temporary directory: $CONFIG_DIR" >&2
@@ -101,6 +101,21 @@ refresh_base_url() {
   BASE_URL="http://127.0.0.1:$published_port"
 }
 
+create_config_dir() {
+  temp_attempt=0
+  while [ "$temp_attempt" -lt 10 ]; do
+    temp_candidate="$TEMP_ROOT/mousetrap-e2e-config.$$.$temp_attempt"
+    if (umask 077 && mkdir "$temp_candidate") 2>/dev/null; then
+      printf '%s\n' "$temp_candidate"
+      return 0
+    fi
+    temp_attempt=$((temp_attempt + 1))
+  done
+
+  echo "Could not create a temporary configuration directory under $TEMP_ROOT." >&2
+  return 1
+}
+
 trap cleanup 0 HUP INT TERM
 
 if [ "$#" -ne 0 ]; then
@@ -130,7 +145,7 @@ fi
 CAPTURE_DIAGNOSTICS=true
 
 if [ -z "$CONFIG_DIR" ]; then
-  CONFIG_DIR="$(mktemp -d "$TEMP_ROOT/mousetrap-e2e-config.XXXXXX")"
+  CONFIG_DIR="$(create_config_dir)"
   OWNS_CONFIG_DIR=true
 fi
 chmod 0777 "$CONFIG_DIR"

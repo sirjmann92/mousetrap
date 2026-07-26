@@ -8,8 +8,8 @@ set -eu
 # With --full, also build and test the production Docker image.
 # With --container, run only the production Docker image smoke test.
 
-SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)"
-REPO_ROOT="$(dirname -- "$SCRIPT_DIR")"
+SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 RUN_DEVELOPMENT=true
