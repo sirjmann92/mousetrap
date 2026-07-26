@@ -39,22 +39,35 @@ else
   echo "Skipping prek hook updates because prek is not installed."
 fi
 
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm 11 or newer is required." >&2
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+  echo "Node.js 24.18.0 or newer and npm 11.16.0 or newer are required." >&2
+  exit 1
+fi
+
+NODE_VERSION="$(node -p 'process.versions.node')"
+if ! node -e '
+const [major, minor, patch] = process.versions.node.split(".").map(Number);
+process.exit(
+  major > 24 || (major === 24 && (minor > 18 || (minor === 18 && patch >= 0))) ? 0 : 1,
+);
+'; then
+  echo "Node.js 24.18.0 or newer is required; found $NODE_VERSION." >&2
   exit 1
 fi
 
 NPM_VERSION="$(npm --version)"
-NPM_MAJOR="${NPM_VERSION%%.*}"
-case "$NPM_MAJOR" in
-  ''|*[!0-9]*)
-    echo "Could not determine the npm major version from: $NPM_VERSION" >&2
-    exit 1
-    ;;
-esac
-if [ "$NPM_MAJOR" -lt 11 ]; then
-  echo "npm 11 or newer is required; found $NPM_VERSION." >&2
-  echo "Upgrade it with: npm install --global npm@11 --no-fund" >&2
+if ! NPM_VERSION="$NPM_VERSION" node -e '
+const version = process.env.NPM_VERSION;
+if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
+  process.exit(1);
+}
+const [major, minor, patch] = version.split(".").map(Number);
+process.exit(
+  major > 11 || (major === 11 && (minor > 16 || (minor === 16 && patch >= 0))) ? 0 : 1,
+);
+'; then
+  echo "npm 11.16.0 or newer is required; found $NPM_VERSION." >&2
+  echo "Upgrade it with: npm install --global npm@^11.16.0 --no-fund" >&2
   exit 1
 fi
 

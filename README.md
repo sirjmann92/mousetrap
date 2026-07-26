@@ -526,7 +526,7 @@ services:
 Use the local development commands when changing the Python backend or React frontend.
 
 ```bash
-# Requires Python 3.13+, Node.js 24.18.0+, and npm 11+.
+# Requires Python 3.13+, Node.js 24.18.0+, and npm 11.16.0+.
 ./scripts/setup.sh
 
 # Start both the FastAPI backend and Vite frontend with live reload
@@ -550,11 +550,11 @@ For routine dependency maintenance:
 ./scripts/lint.sh
 ```
 
-The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin, configuration schema, and prek hook aligned within the current Biome major version. It then normalizes the frontend lockfile, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
+The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin, configuration schema, and prek hook aligned within the current Biome major version. It then normalizes the frontend lockfile, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11.16.0 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
 
 Open the Vite URL printed by npm, normally `http://localhost:5173`. The backend runs on `http://localhost:39842`.
 
-The `npm run dev` command uses `scripts/start-backend.sh`. That helper stores local configuration, sessions, notifications, proxies, port-monitor state, and the SQLite event log under the repository's ignored `config/` directory instead of the production `/config` path.
+The `npm run dev` command uses `scripts/start-backend.sh`. That helper defaults local configuration, sessions, notifications, proxies, port-monitor state, and the SQLite event log to the repository's ignored `config/` directory. An explicit `CONFIG_DIR` or per-file path override takes precedence and can direct data anywhere, including production's `/config`; check overrides before running local commands.
 
 - Use `npm run backend` when only the FastAPI service is needed.
 - Set `CONFIG_DIR` to use a different local data directory.

@@ -107,7 +107,8 @@ id = "tsc"
 name = "tsc check"
 entry = "npm --prefix frontend run tsc"
 language = "system"
-types_or = ["ts", "tsx", "javascript", "jsx"]
+files = "^frontend/"
+types_or = ["ts", "tsx", "javascript", "json", "jsx"]
 pass_filenames = false
 
 [[repos]]

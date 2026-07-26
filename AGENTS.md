@@ -94,8 +94,8 @@ Set up both backend and frontend development environments:
 ./scripts/setup.sh
 ```
 
-The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm 11
-or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
+The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm
+11.16.0 or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
 group, and runs `npm ci` against the frontend lockfile.
 
 The root `package.json` forwards frontend commands into `frontend/`.
@@ -111,13 +111,13 @@ npm run dev
 ```
 
 The local backend helper defaults `CONFIG_DIR` to the repository's ignored
-`config/` directory so development never writes configuration, session state,
-notifications, proxies, port-monitor state, or the SQLite event log to
-production's `/config` path. Preserve explicit `CONFIG_DIR` and per-file path
-overrides when changing the helper. Use `VITE_BACKEND_PORT` to change the
-backend port for the combined `npm run dev` command; the helper also accepts
-`PORT` when starting only the backend. Do not use `scripts/start-backend.sh` as
-a production entrypoint.
+`config/` directory. An explicit `CONFIG_DIR` or per-file path override takes
+precedence and can direct configuration, session state, notifications, proxies,
+port-monitor state, and the SQLite event log anywhere, including production's
+`/config`; check overrides before running local commands. Use
+`VITE_BACKEND_PORT` to change the backend port for the combined `npm run dev`
+command; the helper also accepts `PORT` when starting only the backend. Do not
+use `scripts/start-backend.sh` as a production entrypoint.
 
 For routine dependency maintenance, run:
 
@@ -132,8 +132,8 @@ updates frontend dependency declarations within their existing constraints,
 refreshes the exact Biome pin within its current major version, migrates
 `frontend/biome.json` when Biome changes, aligns the prek Biome hook, normalizes
 the lockfile, synchronizes `frontend/node_modules` with a clean install, and
-audits the resulting npm dependency tree. npm 11 or newer is required so the
-frontend's install-script policy is enforced. Review its configuration and
+audits the resulting npm dependency tree. npm 11.16.0 or newer is required so
+the frontend's install-script policy is enforced. Review its configuration and
 lockfile changes before committing.
 
 ## Validation Commands
