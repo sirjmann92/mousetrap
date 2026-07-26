@@ -12,6 +12,7 @@ CONTAINER_NAME="${E2E_CONTAINER_NAME:-mousetrap-e2e-$RUN_SUFFIX}"
 IMAGE_NAME="${E2E_IMAGE_NAME:-mousetrap-e2e:local-$RUN_SUFFIX}"
 ARTIFACT_DIR="${E2E_ARTIFACT_DIR:-$FRONTEND_DIR/test-results/container-diagnostics-$RUN_SUFFIX}"
 CONFIG_DIR="${E2E_CONFIG_DIR:-}"
+CALLER_SUPPLIED_CONFIG_DIR=false
 OWNS_CONFIG_DIR=false
 OWNS_TEMP_ROOT=false
 IMAGE_BUILT=false
@@ -83,10 +84,16 @@ cleanup() {
   exit "$status"
 }
 
+handle_signal() {
+  signal_status="$1"
+  exit "$signal_status"
+}
+
 wait_for_health() {
   attempts=0
   while [ "$attempts" -lt 60 ]; do
-    if curl --fail --silent "$BASE_URL/api/version" >/dev/null; then
+    if curl --connect-timeout 5 --max-time 15 --fail --silent \
+      "$BASE_URL/api/version" >/dev/null; then
       return 0
     fi
     if ! docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null |
@@ -129,7 +136,10 @@ create_config_dir() {
   return 1
 }
 
-trap cleanup 0 HUP INT TERM
+trap cleanup 0
+trap 'handle_signal 129' HUP
+trap 'handle_signal 130' INT
+trap 'handle_signal 143' TERM
 
 if [ "$#" -ne 0 ]; then
   echo "Usage: ./scripts/test-container.sh" >&2
@@ -161,6 +171,22 @@ if [ -z "$CONFIG_DIR" ]; then
   mkdir -p "$TEMP_ROOT"
   CONFIG_DIR="$(create_config_dir)"
   OWNS_CONFIG_DIR=true
+else
+  CALLER_SUPPLIED_CONFIG_DIR=true
+fi
+if [ "$CALLER_SUPPLIED_CONFIG_DIR" = true ]; then
+  if [ ! -d "$CONFIG_DIR" ]; then
+    echo "E2E_CONFIG_DIR must be an existing empty directory: $CONFIG_DIR" >&2
+    exit 1
+  fi
+  if ! CONFIG_DIR_CONTENTS="$(find "$CONFIG_DIR" ! -path "$CONFIG_DIR" -print)"; then
+    echo "Could not verify that E2E_CONFIG_DIR is empty: $CONFIG_DIR" >&2
+    exit 1
+  fi
+  if [ -n "$CONFIG_DIR_CONTENTS" ]; then
+    echo "E2E_CONFIG_DIR must be empty; refusing to modify it: $CONFIG_DIR" >&2
+    exit 1
+  fi
 fi
 chmod 0777 "$CONFIG_DIR"
 PLAYWRIGHT_LOG="$CONFIG_DIR/playwright-container.log"
@@ -183,17 +209,17 @@ echo "Waiting for the production API at $BASE_URL..."
 wait_for_health
 
 echo "Verifying mounted configuration and container restart persistence..."
-curl --fail --silent --show-error \
+curl --connect-timeout 5 --max-time 30 --fail --silent --show-error \
   --header 'Content-Type: application/json' \
   --data '{"label":"container-smoke"}' \
   "$BASE_URL/api/session/save" >/dev/null
-curl --fail --silent --show-error \
+curl --connect-timeout 5 --max-time 30 --fail --silent --show-error \
   "$BASE_URL/api/session/container-smoke" >/dev/null
 test -s "$CONFIG_DIR/session-container-smoke.yaml"
-curl --fail --silent --show-error \
+curl --connect-timeout 5 --max-time 30 --fail --silent --show-error \
   --request DELETE \
   "$BASE_URL/api/session/delete/container-smoke" >/dev/null
-curl --fail --silent --show-error \
+curl --connect-timeout 5 --max-time 30 --fail --silent --show-error \
   --header 'Content-Type: application/json' \
   --data '{"label":"container-smoke-proxy","host":"127.0.0.1","port":8080}' \
   "$BASE_URL/api/proxies" >/dev/null

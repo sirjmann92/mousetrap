@@ -23,7 +23,7 @@
     "tsc": "tsc --noEmit",
     "test:e2e": "node e2e/support/run-development-tests.mjs",
     "test:e2e:container": "playwright test --grep @container",
-    "test:e2e:install": "playwright install chromium",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "backend": "cd .. && ./scripts/start-backend.sh",
     "dev": "concurrently \"npm:backend\" \"npm:start\" -k --names \"backend,frontend\" --prefix \"[{name}]\""
   },

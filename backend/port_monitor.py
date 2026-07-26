@@ -26,6 +26,7 @@ except ImportError:
     docker = None  # type: ignore[assignment]
 
 _logger: logging.Logger = logging.getLogger(__name__)
+PORT_MONITOR_STOP_TIMEOUT_SECONDS = 5.0
 PORT_MONITOR_CONFIG_PATH = Path(
     os.environ.get("PORT_MONITOR_CONFIG_PATH") or CONFIG_DIR / "port_monitoring_stacks.yaml"
 )
@@ -553,7 +554,11 @@ class PortMonitorStackManager:
         # Perform initial status checks immediately at startup
         _logger.info("[PortMonitorStack] Starting port monitoring with immediate initial checks...")
         for stack in self.stacks:
+            if not self.running:
+                return
             result = self.check_port(stack.primary_container, stack.primary_port)
+            if not self.running:
+                return
             stack.last_checked = time.time()
             stack.last_result = result
             stack.status = "OK" if result else "Failed"
@@ -579,6 +584,8 @@ class PortMonitorStackManager:
                     # Manual IP failure tracking logic
                     manual_ip = getattr(stack, "public_ip", None)
                     result = self.check_port(stack.primary_container, stack.primary_port)
+                    if not self.running:
+                        return
                     stack.last_checked = time.time()
                     stack.last_result = result
                     stack.status = "OK" if result else "Failed"
@@ -700,10 +707,22 @@ class PortMonitorStackManager:
             self.thread.start()
 
     def stop(self) -> None:
-        """Stop the background monitoring loop and join the thread."""
+        """Request worker shutdown and wait briefly for the daemon thread.
+
+        Docker operations can block independently of the manager, so shutdown
+        must not wait indefinitely. A late-returning port check observes the
+        cleared running flag before performing persistence side effects.
+        """
         self.running = False
-        if self.thread:
-            self.thread.join()
+        thread = self.thread
+        if thread:
+            thread.join(timeout=PORT_MONITOR_STOP_TIMEOUT_SECONDS)
+            if thread.is_alive():
+                _logger.warning(
+                    "[PortMonitorStack] Monitor thread did not stop within %.1f seconds; "
+                    "continuing shutdown",
+                    PORT_MONITOR_STOP_TIMEOUT_SECONDS,
+                )
 
 
 # Singleton instance

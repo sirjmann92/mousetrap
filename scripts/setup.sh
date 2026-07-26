@@ -92,11 +92,15 @@ if [ -d "$REPO_ROOT/frontend/node_modules" ]; then
 fi
 
 echo "Installing locked frontend dependencies with Node.js $NODE_VERSION and npm $NPM_VERSION..."
-if ! npm ci --prefix frontend --strict-allow-scripts --no-fund; then
+if NPM_CI_OUTPUT="$(npm ci --prefix frontend --strict-allow-scripts --no-fund 2>&1)"; then
+  printf '%s\n' "$NPM_CI_OUTPUT"
+else
+  printf '%s\n' "$NPM_CI_OUTPUT" >&2
   # Finder may recreate .DS_Store while npm is pruning node_modules. Retry only
   # when that exact condition caused the failed install; other npm errors
   # should fail setup immediately.
-  if [ -d "$REPO_ROOT/frontend/node_modules" ] &&
+  if printf '%s\n' "$NPM_CI_OUTPUT" | grep -q 'ENOTEMPTY' &&
+    [ -d "$REPO_ROOT/frontend/node_modules" ] &&
     [ -n "$(find "$REPO_ROOT/frontend/node_modules" -type f -name .DS_Store -print)" ]; then
     echo "Removing macOS metadata recreated during npm cleanup and retrying..."
     find "$REPO_ROOT/frontend/node_modules" -type f -name .DS_Store -exec rm -f {} \;

@@ -13,12 +13,15 @@ rmSync(rawCoverageDir, { force: true, recursive: true });
 rmSync(reportDir, { force: true, recursive: true });
 mkdirSync(rawCoverageDir, { recursive: true });
 
+const playwrightEnv = { ...process.env, VITE_COVERAGE: 'true' };
+delete playwrightEnv.E2E_BASE_URL;
+
 const playwrightResult = spawnSync(
   process.execPath,
   [playwrightCli, 'test', '--grep-invert', '@container'],
   {
     cwd: frontendDir,
-    env: { ...process.env, VITE_COVERAGE: 'true' },
+    env: playwrightEnv,
     stdio: 'inherit',
   },
 );

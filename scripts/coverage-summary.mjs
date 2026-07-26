@@ -7,6 +7,9 @@ const backendPath = resolve(repoRoot, 'coverage/backend/coverage-summary.json');
 const frontendPath = resolve(repoRoot, 'frontend/coverage/coverage-summary.json');
 
 function percentage(covered, total) {
+  if (!Number.isFinite(covered) || !Number.isFinite(total)) {
+    return '—';
+  }
   return total === 0 ? '—' : `${((covered / total) * 100).toFixed(1)}%`;
 }
 
@@ -18,7 +21,12 @@ function readJson(path, label) {
     console.error(`Missing ${label} coverage summary: ${path}`);
     process.exit(1);
   }
-  return JSON.parse(readFileSync(path, 'utf8'));
+  try {
+    return JSON.parse(readFileSync(path, 'utf8'));
+  } catch (error) {
+    console.error(`Invalid ${label} coverage summary JSON (${path}): ${error.message}`);
+    process.exit(1);
+  }
 }
 
 const backend = readJson(backendPath, 'backend');
@@ -32,19 +40,22 @@ const frontendCoverage = process.env.FRONTEND_TEST_STATUS
 const rows = [
   {
     branches: backendCoverage
-      ? percentage(backendCoverage.totals.covered_branches, backendCoverage.totals.num_branches)
+      ? percentage(backendCoverage.totals?.covered_branches, backendCoverage.totals?.num_branches)
       : '—',
     lines: backendCoverage
-      ? percentage(backendCoverage.totals.covered_lines, backendCoverage.totals.num_statements)
+      ? percentage(backendCoverage.totals?.covered_lines, backendCoverage.totals?.num_statements)
       : '—',
     source: 'Backend pytest',
   },
   {
     branches: frontendCoverage
-      ? percentage(frontendCoverage.total.branches.covered, frontendCoverage.total.branches.total)
+      ? percentage(
+          frontendCoverage.total?.branches?.covered,
+          frontendCoverage.total?.branches?.total,
+        )
       : '—',
     lines: frontendCoverage
-      ? percentage(frontendCoverage.total.lines.covered, frontendCoverage.total.lines.total)
+      ? percentage(frontendCoverage.total?.lines?.covered, frontendCoverage.total?.lines?.total)
       : '—',
     source: 'Frontend Playwright E2E',
   },

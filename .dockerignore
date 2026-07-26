@@ -16,6 +16,8 @@ backend/__pycache__/
 coverage/
 frontend/.nyc_output/
 frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
 htmlcov/
 venv/
 

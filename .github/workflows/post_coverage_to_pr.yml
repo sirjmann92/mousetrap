@@ -165,6 +165,18 @@ jobs:
             ].join('\n');
 
             const issue_number = pullRequests[0].number;
+            const associatedHeadSha = pullRequests[0].head.sha;
+            const currentPullRequest = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: issue_number,
+            });
+            if (currentPullRequest.data.head.sha !== associatedHeadSha) {
+              core.notice(
+                `Skipping coverage comment for outdated head ${associatedHeadSha}; ` +
+                  `pull request #${issue_number} is now at ${currentPullRequest.data.head.sha}.`,
+              );
+              return;
+            }
             const comments = await github.paginate(github.rest.issues.listComments, {
               ...context.repo,
               issue_number,

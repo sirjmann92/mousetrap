@@ -31,4 +31,6 @@ test('@container serves the production UI and preserves mounted configuration', 
 
   await page.reload();
   await expect(page.getByText('Create a new session to get started.')).toBeVisible();
+  await page.getByText('Proxy Configuration', { exact: true }).click();
+  await expect(page.getByText('Proxy: container-smoke-proxy', { exact: true })).toBeVisible();
 });

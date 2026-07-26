@@ -39,8 +39,8 @@ def isolated_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
         "PORT_MONITOR_CONFIG_PATH",
         tmp_path / "port_monitoring_stacks.yaml",
     )
-    port_monitor.port_monitor_manager.stacks = []
-    port_monitor.port_monitor_manager._config_loaded = True
+    monkeypatch.setattr(port_monitor.port_monitor_manager, "stacks", [])
+    monkeypatch.setattr(port_monitor.port_monitor_manager, "_config_loaded", True)
     yield tmp_path
     db.close_connection()
 

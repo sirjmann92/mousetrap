@@ -25,8 +25,8 @@ async def _asn(_ip: str, **_kwargs: Any) -> tuple[str, str]:
     return "AS64500", "UTC"
 
 
-async def _mam_seen(*_args: Any, **_kwargs: Any) -> dict[str, str]:
-    return {"AS": "TEST-NET", "ASN": "64500", "IP": "192.0.2.100"}
+async def _mam_seen(*_args: Any, **_kwargs: Any) -> dict[str, str | int]:
+    return {"AS": "TEST-NET", "ASN": 64500, "ip": "192.0.2.100"}
 
 
 async def _mam_status(*_args: Any, **_kwargs: Any) -> dict[str, Any]:

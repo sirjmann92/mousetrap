@@ -91,7 +91,7 @@ jobs:
         run: npm ci --prefix frontend --strict-allow-scripts --no-fund
 
       - name: Install Chromium
-        run: npm --prefix frontend exec -- playwright install --with-deps chromium
+        run: npm --prefix frontend run test:e2e:install
 
       - name: Run development end-to-end tests
         run: |
@@ -186,7 +186,7 @@ jobs:
         run: npm ci --prefix frontend --strict-allow-scripts --no-fund
 
       - name: Install Chromium
-        run: npm --prefix frontend exec -- playwright install --with-deps chromium
+        run: npm --prefix frontend run test:e2e:install
 
       - name: Run production container smoke tests
         env:

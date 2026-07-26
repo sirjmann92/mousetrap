@@ -89,13 +89,13 @@ _logger: logging.Logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """Start and stop application-owned background services and persistence."""
-    start_port_monitor_manager()
-    await initialize_scheduler()
     try:
+        start_port_monitor_manager()
+        await initialize_scheduler()
         yield
     finally:
         if scheduler.running:
-            scheduler.shutdown(wait=False)
+            scheduler.shutdown(wait=True)
         port_monitor_manager.stop()
         close_connection()
 

@@ -1,7 +1,9 @@
 """Focused backend port-monitor persistence tests."""
 
 import asyncio
+import logging
 from pathlib import Path
+import threading
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -95,6 +97,61 @@ def test_run_monitor_loop_logs_reraises_and_clears_running(
     monitor_loop.assert_awaited_once_with()
     assert not manager.running
     assert "Monitor loop terminated unexpectedly" in caplog.text
+
+
+def test_stop_bounds_join_for_blocked_worker(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A worker blocked in Docker cannot indefinitely block app shutdown."""
+    manager = port_monitor.PortMonitorStackManager()
+    manager.running = True
+    release_worker = threading.Event()
+    manager.thread = threading.Thread(target=release_worker.wait, daemon=True)
+    manager.thread.start()
+    monkeypatch.setattr(port_monitor, "PORT_MONITOR_STOP_TIMEOUT_SECONDS", 0.01)
+
+    try:
+        with caplog.at_level(logging.WARNING):
+            manager.stop()
+
+        assert not manager.running
+        assert manager.thread.is_alive()
+        assert "continuing shutdown" in caplog.text
+    finally:
+        release_worker.set()
+        manager.thread.join(timeout=1)
+
+
+@pytest.mark.parametrize("shutdown_during_check", [False, True])
+def test_initial_checks_skip_state_and_save_after_shutdown(
+    monkeypatch: pytest.MonkeyPatch, shutdown_during_check: bool
+) -> None:
+    """Shutdown before or during an initial check prevents late persistence."""
+    manager = port_monitor.PortMonitorStackManager()
+    manager.running = shutdown_during_check
+    stack = port_monitor.PortMonitorStack("x", "container", 80, [])
+    manager.stacks = [stack]
+    check_port = Mock(return_value=True)
+
+    if shutdown_during_check:
+
+        def check_then_stop(_container: str, _port: int) -> bool:
+            manager.running = False
+            return True
+
+        check_port.side_effect = check_then_stop
+
+    save = Mock()
+    monkeypatch.setattr(manager, "check_port", check_port)
+    monkeypatch.setattr(manager, "_save_stacks_best_effort", save)
+
+    asyncio.run(manager.monitor_loop())
+
+    assert check_port.call_count == int(shutdown_during_check)
+    assert stack.last_checked == 0.0
+    assert stack.last_result is False
+    assert stack.status == "Unknown"
+    save.assert_not_called()
 
 
 def test_notification_failure_does_not_block_restart_or_persistence(
