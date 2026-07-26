@@ -15,7 +15,7 @@ cd "$REPO_ROOT"
 # lockfile rather than downloading tools through npx.
 if ! command -v npm >/dev/null 2>&1 || [ ! -x "$FRONTEND_TSC" ]; then
   echo "Frontend dependencies are not installed. Run:" >&2
-  echo "  npm ci --prefix frontend --no-fund" >&2
+  echo "  npm ci --prefix frontend --strict-allow-scripts --no-fund" >&2
   exit 1
 fi
 

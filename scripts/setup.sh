@@ -84,7 +84,7 @@ echo "Installing the prek Git hook..."
 "$VENV_PREK" install -f
 
 echo "Installing locked frontend dependencies with Node.js $NODE_VERSION and npm $NPM_VERSION..."
-npm ci --prefix frontend --no-fund
+npm ci --prefix frontend --strict-allow-scripts --no-fund
 
 echo "Development environment setup complete."
 echo "Run ./scripts/lint.sh to validate it."

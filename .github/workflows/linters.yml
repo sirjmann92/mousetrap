@@ -27,7 +27,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci --no-fund
+        run: npm ci --strict-allow-scripts --no-fund
 
       - name: Run prek
         uses: j178/prek-action@v2

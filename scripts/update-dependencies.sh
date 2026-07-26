@@ -86,13 +86,13 @@ BIOME_MAJOR="$(
 )"
 
 echo "Updating frontend dependency declarations within package.json constraints..."
-npm --prefix frontend update --save --no-audit --no-fund
+npm --prefix frontend update --save --strict-allow-scripts --no-audit --no-fund
 
 # Biome is intentionally exact-pinned. Refresh it within its current major
 # release line, then migrate its configuration only when the version changes.
 echo "Updating Biome within major version $BIOME_MAJOR..."
 npm --prefix frontend install --save-dev --save-exact \
-  "@biomejs/biome@^$BIOME_MAJOR.0.0" --no-audit --no-fund
+  "@biomejs/biome@^$BIOME_MAJOR.0.0" --strict-allow-scripts --no-audit --no-fund
 
 BIOME_VERSION_AFTER="$(
   node -p "require('./frontend/package.json').devDependencies['@biomejs/biome']"
@@ -132,10 +132,11 @@ BIOME_TARGET_VERSION="$BIOME_VERSION_AFTER" node -e '
 # Re-resolve lockfile placement after npm update. This prevents optional peer
 # dependencies from leaving incompatible transitive packages hoisted at root.
 echo "Normalizing the frontend lockfile..."
-npm --prefix frontend install --package-lock-only --ignore-scripts --no-audit --no-fund
+npm --prefix frontend install --package-lock-only --ignore-scripts \
+  --strict-allow-scripts --no-audit --no-fund
 
 echo "Synchronizing the frontend environment with the normalized lockfile..."
-npm ci --prefix frontend --no-audit --no-fund
+npm ci --prefix frontend --strict-allow-scripts --no-audit --no-fund
 
 echo "Auditing the updated frontend dependency tree..."
 npm --prefix frontend audit --no-fund
