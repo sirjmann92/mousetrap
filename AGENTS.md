@@ -21,10 +21,13 @@ account management.
 - `backend/`: FastAPI app, integrations, automation logic, config/state helpers,
   notifications, proxy handling, event log, and port monitoring.
 - `frontend/`: React/Vite application.
-- `tests/backend/`: Python pytest suite.
+- `tests/backend/`: Python pytest suite, including integration and workflow coverage.
+- `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: local setup, backend launch, lint, and dependency-maintenance
-  helpers; production containers use `start.sh`.
+- `scripts/`: setup, test-gate, container-smoke, coverage-summary, lint, backend
+  launch, and dependency-maintenance helpers; production containers use `start.sh`.
+- `.github/workflows/`: backend, development Playwright, Docker smoke, and
+  coverage-reporting workflows.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
   configuration.
@@ -144,9 +147,13 @@ Python tests:
 Complete local test gate:
 
 ```bash
-./scripts/test.sh
-./scripts/test.sh --full  # Also build and test the production Docker image.
+./scripts/test.sh              # Backend pytest plus development Playwright E2E.
+./scripts/test.sh --full       # Default gate plus production container smoke test.
+./scripts/test.sh --container  # Production container smoke test only.
 ```
+
+The default and `--full` modes write coverage separately to `coverage/backend/`
+for backend pytest and `frontend/coverage/` for Playwright E2E.
 
 Docker build smoke check:
 
@@ -156,11 +163,13 @@ docker build -t mousetrap:local .
 
 ## Testing Expectations
 
-- Add or update pytest coverage for changed backend behavior.
-- Use focused tests for bug fixes, especially around persistence, recovery,
-  automation rules, and API response behavior.
-- For frontend changes, at minimum run lint and TypeScript checks. Add component
-  or integration tests if the repository gains a frontend test harness.
+- Add or update pytest integration or workflow coverage for changed backend behavior,
+  especially around persistence, recovery, automation rules, and API responses.
+- Add or update Playwright E2E coverage for frontend behavior changes. Prefer
+  accessible role and label locators; use a minimal `data-testid` only when no
+  stable semantic locator exists.
+- Add container smoke coverage for production-image, startup, or persistence changes.
+- For frontend changes, at minimum run lint and TypeScript checks.
 - If a validation command cannot be run, note the exact reason in the handoff.
 
 ## Security and Privacy

@@ -303,8 +303,17 @@ Detailed reports are written to:
 - `coverage/backend/coverage.xml` and `frontend/coverage/lcov.info` for external
   reporting tools.
 
-GitHub Actions uploads both report directories as separate artifacts and publishes
-the backend and frontend percentages together in the coverage-summary job.
+GitHub Actions runs separate backend, development Playwright, Docker smoke, and
+coverage-summary jobs. It uploads the backend and frontend reports as separate
+artifacts; coverage remains separate by test surface rather than using a
+cross-language aggregate.
+
+For pull requests, the trusted coverage reporter runs after the test workflow
+finishes. It does not check out pull-request code. It creates one marked PR
+comment, updates that same comment on later runs, and removes duplicate marked
+comments if they exist. It reports `PASS`, `FAIL`, or `SKIPPED` for each test
+surface alongside separate backend and frontend coverage. The reporter becomes
+active only after its workflow file is present on the repository's default branch.
 
 To add the production-image smoke test, or run only that test:
 
