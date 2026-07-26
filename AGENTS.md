@@ -153,7 +153,7 @@ Complete local test gate:
 ```
 
 The default and `--full` modes write coverage separately to `coverage/backend/`
-for backend pytest and `frontend/coverage/` for Playwright E2E.
+for backend pytest and `coverage/frontend/` for Playwright E2E.
 
 Docker build smoke check:
 

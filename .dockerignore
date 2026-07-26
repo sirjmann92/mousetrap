@@ -15,7 +15,6 @@ backend/__pycache__/
 .e2e-tmp/
 coverage/
 frontend/.nyc_output/
-frontend/coverage/
 frontend/playwright-report/
 frontend/test-results/
 htmlcov/

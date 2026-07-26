@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const backendPath = resolve(repoRoot, 'coverage/backend/coverage-summary.json');
-const frontendPath = resolve(repoRoot, 'frontend/coverage/coverage-summary.json');
+const frontendPath = resolve(repoRoot, 'coverage/frontend/coverage-summary.json');
 
 function percentage(covered, total) {
   if (!Number.isFinite(covered) || !Number.isFinite(total)) {

@@ -4,8 +4,9 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const repoRoot = resolve(frontendDir, '..');
 const rawCoverageDir = resolve(frontendDir, '.nyc_output');
-const reportDir = resolve(frontendDir, 'coverage');
+const reportDir = resolve(repoRoot, 'coverage/frontend');
 const playwrightCli = resolve(frontendDir, 'node_modules/@playwright/test/cli.js');
 const reportScript = resolve(frontendDir, 'e2e/support/report-coverage.mjs');
 

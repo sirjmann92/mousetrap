@@ -592,8 +592,8 @@ The container test requires a running Docker daemon. It builds the production im
 Detailed reports are written to:
 
 - `coverage/backend/html/index.html` for backend pytest coverage.
-- `frontend/coverage/index.html` for frontend Playwright E2E coverage.
-- `coverage/backend/coverage.xml` and `frontend/coverage/lcov.info` for external
+- `coverage/frontend/index.html` for frontend Playwright E2E coverage.
+- `coverage/backend/coverage.xml` and `coverage/frontend/lcov.info` for external
   reporting tools.
 
 The GitHub Actions test workflow uses the same container harness and runs separate backend, development Playwright, Docker smoke, and coverage-summary jobs. It uploads the backend and frontend reports as separate artifacts and will post the coverage to the PR.

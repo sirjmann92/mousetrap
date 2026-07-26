@@ -103,7 +103,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: frontend-coverage
-          path: frontend/coverage/
+          path: coverage/frontend/
           if-no-files-found: ignore
           retention-days: 14
 
@@ -150,7 +150,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: frontend-coverage
-          path: frontend/coverage
+          path: coverage/frontend
 
       - name: Publish separate backend and frontend coverage
         env:
