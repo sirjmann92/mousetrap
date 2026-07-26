@@ -279,17 +279,16 @@ docker compose up --build -d
 
 ### Run the Test Suites
 
-Install the backend and frontend dependencies, plus Chromium, once:
+Install the backend and frontend dependencies, including Chromium, once:
 
 ```bash
 ./scripts/setup.sh
-npm --prefix frontend run test:e2e:install
 ```
 
 Then run the complete backend and frontend test gate with one command:
 
 ```bash
-./scripts/run-tests.sh
+./scripts/test.sh
 ```
 
 The script runs the full pytest suite, then starts isolated Vite and FastAPI

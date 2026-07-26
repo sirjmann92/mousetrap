@@ -86,5 +86,8 @@ echo "Installing the prek Git hook..."
 echo "Installing locked frontend dependencies with Node.js $NODE_VERSION and npm $NPM_VERSION..."
 npm ci --prefix frontend --strict-allow-scripts --no-fund
 
+echo "Installing Playwright Chromium..."
+npm --prefix frontend run test:e2e:install
+
 echo "Development environment setup complete."
 echo "Run ./scripts/lint.sh to validate it."
