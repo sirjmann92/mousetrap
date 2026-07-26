@@ -11,14 +11,24 @@ RUN_SUFFIX="${E2E_RUN_ID:-$$}"
 CONTAINER_NAME="${E2E_CONTAINER_NAME:-mousetrap-e2e-$RUN_SUFFIX}"
 IMAGE_NAME="${E2E_IMAGE_NAME:-mousetrap-e2e:local-$RUN_SUFFIX}"
 ARTIFACT_DIR="${E2E_ARTIFACT_DIR:-$FRONTEND_DIR/test-results/container-diagnostics-$RUN_SUFFIX}"
-TEMP_ROOT="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 CONFIG_DIR="${E2E_CONFIG_DIR:-}"
 OWNS_CONFIG_DIR=false
+OWNS_TEMP_ROOT=false
 IMAGE_BUILT=false
 CONTAINER_STARTED=false
 PLAYWRIGHT_LOG=""
 BASE_URL=""
 CAPTURE_DIAGNOSTICS=false
+
+if [ -n "${RUNNER_TEMP:-}" ]; then
+  TEMP_ROOT="$RUNNER_TEMP"
+else
+  # Colima and Docker Desktop reliably share the checked-out repository, while
+  # macOS system temporary directories such as /var/folders may exist only on
+  # the host and resolve to a different path inside the Docker VM.
+  TEMP_ROOT="$REPO_ROOT/.e2e-tmp"
+  OWNS_TEMP_ROOT=true
+fi
 
 collect_failure_diagnostics() {
   mkdir -p "$ARTIFACT_DIR"
@@ -66,6 +76,9 @@ cleanup() {
         ;;
     esac
   fi
+  if [ "$OWNS_TEMP_ROOT" = true ]; then
+    rmdir "$TEMP_ROOT" 2>/dev/null || true
+  fi
 
   exit "$status"
 }
@@ -73,7 +86,7 @@ cleanup() {
 wait_for_health() {
   attempts=0
   while [ "$attempts" -lt 60 ]; do
-    if curl --fail --silent --show-error "$BASE_URL/api/version" >/dev/null; then
+    if curl --fail --silent "$BASE_URL/api/version" >/dev/null; then
       return 0
     fi
     if ! docker inspect --format '{{.State.Running}}' "$CONTAINER_NAME" 2>/dev/null |
@@ -145,6 +158,7 @@ fi
 CAPTURE_DIAGNOSTICS=true
 
 if [ -z "$CONFIG_DIR" ]; then
+  mkdir -p "$TEMP_ROOT"
   CONFIG_DIR="$(create_config_dir)"
   OWNS_CONFIG_DIR=true
 fi

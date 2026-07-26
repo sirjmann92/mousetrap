@@ -12,6 +12,7 @@ backend/__pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.e2e-tmp/
 coverage/
 frontend/.nyc_output/
 frontend/coverage/
