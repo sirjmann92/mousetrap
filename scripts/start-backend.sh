@@ -49,7 +49,7 @@ fi
 if ! "$PYTHON" -c "import uvicorn" >/dev/null 2>&1; then
   echo "Uvicorn is not installed for $PYTHON." >&2
   echo "Create the development environment with:" >&2
-  echo "  python3.13 -m venv .venv" >&2
+  echo "  python3 -m venv .venv" >&2
   echo "  .venv/bin/python -m pip install --upgrade 'pip>=25.1'" >&2
   echo "  .venv/bin/python -m pip install --group dev" >&2
   exit 1

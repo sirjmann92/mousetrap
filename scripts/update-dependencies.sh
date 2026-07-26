@@ -45,7 +45,7 @@ if [ -x "$VENV_PYTHON" ]; then
 elif command -v python3 >/dev/null 2>&1; then
   python3 scripts/sync-mypy-hook-dependencies.py
 else
-  echo "Python 3.11 or newer is required to synchronize mypy hook dependencies." >&2
+  echo "Python 3 is required to synchronize mypy hook dependencies." >&2
   exit 1
 fi
 
