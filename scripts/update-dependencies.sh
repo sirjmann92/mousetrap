@@ -33,7 +33,8 @@ fi
 
 if [ -n "$PREK" ]; then
   echo "Updating prek hook revisions..."
-  "$PREK" update
+  # Biome is synchronized with the npm package after frontend updates.
+  "$PREK" update --exclude-repo https://github.com/biomejs/pre-commit
 else
   echo "Skipping prek hook updates because prek is not installed."
 fi
@@ -57,8 +58,62 @@ if [ "$NPM_MAJOR" -lt 11 ]; then
   exit 1
 fi
 
-echo "Updating frontend dependencies within package.json constraints..."
-npm --prefix frontend update --no-audit --no-fund
+BIOME_VERSION_BEFORE="$(
+  node -p "require('./frontend/package.json').devDependencies['@biomejs/biome']"
+)"
+BIOME_MAJOR="$(
+  BIOME_VERSION="$BIOME_VERSION_BEFORE" node -e '
+    const version = process.env.BIOME_VERSION;
+    if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(version)) {
+      console.error("Expected an exact @biomejs/biome version; found " + version + ".");
+      process.exit(1);
+    }
+    process.stdout.write(version.split(".")[0]);
+  '
+)"
+
+echo "Updating frontend dependency declarations within package.json constraints..."
+npm --prefix frontend update --save --no-audit --no-fund
+
+# Biome is intentionally exact-pinned. Refresh it within its current major
+# release line, then migrate its configuration only when the version changes.
+echo "Updating Biome within major version $BIOME_MAJOR..."
+npm --prefix frontend install --save-dev --save-exact \
+  "@biomejs/biome@^$BIOME_MAJOR.0.0" --no-audit --no-fund
+
+BIOME_VERSION_AFTER="$(
+  node -p "require('./frontend/package.json').devDependencies['@biomejs/biome']"
+)"
+if [ "$BIOME_VERSION_BEFORE" != "$BIOME_VERSION_AFTER" ]; then
+  echo "Migrating Biome configuration from $BIOME_VERSION_BEFORE to $BIOME_VERSION_AFTER..."
+  npm --prefix frontend exec -- biome migrate --write
+else
+  echo "Biome remains at $BIOME_VERSION_AFTER; skipping configuration migration."
+fi
+
+# The prek hook publishes matching Biome release tags. Keep it aligned even
+# when prek is unavailable and the other hook revisions could not be updated.
+BIOME_TARGET_VERSION="$BIOME_VERSION_AFTER" node -e '
+  const fs = require("node:fs");
+  const configPath = "prek.toml";
+  const input = fs.readFileSync(configPath, "utf8");
+  const pattern =
+    /(repo = "https:\/\/github\.com\/biomejs\/pre-commit"\nrev = ")[^"]+(")/g;
+  let replacements = 0;
+  const output = input.replace(pattern, (_match, prefix, suffix) => {
+    replacements += 1;
+    return prefix + "v" + process.env.BIOME_TARGET_VERSION + suffix;
+  });
+  if (replacements !== 1) {
+    console.error(
+      "Expected one Biome repository in " + configPath + "; found " + replacements + ".",
+    );
+    process.exit(1);
+  }
+  if (output !== input) {
+    fs.writeFileSync(configPath, output);
+  }
+'
 
 # Re-resolve lockfile placement after npm update. This prevents optional peer
 # dependencies from leaving incompatible transitive packages hoisted at root.

@@ -550,7 +550,7 @@ For routine dependency maintenance:
 ./scripts/lint.sh
 ```
 
-The dependency helper updates available prek hooks and frontend dependencies, normalizes the frontend lockfile, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
+The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin, configuration schema, and prek hook aligned within the current Biome major version. It then normalizes the frontend lockfile, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
 
 Open the Vite URL printed by npm, normally `http://localhost:5173`. The backend runs on `http://localhost:39842`.
 
