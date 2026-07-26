@@ -113,7 +113,7 @@ if [ "$RUN_DEVELOPMENT" = true ]; then
 fi
 
 echo
-echo "Test summary"
+echo "=============================== Final Test Summary ==============================="
 echo "Test surface                 Result"
 echo "---------------------------  ------"
 if [ "$RUN_DEVELOPMENT" = true ]; then

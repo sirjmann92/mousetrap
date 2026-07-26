@@ -65,7 +65,7 @@ const testRows = [
 ].filter((row) => row.result);
 
 const terminal = [
-  'Coverage summary',
+  '=============================== Final Coverage Summary ===============================',
   'Test surface                 Lines  Branches',
   '---------------------------  -----  --------',
   ...rows.map(
