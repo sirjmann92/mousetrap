@@ -104,7 +104,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
     proxy_cfg : dict or None
         Optional proxy configuration passed to backend.utils.build_proxy_dict; used for outgoing HTTP requests.
 
-    Returns
+    Returns:
     -------
     dict
         A dictionary with keys:
@@ -115,7 +115,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
             - message: present when there is an error or missing mam_id.
             - raw: the raw JSON response when successful.
 
-    Notes
+    Notes:
     -----
     Network and JSON parsing exceptions are caught and returned as a message in the result dict rather than
     being raised to the caller.
@@ -232,7 +232,7 @@ def dummy_purchase(item: Any) -> dict[str, Any]:
     item : Any
         Identifier or description of the item to "purchase".
 
-    Returns
+    Returns:
     -------
     dict
         A dictionary describing the simulated purchase with keys:

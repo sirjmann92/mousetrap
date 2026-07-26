@@ -53,7 +53,7 @@ account management.
 - Add type annotations to new or changed Python functions and methods.
 - Keep imports at the top of files and rely on existing module boundaries before
   adding new abstractions.
-- Add or update docstrings for all files, classes and methods, including private methods and nested methods. Method docstrings must follow the Google Style.  
+- Add or update docstrings for all files, classes and methods, including private methods and nested methods. Method docstrings must follow the Google Style.
 - Prefer `pathlib.Path` for filesystem work.
 - For YAML-backed configuration or state, preserve existing fields when possible
   and handle missing, empty, or malformed files gracefully.
