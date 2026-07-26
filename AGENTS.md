@@ -130,7 +130,7 @@ group and verifies it with `pip check`; otherwise it skips that step. It updates
 prek hooks through the project or global installation when available,
 updates frontend dependency declarations within their existing constraints,
 refreshes the exact Biome pin within its current major version, migrates
-`frontend/biome.json` when Biome changes, aligns the prek Biome hook, normalizes
+`biome.json` when Biome changes, aligns the prek Biome hook, normalizes
 the lockfile, synchronizes `frontend/node_modules` with a clean install, and
 audits the resulting npm dependency tree. npm 11.16.0 or newer is required so
 the frontend's install-script policy is enforced. Review its configuration and

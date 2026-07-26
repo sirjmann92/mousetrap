@@ -110,7 +110,6 @@ BIOME_VERSION_AFTER="$(
 if [ "$BIOME_VERSION_BEFORE" != "$BIOME_VERSION_AFTER" ]; then
   echo "Migrating Biome configuration from $BIOME_VERSION_BEFORE to $BIOME_VERSION_AFTER..."
   frontend/node_modules/.bin/biome migrate --write --config-path biome.json
-  frontend/node_modules/.bin/biome migrate --write --config-path frontend/biome.json
 else
   echo "Biome remains at $BIOME_VERSION_AFTER; skipping configuration migration."
 fi

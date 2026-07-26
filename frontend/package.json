@@ -18,8 +18,8 @@
     "start": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "lint": "biome check . --config-path=./biome.json",
-    "lint:fix": "biome check . --write --config-path=./biome.json",
+    "lint": "biome check . --config-path=../biome.json --vcs-root=..",
+    "lint:fix": "biome check . --write --config-path=../biome.json --vcs-root=..",
     "tsc": "tsc --noEmit",
     "backend": "cd .. && ./scripts/start-backend.sh",
     "dev": "concurrently \"npm:backend\" \"npm:start\" -k --names \"backend,frontend\" --prefix \"[{name}]\""
