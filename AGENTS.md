@@ -53,6 +53,7 @@ account management.
 - Add type annotations to new or changed Python functions and methods.
 - Keep imports at the top of files and rely on existing module boundaries before
   adding new abstractions.
+- Add or update docstrings for all files, classes and methods, including private methods and nested methods. Method docstrings must follow the Google Style.  
 - Prefer `pathlib.Path` for filesystem work.
 - For YAML-backed configuration or state, preserve existing fields when possible
   and handle missing, empty, or malformed files gracefully.
@@ -138,12 +139,6 @@ formatting changes, so review the working tree afterward.
 ./scripts/lint.sh
 ```
 
-Python tests:
-
-```bash
-.venv/bin/pytest tests/backend
-```
-
 Complete local test gate:
 
 ```bash
@@ -154,12 +149,6 @@ Complete local test gate:
 
 The default and `--full` modes write coverage separately to `coverage/backend/`
 for backend pytest and `coverage/frontend/` for Playwright E2E.
-
-Docker build smoke check:
-
-```bash
-docker build -t mousetrap:local .
-```
 
 ## Testing Expectations
 

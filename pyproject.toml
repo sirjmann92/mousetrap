@@ -113,7 +113,7 @@ indent-width = 4
 fix = true
 force-exclude = true
 target-version = "py313"
-required-version = ">=0.8.0"
+required-version = ">=0.15.0"
 
 [tool.ruff.format]
 quote-style = "double"
@@ -313,4 +313,4 @@ split-on-trailing-comma = false
 max-complexity = 25
 
 [tool.ruff.lint.pydocstyle]
-property-decorators = ["propcache.cached_property"]
+convention = "google"
