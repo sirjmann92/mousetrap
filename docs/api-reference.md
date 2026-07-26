@@ -426,6 +426,7 @@ Clear all event log entries.
 ## Application Information
 
 ### GET `/api/version`
+
 Get application version information.
 
 **Response:**

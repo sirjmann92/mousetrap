@@ -41,6 +41,11 @@ else
   exit 1
 fi
 
+if ! "$PYTHON" -c "import sys; raise SystemExit(sys.version_info < (3, 13))"; then
+  echo "Python 3.13 or newer is required; $PYTHON is too old." >&2
+  exit 1
+fi
+
 if ! "$PYTHON" -c "import uvicorn" >/dev/null 2>&1; then
   echo "Uvicorn is not installed for $PYTHON." >&2
   echo "Create the development environment with:" >&2

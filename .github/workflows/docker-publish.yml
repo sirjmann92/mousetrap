@@ -35,7 +35,14 @@ jobs:
 
           if [ -n "$LATEST_TAG" ]; then
             CURRENT="${LATEST_TAG#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            if [[ ! "$CURRENT" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "::error::Invalid semantic version tag: $LATEST_TAG"
+              exit 1
+            fi
+
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
             PATCH=$((PATCH + 1))
             NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           else
@@ -95,14 +102,17 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Create version tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
+          git tag "v${VERSION}"
+          git push origin "v${VERSION}"
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v${{ steps.version.outputs.version }}" \
-            --title "v${{ steps.version.outputs.version }}" \
+          gh release create "v${VERSION}" \
+            --title "v${VERSION}" \
             --generate-notes
