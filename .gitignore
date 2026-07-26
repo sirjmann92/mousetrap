@@ -35,10 +35,7 @@ env.bak/
 env/
 favicon_io/
 frontend/.cache/
-frontend/.nyc_output/
 frontend/node_modules/
-frontend/playwright-report/
-frontend/test-results/
 htmlcov/
 junit.xml
 last_session.yaml*

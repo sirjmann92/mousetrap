@@ -9,7 +9,7 @@ import reports from 'istanbul-reports';
 const frontendDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const repoRoot = resolve(frontendDir, '..');
 const sourceDir = resolve(frontendDir, 'src');
-const rawCoverageDir = resolve(frontendDir, '.nyc_output');
+const rawCoverageDir = resolve(repoRoot, 'coverage/.nyc_output');
 const reportDir = resolve(repoRoot, 'coverage/frontend');
 
 function findSourceFiles(directory) {

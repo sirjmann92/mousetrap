@@ -114,8 +114,8 @@ jobs:
           name: playwright-dev-diagnostics
           path: |
             playwright-dev.log
-            frontend/playwright-report/
-            frontend/test-results/
+            coverage/playwright-report/
+            coverage/test-results/
           if-no-files-found: ignore
           retention-days: 7
 
@@ -200,7 +200,7 @@ jobs:
           name: container-smoke-diagnostics
           path: |
             container-diagnostics/
-            frontend/playwright-report/
-            frontend/test-results/
+            coverage/playwright-report/
+            coverage/test-results/
           if-no-files-found: ignore
           retention-days: 7

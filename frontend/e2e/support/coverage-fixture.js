@@ -2,7 +2,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test as base, expect } from '@playwright/test';
 
-const rawCoverageDir = resolve(process.cwd(), '.nyc_output');
+const repoRoot = resolve(process.cwd(), '..');
+const rawCoverageDir = resolve(repoRoot, 'coverage/.nyc_output');
 let coverageFileIndex = 0;
 
 async function saveCoverage(page) {

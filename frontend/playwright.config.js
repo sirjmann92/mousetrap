@@ -6,6 +6,9 @@ import { defineConfig, devices } from '@playwright/test';
 const externalBaseUrl = process.env.E2E_BASE_URL;
 const backendPort = '39852';
 const frontendPort = '5174';
+const repoRoot = resolve(process.cwd(), '..');
+const playwrightReportDir = resolve(repoRoot, 'coverage/playwright-report');
+const testResultsDir = resolve(repoRoot, 'coverage/test-results');
 const localPython = resolve('../.venv/bin/python');
 const python = process.env.E2E_PYTHON || (existsSync(localPython) ? localPython : 'python3');
 const configDir = externalBaseUrl
@@ -20,9 +23,12 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   globalTeardown: externalBaseUrl ? undefined : './e2e/support/global-teardown.js',
+  outputDir: testResultsDir,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
+  reporter: process.env.CI
+    ? [['line'], ['html', { open: 'never', outputFolder: playwrightReportDir }]]
+    : 'line',
   timeout: 30_000,
   expect: { timeout: 7_500 },
   use: {
