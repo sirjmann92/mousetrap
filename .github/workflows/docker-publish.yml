@@ -10,10 +10,6 @@ on:
       - 'tests/**'
   workflow_dispatch:
 
-concurrency:
-  group: docker-publish
-  cancel-in-progress: false
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,14 +31,7 @@ jobs:
 
           if [ -n "$LATEST_TAG" ]; then
             CURRENT="${LATEST_TAG#v}"
-            if [[ ! "$CURRENT" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-              echo "::error::Invalid semantic version tag: $LATEST_TAG"
-              exit 1
-            fi
-
-            MAJOR="${BASH_REMATCH[1]}"
-            MINOR="${BASH_REMATCH[2]}"
-            PATCH="${BASH_REMATCH[3]}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
             PATCH=$((PATCH + 1))
             NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           else
@@ -52,6 +41,11 @@ jobs:
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $NEW_VERSION"
+
+      - name: Create version tag
+        run: |
+          git tag "v${{ steps.version.outputs.version }}"
+          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -101,18 +95,10 @@ jobs:
             type=gha
           cache-to: type=gha,mode=max
 
-      - name: Create version tag
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          git tag "v${VERSION}"
-          git push origin "v${VERSION}"
-
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "v${VERSION}" \
-            --title "v${VERSION}" \
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --title "v${{ steps.version.outputs.version }}" \
             --generate-notes
