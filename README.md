@@ -277,66 +277,6 @@ cd mousetrap
 docker compose up --build -d
 ```
 
-### Local Source Development
-
-Use the local development commands when changing the Python backend or React
-frontend. Production and Docker deployments use `start.sh` instead.
-
-```bash
-# Requires Python 3.13+, Node.js 22.20.0+, and npm 11+.
-./scripts/setup.sh
-
-# Start both the FastAPI backend and Vite frontend with live reload
-npm run dev
-```
-
-The setup helper creates or reuses `.venv`, installs the Python `dev`
-dependency group, installs the prek Git hook, validates the Node.js version,
-validates the npm version, and installs the frontend dependencies exactly as
-pinned in `frontend/package-lock.json`.
-
-Run the same backend and frontend linting, formatting, and type checks used by
-the GitHub lint workflow:
-
-```bash
-./scripts/lint.sh
-```
-
-Some hooks apply safe fixes and formatting changes. Review any modified files
-before committing.
-
-For routine dependency maintenance:
-
-```bash
-./scripts/update-dependencies.sh
-./scripts/lint.sh
-```
-
-The dependency helper upgrades and checks `.venv` when it exists, or skips that
-step when local Python setup has not been run. It updates available prek
-hooks and frontend dependencies, normalizes the frontend lockfile, performs a
-clean frontend install, and runs dependency consistency and security checks.
-It requires npm 11 or newer so the frontend's install-script policy is enforced.
-Review generated configuration and lockfile changes before committing.
-
-Open the Vite URL printed by npm, normally
-[http://localhost:5173](http://localhost:5173). The backend runs on
-[http://localhost:39842](http://localhost:39842).
-
-The `npm run dev` command uses `scripts/start-backend.sh`. That helper stores
-local configuration, sessions, notifications, proxies, port-monitor state, and
-the SQLite event log under the repository's ignored `config/` directory instead
-of the production `/config` path.
-
-- Use `npm run backend` when only the FastAPI service is needed.
-- Set `CONFIG_DIR` to use a different local data directory.
-- Set `VITE_BACKEND_PORT` when changing the backend port for `npm run dev`, so
-  Vite and Uvicorn stay aligned. For example:
-
-  ```bash
-  VITE_BACKEND_PORT=39843 npm run dev
-  ```
-
 ---
 
 ## 🌐 VPN Integration
@@ -577,3 +517,51 @@ services:
       - PGID=1000
     # ...
 ```
+
+---
+
+<details>
+<summary><h2>Local Development</h2></summary>
+
+Use the local development commands when changing the Python backend or React frontend.
+
+```bash
+# Requires Python 3.13+, Node.js 22.20.0+, and npm 11+.
+./scripts/setup.sh
+
+# Start both the FastAPI backend and Vite frontend with live reload
+npm run dev
+```
+
+The setup helper creates or reuses `.venv`, installs the Python `dev` dependency group, installs the prek Git hook, validates the Node.js version, validates the npm version, and installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`.
+
+Run linting, formatting, and type checks for both the backend and frontend:
+
+```bash
+./scripts/lint.sh
+```
+
+Some hooks apply safe fixes and formatting changes. Review any modified files before committing.
+
+For routine dependency maintenance:
+
+```bash
+./scripts/update-dependencies.sh
+./scripts/lint.sh
+```
+
+The dependency helper updates available prek hooks and frontend dependencies, normalizes the frontend lockfile, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
+
+Open the Vite URL printed by npm, normally `http://localhost:5173`. The backend runs on `http://localhost:39842`.
+
+The `npm run dev` command uses `scripts/start-backend.sh`. That helper stores local configuration, sessions, notifications, proxies, port-monitor state, and the SQLite event log under the repository's ignored `config/` directory instead of the production `/config` path.
+
+- Use `npm run backend` when only the FastAPI service is needed.
+- Set `CONFIG_DIR` to use a different local data directory.
+- Set `VITE_BACKEND_PORT` when changing the backend port for `npm run dev`, so Vite and Uvicorn stay aligned. For example:
+
+  ```bash
+  VITE_BACKEND_PORT=39843 npm run dev
+  ```
+
+</details>
