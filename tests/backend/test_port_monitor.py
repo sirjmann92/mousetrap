@@ -1,6 +1,7 @@
 """Focused backend port-monitor persistence tests."""
 
 import asyncio
+from collections.abc import Callable
 import logging
 from pathlib import Path
 import threading
@@ -164,7 +165,7 @@ def test_notification_failure_does_not_block_restart_or_persistence(
     stack = port_monitor.PortMonitorStack("x", "container", 80, [], 0)
     manager.stacks = [stack]
     monkeypatch.setattr(manager, "check_port", lambda *_args: False)
-    restart = AsyncMock()
+    restart = AsyncMock(return_value=True)
     monkeypatch.setattr(manager, "restart_stack", restart)
     monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
     saves: list[bool] = []
@@ -181,7 +182,7 @@ def test_notification_failure_does_not_block_restart_or_persistence(
     monkeypatch.setattr(port_monitor.asyncio, "sleep", stop_after_cycle)
     asyncio.run(manager.monitor_loop())
 
-    restart.assert_awaited_once_with(stack)
+    restart.assert_awaited_once_with(stack, cancel_on_shutdown=True)
     assert len(saves) == 2
 
 
@@ -197,7 +198,7 @@ def test_background_save_failure_does_not_block_restart(
     monkeypatch.setattr(manager, "save_stacks", lambda: (_ for _ in ()).throw(YamlStoreError()))
     monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
     monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
-    restart = AsyncMock()
+    restart = AsyncMock(return_value=True)
     monkeypatch.setattr(manager, "restart_stack", restart)
 
     async def stop_after_cycle(_delay: float) -> None:
@@ -205,7 +206,29 @@ def test_background_save_failure_does_not_block_restart(
 
     monkeypatch.setattr(port_monitor.asyncio, "sleep", stop_after_cycle)
     asyncio.run(manager.monitor_loop())
-    restart.assert_awaited_once_with(stack)
+    restart.assert_awaited_once_with(stack, cancel_on_shutdown=True)
+
+
+def test_monitor_exits_without_persisting_after_cancelled_restart(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A cancelled background restart cannot reach the cycle's final save."""
+    manager = port_monitor.PortMonitorStackManager()
+    manager.running = True
+    stack = port_monitor.PortMonitorStack("x", "container", 80, [], 0)
+    manager.stacks = [stack]
+    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
+    restart = AsyncMock(return_value=False)
+    save = Mock()
+    monkeypatch.setattr(manager, "restart_stack", restart)
+    monkeypatch.setattr(manager, "_save_stacks_best_effort", save)
+
+    asyncio.run(manager.monitor_loop())
+
+    restart.assert_awaited_once_with(stack, cancel_on_shutdown=True)
+    save.assert_called_once_with()
 
 
 @pytest.mark.parametrize("port_ok", [True, False])
@@ -225,7 +248,7 @@ def test_restart_rechecks_once_on_completion_paths(
     recheck = Mock(return_value=True)
     monkeypatch.setattr(manager, "recheck_stack", recheck)
 
-    asyncio.run(manager.restart_stack(stack))
+    assert asyncio.run(manager.restart_stack(stack))
     recheck.assert_called_once_with("x")
 
 
@@ -234,7 +257,6 @@ def test_restart_stops_side_effects_when_shutdown_occurs_during_polling(
 ) -> None:
     """Shutdown during primary polling prevents all completion side effects."""
     manager = port_monitor.PortMonitorStackManager()
-    manager.running = True
     stack = port_monitor.PortMonitorStack("x", "primary", 80, ["secondary"])
     manager.stacks = [stack]
     restart_container = Mock(return_value=True)
@@ -244,18 +266,18 @@ def test_restart_stops_side_effects_when_shutdown_occurs_during_polling(
     recheck = Mock(return_value=True)
     save = Mock()
 
-    async def stop_during_wait(_delay: float) -> None:
-        manager.running = False
+    def stop_during_check(*args: object) -> bool:
+        manager.stop()
+        return check_port(*args)
 
     monkeypatch.setattr(manager, "restart_container", restart_container)
-    monkeypatch.setattr(manager, "check_port", check_port)
+    monkeypatch.setattr(manager, "check_port", stop_during_check)
     monkeypatch.setattr(manager, "recheck_stack", recheck)
     monkeypatch.setattr(manager, "_save_stacks_best_effort", save)
     monkeypatch.setattr(port_monitor, "append_ui_event_log", events)
     monkeypatch.setattr(port_monitor, "safe_notify_event", notify)
-    monkeypatch.setattr(port_monitor.asyncio, "sleep", stop_during_wait)
 
-    asyncio.run(manager.restart_stack(stack))
+    assert not asyncio.run(manager.restart_stack(stack, cancel_on_shutdown=True))
 
     restart_container.assert_called_once_with("primary")
     check_port.assert_called_once_with("primary", 80)
@@ -263,6 +285,57 @@ def test_restart_stops_side_effects_when_shutdown_occurs_during_polling(
     notify.assert_not_awaited()
     recheck.assert_not_called()
     save.assert_not_called()
+
+
+def test_restart_retry_wait_is_interrupted_by_shutdown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Shutdown cancels a background retry without waiting five seconds."""
+    manager = port_monitor.PortMonitorStackManager()
+    stack = port_monitor.PortMonitorStack("x", "primary", 80, [])
+    monkeypatch.setattr(manager, "restart_container", lambda _name: True)
+    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+
+    async def run_restart() -> None:
+        task = asyncio.create_task(manager.restart_stack(stack, cancel_on_shutdown=True))
+        await asyncio.sleep(0)
+        manager.stop()
+        assert not await asyncio.wait_for(task, timeout=1)
+        assert not manager._restart_tasks
+
+    asyncio.run(run_restart())
+
+
+def test_api_restart_omits_completion_events_after_shutdown_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The API worker must not report completion after restart cancellation."""
+    stack = port_monitor.PortMonitorStack("x", "primary", 80, [])
+    restart = AsyncMock(return_value=False)
+    events = Mock()
+
+    def immediate_thread(*, target: Callable[[], None], daemon: bool) -> Mock:
+        assert daemon
+        thread = Mock()
+        thread.start.side_effect = target
+        return thread
+
+    monkeypatch.setattr(
+        api_port_monitor.port_monitor_manager,
+        "get_stack",
+        lambda _name: stack,
+    )
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "restart_stack", restart)
+    monkeypatch.setattr(api_port_monitor, "append_ui_event_log", events)
+    monkeypatch.setattr(api_port_monitor.threading, "Thread", immediate_thread)
+
+    assert api_port_monitor.restart_stack("x") == {"success": True}
+    restart.assert_awaited_once_with(stack, cancel_on_shutdown=True)
+    assert [call.args[0]["event"] for call in events.call_args_list] == [
+        "port_monitor_status",
+        "port_monitor_restart_started",
+    ]
 
 
 @pytest.mark.parametrize("operation", ["add", "remove"])
