@@ -124,7 +124,8 @@ jobs:
     needs:
       - backend
       - playwright
-    if: ${{ needs.backend.result == 'success' && needs.playwright.result == 'success' }}
+      - container
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
@@ -138,18 +139,25 @@ jobs:
           node-version: "lts/Krypton"
 
       - name: Download backend coverage
+        continue-on-error: true
         uses: actions/download-artifact@v7
         with:
           name: backend-coverage
           path: coverage/backend
 
       - name: Download frontend coverage
+        continue-on-error: true
         uses: actions/download-artifact@v7
         with:
           name: frontend-coverage
           path: frontend/coverage
 
       - name: Publish separate backend and frontend coverage
+        env:
+          ALLOW_MISSING_COVERAGE: "true"
+          BACKEND_TEST_STATUS: ${{ needs.backend.result == 'success' && 'PASS' || needs.backend.result == 'skipped' && 'SKIPPED' || 'FAIL' }}
+          CONTAINER_TEST_STATUS: ${{ needs.container.result == 'success' && 'PASS' || needs.container.result == 'skipped' && 'SKIPPED' || 'FAIL' }}
+          FRONTEND_TEST_STATUS: ${{ needs.playwright.result == 'success' && 'PASS' || needs.playwright.result == 'skipped' && 'SKIPPED' || 'FAIL' }}
         run: node scripts/coverage-summary.mjs
 
   container:

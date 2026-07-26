@@ -12,6 +12,9 @@ function percentage(covered, total) {
 
 function readJson(path, label) {
   if (!existsSync(path)) {
+    if (process.env.ALLOW_MISSING_COVERAGE === 'true') {
+      return null;
+    }
     console.error(`Missing ${label} coverage summary: ${path}`);
     process.exit(1);
   }
@@ -20,18 +23,46 @@ function readJson(path, label) {
 
 const backend = readJson(backendPath, 'backend');
 const frontend = readJson(frontendPath, 'frontend');
+const backendCoverage = process.env.BACKEND_TEST_STATUS
+  ? process.env.BACKEND_TEST_STATUS === 'PASS' && backend
+  : backend;
+const frontendCoverage = process.env.FRONTEND_TEST_STATUS
+  ? process.env.FRONTEND_TEST_STATUS === 'PASS' && frontend
+  : frontend;
 const rows = [
   {
-    branches: percentage(backend.totals.covered_branches, backend.totals.num_branches),
-    lines: percentage(backend.totals.covered_lines, backend.totals.num_statements),
+    branches: backendCoverage
+      ? percentage(backendCoverage.totals.covered_branches, backendCoverage.totals.num_branches)
+      : '—',
+    lines: backendCoverage
+      ? percentage(backendCoverage.totals.covered_lines, backendCoverage.totals.num_statements)
+      : '—',
     source: 'Backend pytest',
   },
   {
-    branches: percentage(frontend.total.branches.covered, frontend.total.branches.total),
-    lines: percentage(frontend.total.lines.covered, frontend.total.lines.total),
+    branches: frontendCoverage
+      ? percentage(frontendCoverage.total.branches.covered, frontendCoverage.total.branches.total)
+      : '—',
+    lines: frontendCoverage
+      ? percentage(frontendCoverage.total.lines.covered, frontendCoverage.total.lines.total)
+      : '—',
     source: 'Frontend Playwright E2E',
   },
 ];
+const testRows = [
+  {
+    result: process.env.BACKEND_TEST_STATUS,
+    source: 'Backend pytest',
+  },
+  {
+    result: process.env.FRONTEND_TEST_STATUS,
+    source: 'Frontend Playwright E2E',
+  },
+  {
+    result: process.env.CONTAINER_TEST_STATUS,
+    source: 'Docker container smoke',
+  },
+].filter((row) => row.result);
 
 const terminal = [
   'Coverage summary',
@@ -52,6 +83,16 @@ if (process.env.GITHUB_STEP_SUMMARY) {
     '| --- | ---: | ---: |',
     ...rows.map((row) => `| ${row.source} | ${row.lines} | ${row.branches} |`),
     '',
+    ...(testRows.length
+      ? [
+          '## Test summary',
+          '',
+          '| Test surface | Result |',
+          '| --- | ---: |',
+          ...testRows.map((row) => `| ${row.source} | ${row.result} |`),
+          '',
+        ]
+      : []),
   ].join('\n');
 
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown);

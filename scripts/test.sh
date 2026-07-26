@@ -14,6 +14,8 @@ VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 RUN_DEVELOPMENT=true
 RUN_CONTAINER=false
+BACKEND_STATUS=""
+FRONTEND_STATUS=""
 CONTAINER_STATUS=""
 EXIT_STATUS=0
 
@@ -71,15 +73,25 @@ fi
 
 if [ "$RUN_DEVELOPMENT" = true ]; then
   echo "Running backend tests..."
-  (
+  if (
     # Run from the repository root so pytest uses the project configuration.
     cd "$REPO_ROOT"
     "$VENV_PYTHON" -m pytest tests/backend
-  )
+  ); then
+    BACKEND_STATUS="PASS"
+  else
+    BACKEND_STATUS="FAIL"
+    EXIT_STATUS=1
+  fi
 
   echo "Running frontend end-to-end tests..."
   # Playwright's configuration starts and cleans up the isolated development servers.
-  npm --prefix "$FRONTEND_DIR" run test:e2e
+  if npm --prefix "$FRONTEND_DIR" run test:e2e; then
+    FRONTEND_STATUS="PASS"
+  else
+    FRONTEND_STATUS="FAIL"
+    EXIT_STATUS=1
+  fi
 fi
 
 if [ "$RUN_CONTAINER" = true ]; then
@@ -92,7 +104,12 @@ if [ "$RUN_CONTAINER" = true ]; then
 fi
 
 if [ "$RUN_DEVELOPMENT" = true ]; then
-  node "$SCRIPT_DIR/coverage-summary.mjs"
+  if ! ALLOW_MISSING_COVERAGE=true \
+    BACKEND_TEST_STATUS="$BACKEND_STATUS" \
+    FRONTEND_TEST_STATUS="$FRONTEND_STATUS" \
+    node "$SCRIPT_DIR/coverage-summary.mjs"; then
+    EXIT_STATUS=1
+  fi
 fi
 
 echo
@@ -100,8 +117,8 @@ echo "Test summary"
 echo "Test surface                 Result"
 echo "---------------------------  ------"
 if [ "$RUN_DEVELOPMENT" = true ]; then
-  echo "Backend pytest               PASS"
-  echo "Frontend Playwright E2E      PASS"
+  printf '%-27s  %s\n' "Backend pytest" "$BACKEND_STATUS"
+  printf '%-27s  %s\n' "Frontend Playwright E2E" "$FRONTEND_STATUS"
 fi
 if [ "$RUN_CONTAINER" = true ]; then
   printf '%-27s  %s\n' "Docker container smoke" "$CONTAINER_STATUS"
