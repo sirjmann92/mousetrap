@@ -94,9 +94,9 @@ Set up both backend and frontend development environments:
 ./scripts/setup.sh
 ```
 
-The helper requires Python 3.13 or newer and Node.js 22.20.0 or newer. It
-creates or reuses `.venv`, installs the Python `dev` dependency group, and runs
-`npm ci` against the frontend lockfile.
+The helper requires Python 3.13 or newer, Node.js 22.20.0 or newer, and npm 11
+or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
+group, and runs `npm ci` against the frontend lockfile.
 
 The root `package.json` forwards frontend commands into `frontend/`.
 
@@ -130,8 +130,9 @@ group and verifies it with `pip check`; otherwise it skips that step. It updates
 prek hooks through the project or global installation when available,
 updates frontend dependencies within the constraints in `frontend/package.json`,
 normalizes the lockfile, synchronizes `frontend/node_modules` with a clean
-install, and audits the resulting npm dependency tree. Review its configuration
-and lockfile changes before committing.
+install, and audits the resulting npm dependency tree. npm 11 or newer is
+required so the frontend's install-script policy is enforced. Review its
+configuration and lockfile changes before committing.
 
 ## Validation Commands
 

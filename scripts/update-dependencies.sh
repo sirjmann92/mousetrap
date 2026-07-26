@@ -38,6 +38,25 @@ else
   echo "Skipping prek hook updates because prek is not installed."
 fi
 
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm 11 or newer is required." >&2
+  exit 1
+fi
+
+NPM_VERSION="$(npm --version)"
+NPM_MAJOR="${NPM_VERSION%%.*}"
+case "$NPM_MAJOR" in
+  ''|*[!0-9]*)
+    echo "Could not determine the npm major version from: $NPM_VERSION" >&2
+    exit 1
+    ;;
+esac
+if [ "$NPM_MAJOR" -lt 11 ]; then
+  echo "npm 11 or newer is required; found $NPM_VERSION." >&2
+  echo "Upgrade it with: npm install --global npm@11 --no-fund" >&2
+  exit 1
+fi
+
 echo "Updating frontend dependencies within package.json constraints..."
 npm --prefix frontend update --no-audit --no-fund
 

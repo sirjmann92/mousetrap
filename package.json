@@ -2,7 +2,8 @@
 	"name": "mousetrap",
 	"private": true,
 	"engines": {
-		"node": ">=22.20.0"
+		"node": ">=22.20.0",
+		"npm": ">=11"
 	},
 	"scripts": {
 		"start": "npm --prefix frontend run start",

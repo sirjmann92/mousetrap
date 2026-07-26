@@ -283,7 +283,7 @@ Use the local development commands when changing the Python backend or React
 frontend. Production and Docker deployments use `start.sh` instead.
 
 ```bash
-# Requires Python 3.13 or newer and Node.js 22.20.0 or newer.
+# Requires Python 3.13+, Node.js 22.20.0+, and npm 11+.
 ./scripts/setup.sh
 
 # Start both the FastAPI backend and Vite frontend with live reload
@@ -292,8 +292,8 @@ npm run dev
 
 The setup helper creates or reuses `.venv`, installs the Python `dev`
 dependency group, installs the prek Git hook, validates the Node.js version,
-and installs the frontend dependencies exactly as pinned in
-`frontend/package-lock.json`.
+validates the npm version, and installs the frontend dependencies exactly as
+pinned in `frontend/package-lock.json`.
 
 Run the same backend and frontend linting, formatting, and type checks used by
 the GitHub lint workflow:
@@ -316,6 +316,7 @@ The dependency helper upgrades and checks `.venv` when it exists, or skips that
 step when local Python setup has not been run. It updates available prek
 hooks and frontend dependencies, normalizes the frontend lockfile, performs a
 clean frontend install, and runs dependency consistency and security checks.
+It requires npm 11 or newer so the frontend's install-script policy is enforced.
 Review generated configuration and lockfile changes before committing.
 
 Open the Vite URL printed by npm, normally
