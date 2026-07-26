@@ -8,6 +8,8 @@ registration (APScheduler), and related helpers.
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 import inspect
 import logging
@@ -48,6 +50,7 @@ from backend.config import (
     load_session,
     save_session,
 )
+from backend.db import close_connection
 from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.jackett_integration import sync_mam_id_to_jackett, test_jackett_connection
@@ -82,8 +85,23 @@ ASSETS_DIR = Path(FRONTEND_BUILD_DIR) / "assets"
 setup_logging()
 _logger: logging.Logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Start and stop application-owned background services and persistence."""
+    start_port_monitor_manager()
+    await initialize_scheduler()
+    try:
+        yield
+    finally:
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+        port_monitor_manager.stop()
+        close_connection()
+
+
 # FastAPI app creation
-app = FastAPI(title="MouseTrap API")
+app = FastAPI(title="MouseTrap API", lifespan=app_lifespan)
 
 # Mount static files BEFORE any catch-all routes
 if ASSETS_DIR.is_dir():
@@ -312,8 +330,7 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
             )
 
 
-# Start PortMonitorStackManager monitor loop on FastAPI startup
-@app.on_event("startup")  # type: ignore[deprecated]
+# Start PortMonitorStackManager monitor loop during FastAPI lifespan startup
 def start_port_monitor_manager() -> None:
     """Start the PortMonitor manager when the FastAPI app starts.
 
@@ -323,8 +340,7 @@ def start_port_monitor_manager() -> None:
     port_monitor_manager.start()
 
 
-# Initialize APScheduler on FastAPI startup
-@app.on_event("startup")  # type: ignore[deprecated]
+# Initialize APScheduler during FastAPI lifespan startup
 async def initialize_scheduler() -> None:
     """Initialize APScheduler and register all session jobs on startup."""
     reset_all_last_check_times()

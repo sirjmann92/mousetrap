@@ -26,7 +26,7 @@ from backend.app import app  # noqa: E402
 @pytest.fixture
 def isolated_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Redirect every backend persistence boundary to a temporary directory."""
-    db._get_conn.cache_clear()
+    db.close_connection()
     monkeypatch.setattr(config, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(config, "CONFIG_PATH", tmp_path / "config.yaml")
     monkeypatch.setattr(db, "DB_PATH", tmp_path / "mousetrap.db")
@@ -42,7 +42,7 @@ def isolated_backend(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterato
     port_monitor.port_monitor_manager.stacks = []
     port_monitor.port_monitor_manager._config_loaded = True
     yield tmp_path
-    db._get_conn.cache_clear()
+    db.close_connection()
 
 
 @pytest.fixture

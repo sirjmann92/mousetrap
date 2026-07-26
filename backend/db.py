@@ -53,3 +53,16 @@ def connection() -> Iterator[sqlite3.Connection]:
     """Yield the process-wide SQLite connection under a lock (created lazily, once)."""
     with _lock:
         yield _get_conn()
+
+
+def close_connection() -> None:
+    """Close and clear the cached process-wide SQLite connection."""
+    with _lock:
+        if _get_conn.cache_info().currsize == 0:
+            return
+
+        conn = _get_conn()
+        try:
+            conn.close()
+        finally:
+            _get_conn.cache_clear()

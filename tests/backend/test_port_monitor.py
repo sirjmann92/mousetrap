@@ -47,6 +47,7 @@ def test_loaded_manager_writes_with_shared_store(
     monkeypatch.setattr(port_monitor, "PORT_MONITOR_CONFIG_PATH", path)
     manager = port_monitor.PortMonitorStackManager()
     manager.load_stacks()
+    monkeypatch.setattr(manager, "check_port", lambda *_args: True)
     manager.add_stack("x", "container", 80, [])
     assert "name: x" in path.read_text(encoding="utf-8")
 
