@@ -14,6 +14,8 @@ VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 RUN_DEVELOPMENT=true
 RUN_CONTAINER=false
+CONTAINER_STATUS=""
+EXIT_STATUS=0
 
 usage() {
   cat <<EOF
@@ -78,10 +80,31 @@ if [ "$RUN_DEVELOPMENT" = true ]; then
   echo "Running frontend end-to-end tests..."
   # Playwright's configuration starts and cleans up the isolated development servers.
   npm --prefix "$FRONTEND_DIR" run test:e2e
-
-  node "$SCRIPT_DIR/coverage-summary.mjs"
 fi
 
 if [ "$RUN_CONTAINER" = true ]; then
-  "$SCRIPT_DIR/test-container.sh"
+  if "$SCRIPT_DIR/test-container.sh"; then
+    CONTAINER_STATUS="PASS"
+  else
+    CONTAINER_STATUS="FAIL"
+    EXIT_STATUS=1
+  fi
 fi
+
+if [ "$RUN_DEVELOPMENT" = true ]; then
+  node "$SCRIPT_DIR/coverage-summary.mjs"
+fi
+
+echo
+echo "Test summary"
+echo "Test surface                 Result"
+echo "---------------------------  ------"
+if [ "$RUN_DEVELOPMENT" = true ]; then
+  echo "Backend pytest               PASS"
+  echo "Frontend Playwright E2E      PASS"
+fi
+if [ "$RUN_CONTAINER" = true ]; then
+  printf '%-27s  %s\n' "Docker container smoke" "$CONTAINER_STATUS"
+fi
+
+exit "$EXIT_STATUS"
