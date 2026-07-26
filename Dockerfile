@@ -5,7 +5,8 @@
 FROM --platform=$BUILDPLATFORM node:krypton-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
-RUN npm ci --strict-allow-scripts --silent --no-fund
+RUN npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund \
+    && npm ci --strict-allow-scripts --silent --no-fund
 COPY frontend/ ./
 # Build the frontend using devDependencies (Vite and plugins).
 RUN npm run build
