@@ -39,6 +39,16 @@ else
   echo "Skipping prek hook updates because prek is not installed."
 fi
 
+echo "Synchronizing prek mypy hook dependencies..."
+if [ -x "$VENV_PYTHON" ]; then
+  "$VENV_PYTHON" scripts/sync-mypy-hook-dependencies.py
+elif command -v python3 >/dev/null 2>&1; then
+  python3 scripts/sync-mypy-hook-dependencies.py
+else
+  echo "Python 3.11 or newer is required to synchronize mypy hook dependencies." >&2
+  exit 1
+fi
+
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Node.js 24.18.0 or newer and npm 11.16.0 or newer are required." >&2
   exit 1
