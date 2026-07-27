@@ -27,7 +27,7 @@ RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
     && adduser appuser docker \
     && python -m pip install --no-cache-dir --upgrade "pip>=25.1" \
     && python -m pip install --no-cache-dir --group runtime \
-    && apk del .build-deps \
+    && apk del --no-cache .build-deps \
     && rm -rf /root/.cache/pip /tmp/* /var/cache/apk/*
 
 # Set environment variables
