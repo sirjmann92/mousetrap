@@ -35,6 +35,7 @@ def test_save_persists_once_before_side_effects(
     monkeypatch.setattr(app, "register_session_job", lambda _label: calls.append("job"))
 
     async def sync(*_args: Any) -> None:
+        """Record the integration sync test double."""
         calls.append("sync")
 
     monkeypatch.setattr(app, "_sync_integrations_if_mam_id_changed", sync)
@@ -57,7 +58,8 @@ def test_save_replaces_corrupt_existing_session(
     monkeypatch.setattr(app, "register_session_job", lambda _label: None)
 
     async def sync(*_args: Any) -> None:
-        return None
+        """Provide a no-op integration sync test double."""
+        return
 
     monkeypatch.setattr(app, "_sync_integrations_if_mam_id_changed", sync)
     result = asyncio.run(
@@ -86,6 +88,7 @@ def test_post_save_side_effect_failure_returns_success(
     monkeypatch.setattr(app, "save_session", lambda *_a, **_k: calls.append("save"))
 
     def fail_clear(_label: str) -> None:
+        """Simulate an unavailable event log after persistence."""
         calls.append("clear")
         raise RuntimeError("event log unavailable")
 

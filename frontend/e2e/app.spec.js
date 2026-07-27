@@ -133,7 +133,7 @@ test.describe
     });
 
     test('shows a session save failure without persisting it', async ({ page, request }) => {
-      await request.post('/api/session/save', {
+      const seeded = await request.post('/api/session/save', {
         data: {
           check_freq: 10,
           label: 'FailureCase',
@@ -145,6 +145,7 @@ test.describe
           mam_ip: '192.0.2.30',
         },
       });
+      expect(seeded.ok()).toBeTruthy();
       await page.goto('/');
       await page.getByText('Session Configuration', { exact: true }).click();
       await page.getByRole('textbox', { name: 'IP Address', exact: true }).fill('192.0.2.31');

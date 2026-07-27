@@ -499,7 +499,7 @@ class PortMonitorStackManager:
             await asyncio.sleep(0)
             self.recheck_stack(stack.name)
         except asyncio.CancelledError:
-            if cancel_on_shutdown:
+            if cancel_on_shutdown and self._shutdown_event.is_set():
                 return False
             raise
         else:

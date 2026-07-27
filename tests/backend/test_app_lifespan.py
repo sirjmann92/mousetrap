@@ -84,3 +84,62 @@ def test_lifespan_stops_monitor_before_waiting_for_scheduler(
         "scheduler-stop:True",
         "db-close",
     ]
+
+
+@pytest.mark.parametrize(
+    ("failing_cleanup", "expected_events"),
+    [
+        (
+            "monitor-stop",
+            ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"],
+        ),
+        (
+            "automation-stop",
+            ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"],
+        ),
+        (
+            "scheduler-stop:True",
+            ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"],
+        ),
+    ],
+)
+def test_lifespan_runs_later_cleanup_after_teardown_failure(
+    monkeypatch: pytest.MonkeyPatch,
+    failing_cleanup: str,
+    expected_events: list[str],
+) -> None:
+    """Run all later cleanup steps while propagating a teardown failure."""
+    events: list[str] = []
+
+    def record(event: str) -> None:
+        """Record a cleanup step and fail at the configured boundary."""
+        events.append(event)
+        if event == failing_cleanup:
+            raise RuntimeError(f"{event} failed")
+
+    async def initialize() -> None:
+        """Initialize the scheduler test double."""
+
+    monkeypatch.setattr(app, "start_port_monitor_manager", lambda: None)
+    monkeypatch.setattr(app, "initialize_scheduler", initialize)
+    monkeypatch.setattr(
+        app,
+        "scheduler",
+        type(
+            "SchedulerStub",
+            (),
+            {"running": True, "shutdown": lambda _self, *, wait: record(f"scheduler-stop:{wait}")},
+        )(),
+    )
+    monkeypatch.setattr(app.port_monitor_manager, "stop", lambda: record("monitor-stop"))
+    monkeypatch.setattr(app, "request_automation_shutdown", lambda: record("automation-stop"))
+    monkeypatch.setattr(app, "close_connection", lambda: record("db-close"))
+
+    async def run_lifespan() -> None:
+        """Enter and exit the application lifespan."""
+        with pytest.raises(RuntimeError, match=f"{failing_cleanup} failed"):
+            async with app.app_lifespan(app.app):
+                pass
+
+    asyncio.run(run_lifespan())
+    assert events == expected_events

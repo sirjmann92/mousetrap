@@ -53,10 +53,34 @@ jobs:
             const { existsSync, readFileSync } = require('node:fs');
 
             const marker = '<!-- mousetrap-coverage-summary -->';
-            const pullRequests = context.payload.workflow_run.pull_requests;
-            if (pullRequests.length === 0) {
-              core.setFailed('The completed test workflow is not associated with a pull request.');
-              return;
+            const workflowRun = context.payload.workflow_run;
+            let pullRequest = workflowRun.pull_requests[0];
+            if (!pullRequest) {
+              const associatedPullRequests = await github.paginate(
+                github.rest.repos.listPullRequestsAssociatedWithCommit,
+                {
+                  ...context.repo,
+                  commit_sha: workflowRun.head_sha,
+                  per_page: 100,
+                },
+              );
+              const openMatches = associatedPullRequests.filter(
+                (candidate) =>
+                  candidate.state === 'open' &&
+                  candidate.base.repo.full_name === context.payload.repository.full_name &&
+                  candidate.head.sha === workflowRun.head_sha,
+              );
+              if (openMatches.length !== 1) {
+                core.notice(
+                  openMatches.length === 0
+                    ? `No open pull request is associated with head ${workflowRun.head_sha}; ` +
+                        'skipping coverage comment.'
+                    : `Multiple open pull requests are associated with head ${workflowRun.head_sha}; ` +
+                        'skipping coverage comment.',
+                );
+                return;
+              }
+              [pullRequest] = openMatches;
             }
 
             const readJson = (path, label) => {
@@ -89,7 +113,7 @@ jobs:
             const frontend = readJson('coverage/frontend/coverage-summary.json', 'frontend');
             const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
               ...context.repo,
-              run_id: context.payload.workflow_run.id,
+              run_id: workflowRun.id,
               per_page: 100,
             });
             const resultFor = (name) => {
@@ -164,8 +188,8 @@ jobs:
               `| Docker container smoke | ${containerResult} |`,
             ].join('\n');
 
-            const issue_number = pullRequests[0].number;
-            const associatedHeadSha = pullRequests[0].head.sha;
+            const issue_number = pullRequest.number;
+            const associatedHeadSha = workflowRun.head_sha;
             const currentPullRequest = await github.rest.pulls.get({
               ...context.repo,
               pull_number: issue_number,

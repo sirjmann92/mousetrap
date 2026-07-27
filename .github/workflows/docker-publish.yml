@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - 'README.md'
       - 'docs/**'
+      - 'frontend/e2e/**'
       - 'images/**'
       - 'tests/**'
   workflow_dispatch:

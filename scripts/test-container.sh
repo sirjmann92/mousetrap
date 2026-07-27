@@ -29,11 +29,19 @@ else
   TEMP_ROOT="$REPO_ROOT/.e2e-tmp"
   OWNS_TEMP_ROOT=true
 fi
+case "$RUN_SUFFIX" in
+  "" | *[!A-Za-z0-9_.-]*)
+    echo "E2E_RUN_ID must contain only letters, numbers, dots, underscores, or hyphens." >&2
+    exit 2
+    ;;
+esac
+mkdir -p "$TEMP_ROOT"
+PLAYWRIGHT_LOG="$TEMP_ROOT/mousetrap-e2e-playwright-$RUN_SUFFIX-$$.log"
 
 collect_failure_diagnostics() {
   mkdir -p "$ARTIFACT_DIR"
 
-  if [ -n "$PLAYWRIGHT_LOG" ] && [ -f "$PLAYWRIGHT_LOG" ]; then
+  if [ -f "$PLAYWRIGHT_LOG" ]; then
     cp "$PLAYWRIGHT_LOG" "$ARTIFACT_DIR/playwright-container.log"
   fi
 
@@ -75,6 +83,12 @@ cleanup() {
         echo "Refusing to remove unexpected temporary directory: $CONFIG_DIR" >&2
         ;;
     esac
+  fi
+  expected_playwright_log="$TEMP_ROOT/mousetrap-e2e-playwright-$RUN_SUFFIX-$$.log"
+  if [ "$PLAYWRIGHT_LOG" = "$expected_playwright_log" ]; then
+    rm -f "$PLAYWRIGHT_LOG"
+  else
+    echo "Refusing to remove unexpected Playwright log: $PLAYWRIGHT_LOG" >&2
   fi
   if [ "$OWNS_TEMP_ROOT" = true ]; then
     rmdir "$TEMP_ROOT" 2>/dev/null || true
@@ -189,7 +203,7 @@ else
   fi
 fi
 chmod 0777 "$CONFIG_DIR"
-PLAYWRIGHT_LOG="$CONFIG_DIR/playwright-container.log"
+mkdir -p "$ARTIFACT_DIR"
 
 echo "Building production test image $IMAGE_NAME..."
 docker build --tag "$IMAGE_NAME" "$REPO_ROOT"

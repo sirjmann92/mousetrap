@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test as base, expect } from '@playwright/test';
 
-const repoRoot = resolve(process.cwd(), '..');
+const repoRoot = resolve(__dirname, '../../..');
 const rawCoverageDir = resolve(repoRoot, 'coverage/.nyc_output');
 let coverageFileIndex = 0;
 

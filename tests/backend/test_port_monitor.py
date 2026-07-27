@@ -436,6 +436,26 @@ def test_restart_retry_wait_is_interrupted_by_shutdown(
     asyncio.run(run_restart())
 
 
+def test_restart_propagates_external_cancellation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Propagate cancellation not initiated by manager shutdown."""
+    manager = port_monitor.PortMonitorStackManager()
+    stack = port_monitor.PortMonitorStack("x", "primary", 80, [])
+    monkeypatch.setattr(manager, "restart_container", lambda _name: True)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(
+        port_monitor.asyncio,
+        "sleep",
+        AsyncMock(side_effect=asyncio.CancelledError),
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        asyncio.run(manager.restart_stack(stack, cancel_on_shutdown=True))
+
+    assert not manager._restart_tasks
+
+
 def test_api_restart_omits_completion_events_after_shutdown_cancellation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

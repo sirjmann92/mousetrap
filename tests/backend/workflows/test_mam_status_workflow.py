@@ -27,15 +27,19 @@ async def test_forced_status_fetches_mam_account_and_persists_result(
     assert (await api_client.post("/api/session/save", json=session)).is_success
 
     async def ipinfo(*_args: Any, **_kwargs: Any) -> dict[str, str]:
+        """Return deterministic public IP metadata."""
         return {"ip": "198.51.100.10", "asn": "AS64500"}
 
     async def asn_lookup(*_args: Any, **_kwargs: Any) -> tuple[str, str]:
+        """Return deterministic ASN and timezone metadata."""
         return "AS64500", "UTC"
 
     async def mam_seen(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        """Return deterministic MAM-observed network metadata."""
         return {"ASN": 64500, "AS": "AS64500 TEST-NET"}
 
     async def mam_status(mam_id: str, proxy_cfg: dict | None = None) -> dict[str, Any]:
+        """Return deterministic MAM account status."""
         assert mam_id == "mam-cookie"
         assert proxy_cfg is None
         return {

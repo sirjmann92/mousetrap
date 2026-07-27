@@ -98,11 +98,17 @@ async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await initialize_scheduler()
         yield
     finally:
-        port_monitor_manager.stop()
-        request_automation_shutdown()
-        if scheduler.running:
-            scheduler.shutdown(wait=True)
-        close_connection()
+        try:
+            port_monitor_manager.stop()
+        finally:
+            try:
+                request_automation_shutdown()
+            finally:
+                try:
+                    if scheduler.running:
+                        scheduler.shutdown(wait=True)
+                finally:
+                    close_connection()
 
 
 # FastAPI app creation
