@@ -9,7 +9,7 @@ import tomllib
 
 
 def _dependency_groups(pyproject_path: Path) -> list[str]:
-    """Return the runtime and literal lint type-stub dependencies."""
+    """Return dependencies needed to type-check the backend and its tests."""
     with pyproject_path.open("rb") as file:
         project = tomllib.load(file)
 
@@ -20,17 +20,25 @@ def _dependency_groups(pyproject_path: Path) -> list[str]:
     runtime = groups.get("runtime")
     if not isinstance(runtime, list) or not all(isinstance(item, str) for item in runtime):
         raise TypeError(f"{pyproject_path}: expected flat string dependency group 'runtime'")
-    lint = groups.get("lint")
-    if not isinstance(lint, list):
-        raise TypeError(f"{pyproject_path}: expected dependency group 'lint'")
-    type_stubs: list[str] = []
-    for item in lint:
+    typecheck = groups.get("typecheck")
+    if not isinstance(typecheck, list):
+        raise TypeError(f"{pyproject_path}: expected dependency group 'typecheck'")
+    typecheck_dependencies: list[str] = []
+    runtime_includes = 0
+    for item in typecheck:
         if isinstance(item, str):
-            if item.startswith("types-"):
-                type_stubs.append(item)
-        elif item != {"include-group": "runtime"}:
-            raise ValueError(f"{pyproject_path}: invalid entry in dependency group 'lint'")
-    dependencies = sorted((*runtime, *type_stubs), key=str.casefold)
+            typecheck_dependencies.append(item)
+        elif item == {"include-group": "runtime"}:
+            runtime_includes += 1
+        else:
+            raise ValueError(f"{pyproject_path}: invalid entry in dependency group 'typecheck'")
+    if runtime_includes != 1:
+        raise ValueError(
+            f"{pyproject_path}: expected typecheck to include runtime exactly once; "
+            f"found {runtime_includes}"
+        )
+
+    dependencies = sorted((*runtime, *typecheck_dependencies), key=str.casefold)
     if len(dependencies) != len(set(dependencies)):
         raise ValueError(f"{pyproject_path}: duplicate derived mypy hook dependency")
     return dependencies

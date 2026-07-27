@@ -10,11 +10,10 @@ runtime = [
     "uvicorn",
     "yarl",
 ]
-lint = [
+typecheck = [
     { include-group = "runtime" },
-    "mypy",
-    "prek",
-    "ruff",
+    "httpx",
+    "pytest",
     "types-cffi",
     "types-docker",
     "types-PyMySQL",
@@ -24,6 +23,12 @@ lint = [
     "types-PyYAML",
     "types-requests",
     "types-setuptools",
+]
+lint = [
+    { include-group = "typecheck" },
+    "mypy",
+    "prek",
+    "ruff",
 ]
 test = [
     { include-group = "runtime" },
