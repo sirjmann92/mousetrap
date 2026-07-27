@@ -755,6 +755,10 @@ class PortMonitorStackManager:
             )
             return
         with self._worker_lock:
+            if self.thread is not None:
+                if self.thread.is_alive():
+                    return
+                self.thread = None
             with self._restart_tasks_lock:
                 self._shutdown_event = threading.Event()
             self.running = True

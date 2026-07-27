@@ -18,7 +18,12 @@ async def _public_ip(*_args: Any, **_kwargs: Any) -> str:
 
 
 async def _ipinfo(*_args: Any, **_kwargs: Any) -> dict[str, str]:
-    return {"asn": "AS64500", "ip": "192.0.2.100", "timezone": "UTC"}
+    return {
+        "asn": "AS64500",
+        "ip": "192.0.2.100",
+        "org": "TEST-NET",
+        "timezone": "UTC",
+    }
 
 
 async def _asn(_ip: str, **_kwargs: Any) -> tuple[str, str]:

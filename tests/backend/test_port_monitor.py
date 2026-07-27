@@ -156,6 +156,45 @@ def test_start_does_not_replace_blocked_stopping_worker(
         original_thread.join(timeout=1)
 
 
+def test_concurrent_starts_publish_one_worker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Concurrent starts cannot publish duplicate monitor workers."""
+    manager = port_monitor.PortMonitorStackManager()
+    both_starts_loading = threading.Barrier(2)
+    worker_started = threading.Event()
+    worker_calls = 0
+    worker_calls_lock = threading.Lock()
+
+    def load_stacks() -> None:
+        both_starts_loading.wait(timeout=1)
+
+    def wait_for_shutdown() -> None:
+        nonlocal worker_calls
+        with worker_calls_lock:
+            worker_calls += 1
+        worker_started.set()
+        manager._shutdown_event.wait()
+
+    monkeypatch.setattr(manager, "load_stacks", load_stacks)
+    monkeypatch.setattr(manager, "_run_monitor_loop", wait_for_shutdown)
+    start_threads = [
+        threading.Thread(target=manager.start, name=f"start-{index}") for index in range(2)
+    ]
+
+    try:
+        for thread in start_threads:
+            thread.start()
+        for thread in start_threads:
+            thread.join(timeout=1)
+
+        assert all(not thread.is_alive() for thread in start_threads)
+        assert worker_started.wait(timeout=1)
+        assert worker_calls == 1
+        assert manager.thread is not None
+        assert manager.thread.is_alive()
+    finally:
+        manager.stop()
+
+
 def test_shutdown_event_replacement_and_restart_registration_share_lock(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
