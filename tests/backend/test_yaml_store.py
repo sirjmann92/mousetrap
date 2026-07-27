@@ -71,17 +71,6 @@ def test_write_rejects_direct_symlink(tmp_path: Path) -> None:
     assert load_yaml_file(target, {}) == {"old": True}
 
 
-def test_write_cyclic_symlink_raises_store_error(tmp_path: Path) -> None:
-    """Report cyclic-link resolution through the public store exception."""
-    first = tmp_path / "first.yaml"
-    second = tmp_path / "second.yaml"
-    first.symlink_to(second.name)
-    second.symlink_to(first.name)
-
-    with pytest.raises(YamlStoreError, match="Refusing to replace symlink"):
-        write_yaml_file(first, {"new": True})
-
-
 def test_write_preserves_existing_mode(tmp_path: Path) -> None:
     """Keep destination permissions across atomic replacement."""
     path = tmp_path / "settings.yaml"

@@ -284,12 +284,16 @@ def test_initial_checks_skip_state_and_save_after_shutdown(
     save.assert_not_called()
 
 
-def test_notification_failure_does_not_block_restart_or_persistence(
-    monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    "failure_case",
+    ["notification", "background-save"],
+    ids=["notification-failure-preserves-persistence", "background-save-failure"],
+)
+def test_monitor_cycle_failure_does_not_block_restart(
+    monkeypatch: pytest.MonkeyPatch, failure_case: str
 ) -> None:
-    """Contain optional notification failure during a failed port check."""
+    """Contain optional notification and persistence failures during a failed port check."""
     manager = port_monitor.PortMonitorStackManager()
-    manager._config_loaded = True
     manager.running = True
     stack = port_monitor.PortMonitorStack("x", "container", 80, [], 0)
     manager.stacks = [stack]
@@ -298,12 +302,21 @@ def test_notification_failure_does_not_block_restart_or_persistence(
     monkeypatch.setattr(manager, "restart_stack", restart)
     monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
     saves: list[bool] = []
-    monkeypatch.setattr(manager, "save_stacks", lambda: saves.append(True))
-    monkeypatch.setattr(
-        notifications_backend,
-        "notify_event",
-        AsyncMock(side_effect=RuntimeError("invalid notify config")),
-    )
+    if failure_case == "notification":
+        manager._config_loaded = True
+        monkeypatch.setattr(manager, "save_stacks", lambda: saves.append(True))
+        monkeypatch.setattr(
+            notifications_backend,
+            "notify_event",
+            AsyncMock(side_effect=RuntimeError("invalid notify config")),
+        )
+    else:
+        monkeypatch.setattr(
+            manager,
+            "save_stacks",
+            lambda: (_ for _ in ()).throw(YamlStoreError()),
+        )
+        monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
 
     async def stop_after_cycle(_delay: float) -> None:
         manager.running = False
@@ -312,30 +325,8 @@ def test_notification_failure_does_not_block_restart_or_persistence(
     asyncio.run(manager.monitor_loop())
 
     restart.assert_awaited_once_with(stack, cancel_on_shutdown=True)
-    assert len(saves) == 2
-
-
-def test_background_save_failure_does_not_block_restart(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A transient status write failure does not stop the monitor cycle."""
-    manager = port_monitor.PortMonitorStackManager()
-    manager.running = True
-    stack = port_monitor.PortMonitorStack("x", "container", 80, [], 0)
-    manager.stacks = [stack]
-    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
-    monkeypatch.setattr(manager, "save_stacks", lambda: (_ for _ in ()).throw(YamlStoreError()))
-    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
-    monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
-    restart = AsyncMock(return_value=True)
-    monkeypatch.setattr(manager, "restart_stack", restart)
-
-    async def stop_after_cycle(_delay: float) -> None:
-        manager.running = False
-
-    monkeypatch.setattr(port_monitor.asyncio, "sleep", stop_after_cycle)
-    asyncio.run(manager.monitor_loop())
-    restart.assert_awaited_once_with(stack, cancel_on_shutdown=True)
+    if failure_case == "notification":
+        assert len(saves) == 2
 
 
 def test_monitor_exits_without_persisting_after_cancelled_restart(

@@ -87,26 +87,16 @@ def test_lifespan_stops_monitor_before_waiting_for_scheduler(
 
 
 @pytest.mark.parametrize(
-    ("failing_cleanup", "expected_events"),
+    "failing_cleanup",
     [
-        (
-            "monitor-stop",
-            ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"],
-        ),
-        (
-            "automation-stop",
-            ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"],
-        ),
-        (
-            "scheduler-stop:True",
-            ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"],
-        ),
+        "monitor-stop",
+        "automation-stop",
+        "scheduler-stop:True",
     ],
 )
 def test_lifespan_runs_later_cleanup_after_teardown_failure(
     monkeypatch: pytest.MonkeyPatch,
     failing_cleanup: str,
-    expected_events: list[str],
 ) -> None:
     """Run all later cleanup steps while propagating a teardown failure."""
     events: list[str] = []
@@ -142,4 +132,4 @@ def test_lifespan_runs_later_cleanup_after_teardown_failure(
                 pass
 
     asyncio.run(run_lifespan())
-    assert events == expected_events
+    assert events == ["monitor-stop", "automation-stop", "scheduler-stop:True", "db-close"]
