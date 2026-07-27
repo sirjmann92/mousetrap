@@ -5,10 +5,10 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@mui/icons-material": "^7.3.2",
-    "@mui/material": "^7.3.2",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "@mui/icons-material": "^7.3.11",
+    "@mui/material": "^7.3.11",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "engines": {
     "node": ">=24.18.0",
@@ -42,14 +42,14 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.5",
     "@playwright/test": "^1.62.0",
-    "@vitejs/plugin-react": "^5.0.4",
-    "concurrently": "^9.2.1",
+    "@vitejs/plugin-react": "^5.2.0",
+    "concurrently": "^9.2.4",
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-instrument": "^6.0.3",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.2.0",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.7",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.6",
     "vite-plugin-istanbul": "^8.0.0",
     "vite-plugin-svgr": "^4.5.0"
   },
