@@ -23,9 +23,12 @@ account management.
 - `frontend/`: React/Vite application.
 - `tests/`: Python pytest suite.
 - `docs/`: user and implementation documentation.
+- `scripts/`: local setup, backend launch, lint, and dependency-maintenance
+  helpers; production containers use `start.sh`.
 - `Dockerfile`: production image build.
-- `pyproject.toml`: pytest, coverage, mypy, and Ruff configuration.
-- `.pre-commit-config.yaml`: repository hook configuration.
+- `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
+  configuration.
+- `prek.toml`: repository hook configuration.
 
 ## General Working Rules
 
@@ -81,69 +84,61 @@ account management.
 
 ## Local Setup
 
-Backend setup:
+Set up both backend and frontend development environments:
 
 ```bash
-python3.13 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements-dev.txt
+./scripts/setup.sh
 ```
 
-Frontend setup:
-
-```bash
-# Requires Node.js 22.20.0 or newer.
-npm ci --prefix frontend
-```
+The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm
+11.16.0 or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
+group, and runs `npm ci` against the frontend lockfile.
 
 The root `package.json` forwards frontend commands into `frontend/`.
+
+For local source development:
+
+```bash
+# Start only FastAPI with reload.
+npm run backend
+
+# Start FastAPI and Vite together with reload.
+npm run dev
+```
+
+The local backend helper defaults `CONFIG_DIR` to the repository's ignored
+`config/` directory. An explicit `CONFIG_DIR` or per-file path override takes
+precedence and can direct configuration, session state, notifications, proxies,
+port-monitor state, and the SQLite event log anywhere, including production's
+`/config`; check overrides before running local commands. Use
+`VITE_BACKEND_PORT` to change the backend port for the combined `npm run dev`
+command; the helper also accepts `PORT` when starting only the backend. Do not
+use `scripts/start-backend.sh` as a production entrypoint.
+
+For routine dependency maintenance, run:
+
+```bash
+./scripts/update-dependencies.sh
+```
+
+The helper updates available Python and frontend development dependencies and
+keeps their generated tool configuration synchronized. Review configuration and
+lockfile changes, then run `./scripts/lint.sh` before committing.
 
 ## Validation Commands
 
 Run the checks that match the files you changed. For cross-cutting changes, run
-all relevant checks.
+the same repository-wide checks as CI. Some hooks apply safe fixes and
+formatting changes, so review the working tree afterward.
+
+```bash
+./scripts/lint.sh
+```
 
 Python tests:
 
 ```bash
 .venv/bin/pytest
-```
-
-Python lint and format:
-
-```bash
-.venv/bin/ruff check .
-.venv/bin/ruff format --check .
-```
-
-Python type checking:
-
-```bash
-.venv/bin/mypy backend tests
-```
-
-Frontend lint:
-
-```bash
-npm run lint
-```
-
-Frontend type check:
-
-```bash
-npm run tsc
-```
-
-Frontend production build:
-
-```bash
-npm run build
-```
-
-Pre-commit hooks:
-
-```bash
-.venv/bin/pre-commit run --all-files
 ```
 
 Docker build smoke check:

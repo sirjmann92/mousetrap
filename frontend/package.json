@@ -11,14 +11,15 @@
     "react-dom": "^19.1.1"
   },
   "engines": {
-    "node": ">=22.20.0"
+    "node": ">=24.18.0",
+    "npm": ">=11.16.0"
   },
   "scripts": {
     "start": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "lint": "biome check . --config-path=./biome.json",
-    "lint:fix": "biome check . --write --config-path=./biome.json",
+    "lint": "biome check . --config-path=../biome.json --vcs-root=..",
+    "lint:fix": "biome check . --write --config-path=../biome.json --vcs-root=..",
     "tsc": "tsc --noEmit",
     "backend": "cd .. && ./scripts/start-backend.sh",
     "dev": "concurrently \"npm:backend\" \"npm:start\" -k --names \"backend,frontend\" --prefix \"[{name}]\""
@@ -36,11 +37,15 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.4",
+    "@biomejs/biome": "2.5.5",
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^9.2.1",
+    "typescript": "^5.9.2",
     "vite": "^7.1.7",
-    "vite-plugin-svgr": "^4.5.0",
-    "typescript": "^5.9.2"
+    "vite-plugin-svgr": "^4.5.0"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "fsevents": true
   }
 }

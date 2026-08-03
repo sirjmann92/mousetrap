@@ -2,16 +2,17 @@
 	"name": "mousetrap",
 	"private": true,
 	"engines": {
-		"node": ">=22.20.0"
+		"node": ">=24.18.0",
+		"npm": ">=11.16.0"
 	},
 	"scripts": {
-		"start": "cd frontend && npm run start",
-		"build": "cd frontend && npm run build",
-		"serve": "cd frontend && npm run serve",
-		"lint": "cd frontend && npm run lint",
-		"lint:fix": "cd frontend && npm run lint:fix",
-		"tsc": "cd frontend && npm run tsc",
-		"backend": "cd frontend && npm run backend",
-		"dev": "cd frontend && npm run dev"
+		"start": "npm --prefix frontend run start",
+		"build": "npm --prefix frontend run build",
+		"serve": "npm --prefix frontend run serve",
+		"lint": "npm --prefix frontend run lint",
+		"lint:fix": "npm --prefix frontend run lint:fix",
+		"tsc": "npm --prefix frontend run tsc",
+		"backend": "npm --prefix frontend run backend",
+		"dev": "npm --prefix frontend run dev"
 	}
 }

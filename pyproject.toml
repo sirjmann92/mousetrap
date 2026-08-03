@@ -1,3 +1,42 @@
+[dependency-groups]
+runtime = [
+    "aiohttp",
+    "apscheduler",
+    "docker",
+    "fastapi",
+    "pydantic",
+    "pyyaml",
+    "starlette",
+    "uvicorn",
+    "yarl",
+]
+lint = [
+    { include-group = "runtime" },
+    "mypy",
+    "prek",
+    "ruff",
+    "types-cffi",
+    "types-docker",
+    "types-PyMySQL",
+    "types-pyRFC3339",
+    "types-python-dateutil",
+    "types-PySocks",
+    "types-PyYAML",
+    "types-requests",
+    "types-setuptools",
+]
+test = [
+    { include-group = "runtime" },
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "pytest-timeout",
+]
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+]
+
 [tool.codespell]
 skip = "*.py,*.toml,*.json"
 quiet-level = 3
@@ -21,6 +60,11 @@ parallel = false
 
 [tool.coverage.report]
 show_missing = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
 
 [tool.mypy]
 python_version = "3.13"

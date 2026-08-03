@@ -1,26 +1,22 @@
 # Stage 1: Build frontend
-# Pin to linux/amd64 so this stage always runs natively on the CI runner.
-# Node.js 22 uses CPU instructions that QEMU cannot emulate, causing SIGILL
-# (exit 132) when building for arm64 under QEMU. The output is pure static
-# files (JS/CSS/HTML), so the build architecture does not matter.
-FROM --platform=linux/amd64 node:22.20.0-alpine AS frontend-build
+# Build on the builder's native platform so Node.js never runs under QEMU.
+# The output is pure static files (JS/CSS/HTML), so it can be copied into
+# images for any target architecture.
+FROM --platform=$BUILDPLATFORM node:krypton-alpine AS frontend-build
 WORKDIR /frontend
 COPY frontend/package*.json ./
+RUN npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund \
+    && npm ci --strict-allow-scripts --silent --no-fund
 COPY frontend/ ./
-RUN npm ci --silent \
-    && npm cache clean --force \
-    # Build the frontend using devDependencies (vite, plugins)
-    && npm run build \
-    # Clean up everything except the build output - we only need /frontend/build in the next stage
-    && npm cache clean --force \
-    && rm -rf node_modules src public package*.json
+# Build the frontend using devDependencies (Vite and plugins).
+RUN npm run build
 
 # Stage 2: Backend (FastAPI)
 FROM python:3.13-alpine AS backend
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY backend/requirements.txt /app/requirements.txt
+# Copy dependency metadata first for better caching.
+COPY pyproject.toml /app/pyproject.toml
 
 # Install system dependencies, create users/groups, and install Python deps
 RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
@@ -29,7 +25,8 @@ RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
     && addgroup -g 1000 appgroup \
     && adduser -u 1000 -G appgroup -D -s /bin/sh appuser \
     && adduser appuser docker \
-    && pip install --no-cache-dir -r /app/requirements.txt \
+    && python -m pip install --no-cache-dir --upgrade "pip>=25.1" \
+    && python -m pip install --no-cache-dir --group runtime \
     && apk del .build-deps \
     && rm -rf /root/.cache/pip /tmp/* /var/cache/apk/*
 
@@ -44,7 +41,6 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Copy the rest of the backend code and config (exclude dev files)
 COPY backend/*.py /app/backend/
-COPY backend/requirements.txt /app/backend/
 COPY backend/app.py logconfig.yaml.template /app/
 # Copy frontend build output and minimal public assets
 COPY --from=frontend-build /frontend/build /app/frontend/build

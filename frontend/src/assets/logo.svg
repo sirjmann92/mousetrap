@@ -1,6 +1,15 @@
 <svg fill="none" height="48" viewBox="0 0 48 48" width="48" xmlns="http://www.w3.org/2000/svg">
   <title>MouseTrap logo</title>
-  <rect fill="#ffd700" height="8" rx="2" stroke="#2d323b" stroke-width="2" width="36" x="6" y="34" />
+  <rect
+    fill="#ffd700"
+    height="8"
+    rx="2"
+    stroke="#2d323b"
+    stroke-width="2"
+    width="36"
+    x="6"
+    y="34"
+  />
   <ellipse cx="24" cy="24" fill="#fff" rx="12" ry="8" />
   <ellipse cx="24" cy="20" fill="#444" rx="10" ry="7" />
   <circle cx="19" cy="20" fill="#fff" r="2" />

@@ -1,8 +1,14 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.5/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
   "files": {
     "ignoreUnknown": true,
-    "maxSize": 4194304
+    "maxSize": 4194304,
+    "includes": ["**", "!**/build", "!**/public", "!**/node_modules"]
   },
   "formatter": {
     "enabled": true,
@@ -12,12 +18,31 @@
     "lineWidth": 100
   },
   "linter": {
-    "enabled": true
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedVariables": {
+          "level": "error",
+          "fix": "safe",
+          "options": {}
+        }
+      }
+    },
+    "domains": {
+      "project": "recommended",
+      "react": "recommended"
+    }
   },
   "javascript": {
     "formatter": {
       "quoteStyle": "single",
       "trailingCommas": "all"
+    }
+  },
+  "html": {
+    "formatter": {
+      "enabled": true
     }
   },
   "assist": {
