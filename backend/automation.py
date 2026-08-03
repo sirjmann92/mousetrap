@@ -17,6 +17,7 @@ Functions provided:
 from datetime import UTC, datetime, timedelta
 import logging
 import time
+from typing import Any
 
 from backend.config import list_sessions, load_session, save_session
 from backend.event_log import append_ui_event_log
@@ -31,6 +32,30 @@ _logger: logging.Logger = logging.getLogger(__name__)
 _WEDGE_POINTS_COST = 50_000
 _VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
 _UPLOAD_POINTS_PER_GB = 500
+
+
+def _persist_automation_state(
+    label: str,
+    section: str,
+    updates: dict[str, Any],
+    remove: tuple[str, ...] = (),
+) -> None:
+    """Reload the session fresh from disk before persisting automation state.
+
+    The automation jobs run on their own fixed interval, independent of each
+    session's own check_freq-driven session_check_job — which also saves the
+    session file (mam_id rotation, indexer sync, IP/ASN updates). Both jobs
+    read the whole file, mutate it, and write the whole file back, so reusing
+    a `cfg` loaded at the top of an automation job's loop and saving it later
+    risks silently discarding whatever the other job wrote in between.
+    Reloading immediately before this save closes that window.
+    """
+    fresh_cfg = load_session(label)
+    automation_cfg = fresh_cfg.setdefault("perk_automation", {}).setdefault(section, {})
+    automation_cfg.update(updates)
+    for key in remove:
+        automation_cfg.pop(key, None)
+    save_session(fresh_cfg, old_label=label)
 
 
 # --- Automation Scheduler ---
@@ -241,8 +266,9 @@ async def upload_credit_automation_job() -> None:
                     label,
                 )
                 # Update last purchase timestamp in new field
-                cfg["perk_automation"]["upload_credit"]["last_upload_time"] = now_dt.isoformat()
-                save_session(cfg, old_label=label)
+                _persist_automation_state(
+                    label, "upload_credit", {"last_upload_time": now_dt.isoformat()}
+                )
                 await notify_event(
                     event_type="automation_success",
                     label=label,
@@ -525,11 +551,12 @@ async def vip_automation_job() -> None:
                     label,
                 )
                 # Update last purchase timestamp and reset retry state on success
-                cfg["perk_automation"]["vip_automation"]["last_vip_time"] = now_dt.isoformat()
-                automation["retry"] = 0
-                automation.pop("cooldown_until", None)
-                automation.pop("last_fail_time", None)
-                save_session(cfg, old_label=label)
+                _persist_automation_state(
+                    label,
+                    "vip_automation",
+                    {"last_vip_time": now_dt.isoformat(), "retry": 0},
+                    remove=("cooldown_until", "last_fail_time"),
+                )
                 await notify_event(
                     event_type="automation_success",
                     label=label,
@@ -546,18 +573,17 @@ async def vip_automation_job() -> None:
                 )
                 # Retry logic: up to 3 times, 1 minute apart
                 retry = automation.get("retry", 0) + 1
-                automation["retry"] = retry
-                automation["last_fail_time"] = now_ts
+                retry_updates: dict[str, Any] = {"retry": retry, "last_fail_time": now_ts}
                 if retry >= 3:
                     # Set cooldown until next main run (10 min = 600s)
-                    automation["cooldown_until"] = now_ts + 600
+                    retry_updates["cooldown_until"] = now_ts + 600
                     _logger.warning(
                         "[VIPAuto] Automated purchase: VIP (%s) for session '%s' retries_exceeded, cooldown_until=%s",
                         ("max" if is_max else weeks),
                         label,
-                        automation["cooldown_until"],
+                        retry_updates["cooldown_until"],
                     )
-                save_session(cfg, old_label=label)
+                _persist_automation_state(label, "vip_automation", retry_updates)
                 await notify_event(
                     event_type="automation_failure",
                     label=label,
@@ -756,8 +782,9 @@ async def wedge_automation_job() -> None:
 
             if success:
                 # Update last purchase timestamp in new field
-                cfg["perk_automation"]["wedge_automation"]["last_wedge_time"] = now_dt.isoformat()
-                save_session(cfg, old_label=label)
+                _persist_automation_state(
+                    label, "wedge_automation", {"last_wedge_time": now_dt.isoformat()}
+                )
                 _logger.info(
                     "[WedgeAuto] Automated purchase: Wedge (points) for session '%s' succeeded.",
                     label,
