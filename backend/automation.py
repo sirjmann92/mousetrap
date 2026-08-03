@@ -350,9 +350,9 @@ async def vip_automation_job() -> None:
                 )
                 # Reset retry state if not eligible
                 if "retry" in automation:
-                    automation.pop("retry", None)
-                    automation.pop("cooldown_until", None)
-                    save_session(cfg, old_label=label)
+                    _persist_automation_state(
+                        label, "vip_automation", {}, remove=("retry", "cooldown_until")
+                    )
                 # Do not check any automation-level guardrails if session minimum is not met
                 continue
             # --- Enforce minimum points guardrail (prevent spend below minimum) ---
@@ -389,9 +389,9 @@ async def vip_automation_job() -> None:
                         }
                     )
                     if "retry" in automation:
-                        automation.pop("retry", None)
-                        automation.pop("cooldown_until", None)
-                        save_session(cfg, old_label=label)
+                        _persist_automation_state(
+                            label, "vip_automation", {}, remove=("retry", "cooldown_until")
+                        )
                     continue
             # --- Time-based trigger enforcement ---
             last_vip_time = (
@@ -443,9 +443,9 @@ async def vip_automation_job() -> None:
                 )
                 # Reset retry state if not eligible
                 if "retry" in automation:
-                    automation.pop("retry", None)
-                    automation.pop("cooldown_until", None)
-                    save_session(cfg, old_label=label)
+                    _persist_automation_state(
+                        label, "vip_automation", {}, remove=("retry", "cooldown_until")
+                    )
                 continue
             # --- Automation-level point threshold guardrail ---
             if trigger_type in ("points", "both") and int(points) < int(trigger_point_threshold):
@@ -469,9 +469,9 @@ async def vip_automation_job() -> None:
                 )
                 # Reset retry state if not eligible
                 if "retry" in automation:
-                    automation.pop("retry", None)
-                    automation.pop("cooldown_until", None)
-                    save_session(cfg, old_label=label)
+                    _persist_automation_state(
+                        label, "vip_automation", {}, remove=("retry", "cooldown_until")
+                    )
                 continue
             # --- Retry/cooldown logic ---
             retry = automation.get("retry", 0)
