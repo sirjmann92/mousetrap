@@ -12,6 +12,8 @@ CONTAINER_NAME="${E2E_CONTAINER_NAME:-mousetrap-e2e-$RUN_SUFFIX}"
 IMAGE_NAME="${E2E_IMAGE_NAME:-mousetrap-e2e:local-$RUN_SUFFIX}"
 ARTIFACT_DIR="${E2E_ARTIFACT_DIR:-$REPO_ROOT/coverage/test-results/container-diagnostics-$RUN_SUFFIX}"
 CONFIG_DIR="${E2E_CONFIG_DIR:-}"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
 OWNS_CONFIG_DIR=false
 OWNS_TEMP_ROOT=false
 IMAGE_BUILT=false
@@ -202,7 +204,6 @@ else
     exit 1
   fi
 fi
-chmod 0777 "$CONFIG_DIR"
 mkdir -p "$ARTIFACT_DIR"
 
 echo "Building production test image $IMAGE_NAME..."
@@ -212,6 +213,8 @@ IMAGE_BUILT=true
 echo "Starting production test container $CONTAINER_NAME..."
 docker run --detach \
   --name "$CONTAINER_NAME" \
+  --env "PUID=$HOST_UID" \
+  --env "PGID=$HOST_GID" \
   --publish 127.0.0.1::39842 \
   --volume "$CONFIG_DIR:/config" \
   "$IMAGE_NAME" >/dev/null

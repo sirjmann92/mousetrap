@@ -1,7 +1,10 @@
 """Regression tests for cooperative automation shutdown."""
 
 import asyncio
+from copy import deepcopy
+from datetime import UTC, datetime, tzinfo
 import threading
+from typing import Self
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -35,9 +38,23 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
             }
         },
     }
+    expected_first_config = deepcopy(first_config)
+    fixed_now = datetime(2026, 8, 3, 12, 34, 56, tzinfo=UTC)
+    expected_first_config["perk_automation"]["upload_credit"]["last_upload_time"] = (
+        fixed_now.isoformat()
+    )
     purchase_started = threading.Event()
     release_purchase = threading.Event()
     saved_labels: list[str] = []
+
+    class FixedDateTime(datetime):
+        """Provide a deterministic automation timestamp for persistence assertions."""
+
+        @classmethod
+        def now(cls, current_tz: tzinfo | None = None) -> Self:
+            """Return the fixed test timestamp in the requested timezone."""
+            assert current_tz is UTC
+            return cls(2026, 8, 3, 12, 34, 56, tzinfo=UTC)
 
     async def buy_then_request_shutdown(
         _amount: int, *, mam_id: str, proxy_cfg: object
@@ -49,7 +66,10 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
         return {"success": True}
 
     def save(config: dict[str, object], *, old_label: str) -> None:
-        assert config["perk_automation"] == first_config["perk_automation"]
+        assert config == expected_first_config
+        assert config["perk_automation"]["upload_credit"]["last_upload_time"] == (
+            "2026-08-03T12:34:56+00:00"
+        )
         saved_labels.append(old_label)
 
     monkeypatch.setattr(automation, "list_sessions", lambda: ["first", "second"])
@@ -64,6 +84,7 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
     monkeypatch.setattr(automation, "save_session", save)
     monkeypatch.setattr(automation, "notify_event", AsyncMock())
     monkeypatch.setattr(automation, "append_ui_event_log", Mock())
+    monkeypatch.setattr(automation, "datetime", FixedDateTime)
     wedge_job = AsyncMock()
     vip_job = AsyncMock()
     monkeypatch.setattr(automation, "wedge_automation_job", wedge_job)

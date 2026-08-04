@@ -25,6 +25,10 @@ try:
 except ImportError:
     docker = None  # type: ignore[assignment]
 
+_DockerException: type[Exception] = (
+    docker.errors.DockerException if docker is not None else RuntimeError
+)
+
 _logger: logging.Logger = logging.getLogger(__name__)
 PORT_MONITOR_STOP_TIMEOUT_SECONDS = 5.0
 PORT_MONITOR_CONFIG_PATH = Path(
@@ -438,7 +442,12 @@ class PortMonitorStackManager:
                     try:
                         container = client.containers.get(stack.primary_container)
                         running = container.status == "running"
-                    except Exception:
+                    except _DockerException as err:
+                        _logger.warning(
+                            "[PortMonitorStack] Unable to inspect container %s after restart: %s",
+                            stack.primary_container,
+                            err,
+                        )
                         running = False
 
                 await asyncio.sleep(0)

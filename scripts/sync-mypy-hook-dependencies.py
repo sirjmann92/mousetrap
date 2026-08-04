@@ -79,7 +79,7 @@ def synchronize(pyproject_path: Path, prek_path: Path) -> bool:
             f"{prek_path}: expected exactly one mypy dependency block; "
             f"found {len(dependency_matches)}"
         )
-    if len(current) == len(dependencies) and set(current) == set(dependencies):
+    if current == dependencies:
         return False
 
     replacement = "additional_dependencies = [\n"

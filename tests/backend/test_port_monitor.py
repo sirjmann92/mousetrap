@@ -411,6 +411,34 @@ def test_restart_rechecks_once_on_completion_paths(
     recheck.assert_called_once_with("x")
 
 
+def test_restart_inspection_failure_logs_and_treats_container_as_not_running(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A Docker inspection failure preserves the safe not-running fallback."""
+    manager = port_monitor.PortMonitorStackManager()
+    stack = port_monitor.PortMonitorStack("x", "primary", 80, ["secondary"])
+    manager.stacks = [stack]
+    inspection_error = port_monitor.docker.errors.APIError("inspection failed")
+    client = Mock()
+    client.containers.get.side_effect = inspection_error
+    restart_container = Mock(return_value=True)
+    recheck = Mock(return_value=False)
+    monkeypatch.setattr(manager, "restart_container", restart_container)
+    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
+    monkeypatch.setattr(manager, "get_docker_client", lambda: client)
+    monkeypatch.setattr(manager, "recheck_stack", recheck)
+    monkeypatch.setattr(port_monitor.asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", Mock())
+    monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
+
+    with caplog.at_level(logging.WARNING):
+        assert asyncio.run(manager.restart_stack(stack))
+
+    assert "Unable to inspect container primary after restart: inspection failed" in caplog.text
+    restart_container.assert_called_once_with("primary")
+    recheck.assert_called_once_with("x")
+
+
 def test_restart_stops_side_effects_when_shutdown_occurs_during_polling(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
