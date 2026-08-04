@@ -23,7 +23,7 @@ def redact_sensitive(data: Any) -> Any:
     data : Any
         The input data which may be a dict, list, or any primitive value.
 
-    Returns
+    Returns:
     -------
     Any
         A new data structure with values for sensitive keys replaced by a redaction string.

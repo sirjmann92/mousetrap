@@ -77,6 +77,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
       <FormControl size="small" sx={{ maxWidth: 240, minWidth: 160 }}>
         <InputLabel>Session</InputLabel>
         <Select
+          inputProps={{ 'aria-label': 'Session' }}
           label="Session"
           MenuProps={{ disableScrollLock: true }}
           onChange={handleChange}
@@ -92,6 +93,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
       </FormControl>
       <Tooltip title="Create New Session">
         <IconButton
+          aria-label="Create new session"
           color="success"
           onClick={() => {
             const maybePromise = onCreateSession?.();
@@ -109,6 +111,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
       <Tooltip title="Delete Session">
         <span>
           <IconButton
+            aria-label="Delete session"
             color="error"
             disabled={sessions.length === 0}
             onClick={handleDeleteClick}

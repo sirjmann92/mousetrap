@@ -6,8 +6,8 @@ set -eu
 # Use this helper directly, through `npm run backend`, or through `npm run dev`.
 # Production containers use start.sh instead.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
 VENV_PY="$REPO_ROOT/.venv/bin/python"
 
 # Run from the repository root so imports and relative environment overrides

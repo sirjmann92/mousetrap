@@ -293,7 +293,8 @@ def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str,
                 "level": "info",
             }
         )
-        await port_monitor_manager.restart_stack(stack)
+        if not await port_monitor_manager.restart_stack(stack, cancel_on_shutdown=True):
+            return
         _logger.info(
             "[PortMonitorStackAPI] Restart complete for stack '%s', rechecking status...",
             name,

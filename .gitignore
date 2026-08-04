@@ -2,6 +2,7 @@ __pycache__
 .coverage
 .DS_Store
 .env
+.e2e-tmp/
 .idea
 .mypy_cache
 .pytest_cache
@@ -25,7 +26,8 @@ compose.yaml*
 compose.yml*
 config.yaml*
 config/
-coverage.xml
+coverage.json
+coverage/
 dist/
 docker-compose.yaml*
 docker-compose.yml*
@@ -34,7 +36,6 @@ env/
 favicon_io/
 frontend/.cache/
 frontend/node_modules/
-htmlcov/
 junit.xml
 last_session.yaml*
 logs/

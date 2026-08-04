@@ -36,7 +36,7 @@ async def send_webhook_notification(url: str, payload: dict, discord: bool = Fal
     discord : bool, optional
         If True, format payload for Discord (use `content` field), by default False.
 
-    Returns
+    Returns:
     -------
     bool
         True when the request succeeded (HTTP 2xx), False on any exception.
@@ -94,7 +94,7 @@ def send_smtp_notification(
     use_tls : bool, optional
         Whether to use STARTTLS, by default True.
 
-    Returns
+    Returns:
     -------
     bool
         True on success, False on failure.

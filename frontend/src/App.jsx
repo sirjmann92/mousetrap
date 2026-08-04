@@ -315,6 +315,7 @@ export default function App() {
           />
           <EventLogModalButton sessionLabel={selectedLabel} />
           <IconButton
+            aria-label={`use ${mode === 'light' ? 'dark' : 'light'} theme`}
             color="inherit"
             onClick={() => setMode(mode === 'light' ? 'dark' : 'light')}
             sx={{ ml: 2 }}

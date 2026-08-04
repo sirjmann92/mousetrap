@@ -25,7 +25,12 @@ try:
 except ImportError:
     docker = None  # type: ignore[assignment]
 
+_DockerException: type[Exception] = (
+    docker.errors.DockerException if docker is not None else RuntimeError
+)
+
 _logger: logging.Logger = logging.getLogger(__name__)
+PORT_MONITOR_STOP_TIMEOUT_SECONDS = 5.0
 PORT_MONITOR_CONFIG_PATH = Path(
     os.environ.get("PORT_MONITOR_CONFIG_PATH") or CONFIG_DIR / "port_monitoring_stacks.yaml"
 )
@@ -103,6 +108,10 @@ class PortMonitorStackManager:
         self._docker_client: Any = None  # docker.DockerClient when available
         self._last_warning_times: dict[str, Any] = {}  # Rate limiting for warnings
         self._config_loaded: bool = False
+        self._shutdown_event = threading.Event()
+        self._restart_tasks: set[asyncio.Task[Any]] = set()
+        self._restart_tasks_lock = threading.Lock()
+        self._worker_lock = threading.Lock()
 
     def _should_log_warning(self, key: str, min_interval: int = 30) -> bool:
         """Rate limit warnings to prevent log spam."""
@@ -352,116 +361,161 @@ class PortMonitorStackManager:
         else:
             return True
 
-    async def restart_stack(self, stack: PortMonitorStack) -> None:
+    def _register_restart_task(self) -> asyncio.Task[Any] | None:
+        """Register the current task unless its monitor run is already stopping."""
+        task = asyncio.current_task()
+        if task is None:
+            raise RuntimeError("Stack restart requires an active asyncio task")
+        with self._restart_tasks_lock:
+            if self._shutdown_event.is_set():
+                return None
+            self._restart_tasks.add(task)
+        return task
+
+    def _unregister_restart_task(self, task: asyncio.Task[Any]) -> None:
+        """Remove a completed or cancelled restart task from shutdown tracking."""
+        with self._restart_tasks_lock:
+            self._restart_tasks.discard(task)
+
+    async def restart_stack(
+        self,
+        stack: PortMonitorStack,
+        *,
+        cancel_on_shutdown: bool = False,
+    ) -> bool:
         """Restart the primary and secondary containers for a stack.
 
         This method updates stack status, records an event in the UI event
         log, restarts the primary container and, if appropriate, restarts
-        the secondary containers and rechecks the stack status.
-        """
-        # Set status to 'Restarting...'
-        stack.status = "Restarting..."
+        the secondary containers and rechecks the stack status. Background
+        application tasks opt into monitor-lifecycle cancellation; direct calls
+        remain independent unless explicitly requested.
 
-        # Log restart event
-        append_ui_event_log(
-            {
-                "event": "port_monitor_restart",
-                "event_type": "port_monitor_restart",
-                "label": stack.name,
-                "stack": stack.name,
-                "primary_container": stack.primary_container,
-                "primary_port": stack.primary_port,
-                "timestamp": datetime.now(tz=UTC).isoformat(),
-                "status": "Restarting...",
-                "status_message": f"Restarting stack '{stack.name}' (primary: {stack.primary_container}:{stack.primary_port})...",
-                "details": {
+        Returns:
+            ``True`` when the restart reaches a completion path, or ``False``
+            when application shutdown cancels it.
+        """
+        restart_task: asyncio.Task[Any] | None = None
+        if cancel_on_shutdown:
+            restart_task = self._register_restart_task()
+            if restart_task is None:
+                return False
+
+        try:
+            stack.status = "Restarting..."
+            append_ui_event_log(
+                {
+                    "event": "port_monitor_restart",
+                    "event_type": "port_monitor_restart",
+                    "label": stack.name,
+                    "stack": stack.name,
                     "primary_container": stack.primary_container,
                     "primary_port": stack.primary_port,
-                    "secondaries": stack.secondary_containers,
-                },
-                "level": "warning",
-            }
-        )
-
-        # Restart primary
-        self.restart_container(stack.primary_container)
-
-        # Wait for primary to be reachable (up to 60s), fallback to running status
-        port_ok = False
-        for _ in range(12):  # Wait up to 12*5=60s
-            if self.check_port(stack.primary_container, stack.primary_port):
-                port_ok = True
-                break
-            await asyncio.sleep(5)
-
-        if not port_ok:
-            # Check if container is running
-            client = self.get_docker_client()
-            running = False
-            if client:
-                try:
-                    container = client.containers.get(stack.primary_container)
-                    running = container.status == "running"
-                except Exception:
-                    running = False
-
-            if running:
-                # Notify user: port unreachable, but container running, proceeding
-                append_ui_event_log(
-                    {
-                        "event": "port_monitor_port_timeout",
-                        "event_type": "port_monitor_port_timeout",
-                        "label": stack.name,
-                        "stack": stack.name,
+                    "timestamp": datetime.now(tz=UTC).isoformat(),
+                    "status": "Restarting...",
+                    "status_message": f"Restarting stack '{stack.name}' (primary: {stack.primary_container}:{stack.primary_port})...",
+                    "details": {
                         "primary_container": stack.primary_container,
                         "primary_port": stack.primary_port,
-                        "timestamp": datetime.now(tz=UTC).isoformat(),
-                        "status": "Port unreachable, container running",
-                        "status_message": f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
-                        "details": {},
-                        "level": "warning",
-                    }
-                )
-                await safe_notify_event(
-                    event_type="port_monitor_failure",
-                    label=stack.name,
-                    status="WARNING",
-                    message=f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
-                    details={},
-                )
-            else:
-                # Notify user: container not running
-                append_ui_event_log(
-                    {
-                        "event": "port_monitor_container_not_running",
-                        "event_type": "port_monitor_container_not_running",
-                        "label": stack.name,
-                        "stack": stack.name,
-                        "primary_container": stack.primary_container,
-                        "primary_port": stack.primary_port,
-                        "timestamp": datetime.now(tz=UTC).isoformat(),
-                        "status": "Container not running",
-                        "status_message": f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
-                        "details": {},
-                        "level": "error",
-                    }
-                )
-                await safe_notify_event(
-                    event_type="port_monitor_failure",
-                    label=stack.name,
-                    status="ERROR",
-                    message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
-                    details={},
-                )
-                self.recheck_stack(stack.name)
-                return  # Do not restart secondaries
+                        "secondaries": stack.secondary_containers,
+                    },
+                    "level": "warning",
+                }
+            )
 
-        # Restart all secondaries
-        for sec in stack.secondary_containers:
-            self.restart_container(sec)
+            self.restart_container(stack.primary_container)
+            await asyncio.sleep(0)
 
-        # Immediately recheck status after restart (this will update status and log result)
-        self.recheck_stack(stack.name)
+            port_ok = False
+            for _ in range(12):
+                check_succeeded = self.check_port(stack.primary_container, stack.primary_port)
+                await asyncio.sleep(0)
+                if check_succeeded:
+                    port_ok = True
+                    break
+                await asyncio.sleep(5)
+
+            if not port_ok:
+                client = self.get_docker_client()
+                running = False
+                if client:
+                    try:
+                        container = client.containers.get(stack.primary_container)
+                        running = container.status == "running"
+                    except _DockerException as err:
+                        _logger.warning(
+                            "[PortMonitorStack] Unable to inspect container %s after restart: %s",
+                            stack.primary_container,
+                            err,
+                        )
+                        running = False
+
+                await asyncio.sleep(0)
+                if running:
+                    append_ui_event_log(
+                        {
+                            "event": "port_monitor_port_timeout",
+                            "event_type": "port_monitor_port_timeout",
+                            "label": stack.name,
+                            "stack": stack.name,
+                            "primary_container": stack.primary_container,
+                            "primary_port": stack.primary_port,
+                            "timestamp": datetime.now(tz=UTC).isoformat(),
+                            "status": "Port unreachable, container running",
+                            "status_message": f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
+                            "details": {},
+                            "level": "warning",
+                        }
+                    )
+                    await safe_notify_event(
+                        event_type="port_monitor_failure",
+                        label=stack.name,
+                        status="WARNING",
+                        message=f"Port {stack.primary_port} on {stack.primary_container} not reachable after 60s, but container is running. Proceeding to restart secondaries.",
+                        details={},
+                    )
+                else:
+                    append_ui_event_log(
+                        {
+                            "event": "port_monitor_container_not_running",
+                            "event_type": "port_monitor_container_not_running",
+                            "label": stack.name,
+                            "stack": stack.name,
+                            "primary_container": stack.primary_container,
+                            "primary_port": stack.primary_port,
+                            "timestamp": datetime.now(tz=UTC).isoformat(),
+                            "status": "Container not running",
+                            "status_message": f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
+                            "details": {},
+                            "level": "error",
+                        }
+                    )
+                    await safe_notify_event(
+                        event_type="port_monitor_failure",
+                        label=stack.name,
+                        status="ERROR",
+                        message=f"Container {stack.primary_container} is not running after restart. Secondary containers not restarted.",
+                        details={},
+                    )
+                    await asyncio.sleep(0)
+                    self.recheck_stack(stack.name)
+                    return True
+
+            for sec in stack.secondary_containers:
+                await asyncio.sleep(0)
+                self.restart_container(sec)
+
+            await asyncio.sleep(0)
+            self.recheck_stack(stack.name)
+        except asyncio.CancelledError:
+            if cancel_on_shutdown and self._shutdown_event.is_set():
+                return False
+            raise
+        else:
+            return True
+        finally:
+            if restart_task is not None:
+                self._unregister_restart_task(restart_task)
 
     def add_stack(
         self,
@@ -553,7 +607,11 @@ class PortMonitorStackManager:
         # Perform initial status checks immediately at startup
         _logger.info("[PortMonitorStack] Starting port monitoring with immediate initial checks...")
         for stack in self.stacks:
+            if not self.running:
+                return
             result = self.check_port(stack.primary_container, stack.primary_port)
+            if not self.running:
+                return
             stack.last_checked = time.time()
             stack.last_result = result
             stack.status = "OK" if result else "Failed"
@@ -579,6 +637,8 @@ class PortMonitorStackManager:
                     # Manual IP failure tracking logic
                     manual_ip = getattr(stack, "public_ip", None)
                     result = self.check_port(stack.primary_container, stack.primary_port)
+                    if not self.running:
+                        return
                     stack.last_checked = time.time()
                     stack.last_result = result
                     stack.status = "OK" if result else "Failed"
@@ -663,7 +723,8 @@ class PortMonitorStackManager:
                                 "secondaries": stack.secondary_containers,
                             },
                         )
-                        await self.restart_stack(stack)
+                        if not await self.restart_stack(stack, cancel_on_shutdown=True):
+                            return
                     self._save_stacks_best_effort()
             await asyncio.sleep(5)
 
@@ -675,7 +736,10 @@ class PortMonitorStackManager:
             _logger.exception("[PortMonitorStack] Monitor loop terminated unexpectedly")
             raise
         finally:
-            self.running = False
+            with self._worker_lock:
+                self.running = False
+                if self.thread is threading.current_thread():
+                    self.thread = None
 
     def start(self) -> None:
         """Start background monitoring in a daemon thread.
@@ -684,6 +748,11 @@ class PortMonitorStackManager:
         spawns the monitoring thread if it is not already running. Invalid
         configuration disables monitoring without modifying the source file.
         """
+        with self._worker_lock:
+            if self.thread is not None:
+                if self.thread.is_alive():
+                    return
+                self.thread = None
         try:
             self.load_stacks()
         except YamlStoreError as e:
@@ -694,16 +763,47 @@ class PortMonitorStackManager:
                 e,
             )
             return
-        if not self.running:
+        with self._worker_lock:
+            if self.thread is not None:
+                if self.thread.is_alive():
+                    return
+                self.thread = None
+            with self._restart_tasks_lock:
+                self._shutdown_event = threading.Event()
             self.running = True
             self.thread = threading.Thread(target=self._run_monitor_loop, daemon=True)
             self.thread.start()
 
     def stop(self) -> None:
-        """Stop the background monitoring loop and join the thread."""
-        self.running = False
-        if self.thread:
-            self.thread.join()
+        """Request worker shutdown and wait briefly for the daemon thread.
+
+        Docker operations can block independently of the manager, so shutdown
+        must not wait indefinitely. Any active restart coroutine is cancelled
+        through its owning event loop before the monitor thread is joined.
+        """
+        with self._worker_lock:
+            with self._restart_tasks_lock:
+                self._shutdown_event.set()
+                restart_tasks = tuple(self._restart_tasks)
+            self.running = False
+            thread = self.thread
+        for task in restart_tasks:
+            try:
+                task.get_loop().call_soon_threadsafe(task.cancel)
+            except RuntimeError:
+                _logger.debug("[PortMonitorStack] Restart task loop already closed")
+        if thread:
+            thread.join(timeout=PORT_MONITOR_STOP_TIMEOUT_SECONDS)
+            if thread.is_alive():
+                _logger.warning(
+                    "[PortMonitorStack] Monitor thread did not stop within %.1f seconds; "
+                    "continuing shutdown",
+                    PORT_MONITOR_STOP_TIMEOUT_SECONDS,
+                )
+            else:
+                with self._worker_lock:
+                    if self.thread is thread:
+                        self.thread = None
 
 
 # Singleton instance

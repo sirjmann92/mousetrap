@@ -1,0 +1,220 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install backend test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group test
+
+      - name: Run all backend tests
+        run: |
+          set -o pipefail
+          python -m pytest tests/backend --junitxml=junit.xml \
+            2>&1 | tee backend-tests.log
+
+      - name: Upload backend coverage
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-coverage
+          path: coverage/backend/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload backend failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: backend-test-diagnostics
+          path: |
+            backend-tests.log
+            junit.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  playwright:
+    name: Development Playwright tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install backend runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --group test
+
+      - name: Set up Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/Krypton"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install npm with script approval support
+        run: npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend --strict-allow-scripts --no-fund
+
+      - name: Install Chromium
+        run: npm --prefix frontend run test:e2e:install
+
+      - name: Run development end-to-end tests
+        run: |
+          set -o pipefail
+          npm run test:e2e 2>&1 | tee playwright-dev.log
+
+      - name: Upload frontend coverage
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: frontend-coverage
+          path: coverage/frontend/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload Playwright failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-dev-diagnostics
+          path: |
+            playwright-dev.log
+            coverage/playwright-report/
+            coverage/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  coverage:
+    name: Coverage summary
+    needs:
+      - backend
+      - playwright
+      - container
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/Krypton"
+
+      - name: Download backend coverage
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: backend-coverage
+          path: coverage/backend
+
+      - name: Download frontend coverage
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: frontend-coverage
+          path: coverage/frontend
+
+      - name: Publish separate backend and frontend coverage
+        env:
+          ALLOW_MISSING_COVERAGE: "true"
+          BACKEND_TEST_STATUS: ${{ needs.backend.result == 'success' && 'PASS' || needs.backend.result == 'skipped' && 'SKIPPED' || 'FAIL' }}
+          CONTAINER_TEST_STATUS: ${{ needs.container.result == 'success' && 'PASS' || needs.container.result == 'skipped' && 'SKIPPED' || 'FAIL' }}
+          FRONTEND_TEST_STATUS: ${{ needs.playwright.result == 'success' && 'PASS' || needs.playwright.result == 'skipped' && 'SKIPPED' || 'FAIL' }}
+        run: node scripts/coverage-summary.mjs
+
+  container:
+    name: Docker container smoke tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      E2E_CONTAINER_NAME: mousetrap-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+      E2E_IMAGE_NAME: mousetrap-e2e:${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24 LTS
+        uses: actions/setup-node@v7
+        with:
+          node-version: "lts/Krypton"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install npm with script approval support
+        run: npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend --strict-allow-scripts --no-fund
+
+      - name: Install Chromium
+        run: npm --prefix frontend run test:e2e:install
+
+      - name: Run production container smoke tests
+        env:
+          E2E_ARTIFACT_DIR: container-diagnostics
+        run: ./scripts/test-container.sh
+
+      - name: Upload container failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: container-smoke-diagnostics
+          path: |
+            container-diagnostics/
+            coverage/playwright-report/
+            coverage/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

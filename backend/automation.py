@@ -16,6 +16,7 @@ Functions provided:
 
 from datetime import UTC, datetime, timedelta
 import logging
+import threading
 import time
 from typing import Any
 
@@ -32,6 +33,22 @@ _logger: logging.Logger = logging.getLogger(__name__)
 _WEDGE_POINTS_COST = 50_000
 _VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
 _UPLOAD_POINTS_PER_GB = 500
+_shutdown_event = threading.Event()
+
+
+def reset_automation_shutdown() -> None:
+    """Allow scheduled automation work to start."""
+    _shutdown_event.clear()
+
+
+def request_automation_shutdown() -> None:
+    """Prevent scheduled automation from starting another transaction."""
+    _shutdown_event.set()
+
+
+def automation_shutdown_requested() -> bool:
+    """Return whether scheduled automation should stop at its next boundary."""
+    return _shutdown_event.is_set()
 
 
 def _persist_automation_state(
@@ -66,9 +83,14 @@ async def run_all_automation_jobs() -> None:
     automation jobs. Intended to be called by a scheduler or from startup
     code.
     """
-    await upload_credit_automation_job()
-    await wedge_automation_job()
-    await vip_automation_job()
+    for automation_job in (
+        upload_credit_automation_job,
+        wedge_automation_job,
+        vip_automation_job,
+    ):
+        if automation_shutdown_requested():
+            return
+        await automation_job()
 
 
 async def upload_credit_automation_job() -> None:
@@ -86,6 +108,8 @@ async def upload_credit_automation_job() -> None:
     session_labels = list_sessions()
     now = datetime.now(UTC)
     for label in session_labels:
+        if automation_shutdown_requested():
+            return
         try:
             cfg = load_session(label)
             mam_id = cfg.get("mam", {}).get("mam_id", "")
@@ -309,6 +333,8 @@ async def vip_automation_job() -> None:
     session_labels = list_sessions()
     now = datetime.now(UTC)
     for label in session_labels:
+        if automation_shutdown_requested():
+            return
         try:
             cfg = load_session(label)  # Always reload config
             mam_id = cfg.get("mam", {}).get("mam_id", "")
@@ -612,6 +638,8 @@ async def wedge_automation_job() -> None:
     session_labels = list_sessions()
     now = datetime.now(UTC)
     for label in session_labels:
+        if automation_shutdown_requested():
+            return
         try:
             cfg = load_session(label)  # Always reload config
             mam_id = cfg.get("mam", {}).get("mam_id", "")

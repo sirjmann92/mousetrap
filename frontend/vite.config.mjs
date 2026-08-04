@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
+import istanbul from 'vite-plugin-istanbul';
 import svgr from 'vite-plugin-svgr';
 
 export default defineConfig(() => {
@@ -11,6 +12,7 @@ export default defineConfig(() => {
   const backendProtocol = (process.env.VITE_BACKEND_PROTOCOL || 'http').replace(':', '');
   const defaultUrl = `${backendProtocol}://${backendHost}:${backendPort}`;
   const backendUrl = envUrl || defaultUrl;
+  const coverageEnabled = process.env.VITE_COVERAGE === 'true';
 
   return {
     server: {
@@ -28,7 +30,21 @@ export default defineConfig(() => {
     },
     build: {
       outDir: 'build',
+      sourcemap: coverageEnabled,
     },
-    plugins: [react(), svgr({ svgrOptions: { icon: true } })],
+    plugins: [
+      react(),
+      svgr({ svgrOptions: { icon: true } }),
+      ...(coverageEnabled
+        ? [
+            istanbul({
+              checkProd: true,
+              extension: ['.js', '.jsx'],
+              include: 'src/**/*',
+              requireEnv: true,
+            }),
+          ]
+        : []),
+    ],
   };
 });

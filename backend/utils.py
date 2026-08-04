@@ -40,7 +40,7 @@ def extract_asn_number(asn_str: str) -> str | None:
     asn_str : str
         The ASN string to parse.
 
-    Returns
+    Returns:
     -------
     str or None
         The extracted numeric ASN as a string if found, otherwise None.

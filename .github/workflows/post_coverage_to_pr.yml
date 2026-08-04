@@ -1,0 +1,236 @@
+name: Post coverage summary to PR
+
+on:
+  workflow_run:
+    workflows:
+      - Tests
+    types:
+      - completed
+
+concurrency:
+  group: coverage-comment-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  comment:
+    name: Post coverage summary to PR
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+
+    steps:
+      # Do not check out or execute pull-request code in this trusted workflow.
+      - name: Download backend coverage
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: backend-coverage
+          path: coverage/backend
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download frontend coverage
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          name: frontend-coverage
+          path: coverage/frontend
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Create or update coverage comment
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { existsSync, readFileSync } = require('node:fs');
+
+            const marker = '<!-- mousetrap-coverage-summary -->';
+            const workflowRun = context.payload.workflow_run;
+            let pullRequest = workflowRun.pull_requests[0];
+            if (!pullRequest) {
+              const associatedPullRequests = await github.paginate(
+                github.rest.repos.listPullRequestsAssociatedWithCommit,
+                {
+                  ...context.repo,
+                  commit_sha: workflowRun.head_sha,
+                  per_page: 100,
+                },
+              );
+              const openMatches = associatedPullRequests.filter(
+                (candidate) =>
+                  candidate.state === 'open' &&
+                  candidate.base.repo.full_name === context.payload.repository.full_name &&
+                  candidate.head.sha === workflowRun.head_sha,
+              );
+              if (openMatches.length !== 1) {
+                core.notice(
+                  openMatches.length === 0
+                    ? `No open pull request is associated with head ${workflowRun.head_sha}; ` +
+                        'skipping coverage comment.'
+                    : `Multiple open pull requests are associated with head ${workflowRun.head_sha}; ` +
+                        'skipping coverage comment.',
+                );
+                return;
+              }
+              [pullRequest] = openMatches;
+            }
+
+            const readJson = (path, label) => {
+              if (!existsSync(path)) {
+                core.warning(`No ${label} coverage artifact was produced by this run.`);
+                return null;
+              }
+              try {
+                return JSON.parse(readFileSync(path, 'utf8'));
+              } catch (error) {
+                core.warning(`Ignoring invalid ${label} coverage data: ${error.message}`);
+                return null;
+              }
+            };
+            const percentage = (covered, total, label) => {
+              if (
+                !Number.isFinite(covered) ||
+                !Number.isFinite(total) ||
+                covered < 0 ||
+                total < 0 ||
+                covered > total
+              ) {
+                core.warning(`Ignoring invalid ${label} coverage totals.`);
+                return '—';
+              }
+              return total === 0 ? '—' : `${((covered / total) * 100).toFixed(1)}%`;
+            };
+
+            const backend = readJson('coverage/backend/coverage-summary.json', 'backend');
+            const frontend = readJson('coverage/frontend/coverage-summary.json', 'frontend');
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              ...context.repo,
+              run_id: workflowRun.id,
+              per_page: 100,
+            });
+            const resultFor = (name) => {
+              const job = jobs.find((candidate) => candidate.name === name);
+              if (!job) {
+                core.warning(`The completed workflow did not contain the "${name}" job.`);
+                return 'SKIPPED';
+              }
+              if (job.conclusion === 'success') {
+                return 'PASS';
+              }
+              if (job.conclusion === 'skipped') {
+                return 'SKIPPED';
+              }
+              if (job.conclusion === 'cancelled') {
+                return 'CANCELLED';
+              }
+              return 'FAIL';
+            };
+            const backendResult = resultFor('Backend tests');
+            const frontendResult = resultFor('Development Playwright tests');
+            const containerResult = resultFor('Docker container smoke tests');
+            const backendCoverage = backendResult === 'PASS' ? backend : null;
+            const frontendCoverage = frontendResult === 'PASS' ? frontend : null;
+            const rows = [
+              {
+                branches: backendCoverage
+                  ? percentage(
+                      backendCoverage.totals?.covered_branches,
+                      backendCoverage.totals?.num_branches,
+                      'backend branch',
+                    )
+                  : '—',
+                lines: backendCoverage
+                  ? percentage(
+                      backendCoverage.totals?.covered_lines,
+                      backendCoverage.totals?.num_statements,
+                      'backend line',
+                    )
+                  : '—',
+                source: 'Backend pytest',
+              },
+              {
+                branches: frontendCoverage
+                  ? percentage(
+                      frontendCoverage.total?.branches?.covered,
+                      frontendCoverage.total?.branches?.total,
+                      'frontend branch',
+                    )
+                  : '—',
+                lines: frontendCoverage
+                  ? percentage(
+                      frontendCoverage.total?.lines?.covered,
+                      frontendCoverage.total?.lines?.total,
+                      'frontend line',
+                    )
+                  : '—',
+                source: 'Frontend Playwright E2E',
+              },
+            ];
+            const body = [
+              marker,
+              '## Coverage summary',
+              '',
+              '| Test surface | Lines | Branches |',
+              '| --- | ---: | ---: |',
+              ...rows.map((row) => `| ${row.source} | ${row.lines} | ${row.branches} |`),
+              '',
+              '## Test summary',
+              '',
+              '| Test surface | Result |',
+              '| --- | ---: |',
+              `| Backend pytest | ${backendResult} |`,
+              `| Frontend Playwright E2E | ${frontendResult} |`,
+              `| Docker container smoke | ${containerResult} |`,
+            ].join('\n');
+
+            const issue_number = pullRequest.number;
+            const associatedHeadSha = workflowRun.head_sha;
+            const currentPullRequest = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: issue_number,
+            });
+            if (currentPullRequest.data.head.sha !== associatedHeadSha) {
+              core.notice(
+                `Skipping coverage comment for outdated head ${associatedHeadSha}; ` +
+                  `pull request #${issue_number} is now at ${currentPullRequest.data.head.sha}.`,
+              );
+              return;
+            }
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number,
+              per_page: 100,
+            });
+            const matchingComments = comments.filter(
+              (comment) =>
+                comment.user?.login === 'github-actions[bot]' && comment.body?.includes(marker),
+            );
+
+            if (matchingComments.length === 0) {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number,
+                body,
+              });
+              return;
+            }
+
+            await github.rest.issues.updateComment({
+              ...context.repo,
+              comment_id: matchingComments[0].id,
+              body,
+            });
+            for (const duplicate of matchingComments.slice(1)) {
+              await github.rest.issues.deleteComment({
+                ...context.repo,
+                comment_id: duplicate.id,
+              });
+            }

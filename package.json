@@ -12,7 +12,13 @@
 		"lint": "npm --prefix frontend run lint",
 		"lint:fix": "npm --prefix frontend run lint:fix",
 		"tsc": "npm --prefix frontend run tsc",
+		"coverage:summary": "node scripts/coverage-summary.mjs",
 		"backend": "npm --prefix frontend run backend",
-		"dev": "npm --prefix frontend run dev"
+		"dev": "npm --prefix frontend run dev",
+		"test:backend:integration": ".venv/bin/python -m pytest tests/backend -m integration",
+		"test:backend:workflow": ".venv/bin/python -m pytest tests/backend -m workflow",
+		"test:backend:all": ".venv/bin/python -m pytest tests/backend",
+		"test:e2e": "npm --prefix frontend run test:e2e",
+		"test:e2e:container": "npm --prefix frontend run test:e2e:container"
 	}
 }

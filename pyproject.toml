@@ -10,11 +10,10 @@ runtime = [
     "uvicorn",
     "yarl",
 ]
-lint = [
+typecheck = [
     { include-group = "runtime" },
-    "mypy",
-    "prek",
-    "ruff",
+    "httpx",
+    "pytest",
     "types-cffi",
     "types-docker",
     "types-PyMySQL",
@@ -25,8 +24,15 @@ lint = [
     "types-requests",
     "types-setuptools",
 ]
+lint = [
+    { include-group = "typecheck" },
+    "mypy",
+    "prek",
+    "ruff",
+]
 test = [
     { include-group = "runtime" },
+    "httpx",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
@@ -47,14 +53,23 @@ addopts = """
   --timeout=20
   --durations=10
   -o console_output_style=progress
+  --cov=backend
   --cov-report=term-missing
-  --cov-report=html
+  --cov-report=html:coverage/backend/html
+  --cov-report=json:coverage/backend/coverage-summary.json
+  --cov-report=xml:coverage/backend/coverage.xml
 """
-testpaths = ["tests"]
+testpaths = ["tests/backend"]
 asyncio_mode = "auto"
+filterwarnings = ["error"]
+markers = [
+    "integration: public API tests spanning multiple backend modules",
+    "workflow: end-to-end user workflow tests through the ASGI boundary",
+]
 
 [tool.coverage.run]
 branch = true
+data_file = "coverage/backend/.coverage"
 relative_files = true
 parallel = false
 
@@ -89,7 +104,7 @@ warn_return_any = false
 warn_unreachable = false
 
 [[tool.mypy.overrides]]
-module = "tests.*"
+module = "tests.backend.*"
 ignore_missing_imports = true
 disallow_untyped_defs = false
 disallow_untyped_calls = false
@@ -104,7 +119,7 @@ indent-width = 4
 fix = true
 force-exclude = true
 target-version = "py313"
-required-version = ">=0.8.0"
+required-version = ">=0.15.0"
 
 [tool.ruff.format]
 quote-style = "double"
@@ -271,7 +286,7 @@ ignore = [
 fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = [
+"tests/backend/**/*.py" = [
     "SLF001",  # Private member accessed
     #"D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",  # Docstring rules
     "PLR2004", # Magic value used in comparison
@@ -304,4 +319,4 @@ split-on-trailing-comma = false
 max-complexity = 25
 
 [tool.ruff.lint.pydocstyle]
-property-decorators = ["propcache.cached_property"]
+convention = "google"

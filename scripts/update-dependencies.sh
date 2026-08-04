@@ -4,8 +4,8 @@ set -eu
 # Refresh the local Python environment, development-tool pins, and frontend
 # dependencies. Review generated configuration and lockfile changes afterward.
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
 VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 VENV_PREK="$REPO_ROOT/.venv/bin/prek"
 

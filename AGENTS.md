@@ -21,10 +21,13 @@ account management.
 - `backend/`: FastAPI app, integrations, automation logic, config/state helpers,
   notifications, proxy handling, event log, and port monitoring.
 - `frontend/`: React/Vite application.
-- `tests/`: Python pytest suite.
+- `tests/backend/`: Python pytest suite, including integration and workflow coverage.
+- `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: local setup, backend launch, lint, and dependency-maintenance
-  helpers; production containers use `start.sh`.
+- `scripts/`: setup, test-gate, container-smoke, coverage-summary, lint, backend
+  launch, and dependency-maintenance helpers; production containers use `start.sh`.
+- `.github/workflows/`: backend, development Playwright, Docker smoke, and
+  coverage-reporting workflows.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
   configuration.
@@ -50,6 +53,7 @@ account management.
 - Add type annotations to new or changed Python functions and methods.
 - Keep imports at the top of files and rely on existing module boundaries before
   adding new abstractions.
+- Add or update docstrings for all files, classes and methods, including private methods and nested methods. Method docstrings must follow the Google Style.
 - Prefer `pathlib.Path` for filesystem work.
 - For YAML-backed configuration or state, preserve existing fields when possible
   and handle missing, empty, or malformed files gracefully.
@@ -135,25 +139,26 @@ formatting changes, so review the working tree afterward.
 ./scripts/lint.sh
 ```
 
-Python tests:
+Complete local test gate:
 
 ```bash
-.venv/bin/pytest
+./scripts/test.sh              # Backend pytest plus development Playwright E2E.
+./scripts/test.sh --full       # Default gate plus production container smoke test.
+./scripts/test.sh --container  # Production container smoke test only.
 ```
 
-Docker build smoke check:
-
-```bash
-docker build -t mousetrap:local .
-```
+The default and `--full` modes write coverage separately to `coverage/backend/`
+for backend pytest and `coverage/frontend/` for Playwright E2E.
 
 ## Testing Expectations
 
-- Add or update pytest coverage for changed backend behavior.
-- Use focused tests for bug fixes, especially around persistence, recovery,
-  automation rules, and API response behavior.
-- For frontend changes, at minimum run lint and TypeScript checks. Add component
-  or integration tests if the repository gains a frontend test harness.
+- Add or update pytest integration or workflow coverage for changed backend behavior,
+  especially around persistence, recovery, automation rules, and API responses.
+- Add or update Playwright E2E coverage for frontend behavior changes. Prefer
+  accessible role and label locators; use a minimal `data-testid` only when no
+  stable semantic locator exists.
+- Add container smoke coverage for production-image, startup, or persistence changes.
+- For frontend changes, at minimum run lint and TypeScript checks.
 - If a validation command cannot be run, note the exact reason in the handoff.
 
 ## Security and Privacy
