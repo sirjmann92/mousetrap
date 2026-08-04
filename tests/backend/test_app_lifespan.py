@@ -1,10 +1,35 @@
 """Regression tests for application-owned service lifecycle ordering."""
 
 import asyncio
+from collections.abc import Callable
 
 import pytest
 
 from backend import app
+
+
+class SchedulerStub:
+    """Minimal scheduler double that records shutdown requests."""
+
+    def __init__(
+        self,
+        *,
+        running: bool,
+        on_shutdown: Callable[[bool], None] | None = None,
+    ) -> None:
+        """Initialize the scheduler state and optional shutdown recorder.
+
+        Args:
+            running: Whether the scheduler should appear active.
+            on_shutdown: Optional callback receiving the scheduler wait argument.
+        """
+        self.running = running
+        self._on_shutdown = on_shutdown
+
+    def shutdown(self, *, wait: bool) -> None:
+        """Record the scheduler shutdown request when a recorder is configured."""
+        if self._on_shutdown is not None:
+            self._on_shutdown(wait)
 
 
 def test_lifespan_cleans_up_when_scheduler_initialization_fails(
@@ -19,7 +44,7 @@ def test_lifespan_cleans_up_when_scheduler_initialization_fails(
         raise RuntimeError("startup failed")
 
     monkeypatch.setattr(app, "initialize_scheduler", fail_scheduler)
-    monkeypatch.setattr(app, "scheduler", type("SchedulerStub", (), {"running": False})())
+    monkeypatch.setattr(app, "scheduler", SchedulerStub(running=False))
     monkeypatch.setattr(app.port_monitor_manager, "stop", lambda: events.append("monitor-stop"))
     monkeypatch.setattr(
         app, "request_automation_shutdown", lambda: events.append("automation-stop")
@@ -55,14 +80,10 @@ def test_lifespan_stops_monitor_before_waiting_for_scheduler(
     monkeypatch.setattr(
         app,
         "scheduler",
-        type(
-            "SchedulerStub",
-            (),
-            {
-                "running": True,
-                "shutdown": lambda _self, *, wait: events.append(f"scheduler-stop:{wait}"),
-            },
-        )(),
+        SchedulerStub(
+            running=True,
+            on_shutdown=lambda wait: events.append(f"scheduler-stop:{wait}"),
+        ),
     )
     monkeypatch.setattr(app.port_monitor_manager, "stop", lambda: events.append("monitor-stop"))
     monkeypatch.setattr(
@@ -115,11 +136,10 @@ def test_lifespan_runs_later_cleanup_after_teardown_failure(
     monkeypatch.setattr(
         app,
         "scheduler",
-        type(
-            "SchedulerStub",
-            (),
-            {"running": True, "shutdown": lambda _self, *, wait: record(f"scheduler-stop:{wait}")},
-        )(),
+        SchedulerStub(
+            running=True,
+            on_shutdown=lambda wait: record(f"scheduler-stop:{wait}"),
+        ),
     )
     monkeypatch.setattr(app.port_monitor_manager, "stop", lambda: record("monitor-stop"))
     monkeypatch.setattr(app, "request_automation_shutdown", lambda: record("automation-stop"))

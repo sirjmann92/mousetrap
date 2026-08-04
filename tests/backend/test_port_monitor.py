@@ -13,6 +13,11 @@ from backend import api_port_monitor, notifications_backend, port_monitor
 from backend.yaml_store import YamlStoreError
 
 
+def _raise_yaml_store_error(*_args: object, **_kwargs: object) -> None:
+    """Raise the persistence error used by save failure stubs."""
+    raise YamlStoreError
+
+
 def test_constructor_does_not_load(monkeypatch: pytest.MonkeyPatch) -> None:
     """Construction has no configuration I/O side effect."""
     monkeypatch.setattr(
@@ -76,7 +81,7 @@ def test_recheck_updates_status_when_background_save_fails(
     stack = port_monitor.PortMonitorStack("x", "container", 80, [])
     manager.stacks = [stack]
     monkeypatch.setattr(manager, "check_port", lambda *_args: True)
-    monkeypatch.setattr(manager, "save_stacks", lambda: (_ for _ in ()).throw(YamlStoreError()))
+    monkeypatch.setattr(manager, "save_stacks", _raise_yaml_store_error)
 
     assert manager.recheck_stack("x")
     assert stack.status == "OK"
@@ -353,7 +358,7 @@ def test_monitor_cycle_failure_does_not_block_restart(
         monkeypatch.setattr(
             manager,
             "save_stacks",
-            lambda: (_ for _ in ()).throw(YamlStoreError()),
+            _raise_yaml_store_error,
         )
         monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
 
@@ -555,7 +560,7 @@ def test_config_mutation_rolls_back_on_save_failure(
     existing = port_monitor.PortMonitorStack("existing", "container", 80, [])
     manager.stacks = [existing]
     monkeypatch.setattr(manager, "check_port", lambda *_args: True)
-    monkeypatch.setattr(manager, "save_stacks", lambda: (_ for _ in ()).throw(YamlStoreError()))
+    monkeypatch.setattr(manager, "save_stacks", _raise_yaml_store_error)
 
     def mutate() -> None:
         if operation == "add":
@@ -575,7 +580,7 @@ def test_update_stack_restores_values_on_save_failure(monkeypatch: pytest.Monkey
     monkeypatch.setattr(
         api_port_monitor.port_monitor_manager,
         "save_stacks",
-        lambda: (_ for _ in ()).throw(YamlStoreError()),
+        _raise_yaml_store_error,
     )
     request = api_port_monitor.UpdatePortMonitorStackRequest(
         primary_container="new",
