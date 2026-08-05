@@ -46,7 +46,7 @@ jobs:
 
       - name: Upload backend coverage
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: backend-coverage
           path: coverage/backend/
@@ -55,7 +55,7 @@ jobs:
 
       - name: Upload backend failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: backend-test-diagnostics
           path: |
@@ -110,7 +110,7 @@ jobs:
 
       - name: Upload frontend coverage
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage
           path: coverage/frontend/
@@ -119,7 +119,7 @@ jobs:
 
       - name: Upload Playwright failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-dev-diagnostics
           path: |
@@ -209,7 +209,7 @@ jobs:
 
       - name: Upload container failure diagnostics
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: container-smoke-diagnostics
           path: |
