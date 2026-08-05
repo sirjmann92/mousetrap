@@ -152,14 +152,14 @@ jobs:
 
       - name: Download backend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: backend-coverage
           path: coverage/backend
 
       - name: Download frontend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: frontend-coverage
           path: coverage/frontend

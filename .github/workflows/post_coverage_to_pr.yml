@@ -28,7 +28,7 @@ jobs:
       # Do not check out or execute pull-request code in this trusted workflow.
       - name: Download backend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           name: backend-coverage
@@ -38,7 +38,7 @@ jobs:
 
       - name: Download frontend coverage
         continue-on-error: true
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           name: frontend-coverage
