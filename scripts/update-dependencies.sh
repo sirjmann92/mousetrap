@@ -118,14 +118,15 @@ fi
 echo "Synchronizing the Biome prek hook revision..."
 node scripts/sync-biome-prek-hook.mjs "$BIOME_VERSION_AFTER" prek.toml
 
-# Re-resolve lockfile placement after npm update. This prevents optional peer
-# dependencies from leaving incompatible transitive packages hoisted at root.
+echo "Applying compatible frontend security fixes to the lockfile..."
+npm --prefix frontend audit fix --package-lock-only --ignore-scripts --no-fund
+
+# Re-resolve lockfile placement after all dependency updates, including audit
+# remediations. This prevents optional peer dependencies from remaining
+# incompatibly hoisted at root.
 echo "Normalizing the frontend lockfile..."
 npm --prefix frontend install --package-lock-only --ignore-scripts \
   --strict-allow-scripts --no-audit --no-fund
-
-echo "Applying compatible frontend security fixes to the lockfile..."
-npm --prefix frontend audit fix --package-lock-only --ignore-scripts --no-fund
 
 echo "Synchronizing the frontend environment with the normalized lockfile..."
 npm ci --prefix frontend --strict-allow-scripts --no-audit --no-fund
