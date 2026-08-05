@@ -144,6 +144,9 @@ echo "Normalizing the frontend lockfile..."
 npm --prefix frontend install --package-lock-only --ignore-scripts \
   --strict-allow-scripts --no-audit --no-fund
 
+echo "Applying compatible frontend security fixes to the lockfile..."
+npm --prefix frontend audit fix --package-lock-only --ignore-scripts --no-fund
+
 echo "Synchronizing the frontend environment with the normalized lockfile..."
 npm ci --prefix frontend --strict-allow-scripts --no-audit --no-fund
 
