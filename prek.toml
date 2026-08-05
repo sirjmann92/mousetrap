@@ -92,7 +92,7 @@ additional_dependencies = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.16.0"
+rev = "v0.16.1"
 
 [[repos.hooks]]
 id = "ruff-check"
@@ -115,7 +115,7 @@ pass_filenames = false
 
 [[repos]]
 repo = "https://github.com/biomejs/pre-commit"
-rev = "v2.5.5"
+rev = "v2.5.6"
 
 [[repos.hooks]]
 id = "biome-check"
