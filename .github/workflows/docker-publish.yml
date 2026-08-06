@@ -23,7 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0  # full history needed for git tags
+          fetch-depth: 0  # full history needed to read existing tags
 
       - name: Determine next version from tags
         id: version
@@ -42,11 +42,6 @@ jobs:
 
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $NEW_VERSION"
-
-      - name: Create version tag
-        run: |
-          git tag "v${{ steps.version.outputs.version }}"
-          git push origin "v${{ steps.version.outputs.version }}"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -96,10 +91,19 @@ jobs:
             type=gha
           cache-to: type=gha,mode=max
 
+      # Creates the release (and, as a side effect, the underlying git tag)
+      # via the Releases API rather than a raw `git push`. GITHUB_TOKEN can
+      # never be granted the `workflows` scope needed to push a ref whose
+      # history touches .github/workflows/*, so an explicit `git tag` +
+      # `git push` step here fails once any workflow file has changed on
+      # main. The Releases API isn't subject to that restriction. This also
+      # means the tag only gets created after the image has actually built
+      # and pushed successfully, instead of upfront.
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${{ steps.version.outputs.version }}" \
+            --target "${{ github.sha }}" \
             --title "v${{ steps.version.outputs.version }}" \
             --generate-notes
