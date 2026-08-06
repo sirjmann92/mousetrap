@@ -2,9 +2,17 @@ name: Tests
 
 on:
   pull_request:
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'images/**'
   push:
     branches:
       - main
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+      - 'images/**'
   workflow_dispatch:
 
 permissions:
