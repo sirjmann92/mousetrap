@@ -1,18 +1,31 @@
 name: Publish Docker image
 
 on:
-  push:
-    branches: ["main"]
-    paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - 'frontend/e2e/**'
-      - 'images/**'
-      - 'tests/**'
+  workflow_run:
+    workflows:
+      - Tests
+    types:
+      - completed
   workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: docker-publish-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
 
 jobs:
   build:
+    # Only publish for a push to main whose Tests run actually succeeded.
+    # workflow_dispatch remains available as a manual override that bypasses
+    # this check, matching its original unconditional behavior. Tests also
+    # runs on pull_request; that case is excluded so PR test runs never
+    # trigger a publish.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
 
     permissions:
@@ -23,6 +36,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0  # full history needed to read existing tags
 
       - name: Determine next version from tags
@@ -104,6 +118,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${{ steps.version.outputs.version }}" \
-            --target "${{ github.sha }}" \
+            --target "${{ github.event.workflow_run.head_sha || github.sha }}" \
             --title "v${{ steps.version.outputs.version }}" \
             --generate-notes
