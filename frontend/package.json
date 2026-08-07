@@ -40,8 +40,8 @@
     ]
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.5",
-    "@playwright/test": "^1.62.0",
+    "@biomejs/biome": "2.5.7",
+    "@playwright/test": "^1.62.1",
     "@vitejs/plugin-react": "^5.2.0",
     "concurrently": "^9.2.4",
     "istanbul-lib-coverage": "^3.2.2",

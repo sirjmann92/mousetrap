@@ -33,7 +33,8 @@ fi
 
 if [ -n "$PREK" ]; then
   echo "Updating prek hook revisions..."
-  # Biome is synchronized with the npm package after frontend updates.
+  # The Biome hook is synchronized to a compatible published tag after the
+  # frontend update, rather than blindly using the npm package version.
   "$PREK" update --exclude-repo https://github.com/biomejs/pre-commit
 else
   echo "Skipping prek hook updates because prek is not installed."
@@ -114,32 +115,15 @@ else
   echo "Biome remains at $BIOME_VERSION_AFTER; skipping configuration migration."
 fi
 
-# The prek hook publishes matching Biome release tags. Keep it aligned even
-# when prek is unavailable and the other hook revisions could not be updated.
-BIOME_TARGET_VERSION="$BIOME_VERSION_AFTER" node -e '
-  const fs = require("node:fs");
-  const configPath = "prek.toml";
-  const input = fs.readFileSync(configPath, "utf8");
-  const pattern =
-    /(repo = "https:\/\/github\.com\/biomejs\/pre-commit"\nrev = ")[^"]+(")/g;
-  let replacements = 0;
-  const output = input.replace(pattern, (_match, prefix, suffix) => {
-    replacements += 1;
-    return prefix + "v" + process.env.BIOME_TARGET_VERSION + suffix;
-  });
-  if (replacements !== 1) {
-    console.error(
-      "Expected one Biome repository in " + configPath + "; found " + replacements + ".",
-    );
-    process.exit(1);
-  }
-  if (output !== input) {
-    fs.writeFileSync(configPath, output);
-  }
-'
+echo "Synchronizing the Biome prek hook revision..."
+node scripts/sync-biome-prek-hook.mjs "$BIOME_VERSION_AFTER" prek.toml
 
-# Re-resolve lockfile placement after npm update. This prevents optional peer
-# dependencies from leaving incompatible transitive packages hoisted at root.
+echo "Applying compatible frontend security fixes to the lockfile..."
+npm --prefix frontend audit fix --package-lock-only --ignore-scripts --no-fund
+
+# Re-resolve lockfile placement after all dependency updates, including audit
+# remediations. This prevents optional peer dependencies from remaining
+# incompatibly hoisted at root.
 echo "Normalizing the frontend lockfile..."
 npm --prefix frontend install --package-lock-only --ignore-scripts \
   --strict-allow-scripts --no-audit --no-fund
