@@ -53,21 +53,8 @@ venv/
 
 # Personal/local scratch files — not part of the project, never tracked.
 # scripts/ and tests/ also hold real project files (setup.sh, the pytest
-# suite, etc.), so list these individually rather than ignoring the whole
-# directory.
+# suite, etc.), so personal scripts/data live under local/ subdirectories
+# that get ignored wholesale instead of listing individual filenames.
 .claude/
-scripts/check-gluetun-port-and-asn.sh
-scripts/ip-information.txt
-scripts/load-user-data.txt
-scripts/mam-point-spend.sh
-scripts/mam-seedbox-api-rules.txt
-scripts/mam-seedbox-ip.sh
-scripts/monitor-deleted-files.sh
-scripts/user-bonus-history.txt
-tests/README.md
-tests/compare_jackett_indexers.py
-tests/create_real_mam_indexer.py
-tests/create_test_indexer.py
-tests/create_test_jackett_indexer.py
-tests/test_chaptarr_direct.py
-tests/test_notification_dedup.py
+scripts/local/
+tests/local/
