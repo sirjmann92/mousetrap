@@ -34,6 +34,9 @@ fi
 echo "Running repository lint, format, and type checks..."
 "$PREK" run --all-files
 
+echo "Auditing frontend dependencies..."
+npm --prefix frontend audit --no-fund
+
 # Build the production bundle to catch module-resolution and bundler errors
 # that static linting and TypeScript checks cannot detect.
 echo "Building the frontend production bundle..."

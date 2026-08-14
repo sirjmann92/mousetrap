@@ -11,6 +11,29 @@ permissions:
   contents: read
 
 jobs:
+  frontend-dependency-audit:
+    name: Frontend dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 'lts/Krypton'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install npm with script approval support
+        run: npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend --strict-allow-scripts --no-fund
+
+      - name: Audit frontend dependencies
+        run: npm --prefix frontend audit --no-fund
+
   linters:
     name: Run Linters
     runs-on: ubuntu-latest
