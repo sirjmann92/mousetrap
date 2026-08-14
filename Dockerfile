@@ -53,6 +53,14 @@ RUN chmod +x /app/start.sh \
 # Expose the default port
 EXPOSE 39842
 
+# Liveness check only — confirms the web server itself is up and responsive.
+# Deliberately does not (and cannot) reflect MAM session validity: a MouseTrap
+# instance can manage multiple sessions, each independently valid or invalid,
+# so there is no single aggregate "healthy" state that would represent. Use
+# the mam_session_invalid notification for that instead.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:39842/api/version || exit 1
+
 # Ensure container starts as root for user/group management
 # Required for unRAID and other systems that may force non-root startup
 USER root
