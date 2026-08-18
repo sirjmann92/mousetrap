@@ -406,7 +406,7 @@ async def safe_notify_event(*args: Any, **kwargs: Any) -> None:
     """
     try:
         await notify_event(*args, **kwargs)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         _logger.warning(
             "[Notify] safe_notify_event suppressed an unexpected error: %s: %s",
             type(e).__name__,

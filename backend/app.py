@@ -2227,7 +2227,7 @@ async def api_prowlarr_update(request: Request) -> dict[str, Any]:
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
-        return result  # noqa: TRY300
+        return result
     except Exception as e:
         _logger.exception("Failed to update Prowlarr")
         return {"success": False, "message": f"Error: {e!s}"}
@@ -2323,7 +2323,7 @@ async def api_chaptarr_update(request: Request) -> dict[str, Any]:
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
-        return result  # noqa: TRY300
+        return result
     except Exception as e:
         _logger.exception("Failed to update Chaptarr")
         return {"success": False, "message": f"Error: {e!s}"}
@@ -2413,7 +2413,7 @@ async def api_jackett_update(request: Request) -> dict[str, Any]:
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
-        return result  # noqa: TRY300
+        return result
     except Exception as e:
         _logger.exception("Failed to update Jackett")
         return {"success": False, "message": f"Error: {e!s}"}
@@ -2500,7 +2500,7 @@ async def api_audiobookrequest_update(request: Request) -> dict[str, Any]:
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
-        return result  # noqa: TRY300
+        return result
     except Exception as e:
         _logger.exception("Failed to update AudioBookRequest")
         return {"success": False, "message": f"Error: {e!s}"}
@@ -2587,7 +2587,7 @@ async def api_autobrr_update(request: Request) -> dict[str, Any]:
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
-        return result  # noqa: TRY300
+        return result
     except Exception as e:
         _logger.exception("Failed to update Autobrr")
         return {"success": False, "message": f"Error: {e!s}"}
@@ -2767,7 +2767,7 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
             return {"success": True, "message": status_msg, "warning": True}
         # All failed
         status_msg = f"Failed to update all services: {', '.join(failed_services)}"
-        return {"success": False, "message": status_msg}  # noqa: TRY300
+        return {"success": False, "message": status_msg}
 
     except Exception as e:
         _logger.exception("Failed to update indexer(s)")
