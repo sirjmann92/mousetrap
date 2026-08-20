@@ -606,7 +606,6 @@ export default function IndexerIntegrations({
                     label="Admin Password (Optional)"
                     onChange={(e) => handleJackettChange('admin_password', e.target.value)}
                     placeholder="Leave empty if Jackett auth is disabled"
-                    required
                     size="small"
                     sx={{ maxWidth: 350 }}
                     type="password"

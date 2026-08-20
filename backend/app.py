@@ -2394,10 +2394,10 @@ async def api_jackett_update(request: Request) -> dict[str, Any]:
         api_key = jackett_cfg.get("api_key", "").strip()
         admin_password = jackett_cfg.get("admin_password", "").strip()
 
-        if not all([host, port, api_key, admin_password]):
+        if not all([host, port, api_key]):
             return {
                 "success": False,
-                "message": "Jackett configuration incomplete (host, port, api_key, admin_password required)",
+                "message": "Jackett configuration incomplete (host, port, api_key required)",
             }
 
         result = await sync_mam_id_to_jackett(host, port, api_key, admin_password, mam_id)
@@ -2680,7 +2680,7 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
                 api_key = jackett_cfg.get("api_key", "").strip()
                 admin_password = jackett_cfg.get("admin_password", "").strip()
 
-                if not all([host, port, api_key, admin_password]):
+                if not all([host, port, api_key]):
                     failed_services.append("Jackett (incomplete configuration)")
                 else:
                     result = await sync_mam_id_to_jackett(
