@@ -1,7 +1,6 @@
 """Regression tests for cooperative automation shutdown."""
 
 import asyncio
-from copy import deepcopy
 from datetime import UTC, datetime, tzinfo
 import threading
 from typing import Self
@@ -16,16 +15,15 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Persist an accepted purchase before stopping later sessions and phases."""
+    first_upload_credit: dict[str, object] = {
+        "enabled": True,
+        "trigger_type": "points",
+        "trigger_point_threshold": 50_000,
+        "gb": 50,
+    }
     first_config = {
         "mam": {"mam_id": "first-id"},
-        "perk_automation": {
-            "upload_credit": {
-                "enabled": True,
-                "trigger_type": "points",
-                "trigger_point_threshold": 50_000,
-                "gb": 50,
-            }
-        },
+        "perk_automation": {"upload_credit": first_upload_credit},
     }
     second_config = {
         "mam": {"mam_id": "second-id"},
@@ -38,11 +36,13 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
             }
         },
     }
-    expected_first_config = deepcopy(first_config)
-    fixed_now = datetime(2026, 8, 3, 12, 34, 56, tzinfo=UTC)
-    expected_first_config["perk_automation"]["upload_credit"]["last_upload_time"] = (
-        fixed_now.isoformat()
-    )
+    expected_upload_credit = first_upload_credit | {
+        "last_upload_time": "2026-08-03T12:34:56+00:00",
+    }
+    expected_first_config = {
+        "mam": {"mam_id": "first-id"},
+        "perk_automation": {"upload_credit": expected_upload_credit},
+    }
     purchase_started = threading.Event()
     release_purchase = threading.Event()
     saved_labels: list[str] = []
@@ -67,9 +67,6 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
 
     def save(config: dict[str, object], *, old_label: str) -> None:
         assert config == expected_first_config
-        assert config["perk_automation"]["upload_credit"]["last_upload_time"] == (
-            "2026-08-03T12:34:56+00:00"
-        )
         saved_labels.append(old_label)
 
     monkeypatch.setattr(automation, "list_sessions", lambda: ["first", "second"])

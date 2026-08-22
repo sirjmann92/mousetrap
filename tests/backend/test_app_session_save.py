@@ -1,24 +1,28 @@
 """Focused backend API session-persistence tests."""
 
 import asyncio
+import json
 from pathlib import Path
 from typing import Any
 
 import pytest
+from starlette.requests import Request
+from starlette.types import Message
 
 from backend import app, config
 
 
-class JsonRequest:
-    """Minimal request double."""
+def json_request(payload: dict[str, Any]) -> Request:
+    """Build a save-session request carrying the payload as its JSON body."""
 
-    def __init__(self, payload: dict[str, Any]) -> None:
-        """Store the request body."""
-        self.payload = payload
+    async def receive() -> Message:
+        """Deliver the whole encoded body as a single ASGI message."""
+        return {"type": "http.request", "body": json.dumps(payload).encode(), "more_body": False}
 
-    async def json(self) -> dict[str, Any]:
-        """Return the configured request body."""
-        return self.payload
+    return Request(
+        {"type": "http", "method": "POST", "path": "/api/session/save", "headers": []},
+        receive,
+    )
 
 
 def test_save_persists_once_before_side_effects(
@@ -40,7 +44,7 @@ def test_save_persists_once_before_side_effects(
 
     monkeypatch.setattr(app, "_sync_integrations_if_mam_id_changed", sync)
     result = asyncio.run(
-        app.api_save_session(JsonRequest({"label": "Example", "mam": {"mam_id": "id"}}))
+        app.api_save_session(json_request({"label": "Example", "mam": {"mam_id": "id"}}))
     )
     assert result == {"success": True}
     assert calls == ["save", "clear", "event", "job", "sync"]
@@ -64,7 +68,7 @@ def test_save_replaces_corrupt_existing_session(
     monkeypatch.setattr(app, "_sync_integrations_if_mam_id_changed", sync)
     result = asyncio.run(
         app.api_save_session(
-            JsonRequest(
+            json_request(
                 {
                     "label": "Existing",
                     "old_label": "Existing",
@@ -94,7 +98,7 @@ def test_post_save_side_effect_failure_returns_success(
 
     monkeypatch.setattr(app, "clear_ui_event_log_for_session", fail_clear)
     result = asyncio.run(
-        app.api_save_session(JsonRequest({"label": "Example", "mam": {"mam_id": "id"}}))
+        app.api_save_session(json_request({"label": "Example", "mam": {"mam_id": "id"}}))
     )
     assert result == {"success": True}
     assert calls == ["save", "clear"]

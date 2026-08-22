@@ -220,10 +220,12 @@ def test_shutdown_event_replacement_and_restart_registration_share_lock(
     monkeypatch.setattr(manager, "_run_monitor_loop", lambda: None)
 
     async def register_restart() -> None:
-        task = manager._register_restart_task()
-        assert task is asyncio.current_task()
+        running_task = asyncio.current_task()
+        if running_task is None:
+            raise RuntimeError("Restart registration must run inside an asyncio task")
+        assert manager._register_restart_task() is running_task
         registered.set()
-        manager._unregister_restart_task(task)
+        manager._unregister_restart_task(running_task)
 
     registration_thread = threading.Thread(target=lambda: asyncio.run(register_restart()))
     start_thread = threading.Thread(target=manager.start)

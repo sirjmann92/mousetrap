@@ -14,7 +14,8 @@ async def test_session_lifecycle_persists_events(
 ) -> None:
     """Create, read, update, and delete a session through HTTP."""
     monkeypatch.setattr(app, "register_session_job", lambda _label: None)
-    payload = {"label": "seedbox", "mam": {"mam_id": "cookie-one"}, "proxy": {}}
+    mam = {"mam_id": "cookie-one"}
+    payload: dict[str, object] = {"label": "seedbox", "mam": mam, "proxy": {}}
 
     created = await api_client.post("/api/session/save", json=payload)
     assert created.json() == {"success": True}
@@ -22,7 +23,7 @@ async def test_session_lifecycle_persists_events(
     assert (await api_client.get("/api/sessions")).json() == {"sessions": ["seedbox"]}
     assert (await api_client.get("/api/session/seedbox")).json()["mam"]["mam_id"] == "cookie-one"
 
-    payload["mam"]["mam_id"] = "cookie-two"
+    mam["mam_id"] = "cookie-two"
     payload["old_label"] = "seedbox"
     payload["label"] = "archive"
     assert (await api_client.post("/api/session/save", json=payload)).json() == {"success": True}
