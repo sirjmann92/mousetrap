@@ -28,6 +28,24 @@ def get_session_path(label: str) -> Path:
     return CONFIG_DIR / f"{SESSION_PREFIX}{label}{SESSION_SUFFIX}"
 
 
+def session_exists(label: str) -> bool:
+    """Return whether a session file exists on disk for ``label``.
+
+    :func:`load_session` synthesises a full default configuration when no file
+    is present, so it can never report a missing session. Callers that need to
+    distinguish "not configured" from "configured with defaults" must ask here
+    before loading.
+
+    Args:
+        label: Session label to look for.
+
+    Returns:
+        ``True`` when a session file exists for the label.
+
+    """
+    return get_session_path(label).is_file()
+
+
 def list_sessions() -> list[str]:
     """Return a list of session labels present in the config directory.
 

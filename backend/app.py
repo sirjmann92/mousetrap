@@ -52,6 +52,7 @@ from backend.config import (
     load_config,
     load_session,
     save_session,
+    session_exists,
 )
 from backend.db import close_connection
 from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
@@ -940,7 +941,7 @@ async def auto_update_seedbox_if_needed(
 
 
 @app.get("/api/status")
-async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[str, Any]:
+async def api_status(label: str | None = Query(None), force: int = Query(0)) -> dict[str, Any]:
     """Return the current status for a session label.
 
     If `force` is truthy, a fresh status check is performed even if a cached
@@ -954,7 +955,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     detected_public_ip_asn = None
     if detected_public_ip:
         asn_full_pub = detected_ipinfo_data.get("asn")
-        match_pub = re.search(r"(AS)?(\d+)", asn_full_pub or "") if asn_full_pub else None
+        match_pub = re.search(r"(AS)?(\d+)", asn_full_pub) if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
 
     cfg = load_session(label) if label else None
@@ -1075,7 +1076,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
     detected_public_ip_as = None
     if detected_public_ip:
         asn_full_pub, _ = await get_asn_and_timezone_from_ip(detected_public_ip)
-        match_pub = re.search(r"(AS)?(\d+)", asn_full_pub or "") if asn_full_pub else None
+        match_pub = re.search(r"(AS)?(\d+)", asn_full_pub) if asn_full_pub else None
         detected_public_ip_asn = match_pub.group(2) if match_pub else asn_full_pub
         detected_public_ip_as = asn_full_pub
     # If session has never been checked (no last_status and not forced), return not configured
@@ -1441,11 +1442,10 @@ def api_load_session(label: str) -> dict[str, Any]:
 
     Raises HTTPException(404) if the session does not exist.
     """
-    cfg = load_session(label)
-    if cfg is None:
+    if not session_exists(label):
         _logger.warning("Session '%s' not found or not configured.", label)
         raise HTTPException(status_code=404, detail=f"Session '{label}' not found.")
-    return cfg
+    return load_session(label)
 
 
 async def _sync_integrations_if_mam_id_changed(
@@ -1820,10 +1820,10 @@ async def api_save_perkautomation(request: Request) -> dict[str, Any]:
         label = data.get("label")
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             _logger.warning("Session '%s' not found or not configured.", label)
             return {"success": False, "error": f"Session '{label}' not found."}
+        cfg = load_session(label)
         # Save automation settings to session config
         new_pa = data.get("perk_automation", {})
         old_pa = cfg.get("perk_automation", {})
@@ -1904,10 +1904,10 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
         label = data.get("label")
         if not label:
             raise HTTPException(status_code=400, detail="Session label required.")
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             _logger.warning("Session '%s' not found or not configured.", label)
             raise HTTPException(status_code=404, detail=f"Session '{label}' not found.")
+        cfg = load_session(label)
         mam_id = cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             raise HTTPException(status_code=400, detail="MaM ID not configured in session.")
@@ -2202,9 +2202,9 @@ async def api_prowlarr_update(request: Request) -> dict[str, Any]:
         if not label:
             return {"success": False, "message": "Session label required"}
 
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
+        cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
         mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
@@ -2298,9 +2298,9 @@ async def api_chaptarr_update(request: Request) -> dict[str, Any]:
         if not label:
             return {"success": False, "message": "Session label required"}
 
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
+        cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
         mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
@@ -2372,9 +2372,9 @@ async def api_jackett_update(request: Request) -> dict[str, Any]:
         if not label:
             return {"success": False, "message": "Session label required"}
 
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
+        cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
         mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
@@ -2460,9 +2460,9 @@ async def api_audiobookrequest_update(request: Request) -> dict[str, Any]:
         if not label:
             return {"success": False, "message": "Session label required"}
 
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
+        cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
         mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
@@ -2547,9 +2547,9 @@ async def api_autobrr_update(request: Request) -> dict[str, Any]:
         if not label:
             return {"success": False, "message": "Session label required"}
 
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
+        cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
         mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
@@ -2609,9 +2609,9 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
         if not label:
             return {"success": False, "message": "Session label required"}
 
-        cfg = load_session(label)
-        if cfg is None:
+        if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
+        cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
         mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
