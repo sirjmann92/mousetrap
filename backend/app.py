@@ -28,7 +28,7 @@ from starlette.responses import FileResponse
 
 from backend.api_automation import router as automation_router
 from backend.api_event_log import router as event_log_router
-from backend.api_models import IndexerTestRequest
+from backend.api_models import IndexerTestRequest, IndexerUpdateRequest
 from backend.api_notifications import router as notifications_router
 from backend.api_port_monitor import router as port_monitor_router
 from backend.api_proxy import router as proxy_router
@@ -2208,17 +2208,18 @@ async def api_prowlarr_update(request: Request) -> dict[str, Any]:
     - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
     """
     try:
-        data = await request.json()
-        label = data.get("label")
-        if not label:
+        try:
+            payload = IndexerUpdateRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Session label required"}
+        label = payload.label
 
         if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
         cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
-        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        mam_id = payload.mam_id or cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             return {
                 "success": False,
@@ -2302,17 +2303,18 @@ async def api_chaptarr_update(request: Request) -> dict[str, Any]:
     - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
     """
     try:
-        data = await request.json()
-        label = data.get("label")
-        if not label:
+        try:
+            payload = IndexerUpdateRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Session label required"}
+        label = payload.label
 
         if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
         cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
-        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        mam_id = payload.mam_id or cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             return {
                 "success": False,
@@ -2374,17 +2376,18 @@ async def api_jackett_update(request: Request) -> dict[str, Any]:
     - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
     """
     try:
-        data = await request.json()
-        label = data.get("label")
-        if not label:
+        try:
+            payload = IndexerUpdateRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Session label required"}
+        label = payload.label
 
         if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
         cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
-        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        mam_id = payload.mam_id or cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             return {
                 "success": False,
@@ -2460,17 +2463,18 @@ async def api_audiobookrequest_update(request: Request) -> dict[str, Any]:
     - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
     """
     try:
-        data = await request.json()
-        label = data.get("label")
-        if not label:
+        try:
+            payload = IndexerUpdateRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Session label required"}
+        label = payload.label
 
         if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
         cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
-        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        mam_id = payload.mam_id or cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             return {
                 "success": False,
@@ -2545,17 +2549,18 @@ async def api_autobrr_update(request: Request) -> dict[str, Any]:
     - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
     """
     try:
-        data = await request.json()
-        label = data.get("label")
-        if not label:
+        try:
+            payload = IndexerUpdateRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Session label required"}
+        label = payload.label
 
         if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
         cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
-        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        mam_id = payload.mam_id or cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             return {
                 "success": False,
@@ -2607,17 +2612,18 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
     - mam_id: (optional) new MAM ID to sync. If not provided, uses session's MAM ID.
     """
     try:
-        data = await request.json()
-        label = data.get("label")
-        if not label:
+        try:
+            payload = IndexerUpdateRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Session label required"}
+        label = payload.label
 
         if not session_exists(label):
             return {"success": False, "message": f"Session '{label}' not found"}
         cfg = load_session(label)
 
         # Use provided mam_id or fall back to session config
-        mam_id = data.get("mam_id") or cfg.get("mam", {}).get("mam_id", "")
+        mam_id = payload.mam_id or cfg.get("mam", {}).get("mam_id", "")
         if not mam_id:
             return {
                 "success": False,
