@@ -40,24 +40,17 @@ async def get_proxied_public_ip(proxy_cfg: dict) -> str | None:
     proxies = build_proxy_dict(proxy_cfg)
     if not proxies:
         return None
+    proxy_url = proxies.get("https") or proxies.get("http") if isinstance(proxies, dict) else None
     try:
-        proxy_url = (
-            proxies.get("https") or proxies.get("http") if isinstance(proxies, dict) else None
-        )
-        try:
-            timeout = aiohttp.ClientTimeout(total=10)
-            async with (
-                aiohttp.ClientSession(timeout=timeout) as session,
-                session.get("https://api.ipify.org", timeout=timeout, proxy=proxy_url) as resp,
-            ):
-                text = await resp.text()
-                if resp.status == 200:
-                    return text.strip()
-        except Exception as e:
-            _logger.warning("[get_proxied_public_ip] Failed: %s", e)
-            return None
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with (
+            aiohttp.ClientSession(timeout=timeout) as session,
+            session.get("https://api.ipify.org", timeout=timeout, proxy=proxy_url) as resp,
+        ):
+            text = await resp.text()
+            if resp.status == 200:
+                return text.strip()
     except Exception as e:
-        # Defensive: preserve original behavior on unexpected errors
         _logger.warning("[get_proxied_public_ip] Failed: %s", e)
         return None
     return None
