@@ -78,7 +78,7 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
     session_min_points = cfg.get("perk_automation", {}).get("min_points")
     if enforce_min_pts and session_min_points is not None:
         status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        current_points = status.get("points", 0) if isinstance(status, dict) else 0
+        current_points = status.get("points", 0)
         if current_points is None:
             current_points = 0
         purchase_cost = amount * _UPLOAD_POINTS_PER_GB
@@ -199,7 +199,7 @@ async def manual_wedge(request: Request) -> dict[str, Any]:
     session_min_points = cfg.get("perk_automation", {}).get("min_points")
     if enforce_min_pts and session_min_points is not None and method == "points":
         status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        current_points = status.get("points", 0) if isinstance(status, dict) else 0
+        current_points = status.get("points", 0)
         if current_points is None:
             current_points = 0
         purchase_cost = _WEDGE_POINTS_COST
@@ -335,7 +335,7 @@ async def manual_vip(request: Request) -> dict[str, Any]:
         purchase_cost = _VIP_POINTS_COST.get(weeks_int)
         if purchase_cost is not None:
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            current_points = status.get("points", 0) if isinstance(status, dict) else 0
+            current_points = status.get("points", 0)
             if current_points is None:
                 current_points = 0
             if int(current_points) - purchase_cost < int(session_min_points):

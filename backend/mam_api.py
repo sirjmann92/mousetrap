@@ -40,7 +40,7 @@ async def get_proxied_public_ip(proxy_cfg: dict) -> str | None:
     proxies = build_proxy_dict(proxy_cfg)
     if not proxies:
         return None
-    proxy_url = proxies.get("https") or proxies.get("http") if isinstance(proxies, dict) else None
+    proxy_url = proxies.get("https") or proxies.get("http")
     try:
         timeout = aiohttp.ClientTimeout(total=10)
         async with (

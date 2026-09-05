@@ -138,7 +138,7 @@ async def upload_credit_automation_job() -> None:
 
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get("points", 0) if isinstance(status, dict) else 0
+            points = status.get("points", 0)
             if points is None:
                 points = 0
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
@@ -200,7 +200,7 @@ async def upload_credit_automation_job() -> None:
                     last_purchase = datetime.fromisoformat(last_upload_time)
                 except Exception:
                     last_purchase = None
-            now_dt = now if isinstance(now, datetime) else datetime.now(UTC)
+            now_dt = now
             time_trigger_ok = True
             if trigger_type in ("time", "both"):
                 if last_purchase:
@@ -352,7 +352,7 @@ async def vip_automation_job() -> None:
             # Read weeks from automation config (default 4)
             weeks = automation.get("weeks", 4)
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get("points", 0) if isinstance(status, dict) else 0
+            points = status.get("points", 0)
             if points is None:
                 points = 0
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
@@ -429,7 +429,7 @@ async def vip_automation_job() -> None:
                     last_purchase = datetime.fromisoformat(last_vip_time)
                 except Exception:
                     last_purchase = None
-            now_dt = now if isinstance(now, datetime) else datetime.now(UTC)
+            now_dt = now
             time_trigger_ok = True
             if trigger_type in ("time", "both"):
                 if last_purchase:
@@ -655,7 +655,7 @@ async def wedge_automation_job() -> None:
 
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get("points", 0) if isinstance(status, dict) else 0
+            points = status.get("points", 0)
             if points is None:
                 points = 0
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
@@ -725,7 +725,7 @@ async def wedge_automation_job() -> None:
                     last_purchase = datetime.fromisoformat(last_wedge_time)
                 except Exception:
                     last_purchase = None
-            now_dt = now if isinstance(now, datetime) else datetime.now(UTC)
+            now_dt = now
             time_trigger_ok = True
             if trigger_type in ("time", "both"):
                 if last_purchase:
