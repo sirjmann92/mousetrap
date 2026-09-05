@@ -8,24 +8,19 @@
   "files": {
     "ignoreUnknown": true,
     "maxSize": 4194304,
-    "includes": ["**", "!**/build", "!**/public", "!**/node_modules"]
+    "includes": ["**", "!**/build", "!**/public"]
   },
   "formatter": {
-    "enabled": true,
     "indentStyle": "space",
-    "indentWidth": 2,
-    "lineEnding": "lf",
     "lineWidth": 100
   },
   "linter": {
-    "enabled": true,
     "rules": {
       "preset": "recommended",
       "correctness": {
         "noUnusedVariables": {
           "level": "error",
-          "fix": "safe",
-          "options": {}
+          "fix": "safe"
         }
       }
     },
@@ -36,8 +31,7 @@
   },
   "javascript": {
     "formatter": {
-      "quoteStyle": "single",
-      "trailingCommas": "all"
+      "quoteStyle": "single"
     }
   },
   "html": {
