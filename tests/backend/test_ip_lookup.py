@@ -1,6 +1,7 @@
 """Backend IP lookup tests for provider-chain response handling."""
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+import itertools
 from types import TracebackType
 from typing import Any, Self
 
@@ -11,6 +12,9 @@ from backend import ip_lookup
 # ip-api.com, ipinfo.io standard, and ipdata.co: the providers offered for a
 # specific IP once the two token-gated entries are removed from the chain.
 PROVIDERS_FOR_A_SPECIFIC_IP = 3
+# Those three plus ipify.org and the two hardcoded-IP fallbacks, which join the
+# chain only when no IP is supplied.
+PROVIDERS_FOR_A_SELF_LOOKUP = 6
 
 
 class _Noop:
@@ -129,6 +133,28 @@ class _StubSession:
         """Exit the session context."""
 
 
+def _answered_only_at(index: int, payload: Any) -> Callable[[], _StubResponse]:
+    """Build a response factory that answers 503 for every provider but one.
+
+    Args:
+        index: Position in the provider chain whose response carries the payload.
+        payload: Value the provider at that position replays to the caller.
+
+    Returns:
+        Zero-argument callable returning one stub response per request.
+
+    """
+    served = itertools.count()
+
+    def response_factory() -> _StubResponse:
+        """Return the payload at the chosen position and 503 everywhere else."""
+        if next(served) == index:
+            return _StubResponse(payload)
+        return _StubResponse({}, status=503)
+
+    return response_factory
+
+
 @pytest.fixture
 def stub_lookup_chain(monkeypatch: pytest.MonkeyPatch) -> Any:
     """Replace the provider chain's session and cache with test-local doubles."""
@@ -215,3 +241,53 @@ async def test_response_is_released_on_the_success_path(stub_lookup_chain: Any) 
     assert result["asn"] == "AS64500 TEST-NET"
     assert len(session.responses) == 1
     assert session.responses[0].releases == 1
+
+
+async def test_a_self_lookup_offers_every_provider_in_the_chain(stub_lookup_chain: Any) -> None:
+    """Offer all six self-lookup providers before reporting total failure."""
+    session = stub_lookup_chain(lambda: _StubResponse({}, status=503))
+
+    result = await ip_lookup.get_ipinfo_with_fallback()
+
+    assert result == {"ip": None, "asn": None, "org": "", "timezone": None}
+    assert len(session.responses) == PROVIDERS_FOR_A_SELF_LOOKUP
+
+
+@pytest.mark.parametrize(
+    ("index", "payload", "expected"),
+    [
+        pytest.param(
+            3,
+            {"ip": "203.0.113.7"},
+            {"ip": "203.0.113.7", "asn": None, "org": "", "timezone": None},
+            id="ipify",
+        ),
+        pytest.param(
+            4,
+            {"ip": "203.0.113.7", "org": "AS64500 TEST-NET", "timezone": "Etc/UTC"},
+            {
+                "ip": "203.0.113.7",
+                "asn": "AS64500 TEST-NET",
+                "org": "AS64500 TEST-NET",
+                "timezone": "Etc/UTC",
+            },
+            id="ipinfo_hardcoded",
+        ),
+        pytest.param(
+            5,
+            "203.0.113.7\n",
+            {"ip": "203.0.113.7", "asn": None, "org": "", "timezone": None},
+            id="httpbin_hardcoded",
+        ),
+    ],
+)
+async def test_a_self_lookup_normalizes_each_tail_provider(
+    stub_lookup_chain: Any, index: int, payload: Any, expected: dict[str, Any]
+) -> None:
+    """Normalize the payload of each provider only a self lookup reaches."""
+    session = stub_lookup_chain(_answered_only_at(index, payload))
+
+    result = await ip_lookup.get_ipinfo_with_fallback()
+
+    assert result == expected
+    assert len(session.responses) == index + 1
