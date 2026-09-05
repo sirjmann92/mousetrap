@@ -158,8 +158,7 @@ async def get_ipinfo_with_fallback(
 
     async with aiohttp.ClientSession(timeout=timeout) as session:
         for provider_data in providers:
-            url, provider = provider_data[0], provider_data[1]
-            request_headers = provider_data[2] if len(provider_data) > 2 else headers
+            url, provider, request_headers = provider_data
 
             try:
                 # Choose proxy per-request. If multiple proxy schemes are available
