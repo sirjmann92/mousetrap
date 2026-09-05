@@ -1712,6 +1712,10 @@ async def api_save_session(request: Request) -> dict[str, Any]:
                     cfg[field] = prev_cfg[field]
 
         label = cfg.get("label")
+        if not isinstance(label, str) or not label.strip():
+            raise HTTPException(
+                status_code=400, detail="Session label is required to save a session."
+            )
         session_path = get_session_path(label)
         is_new = not Path(session_path).exists()
 
@@ -1771,6 +1775,10 @@ async def api_save_session(request: Request) -> dict[str, Any]:
         prev_mam_id = prev_cfg.get("mam", {}).get("mam_id") if prev_cfg else None
         await _sync_integrations_if_mam_id_changed(cfg, label, new_mam_id, prev_mam_id)
 
+    except HTTPException:
+        # A deliberate status from this handler (a 400 for a bad body, say) must
+        # not be re-wrapped as a 500 by the catch-all below.
+        raise
     except Exception as e:
         if saved:
             _logger.exception(
