@@ -11,6 +11,6 @@
     "skipLibCheck": true,
     "strict": false
   },
-  "include": ["src/**/*"],
+  "include": ["**/*", "../scripts/**/*"],
   "exclude": ["node_modules", "build"]
 }

@@ -14,6 +14,7 @@ rmSync(rawCoverageDir, { force: true, recursive: true });
 rmSync(reportDir, { force: true, recursive: true });
 mkdirSync(rawCoverageDir, { recursive: true });
 
+/** @type {NodeJS.ProcessEnv} */
 const playwrightEnv = { ...process.env, VITE_COVERAGE: 'true' };
 delete playwrightEnv.E2E_BASE_URL;
 
