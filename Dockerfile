@@ -19,15 +19,13 @@ WORKDIR /app
 COPY pyproject.toml /app/pyproject.toml
 
 # Install system dependencies, create users/groups, and install Python deps
-RUN apk add --no-cache --virtual .build-deps gcc musl-dev libffi-dev \
-    && apk add --no-cache gettext su-exec shadow \
+RUN apk add --no-cache gettext su-exec shadow \
     && (getent group 992 || addgroup -g 992 docker) \
     && addgroup -g 1000 appgroup \
     && adduser -u 1000 -G appgroup -D -s /bin/sh appuser \
     && adduser appuser docker \
     && python -m pip install --no-cache-dir --upgrade "pip>=25.1" \
     && python -m pip install --no-cache-dir --group runtime \
-    && apk del --no-cache .build-deps \
     && rm -rf /root/.cache/pip /tmp/* /var/cache/apk/*
 
 # Set environment variables
