@@ -237,7 +237,7 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
     """Check for increments in hit & run and unsatisfied counts and send notifications."""
     # Get the previous status
     old_status = cfg.get("last_status", {})
-    if not isinstance(old_status, dict) or not isinstance(new_status, dict):
+    if not isinstance(old_status, dict):
         return
 
     # Get UID for deduplication (same account across different sessions)
@@ -1229,7 +1229,6 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         and not just_created_session
         and not suppress_next_event
     ):
-        safe_status = status if isinstance(status, dict) else {}
         prev_ip = cfg.get("last_seedbox_ip")
         prev_asn = cfg.get("last_seedbox_asn")
         proxied_ip = cfg.get("proxied_public_ip")
@@ -1270,7 +1269,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
             event_ip_compare = f"{prev_ip} -> {attempted_ip}"
             event_asn_compare = f"{prev_asn} -> {attempted_asn}"
         else:
-            event_status_message = build_status_message(safe_status, ip_monitoring_mode)
+            event_status_message = build_status_message(status, ip_monitoring_mode)
             event_ip_compare = f"{prev_ip} -> {curr_ip}"
             event_asn_compare = f"{prev_asn} -> {curr_asn}"
         # Determine event type
@@ -1281,7 +1280,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
         else:
             event_type = "scheduled"
         # All variables are defined in this scope, so log event here
-        auto_update_val = get_auto_update_val(safe_status)
+        auto_update_val = get_auto_update_val(status)
         event = {
             "timestamp": now.isoformat(),
             "label": label,
