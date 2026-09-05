@@ -1,6 +1,7 @@
 """Backend tests for proxy configuration helpers."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -34,3 +35,36 @@ def test_load_proxies_rejects_non_mapping_yaml(
 
     with pytest.raises(YamlStoreError):
         proxy_config.load_proxies()
+
+
+def test_resolve_proxy_returns_the_labelled_proxy(temp_proxy_path: Path) -> None:
+    """Resolve a labelled proxy through proxies.yaml."""
+    temp_proxy_path.write_text("work:\n  host: proxy.internal\n  port: 8080\n", encoding="utf-8")
+
+    resolved = proxy_config.resolve_proxy_from_session_cfg({"proxy": {"label": "work"}})
+
+    assert resolved == {"host": "proxy.internal", "port": 8080}
+
+
+def test_resolve_proxy_returns_the_inline_proxy() -> None:
+    """Return a legacy inline proxy config unchanged."""
+    inline = {"host": "proxy.internal", "port": 8080}
+
+    resolved = proxy_config.resolve_proxy_from_session_cfg({"proxy": inline})
+
+    assert resolved == inline
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [
+        {},
+        {"proxy": {}},
+        {"proxy": {"label": "", "host": ""}},
+        {"proxy": None},
+        {"proxy": "not-a-mapping"},
+    ],
+)
+def test_resolve_proxy_returns_none_when_neither_shape_applies(cfg: dict[str, Any]) -> None:
+    """Return None for every session config that is neither labelled nor inline."""
+    assert proxy_config.resolve_proxy_from_session_cfg(cfg) is None

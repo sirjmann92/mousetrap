@@ -29,15 +29,12 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
     proxy = cfg.get("proxy", {})
     # Rate-limit debug logs to avoid flooding when this resolver is called frequently
     log_key = None
-    try:
-        if isinstance(proxy, dict) and proxy.get("label"):
-            log_key = f"label:{proxy.get('label')}"
-        elif isinstance(proxy, dict) and proxy.get("host"):
-            log_key = f"inline:{proxy.get('host')}"
-        else:
-            log_key = "no_proxy"
-    except Exception:
-        log_key = "resolve_unknown"
+    if isinstance(proxy, dict) and proxy.get("label"):
+        log_key = f"label:{proxy.get('label')}"
+    elif isinstance(proxy, dict) and proxy.get("host"):
+        log_key = f"inline:{proxy.get('host')}"
+    else:
+        log_key = "no_proxy"
     now = time.monotonic()
     last = _last_resolve_log_time.get(log_key, 0.0)
     if now - last >= _resolve_log_min_interval:
