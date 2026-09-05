@@ -23,10 +23,12 @@ from apscheduler.schedulers.background import BackgroundScheduler  # type: ignor
 from apscheduler.triggers.interval import IntervalTrigger  # type: ignore[import-untyped]
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
+from pydantic import ValidationError
 from starlette.responses import FileResponse
 
 from backend.api_automation import router as automation_router
 from backend.api_event_log import router as event_log_router
+from backend.api_models import IndexerTestRequest
 from backend.api_notifications import router as notifications_router
 from backend.api_port_monitor import router as port_monitor_router
 from backend.api_proxy import router as proxy_router
@@ -2128,10 +2130,11 @@ async def api_prowlarr_test(request: Request) -> dict[str, Any]:
     Expects JSON with: host, port, api_key
     """
     try:
-        data = await request.json()
-        host = data.get("host", "").strip()
-        port = coerce_port(data.get("port"))
-        api_key = data.get("api_key", "").strip()
+        try:
+            payload = IndexerTestRequest.model_validate(await request.json())
+        except ValidationError:
+            return {"success": False, "message": "Missing required fields"}
+        host, port, api_key = payload.host, payload.port, payload.api_key
 
         _logger.debug(
             "[Prowlarr] Test connection request - host: %s, port: %s (type: %s), api_key: %s",
@@ -2140,9 +2143,6 @@ async def api_prowlarr_test(request: Request) -> dict[str, Any]:
             type(port).__name__,
             "***" + api_key[-4:] if api_key and len(api_key) > 4 else "***",
         )
-
-        if not host or port is None or not api_key:
-            return {"success": False, "message": "Missing required fields"}
 
         # Test connection and find MAM indexer
         conn_result = await test_prowlarr_connection(host, port, api_key)
@@ -2179,13 +2179,11 @@ async def api_prowlarr_find_indexer(request: Request) -> dict[str, Any]:
     Expects JSON with: host, port, api_key
     """
     try:
-        data = await request.json()
-        host = data.get("host", "").strip()
-        port = coerce_port(data.get("port"))
-        api_key = data.get("api_key", "").strip()
-
-        if not all([host, port, api_key]):
+        try:
+            payload = IndexerTestRequest.model_validate(await request.json())
+        except ValidationError:
             return {"success": False, "message": "Missing required fields"}
+        host, port, api_key = payload.host, payload.port, payload.api_key
 
         return await find_mam_indexer_id(host, port, api_key)
     except Exception as e:
@@ -2245,10 +2243,11 @@ async def api_chaptarr_test(request: Request) -> dict[str, Any]:
     Expects JSON with: host, port, api_key
     """
     try:
-        data = await request.json()
-        host = data.get("host", "").strip()
-        port = coerce_port(data.get("port"))
-        api_key = data.get("api_key", "").strip()
+        try:
+            payload = IndexerTestRequest.model_validate(await request.json())
+        except ValidationError:
+            return {"success": False, "message": "Missing required fields"}
+        host, port, api_key = payload.host, payload.port, payload.api_key
 
         _logger.debug(
             "[Chaptarr] Test connection request - host: %s, port: %s (type: %s), api_key: %s",
@@ -2257,9 +2256,6 @@ async def api_chaptarr_test(request: Request) -> dict[str, Any]:
             type(port).__name__,
             "***" + api_key[-4:] if api_key and len(api_key) > 4 else "***",
         )
-
-        if not host or port is None or not api_key:
-            return {"success": False, "message": "Missing required fields"}
 
         # Test connection and find MAM indexer
         conn_result = await test_chaptarr_connection(host, port, api_key)
@@ -2341,20 +2337,18 @@ async def api_jackett_test(request: Request) -> dict[str, Any]:
     Expects JSON with: host, port, api_key, admin_password
     """
     try:
-        data = await request.json()
-        host = data.get("host", "").strip()
-        port = coerce_port(data.get("port"))
-        api_key = data.get("api_key", "").strip()
-        admin_password = data.get("admin_password", "").strip()
+        try:
+            payload = IndexerTestRequest.model_validate(await request.json())
+        except ValidationError:
+            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
+        host, port, api_key = payload.host, payload.port, payload.api_key
+        admin_password = payload.admin_password
 
         _logger.debug(
             "[Jackett] Test connection request - host: %s, port: %s",
             host,
             port,
         )
-
-        if not host or port is None or not api_key:
-            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
 
         # Test API connection with optional authentication
         return await test_jackett_connection(host, port, api_key, admin_password or "")
@@ -2431,19 +2425,17 @@ async def api_audiobookrequest_test(request: Request) -> dict[str, Any]:
     Expects JSON with: host, port, api_key
     """
     try:
-        data = await request.json()
-        host = data.get("host", "").strip()
-        port = coerce_port(data.get("port"))
-        api_key = data.get("api_key", "").strip()
+        try:
+            payload = IndexerTestRequest.model_validate(await request.json())
+        except ValidationError:
+            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
+        host, port, api_key = payload.host, payload.port, payload.api_key
 
         _logger.debug(
             "[AudioBookRequest] Test connection request - host: %s, port: %s",
             host,
             port,
         )
-
-        if not host or port is None or not api_key:
-            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
 
         return await test_audiobookrequest_connection(host, port, api_key)
     except Exception as e:
@@ -2518,19 +2510,17 @@ async def api_autobrr_test(request: Request) -> dict[str, Any]:
     Expects JSON with: host, port, api_key
     """
     try:
-        data = await request.json()
-        host = data.get("host", "").strip()
-        port = coerce_port(data.get("port"))
-        api_key = data.get("api_key", "").strip()
+        try:
+            payload = IndexerTestRequest.model_validate(await request.json())
+        except ValidationError:
+            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
+        host, port, api_key = payload.host, payload.port, payload.api_key
 
         _logger.debug(
             "[Autobrr] Test connection request - host: %s, port: %s",
             host,
             port,
         )
-
-        if not host or port is None or not api_key:
-            return {"success": False, "message": "Missing required fields (host, port, api_key)"}
 
         return await test_autobrr_connection(host, port, api_key)
     except Exception as e:
