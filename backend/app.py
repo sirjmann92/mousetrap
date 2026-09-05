@@ -215,7 +215,7 @@ def get_auto_update_val(status: dict[str, Any]) -> str:
     for display in the UI or logs. If the value is missing or invalid, returns
     the string "N/A".
     """
-    val = status.get("auto_update_seedbox") if isinstance(status, dict) else None
+    val = status.get("auto_update_seedbox")
     if val is None or val == "" or val is False:
         return "N/A"
     if isinstance(val, dict):
@@ -1300,7 +1300,6 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
                     or "IP Changed. Seedbox IP updated."
                 )
                 if auto_update_result
-                and isinstance(auto_update_result, dict)
                 and auto_update_result.get("success") is True
                 and (auto_update_result.get("msg") or auto_update_result.get("reason"))
                 else status.get("status_message")
@@ -1328,9 +1327,7 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
     if auto_update_result is not None:
         status["auto_update_seedbox"] = auto_update_result
         # Priority: error (rate limit or other)
-        error_val = (
-            auto_update_result.get("error") if isinstance(auto_update_result, dict) else None
-        )
+        error_val = auto_update_result.get("error")
         if error_val and isinstance(error_val, str):
             status["status_message"] = error_val
         # Next: explicit success message or reason

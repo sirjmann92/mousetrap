@@ -25,8 +25,11 @@ try:
 except ImportError:
     docker = None  # type: ignore[assignment]
 
+# mypy resolves the optional import above as always succeeding, so it reports
+# the `is not None` test as redundant. It is not: the docker package is an
+# optional dependency and port monitoring must degrade cleanly without it.
 _DockerException: type[Exception] = (
-    docker.errors.DockerException if docker is not None else RuntimeError
+    docker.errors.DockerException if docker is not None else RuntimeError  # type: ignore[redundant-expr]
 )
 
 _logger: logging.Logger = logging.getLogger(__name__)
