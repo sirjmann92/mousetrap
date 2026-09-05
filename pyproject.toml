@@ -105,19 +105,14 @@ warn_unreachable = false
 
 [tool.ruff]
 line-length = 100
-indent-width = 4
 fix = true
 force-exclude = true
 target-version = "py313"
 required-version = ">=0.15.0"
 
 [tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
 line-ending = "lf"
 docstring-code-format = true
-docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint]
 select = [
@@ -234,17 +229,12 @@ ignore = [
     "PLW0602", # Unused global
     "TRY002", # Create your own exception class
 ]
-fixable = ["ALL"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/backend/**/*.py" = [
     "S101", # Use of assert detected
     "SLF001", # Private member accessed
 ]
-
-[tool.ruff.lint.flake8-pytest-style]
-fixture-parentheses = false
-mark-parentheses = false
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "async_timeout".msg = "use asyncio.timeout instead"
