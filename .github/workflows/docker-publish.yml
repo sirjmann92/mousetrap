@@ -128,6 +128,9 @@ jobs:
             APP_VERSION=${{ steps.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
+          # Pinned: unset, the action's provenance mode follows repo visibility.
+          provenance: mode=max
+          sbom: true
           cache-from: |
             type=gha
           cache-to: type=gha,mode=max
