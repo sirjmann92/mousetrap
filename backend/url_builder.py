@@ -3,7 +3,7 @@
 from urllib.parse import urlparse
 
 
-def build_service_url(host: str, port: int | str | None, path: str = "") -> str:
+def build_service_url(host: str, port: int, path: str = "") -> str:
     """Build a service URL from host, port, and path.
 
     Tolerates common user input mistakes:
@@ -42,11 +42,7 @@ def build_service_url(host: str, port: int | str | None, path: str = "") -> str:
     if not host:
         raise ValueError("Host is required")
 
-    if port is None or str(port).strip() == "":
-        raise ValueError("Port is required")
-
-    port_int = int(port)
-    scheme = "https" if port_int == 443 else "http"
-    base = f"{scheme}://{host}:{port_int}"
+    scheme = "https" if port == 443 else "http"
+    base = f"{scheme}://{host}:{port}"
 
     return f"{base}{path}"
