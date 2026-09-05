@@ -203,26 +203,35 @@ Update automation settings for a session.
 }
 ```
 
-### POST `/api/purchase/{label}/{item_type}`
-Manually trigger a purchase.
+### POST `/api/automation/upload_auto`
+Manually trigger an upload credit purchase.
 
-**Parameters:**
-- `label` (path): Session label/name
-- `item_type` (path): One of `upload`, `vip`
-
-**Request Body (for upload credit):**
+**Request Body:**
 ```json
 {
-  "gb": 50
+  "label": "session-name",
+  "amount": 50
 }
 ```
 
-**Request Body (for VIP):**
+- `label` is required; a missing label returns `400`.
+- `amount` is a number of GB and must be `50` or `100`; any other value returns `400`.
+
+### POST `/api/automation/vip`
+Manually trigger a VIP purchase.
+
+**Request Body:**
 ```json
 {
+  "label": "session-name",
   "weeks": 4
 }
 ```
+
+- `label` is required; a missing label returns `400`.
+- `weeks` is a whole number of weeks, sent as a number or a string, and defaults
+  to `4`. `"max"` and `90` both buy the max duration. Any other value returns
+  `400`.
 
 ---
 
