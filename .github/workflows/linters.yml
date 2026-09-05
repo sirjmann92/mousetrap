@@ -103,6 +103,32 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  type-check:
+    name: Pyright
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # [tool.pyright] resolves imports through .venv, so CI builds the same
+      # virtualenv a developer has rather than duplicating the dependency list
+      # the way the prek mypy hook has to.
+      - name: Install type-check dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install --group typecheck
+
+      - name: Run pyright
+        run: npx --yes pyright@1.1.413 backend
+
   linters:
     name: Run Linters
     runs-on: ubuntu-latest
