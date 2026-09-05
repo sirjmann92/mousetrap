@@ -172,6 +172,40 @@ for backend pytest and `coverage/frontend/` for Playwright E2E.
 - Keep Docker socket operations limited to the port-monitoring feature and avoid
   expanding socket permissions without documentation and user-visible warnings.
 
+## Reviewing Pull Requests
+
+When reviewing a contributor's pull request, verify the claims rather than the
+prose: reproduce a reported defect against the pre-fix code, re-derive any
+measurement the description asserts, and run the checks that match the files
+touched. A description that reads convincingly is not evidence.
+
+Leave a short comment before merging — two to four lines, saying **what was
+independently verified and how**, not that it looks good:
+
+> Verified: reproduced the failure on pre-fix code (both tests fail, pass after).
+> Confirmed `buy_vip`/`buy_wedge` are byte-identical substitutions, so the change
+> is confined to one function. mypy and the backend suite are clean.
+
+This is worth more than an approval stamp on evidence-heavy pull requests: it
+tells the contributor which of their claims were checked, and it records why the
+change was accepted for whoever reads the pull request later. Say so explicitly
+when a claim could not be verified, or when verification went further than the
+author could — for example building an architecture the author had no runner for.
+
+Skip the comment for genuinely trivial changes such as a one-line setting.
+
+## Landing Your Own Changes
+
+Open a pull request for your own changes rather than pushing to `main`, and
+merge it once its checks pass. `gh release create --generate-notes` builds the
+release notes from merged pull requests, so a direct push to `main` ships in the
+release but appears nowhere in its notes — it shows up only in the "Full
+Changelog" commit range. Anything that should be visible to users in a release
+needs a pull request.
+
+Direct pushes remain appropriate for documentation-only changes, which are
+excluded from `Tests` by `paths-ignore` and therefore cut no release at all.
+
 ## Releases and Versioning
 
 Publishing is automatic: a push to `main` runs `Tests`, and a successful run

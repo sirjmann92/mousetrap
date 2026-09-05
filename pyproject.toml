@@ -75,6 +75,11 @@ parallel = false
 
 [tool.coverage.report]
 show_missing = true
+# Ratchet, not a target. Set just below the measured total so an unrelated
+# change cannot quietly reduce coverage; raise it when coverage rises. Several
+# defects found in review sat in modules that had no tests at all, so the floor
+# exists to stop that surface growing rather than to certify the current number.
+fail_under = 40
 
 [tool.pyright]
 venvPath = "."
