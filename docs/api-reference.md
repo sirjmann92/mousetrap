@@ -365,11 +365,15 @@ Get current notification configuration.
   "event_rules": {
     "automation_success": {
       "email": false,
-      "webhook": true
+      "webhook": true,
+      "apprise": false,
+      "pushover": false
     },
     "automation_failure": {
-      "email": true, 
-      "webhook": true
+      "email": true,
+      "webhook": true,
+      "apprise": false,
+      "pushover": true
     }
   }
 }

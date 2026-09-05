@@ -300,9 +300,13 @@ event_rules:
   automation_success:
     email: true     # Enable email notifications
     webhook: true   # Enable webhook notifications
+    apprise: false  # Enable Apprise notifications
+    pushover: false # Enable Pushover notifications
   automation_failure:
     email: true
     webhook: true
+    apprise: false
+    pushover: true
 ```
 
 ---
