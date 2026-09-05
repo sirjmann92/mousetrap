@@ -1640,6 +1640,14 @@ async def api_save_session(request: Request) -> dict[str, Any]:
     global session_status_cache
 
     saved = False
+    # Bound before the try so the failure handler below can read it even when
+    # request.json() is what raised. `saved` only becomes True well after cfg is
+    # assigned, so cfg.get(...) in that handler was already unreachable while cfg
+    # was unbound — but the correlation lived in two variables, which is the kind
+    # of thing a later edit quietly breaks. Annotated `Any` to match what
+    # request.json() returns; typing it as a mapping here would change how the
+    # rest of the function is checked, which is a separate change.
+    cfg: Any = {}
     try:
         cfg = await request.json()
         old_label = cfg.get("old_label")
