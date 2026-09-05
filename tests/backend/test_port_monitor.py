@@ -5,7 +5,7 @@ from collections.abc import Callable
 import logging
 from pathlib import Path
 import threading
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
 
@@ -643,3 +643,78 @@ def test_update_stack_restores_values_on_save_failure(monkeypatch: pytest.Monkey
         ["secondary"],
     )
     assert (stack.interval, stack.public_ip) == (60, "1.1.1.1")
+
+
+_UNUSABLE_PROBE_OUTPUTS = [
+    "",
+    "sh: curl: not found",
+    "OCI runtime exec failed",
+    "bash: curl: command not found",
+]
+
+
+def _manager_with_probe_outputs(
+    monkeypatch: pytest.MonkeyPatch, *outputs: str
+) -> tuple[port_monitor.PortMonitorStackManager, Mock, Mock]:
+    """Build a manager whose in-container IP probe replays the given stdout in order.
+
+    Args:
+        monkeypatch: Fixture used to replace the outbound host connection.
+        *outputs: Stdout each successive ``exec_run`` call returns, curl first.
+
+    Returns:
+        The manager holding one stack, the container double recording the probe
+        commands, and the stub standing in for ``socket.create_connection``.
+    """
+    container = Mock()
+    container.exec_run.side_effect = [Mock(output=output.encode()) for output in outputs]
+    client = Mock()
+    client.containers.get.return_value = container
+    connect = Mock(return_value=MagicMock())
+    monkeypatch.setattr(port_monitor.socket, "create_connection", connect)
+    manager = port_monitor.PortMonitorStackManager()
+    manager.stacks = [port_monitor.PortMonitorStack("x", "container", 80, [])]
+    manager._docker_client = client
+    return manager, container, connect
+
+
+def test_check_port_uses_the_curl_address_without_retrying(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A usable curl probe is accepted as it stands, with no wget fallback."""
+    manager, container, connect = _manager_with_probe_outputs(monkeypatch, "203.0.113.7")
+
+    assert manager.check_port("container", 80)
+
+    assert container.exec_run.call_count == 1
+    connect.assert_called_once_with(("203.0.113.7", 80), timeout=3)
+    assert manager.stacks[0].public_ip_detected is True
+
+
+@pytest.mark.parametrize("unusable", _UNUSABLE_PROBE_OUTPUTS)
+def test_check_port_retries_with_wget_when_curl_returns_no_usable_ip(
+    monkeypatch: pytest.MonkeyPatch, unusable: str
+) -> None:
+    """An unusable curl probe falls back to wget and the port check uses its address."""
+    manager, container, connect = _manager_with_probe_outputs(monkeypatch, unusable, "203.0.113.7")
+
+    assert manager.check_port("container", 80)
+
+    commands = [call.args[0] for call in container.exec_run.call_args_list]
+    assert len(commands) == 2
+    assert commands[0].startswith("curl ")
+    assert commands[1].startswith("wget ")
+    connect.assert_called_once_with(("203.0.113.7", 80), timeout=3)
+    assert manager.stacks[0].public_ip_detected is True
+
+
+@pytest.mark.parametrize("unusable", _UNUSABLE_PROBE_OUTPUTS)
+def test_check_port_gives_up_when_both_probes_return_no_usable_ip(
+    monkeypatch: pytest.MonkeyPatch, unusable: str
+) -> None:
+    """Both probes unusable clears public_ip_detected and never dials the host."""
+    manager, container, connect = _manager_with_probe_outputs(monkeypatch, unusable, unusable)
+
+    assert not manager.check_port("container", 80)
+
+    assert container.exec_run.call_count == 2
+    connect.assert_not_called()
+    assert manager.stacks[0].public_ip_detected is False

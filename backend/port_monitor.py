@@ -34,6 +34,12 @@ PORT_MONITOR_STOP_TIMEOUT_SECONDS = 5.0
 PORT_MONITOR_CONFIG_PATH = Path(
     os.environ.get("PORT_MONITOR_CONFIG_PATH") or CONFIG_DIR / "port_monitoring_stacks.yaml"
 )
+_INVALID_IP_MARKERS = ("not found", "OCI runtime exec", "command not found")
+
+
+def _is_invalid_container_ip(ip: str) -> bool:
+    """True if a container IP probe returned no usable address (empty or an error string)."""
+    return not ip or any(marker in ip for marker in _INVALID_IP_MARKERS)
 
 
 class PortMonitorStack:
@@ -278,12 +284,7 @@ class PortMonitorStackManager:
                 # Try curl first
                 exec_result = container.exec_run("curl -s https://ipinfo.io/ip")
                 ip = exec_result.output.decode().strip()
-                if (
-                    not ip
-                    or "not found" in ip
-                    or "OCI runtime exec" in ip
-                    or "command not found" in ip
-                ):
+                if _is_invalid_container_ip(ip):
                     # Try wget as fallback
                     exec_result = container.exec_run("wget -qO- https://ipinfo.io/ip")
                     ip = exec_result.output.decode().strip()
@@ -293,12 +294,7 @@ class PortMonitorStackManager:
                     container_name,
                     ip,
                 )  # Changed to DEBUG
-                if (
-                    not ip
-                    or "not found" in ip
-                    or "OCI runtime exec" in ip
-                    or "command not found" in ip
-                ):
+                if _is_invalid_container_ip(ip):
                     warning_key = f"no_ip_{container_name}"
                     if self._should_log_warning(warning_key, min_interval=60):
                         _logger.warning(
