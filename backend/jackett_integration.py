@@ -222,6 +222,13 @@ async def get_indexer_config(
         ):
             if response.status == 200:
                 config = await response.json()
+                if not isinstance(config, list):
+                    _logger.error(
+                        "Jackett returned %s for %s config, expected a list",
+                        type(config).__name__,
+                        indexer_name,
+                    )
+                    return None
                 _logger.info("Retrieved config for %s", indexer_name)
                 return config
 

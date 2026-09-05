@@ -480,7 +480,7 @@ def test_restart_stops_side_effects_when_shutdown_occurs_during_polling(
 
     def stop_during_check(*args: object) -> bool:
         manager.stop()
-        return check_port(*args)
+        return bool(check_port(*args))
 
     monkeypatch.setattr(manager, "restart_container", restart_container)
     monkeypatch.setattr(manager, "check_port", stop_during_check)

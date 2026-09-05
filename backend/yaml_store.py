@@ -6,7 +6,7 @@ from contextlib import suppress
 import os
 from pathlib import Path
 import tempfile
-from typing import Any
+from typing import Any, cast
 
 import yaml
 
@@ -15,11 +15,11 @@ class YamlStoreError(RuntimeError):
     """Raised when YAML persistence cannot satisfy its file contract."""
 
 
-def load_yaml_file(
+def load_yaml_file[T](
     path: Path,
-    default: Any,
+    default: T,
     expected_type: type[Any] | tuple[type[Any], ...] | None = None,
-) -> Any:
+) -> T:
     """Load one YAML file.
 
     Args:
@@ -52,7 +52,10 @@ def load_yaml_file(
             f"YAML file {path} has top-level type {type(data).__name__}; "
             f"expected {_type_name(expected_type)}"
         )
-    return data
+    # `data` is Any out of yaml.safe_load. When `expected_type` was supplied the
+    # isinstance check above has already rejected anything else, and every call
+    # site pairs it with a matching `default`, which is what binds T.
+    return cast("T", data)
 
 
 def write_yaml_file(path: Path, data: Any) -> None:

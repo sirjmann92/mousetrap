@@ -64,7 +64,7 @@ def build_status_message(status: dict, ip_monitoring_mode: str = "auto") -> str:
         return f"Error: {status['error']}"
     # If a static message is present (from mam_api or other), use it
     if status.get("message"):
-        return status["message"]
+        return str(status["message"])
 
     # Mode-specific status messages
     if ip_monitoring_mode == "static":
@@ -79,7 +79,7 @@ def build_status_message(status: dict, ip_monitoring_mode: str = "auto") -> str:
         if isinstance(result, dict):
             if result.get("success"):
                 return "IP Changed. Seedbox IP updated."
-            return result.get("error", "Seedbox update failed.")
+            return str(result.get("error", "Seedbox update failed."))
     return "No change detected. Update not needed."
 
 

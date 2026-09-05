@@ -141,7 +141,7 @@ class PortMonitorStackManager:
         configuration; malformed stack entries are logged and ignored.
         """
         self._config_loaded = False
-        data = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [], expected_type=list)
+        data: list[Any] = load_yaml_file(PORT_MONITOR_CONFIG_PATH, [], expected_type=list)
 
         try:
             seen = set()

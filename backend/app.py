@@ -226,11 +226,11 @@ def get_auto_update_val(status: dict[str, Any]) -> str:
             # If reason is present, append it for clarity
             if reason:
                 return f"{msg} ({reason})"
-            return msg
+            return str(msg)
         if error:
             if reason:
                 return f"{error} ({reason})"
-            return error
+            return str(error)
         return "N/A"
     return str(val)
 
