@@ -60,6 +60,7 @@ from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fall
 from backend.jackett_integration import sync_mam_id_to_jackett, test_jackett_connection
 from backend.last_session_api import router as last_session_router, write_last_session
 from backend.mam_api import (
+    MamResponseClass,
     classify_mam_response,
     get_mam_seen_ip_info,
     get_proxied_public_ip,
@@ -416,7 +417,7 @@ def api_automation_guardrails() -> dict[str, Any]:
 async def apply_mam_validity_classification(
     cfg: dict[str, Any],
     label: str,
-    classification: str,
+    classification: MamResponseClass,
     now: datetime,
     detail: str = "",
 ) -> None:
