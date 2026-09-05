@@ -48,7 +48,7 @@ async def jackett_login(host: str, port: int, admin_password: str) -> str | None
 
         async with aiohttp.ClientSession(cookie_jar=jar) as session:
             # Step 1: GET /UI/Login to receive TestCookie and Jackett session cookie
-            async with session.get(login_url, allow_redirects=True, timeout=_TIMEOUT) as response:
+            async with session.get(login_url, allow_redirects=True, timeout=_TIMEOUT):
                 # Get all cookies after visiting login page
                 cookies = session.cookie_jar.filter_cookies(URL(build_service_url(host, port)))
 
