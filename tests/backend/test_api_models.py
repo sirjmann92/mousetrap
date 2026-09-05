@@ -3,7 +3,7 @@
 from pydantic import ValidationError
 import pytest
 
-from backend.api_models import IndexerTestRequest
+from backend.api_models import IndexerTestRequest, IndexerUpdateRequest
 
 
 @pytest.mark.parametrize(
@@ -60,3 +60,25 @@ def test_admin_password_is_optional_and_defaults_to_empty() -> None:
     model = IndexerTestRequest(host="h", port=9117, api_key="k")
 
     assert model.admin_password == ""
+
+
+def test_update_request_requires_a_usable_label() -> None:
+    """A blank or whitespace-only label is refused before the session lookup."""
+    for label in ("", "   "):
+        with pytest.raises(ValidationError):
+            IndexerUpdateRequest.model_validate({"label": label})
+
+
+def test_update_request_treats_mam_id_as_optional() -> None:
+    """These endpoints fall back to the session's stored mam_id, so absent is valid."""
+    model = IndexerUpdateRequest.model_validate({"label": "seedbox"})
+
+    assert model.label == "seedbox"
+    assert model.mam_id == ""
+
+
+def test_update_request_strips_its_values() -> None:
+    """Whitespace around a label or mam_id is not part of the value."""
+    model = IndexerUpdateRequest.model_validate({"label": " seedbox ", "mam_id": " cookie "})
+
+    assert (model.label, model.mam_id) == ("seedbox", "cookie")

@@ -36,3 +36,15 @@ class IndexerTestRequest(BaseModel):
     port: int
     api_key: Annotated[StrippedStr, Field(min_length=1)]
     admin_password: StrippedStr = ""
+
+
+class IndexerUpdateRequest(BaseModel):
+    """Body for the indexer update endpoints, which act on a saved session.
+
+    `mam_id` is optional: these endpoints fall back to the session's stored
+    value when the caller does not supply one, so an absent or blank value is
+    not an error here.
+    """
+
+    label: Annotated[StrippedStr, Field(min_length=1)]
+    mam_id: StrippedStr = ""
