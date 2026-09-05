@@ -596,7 +596,7 @@ async def auto_update_seedbox_if_needed(
             # Continue with normal processing without ASN change detection
         else:
             norm_last = extract_asn_number(last_seedbox_asn) if last_seedbox_asn else None
-            norm_check = extract_asn_number(asn_to_check) if "asn_to_check" in locals() else None
+            norm_check = extract_asn_number(asn_to_check)
             # Always store the normalized ASN number if available
             if norm_check is not None:
                 cfg["last_seedbox_asn"] = norm_check
@@ -1160,7 +1160,7 @@ async def api_status(label: str = Query(None), force: int = Query(0)) -> dict[st
             save_session(cfg, old_label=label)
             _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
             await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
-        if "proxy_error" not in mam_status and "proxy_error" in locals() and proxy_error:
+        if "proxy_error" not in mam_status and proxy_error:
             mam_status["proxy_error"] = proxy_error
         mam_status["configured_ip"] = ip_to_use
         mam_status["configured_asn"] = asn
