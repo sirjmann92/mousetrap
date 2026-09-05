@@ -618,3 +618,28 @@ def test_update_stack_restores_values_on_save_failure(monkeypatch: pytest.Monkey
         ["secondary"],
     )
     assert (stack.interval, stack.public_ip) == (60, "1.1.1.1")
+
+
+def test_update_stack_logs_override_change_with_symmetric_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An override-only edit is logged, and both detail sides describe the same fields."""
+    stack = port_monitor.PortMonitorStack("x", "old", 80, ["secondary"], 60, "1.1.1.1")
+    events = Mock()
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "get_stack", lambda _name: stack)
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "save_stacks", Mock())
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "recheck_stack", Mock())
+    monkeypatch.setattr(api_port_monitor, "append_ui_event_log", events)
+    request = api_port_monitor.UpdatePortMonitorStackRequest(
+        primary_container="old",
+        primary_port=80,
+        secondary_containers=["secondary"],
+        interval=60,
+        public_ip="2.2.2.2",
+    )
+
+    assert api_port_monitor.update_stack("x", request) == {"success": True}
+    events.assert_called_once()
+    details = events.call_args.args[0]["details"]
+    assert details["new"].keys() == details["old"].keys()
+    assert (details["old"]["public_ip"], details["new"]["public_ip"]) == ("1.1.1.1", "2.2.2.2")
