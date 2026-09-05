@@ -58,9 +58,7 @@ export function updatePrekRevision(configPath, revision) {
   const input = readFileSync(configPath, 'utf8');
   const matches = [...input.matchAll(BIOME_PREK_REVISION_PATTERN)];
   if (matches.length !== 1) {
-    throw new Error(
-      `Expected one Biome repository in ${configPath}; found ${matches.length}.`,
-    );
+    throw new Error(`Expected one Biome repository in ${configPath}; found ${matches.length}.`);
   }
 
   const output = input.replace(
@@ -77,11 +75,10 @@ export function updatePrekRevision(configPath, revision) {
 
 /** Fetch the published tag list without cloning or checking out a hook repository. */
 function fetchRemoteTags() {
-  return execFileSync(
-    'git',
-    ['ls-remote', '--refs', '--tags', BIOME_PREK_REPOSITORY],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-  );
+  return execFileSync('git', ['ls-remote', '--refs', '--tags', BIOME_PREK_REPOSITORY], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
 }
 
 /** Synchronize a prek config, retaining its current revision on lookup failure. */
