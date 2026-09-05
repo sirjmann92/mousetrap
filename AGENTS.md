@@ -158,7 +158,9 @@ for backend pytest and `coverage/frontend/` for Playwright E2E.
   accessible role and label locators; use a minimal `data-testid` only when no
   stable semantic locator exists.
 - Add container smoke coverage for production-image, startup, or persistence changes.
-- For frontend changes, at minimum run lint and TypeScript checks.
+- For frontend changes and for the JavaScript helpers under `scripts/`, at
+  minimum run lint and TypeScript checks. The frontend TypeScript project covers
+  both.
 - If a validation command cannot be run, note the exact reason in the handoff.
 
 ## Security and Privacy

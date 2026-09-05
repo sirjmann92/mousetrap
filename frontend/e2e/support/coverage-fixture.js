@@ -24,20 +24,31 @@ async function saveCoverage(page) {
   );
 }
 
-export const test = base.extend({
-  collectCoverage: [
-    async ({ page }, use) => {
-      const originalReload = page.reload.bind(page);
-      page.reload = async (...args) => {
-        await saveCoverage(page);
-        return originalReload(...args);
-      };
+export const test = base.extend(
+  /**
+   * @type {import('@playwright/test').Fixtures<
+   *   { collectCoverage: void },
+   *   {},
+   *   import('@playwright/test').PlaywrightTestArgs &
+   *     import('@playwright/test').PlaywrightTestOptions,
+   *   import('@playwright/test').PlaywrightWorkerArgs &
+   *     import('@playwright/test').PlaywrightWorkerOptions
+   * >}
+   */ ({
+    collectCoverage: [
+      async ({ page }, use) => {
+        const originalReload = page.reload.bind(page);
+        page.reload = async (...args) => {
+          await saveCoverage(page);
+          return originalReload(...args);
+        };
 
-      await use();
-      await saveCoverage(page);
-    },
-    { auto: true },
-  ],
-});
+        await use();
+        await saveCoverage(page);
+      },
+      { auto: true },
+    ],
+  }),
+);
 
 export { expect };
