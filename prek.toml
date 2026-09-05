@@ -48,7 +48,6 @@ rev = "v0.11.0.1"
 
 [[repos.hooks]]
 id = "shellcheck"
-types = ["shell"]
 args = ["-x"]
 
 [[repos]]
@@ -66,7 +65,7 @@ rev = "v2.3.0"
 [[repos.hooks]]
 id = "mypy"
 language_version = ">=3.13"
-args = ["--config-file=pyproject.toml"]
+args = []
 additional_dependencies = [
   "aiohttp",
   "apscheduler",
