@@ -39,12 +39,14 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0  # full history needed to read existing tags
 
-      # Auto-bumps the patch version on every publish (2.3.67 → 2.3.68).
+      # Auto-bumps the patch version on every publish: X.Y.Z becomes X.Y.(Z+1).
       # To cut a minor or major release instead, include "#minor" or
       # "#major" as a standalone word in any commit message landing since
       # the previous release:
-      #   #minor → 2.3.67 becomes 2.4.0   (new feature)
-      #   #major → 2.3.67 becomes 3.0.0   (breaking change)
+      #   #minor → X.Y.Z becomes X.(Y+1).0   (new feature)
+      #   #major → X.Y.Z becomes (X+1).0.0   (breaking change)
+      # Written without concrete version numbers so the example cannot go
+      # stale as the project releases.
       # Squash merges keep the PR title and the squashed commit bodies, so
       # a contributor can put the keyword in a commit message and a
       # reviewer can add one to the squash message at merge time. A batched

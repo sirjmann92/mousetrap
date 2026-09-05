@@ -3,6 +3,7 @@ name: Tests
 on:
   pull_request:
     paths-ignore:
+      - 'AGENTS.md'
       - 'README.md'
       - 'docs/**'
       - 'images/**'
@@ -10,6 +11,7 @@ on:
     branches:
       - main
     paths-ignore:
+      - 'AGENTS.md'
       - 'README.md'
       - 'docs/**'
       - 'images/**'

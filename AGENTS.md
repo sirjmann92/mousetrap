@@ -181,11 +181,11 @@ treated as the release version.
 The default is a patch bump. To cut a larger release, include a keyword as a
 standalone word in a commit message landing since the previous release:
 
-| Keyword  | Effect on `2.3.67` | Use for          |
-| -------- | ------------------ | ---------------- |
-| `#major` | `3.0.0`            | Breaking change  |
-| `#minor` | `2.4.0`            | New feature      |
-| *none*   | `2.3.68`           | Everything else  |
+| Keyword  | Effect on `X.Y.Z` | Use for         |
+| -------- | ----------------- | --------------- |
+| `#major` | `(X+1).0.0`       | Breaking change |
+| `#minor` | `X.(Y+1).0`       | New feature     |
+| *none*   | `X.Y.(Z+1)`       | Everything else |
 
 - Only **commit messages** are scanned, never file contents, so documenting
   the keywords in a file like this one is safe.
