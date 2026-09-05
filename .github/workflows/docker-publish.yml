@@ -39,6 +39,17 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
           fetch-depth: 0  # full history needed to read existing tags
 
+      # Auto-bumps the patch version on every publish (2.3.67 → 2.3.68).
+      # To cut a minor or major release instead, include "#minor" or
+      # "#major" as a standalone word in any commit message landing since
+      # the previous release:
+      #   #minor → 2.3.67 becomes 2.4.0   (new feature)
+      #   #major → 2.3.67 becomes 3.0.0   (breaking change)
+      # Squash merges keep the PR title and the squashed commit bodies, so
+      # a contributor can put the keyword in a commit message and a
+      # reviewer can add one to the squash message at merge time. A batched
+      # release scans every commit since the last tag, so one flagged
+      # commit promotes the whole batch.
       - name: Determine next version from tags
         id: version
         run: |
@@ -47,7 +58,21 @@ jobs:
           if [ -n "$LATEST_TAG" ]; then
             CURRENT="${LATEST_TAG#v}"
             IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-            PATCH=$((PATCH + 1))
+
+            # Scan commit messages since the last release for a bump keyword.
+            # Anchored to word boundaries so an incidental substring cannot
+            # promote a release.
+            COMMITS=$(git log "${LATEST_TAG}..HEAD" --pretty=%B)
+            if printf '%s' "$COMMITS" | grep -qiE '(^|[^[:alnum:]_])#major([^[:alnum:]_]|$)'; then
+              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
+              echo "Bump keyword found: major"
+            elif printf '%s' "$COMMITS" | grep -qiE '(^|[^[:alnum:]_])#minor([^[:alnum:]_]|$)'; then
+              MINOR=$((MINOR + 1)); PATCH=0
+              echo "Bump keyword found: minor"
+            else
+              PATCH=$((PATCH + 1))
+              echo "No bump keyword found; defaulting to patch"
+            fi
             NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           else
             # No tags yet — start at 2.3.6
