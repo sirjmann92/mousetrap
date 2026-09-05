@@ -27,7 +27,8 @@ from backend.utils import build_proxy_dict
 
 _logger: logging.Logger = logging.getLogger(__name__)
 # Simple cache to prevent duplicate rapid requests (reduce 403 errors)
-_ip_cache: dict[str, Any] = {}
+# Maps a cache key to the normalised result and the time it was stored.
+_ip_cache: dict[str, tuple[dict[str, Any], float]] = {}
 _cache_timeout = 300  # Cache for 5 minutes to reduce rate limiting
 # Track last time we emitted a cache-hit debug log for a given cache key so
 # we don't flood logs when the frontend polls frequently.

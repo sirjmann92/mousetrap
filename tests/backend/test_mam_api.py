@@ -145,3 +145,44 @@ async def test_returns_none_without_a_request_when_no_proxy_is_configured(
 
     assert result is None
     assert session.requests == []
+
+
+async def test_mam_seen_ip_info_reports_a_non_object_response() -> None:
+    """A JSON array from MAM is reported, not handed back as a mapping.
+
+    `get_mam_seen_ip_info` declares a dict and its callers index it like one, so
+    a list would previously have surfaced as an AttributeError somewhere
+    downstream rather than as this function's own error.
+    """
+
+    class _ListResponse:
+        status = 200
+
+        async def json(self) -> Any:
+            return ["not", "an", "object"]
+
+        async def text(self) -> str:
+            return "[]"
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *_exc: object) -> None:
+            """Leave the response context."""
+
+    class _Session:
+        def get(self, *_args: Any, **_kwargs: Any) -> _ListResponse:
+            return _ListResponse()
+
+        async def __aenter__(self) -> Self:
+            return self
+
+        async def __aexit__(self, *_exc: object) -> None:
+            """Leave the session context."""
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(mam_api.aiohttp, "ClientSession", lambda **_k: _Session(), raising=True)
+        result = await mam_api.get_mam_seen_ip_info("cookie", proxy_cfg={})
+
+    assert "error" in result
+    assert "list" in result["error"]

@@ -27,7 +27,7 @@ def read_last_session() -> str | None:
     Raises:
         YamlStoreError: If the existing settings file is invalid.
     """
-    data = load_yaml_file(LAST_SESSION_FILE, {}, expected_type=dict)
+    data: dict[str, Any] = load_yaml_file(LAST_SESSION_FILE, {}, expected_type=dict)
     return data.get("label")
 
 

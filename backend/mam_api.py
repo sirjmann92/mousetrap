@@ -267,4 +267,9 @@ async def get_mam_seen_ip_info(mam_id: str, proxy_cfg: dict[str, Any]) -> dict[s
     except Exception as e:
         return {"error": f"Failed to fetch MAM-seen IP info: {e}"}
     else:
+        if not isinstance(data, dict):
+            # Callers index this like a mapping. Reporting the shape through the
+            # function's existing error convention beats handing back a list and
+            # failing with an AttributeError somewhere downstream.
+            return {"error": f"MAM returned {type(data).__name__}, expected an object"}
         return data
