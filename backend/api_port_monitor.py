@@ -79,13 +79,6 @@ def update_stack(
     _logger.info("[PortMonitorStackAPI] Update requested for stack '%s'", name)
     if not stack:
         raise HTTPException(status_code=404, detail="Stack not found")
-    # Only log if something actually changed
-    changed = (
-        stack.primary_container != req.primary_container
-        or stack.primary_port != req.primary_port
-        or stack.secondary_containers != req.secondary_containers
-        or stack.interval != req.interval
-    )
     old_values = {
         "primary_container": stack.primary_container,
         "primary_port": stack.primary_port,
@@ -93,6 +86,15 @@ def update_stack(
         "interval": stack.interval,
         "public_ip": stack.public_ip,
     }
+    new_values = {
+        "primary_container": req.primary_container,
+        "primary_port": req.primary_port,
+        "secondary_containers": req.secondary_containers,
+        "interval": req.interval,
+        "public_ip": req.public_ip,
+    }
+    # Only log if something actually changed
+    changed = old_values != new_values
     stack.primary_container = req.primary_container
     stack.primary_port = req.primary_port
     stack.secondary_containers = req.secondary_containers
@@ -117,12 +119,7 @@ def update_stack(
                 "status_message": f"Stack '{name}' edited: primary={req.primary_container}:{req.primary_port}, secondaries={req.secondary_containers}, interval={req.interval} minutes.",
                 "details": {
                     "old": old_values,
-                    "new": {
-                        "primary_container": req.primary_container,
-                        "primary_port": req.primary_port,
-                        "secondary_containers": req.secondary_containers,
-                        "interval": req.interval,
-                    },
+                    "new": new_values,
                 },
                 "message": f"Stack '{name}' edited",
                 "level": "info",
