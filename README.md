@@ -599,3 +599,30 @@ Detailed reports are written to:
 The GitHub Actions test workflow uses the same container harness and runs separate backend, development Playwright, Docker smoke, and coverage-summary jobs. It uploads the backend and frontend reports as separate artifacts and will post the coverage to the PR.
 
 </details>
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome. [`AGENTS.md`](AGENTS.md) holds the working
+guidelines for this repository — project layout, backend and frontend
+conventions, validation commands, testing expectations, and what to include
+when handing a change off for review. It applies to human and AI contributors
+alike.
+
+Before opening a pull request, run the checks that match what you changed:
+
+```bash
+./scripts/lint.sh   # Linting, formatting, types, frontend dependency audit.
+./scripts/test.sh   # Backend pytest plus development Playwright E2E.
+```
+
+### Release Versioning
+
+Merging to `main` publishes a new image and GitHub Release automatically. The
+version is a patch bump by default. To request a larger bump, include `#minor`
+(new feature) or `#major` (breaking change) as a standalone word in a commit
+message — the maintainer confirms or adjusts this when merging. Only commit
+messages are scanned, so mentioning the keywords in a file such as this one has
+no effect. See [Releases and Versioning](AGENTS.md#releases-and-versioning) for
+the full rules.
