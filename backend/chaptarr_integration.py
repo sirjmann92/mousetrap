@@ -1,299 +1,58 @@
-"""Chaptarr integration for updating MAM indexer configuration.
+"""Chaptarr integration for syncing the MAM ID to its MyAnonaMouse indexer.
 
-This module provides functionality to:
-- Test Chaptarr API connectivity
-- Auto-detect MyAnonaMouse indexer ID
-- Update MAM ID in Chaptarr when session changes
+The API calls live in :mod:`backend.servarr_client`, which Prowlarr shares. This
+module supplies Chaptarr's service description and keeps the public functions
+the rest of the app imports.
 
-Key differences from Prowlarr:
-- Default port: 8789 (vs 9696)
-- Implementation name: "MyAnonaMouse" (vs "MyAnonamouse")
-- Field name: "MamId" (vs "mamId")
+Chaptarr differs from Prowlarr in three ways, all captured in `CHAPTARR` below:
+it names the implementation in `implementation` and matches case-insensitively,
+it spells the indexer "MyAnonaMouse", and its update PUT needs `forceSave=true`.
+The MAM ID field is `mamId` on both, lowercase.
 """
 
-import json
-import logging
 from typing import Any
 
-import aiohttp
+from backend.servarr_client import (
+    ServarrService,
+    find_indexer_id,
+    get_indexer_config as _get_indexer_config,
+    sync_mam_id,
+    test_connection,
+    update_mam_id,
+)
 
-from backend.url_builder import build_service_url
-
-_logger = logging.getLogger(__name__)
-_TIMEOUT = aiohttp.ClientTimeout(total=10)
+CHAPTARR = ServarrService(
+    name="Chaptarr",
+    config_key="chaptarr",
+    indexer_match_field="implementation",
+    indexer_label="MyAnonaMouse",
+    match_case_insensitive=True,
+    force_save=True,
+)
 
 
 async def test_chaptarr_connection(host: str, port: int, api_key: str) -> dict[str, Any]:
     """Test connection to Chaptarr and return indexer count."""
-    url = build_service_url(host, port, "/api/v1/indexer")
-    headers = {"X-Api-Key": api_key}
-
-    try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(url, headers=headers, timeout=_TIMEOUT) as response,
-        ):
-            if response.status == 200:
-                indexers = await response.json()
-                return {
-                    "success": True,
-                    "message": f"Connected successfully. Found {len(indexers)} indexer(s).",
-                    "indexer_count": len(indexers),
-                }
-            if response.status == 401:
-                return {"success": False, "message": "Authentication failed. Check API key."}
-
-            return {"success": False, "message": f"Connection failed: HTTP {response.status}"}
-    except TimeoutError:
-        return {"success": False, "message": "Connection timeout"}
-    except Exception as e:
-        _logger.error("Chaptarr connection test failed: %s", e)
-        return {"success": False, "message": str(e)}
+    return await test_connection(CHAPTARR, host, port, api_key)
 
 
 async def find_mam_indexer_id(host: str, port: int, api_key: str) -> dict[str, Any]:
-    """Find the MyAnonaMouse indexer ID in Chaptarr.
-
-    Fetches all indexers and searches for one with implementation="MyAnonaMouse".
-    Note: Uses case-insensitive matching as Chaptarr dev confirmed it's case-insensitive.
-
-    Args:
-        host: Chaptarr host
-        port: Chaptarr port
-        api_key: Chaptarr API key
-
-    Returns:
-        dict with keys:
-            - success: bool
-            - indexer_id: int (if found)
-            - message: str
-    """
-    url = build_service_url(host, port, "/api/v1/indexer")
-    headers = {"X-Api-Key": api_key}
-
-    try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(url, headers=headers, timeout=_TIMEOUT) as response,
-        ):
-            if response.status != 200:
-                return {
-                    "success": False,
-                    "message": f"Failed to fetch indexers: HTTP {response.status}",
-                }
-
-            indexers = await response.json()
-            for indexer in indexers:
-                # Chaptarr uses "MyAnonaMouse" but support case-insensitive matching
-                impl_name = indexer.get("implementation", "")
-                if impl_name.lower() == "myanonamouse":
-                    indexer_id = indexer.get("id")
-                    _logger.info(
-                        "Found MAM indexer in Chaptarr: id=%s, name=%s, implementation=%s",
-                        indexer_id,
-                        indexer.get("name"),
-                        impl_name,
-                    )
-                    return {
-                        "success": True,
-                        "indexer_id": indexer_id,
-                        "message": f"Found MyAnonaMouse indexer (ID: {indexer_id})",
-                    }
-
-            return {
-                "success": False,
-                "message": "MyAnonaMouse indexer not found in Chaptarr. Please add it first.",
-            }
-
-    except Exception as e:
-        _logger.exception("Failed to find MAM indexer")
-        return {"success": False, "message": f"Error: {e!s}"}
+    """Find the MyAnonaMouse indexer ID in Chaptarr, matching case-insensitively."""
+    return await find_indexer_id(CHAPTARR, host, port, api_key)
 
 
 async def get_indexer_config(host: str, port: int, api_key: str, indexer_id: int) -> dict[str, Any]:
-    """Fetch the full indexer configuration from Chaptarr.
-
-    Args:
-        host: Chaptarr host
-        port: Chaptarr port
-        api_key: Chaptarr API key
-        indexer_id: Chaptarr indexer ID
-
-    Returns:
-        dict with keys:
-            - success: bool
-            - config: dict (if successful)
-            - message: str
-    """
-    url = build_service_url(host, port, f"/api/v1/indexer/{indexer_id}")
-    headers = {"X-Api-Key": api_key}
-
-    try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.get(url, headers=headers, timeout=_TIMEOUT) as response,
-        ):
-            if response.status == 200:
-                config = await response.json()
-                return {"success": True, "config": config, "message": "Success"}
-            if response.status == 404:
-                return {
-                    "success": False,
-                    "message": f"Indexer ID {indexer_id} not found.",
-                }
-            return {
-                "success": False,
-                "message": f"HTTP {response.status}: {response.reason}",
-            }
-    except Exception as e:
-        _logger.exception("Failed to fetch indexer config")
-        return {"success": False, "message": f"Error: {e!s}"}
+    """Fetch the full indexer configuration from Chaptarr."""
+    return await _get_indexer_config(CHAPTARR, host, port, api_key, indexer_id)
 
 
 async def update_mam_id_in_chaptarr(
     host: str, port: int, api_key: str, indexer_id: int, new_mam_id: str
 ) -> dict[str, Any]:
-    """Update the MAM ID field in Chaptarr indexer configuration.
-
-    This performs the pull-modify-push workflow:
-    1. GET current indexer config
-    2. Find and update the "MamId" field
-    3. PUT updated config back to Chaptarr with forceSave=true
-
-    Args:
-        host: Chaptarr host
-        port: Chaptarr port
-        api_key: Chaptarr API key
-        indexer_id: Chaptarr indexer ID
-        new_mam_id: New MAM ID to set
-
-    Returns:
-        dict with keys:
-            - success: bool
-            - message: str
-            - old_mam_id: str (if successful)
-    """
-    # Step 1: Get current config
-    get_result = await get_indexer_config(host, port, api_key, indexer_id)
-    if not get_result["success"]:
-        return get_result
-
-    config = get_result["config"]
-
-    # Step 2: Find and update mamId field (lowercase m)
-    old_mam_id = None
-    mam_id_found = False
-
-    fields = config.get("fields", [])
-    for field in fields:
-        # Chaptarr uses "mamId" (lowercase m)
-        if field.get("name") == "mamId":
-            old_mam_id = field.get("value", "")
-            field["value"] = new_mam_id
-            mam_id_found = True
-            _logger.info("Updating MAM ID in Chaptarr: %s -> %s", old_mam_id, new_mam_id)
-            break
-
-    if not mam_id_found:
-        return {
-            "success": False,
-            "message": "MAM ID field not found in indexer configuration.",
-        }
-
-    # Step 3: PUT updated config with forceSave=true
-    url = build_service_url(host, port, f"/api/v1/indexer/{indexer_id}?forceSave=true")
-    headers = {"X-Api-Key": api_key, "Content-Type": "application/json"}
-
-    try:
-        async with (
-            aiohttp.ClientSession() as session,
-            session.put(url, headers=headers, json=config, timeout=_TIMEOUT) as response,
-        ):
-            if response.status in (200, 202):
-                _logger.info(
-                    "Successfully updated MAM ID in Chaptarr (indexer %s)",
-                    indexer_id,
-                )
-                return {
-                    "success": True,
-                    "message": f"MAM ID updated successfully in Chaptarr (indexer {indexer_id})",
-                    "old_mam_id": old_mam_id,
-                }
-
-            # Try to parse error response as JSON for better error messages
-            error_text = await response.text()
-            try:
-                error_data = json.loads(error_text)
-            except json.JSONDecodeError:
-                return {
-                    "success": False,
-                    "message": f"Failed to update: HTTP {response.status} - {error_text}",
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": f"Failed to update: HTTP {response.status}",
-                    "detail": error_data,  # Pass the full error structure to frontend
-                }
-    except Exception as e:
-        _logger.exception("Failed to update MAM ID in Chaptarr")
-        return {"success": False, "message": f"Error: {e!s}"}
+    """Update the MAM ID on a Chaptarr indexer, forcing a save."""
+    return await update_mam_id(CHAPTARR, host, port, api_key, indexer_id, new_mam_id)
 
 
 async def sync_mam_id_to_chaptarr(session_cfg: dict[str, Any], mam_id: str) -> dict[str, Any]:
-    """High-level function to sync MAM ID to Chaptarr with auto-detection.
-
-    This is the main entry point for updating Chaptarr. It:
-    1. Validates Chaptarr config exists in session
-    2. Auto-detects MAM indexer ID (every time, as requested)
-    3. Updates the MAM ID
-
-    Args:
-        session_cfg: Session configuration dict with chaptarr settings
-        mam_id: New MAM ID to sync
-
-    Returns:
-        dict with success, message, and optional details
-    """
-    chaptarr_cfg = session_cfg.get("chaptarr", {})
-
-    _logger.info(
-        "[Chaptarr] sync_mam_id_to_chaptarr called for session. chaptarr_cfg keys: %s, enabled: %s",
-        list(chaptarr_cfg.keys()),
-        chaptarr_cfg.get("enabled"),
-    )
-
-    # Validate required config
-    if not chaptarr_cfg.get("enabled", False):
-        return {
-            "success": False,
-            "message": "Chaptarr integration is not enabled for this session. Please enable Chaptarr and save your session.",
-        }
-
-    host = chaptarr_cfg.get("host", "").strip()
-    port = chaptarr_cfg.get("port")
-    api_key = chaptarr_cfg.get("api_key", "").strip()
-
-    _logger.info(
-        "[Chaptarr] Config details: host=%s, port=%s, api_key=%s",
-        host,
-        port,
-        "***" if api_key else "(empty)",
-    )
-
-    if not all([host, port, api_key]):
-        return {
-            "success": False,
-            "message": "Chaptarr configuration incomplete. Please configure host, port, and API key, then save your session before updating.",
-        }
-
-    # Auto-detect MAM indexer ID
-    _logger.info("Auto-detecting MAM indexer ID in Chaptarr...")
-    find_result = await find_mam_indexer_id(host, port, api_key)
-    if not find_result["success"]:
-        return find_result
-
-    indexer_id = find_result["indexer_id"]
-
-    # Update MAM ID
-    return await update_mam_id_in_chaptarr(host, port, api_key, indexer_id, mam_id)
+    """Sync the MAM ID to Chaptarr, auto-detecting the indexer each time."""
+    return await sync_mam_id(CHAPTARR, session_cfg, mam_id)

@@ -14,7 +14,7 @@ from typing import Any, Self
 
 import pytest
 
-from backend import chaptarr_integration, prowlarr_integration
+from backend import chaptarr_integration, prowlarr_integration, servarr_client
 
 HOST = "svc.local"
 PORT = 9696
@@ -84,9 +84,17 @@ class _StubSession:
 def _install(
     monkeypatch: pytest.MonkeyPatch, module: Any, responses: dict[str, _StubResponse]
 ) -> _StubSession:
-    """Point a module's ``aiohttp.ClientSession`` at a stub and return it."""
+    """Point the shared client's ``aiohttp.ClientSession`` at a stub.
+
+    The `module` argument is retained so each test still names the integration
+    it exercises. The patch target is `servarr_client`, which is where the
+    HTTP calls live now that Prowlarr and Chaptarr share one implementation;
+    only this seam moved, and no assertion in this file changed with it.
+    """
     session = _StubSession(responses)
-    monkeypatch.setattr(module.aiohttp, "ClientSession", lambda *a, **k: session, raising=True)
+    monkeypatch.setattr(
+        servarr_client.aiohttp, "ClientSession", lambda *a, **k: session, raising=True
+    )
     return session
 
 
