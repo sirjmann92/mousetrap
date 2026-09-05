@@ -11,7 +11,6 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
-import inspect
 import logging
 import os
 from pathlib import Path
@@ -2867,12 +2866,6 @@ async def session_check_job(label: str) -> None:
     """
     try:
         trigger_source = "scheduled"
-
-        frame = inspect.currentframe()
-        if frame is not None:
-            args, _, _, values = inspect.getargvalues(frame)
-            if "trigger_source" in values:
-                trigger_source = values["trigger_source"]
         _logger.info("[SessionCheck] label=%s source=%s", label, trigger_source)
         cfg = load_session(label)
         mam_id = cfg.get("mam", {}).get("mam_id", "")
