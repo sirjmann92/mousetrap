@@ -174,12 +174,12 @@ def list_stacks() -> list[PortMonitorStackModel]:
             primary_container=s.primary_container,
             primary_port=s.primary_port,
             secondary_containers=s.secondary_containers,
-            interval=getattr(s, "interval", 60),
+            interval=s.interval,
             status=s.status,
             last_checked=s.last_checked,
             last_result=s.last_result,
-            public_ip=getattr(s, "public_ip", None),
-            public_ip_detected=getattr(s, "public_ip_detected", None),
+            public_ip=s.public_ip,
+            public_ip_detected=s.public_ip_detected,
         )
         for s in port_monitor_manager.list_stacks()
     ]

@@ -179,9 +179,9 @@ class PortMonitorStackManager:
                     "primary_container": s.primary_container,
                     "primary_port": s.primary_port,
                     "secondary_containers": s.secondary_containers,
-                    "interval": getattr(s, "interval", 60),
-                    "public_ip": getattr(s, "public_ip", None),
-                    "public_ip_detected": getattr(s, "public_ip_detected", None),
+                    "interval": s.interval,
+                    "public_ip": s.public_ip,
+                    "public_ip_detected": s.public_ip_detected,
                 }
                 for s in self.stacks
             ],
@@ -253,7 +253,7 @@ class PortMonitorStackManager:
         stack = next((s for s in self.stacks if s.primary_container == container_name), None)
         ip = None
         public_ip_detected = False
-        if stack and getattr(stack, "public_ip", None):
+        if stack and stack.public_ip:
             ip = stack.public_ip
             _logger.info(
                 "[PortMonitorStack] Using manual public_ip override for %s: %s",
@@ -631,11 +631,11 @@ class PortMonitorStackManager:
             now = time.time()
             for stack in self.stacks:
                 # Only check if enough time has passed since last check
-                interval_min = getattr(stack, "interval", 60)  # interval in minutes
+                interval_min = stack.interval  # interval in minutes
                 interval_sec = interval_min * 60
                 if not stack.last_checked or (now - stack.last_checked) >= interval_sec:
                     # Manual IP failure tracking logic
-                    manual_ip = getattr(stack, "public_ip", None)
+                    manual_ip = stack.public_ip
                     result = self.check_port(stack.primary_container, stack.primary_port)
                     if not self.running:
                         return
@@ -668,7 +668,7 @@ class PortMonitorStackManager:
                                 "primary_container": stack.primary_container,
                                 "primary_port": stack.primary_port,
                                 "result": result,
-                                "interval": getattr(stack, "interval", 60),
+                                "interval": stack.interval,
                                 "secondaries": stack.secondary_containers,
                             },
                             "level": "primary" if result else "warning",
@@ -676,9 +676,7 @@ class PortMonitorStackManager:
                     )
                     if manual_ip:
                         if not result:
-                            stack.consecutive_manual_ip_failures = (
-                                getattr(stack, "consecutive_manual_ip_failures", 0) + 1
-                            )
+                            stack.consecutive_manual_ip_failures += 1
                             if stack.consecutive_manual_ip_failures >= 3:
                                 stack.manual_ip_paused = True
                                 append_ui_event_log(
@@ -709,7 +707,7 @@ class PortMonitorStackManager:
                             stack.consecutive_manual_ip_failures = 0
                             stack.manual_ip_paused = False
                     if not result:
-                        if getattr(stack, "manual_ip_paused", False):
+                        if stack.manual_ip_paused:
                             continue  # Don't restart if paused
                         await safe_notify_event(
                             event_type="port_monitor_failure",
