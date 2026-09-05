@@ -14,6 +14,14 @@ from backend.utils import build_proxy_dict
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
+# Every bonusBuy.php purchase presents this one browser identity.
+_BONUS_HEADERS: dict[str, str] = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/javascript, */*; q=0.01",
+    "Accept-Language": "en-US,en;q=0.5",
+    "Referer": "https://www.myanonamouse.net/store.php",
+}
+
 
 async def buy_upload_credit(
     gb: int, mam_id: str | None = None, proxy_cfg: dict[str, Any] | None = None
@@ -34,9 +42,6 @@ async def buy_upload_credit(
         url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=upload&amount={gb}&_={timestamp}"
         cookies = {"mam_id": mam_id}
         proxies = None
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        }
         if proxy_cfg is not None:
             proxies = build_proxy_dict(proxy_cfg)
             if proxies:
@@ -71,7 +76,7 @@ async def buy_upload_credit(
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
             session.get(
-                url, cookies=cookies, proxy=proxy_url, proxy_auth=proxy_auth, headers=headers
+                url, cookies=cookies, proxy=proxy_url, proxy_auth=proxy_auth, headers=_BONUS_HEADERS
             ) as resp,
         ):
             _logger.debug("[buy_upload_credit] Response: status=%s", resp.status)
@@ -117,12 +122,6 @@ async def buy_vip(
     params: dict[str, Any] = {"spendtype": "VIP", "duration": duration, "_": timestamp}
     cookies = {"mam_id": mam_id}
     proxies = None
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://www.myanonamouse.net/store.php",
-    }
     if proxy_cfg is not None:
         proxies = build_proxy_dict(proxy_cfg)
         if proxies:
@@ -161,7 +160,7 @@ async def buy_vip(
                 cookies=cookies,
                 proxy=proxy_url,
                 proxy_auth=proxy_auth,
-                headers=headers,
+                headers=_BONUS_HEADERS,
             ) as resp,
         ):
             _logger.debug("[buy_vip] Response: status=%s", resp.status)
@@ -207,12 +206,6 @@ async def buy_wedge(
     url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=wedges&source={method}&_={timestamp}"
     cookies = {"mam_id": mam_id}
     proxies = None
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-        "Accept": "application/json, text/javascript, */*; q=0.01",
-        "Accept-Language": "en-US,en;q=0.5",
-        "Referer": "https://www.myanonamouse.net/store.php",
-    }
     if proxy_cfg is not None:
         proxies = build_proxy_dict(proxy_cfg)
         if proxies:
@@ -246,7 +239,7 @@ async def buy_wedge(
         async with (
             aiohttp.ClientSession(timeout=timeout) as session,
             session.get(
-                url, cookies=cookies, proxy=proxy_url, proxy_auth=proxy_auth, headers=headers
+                url, cookies=cookies, proxy=proxy_url, proxy_auth=proxy_auth, headers=_BONUS_HEADERS
             ) as resp,
         ):
             _logger.debug("[buy_wedge] Response: status=%s", resp.status)
