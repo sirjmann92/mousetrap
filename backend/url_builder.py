@@ -1,5 +1,6 @@
 """Utilities for building service URLs from UI host and port fields."""
 
+from typing import Any
 from urllib.parse import urlparse
 
 
@@ -46,3 +47,29 @@ def build_service_url(host: str, port: int, path: str = "") -> str:
     base = f"{scheme}://{host}:{port}"
 
     return f"{base}{path}"
+
+
+def coerce_port(value: Any) -> Any:
+    """Return a numeric-string port as an ``int``, passing anything else through.
+
+    Ports reach :func:`build_service_url` from session YAML and from JSON request
+    bodies, neither of which guarantees the ``int`` the integration helpers
+    declare. A quoted ``"443"`` is the case that matters: it compares unequal to
+    ``443``, so the scheme would fall back to ``http`` for a service that is
+    actually on TLS and the API key would go out in the clear.
+
+    Values that are not numeric strings are returned unchanged, so every
+    caller's existing missing-field guard keeps behaving exactly as before.
+
+    Args:
+        value: A port as read from configuration or a request body.
+
+    Returns:
+        The value as an ``int`` when it is a numeric string, else unchanged.
+
+    """
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.isdigit():
+            return int(stripped)
+    return value

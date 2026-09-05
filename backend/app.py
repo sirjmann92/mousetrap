@@ -73,6 +73,7 @@ from backend.prowlarr_integration import (
     test_prowlarr_connection,
 )
 from backend.proxy_config import resolve_proxy_from_session_cfg
+from backend.url_builder import coerce_port
 from backend.utils import build_proxy_dict, build_status_message, extract_asn_number, setup_logging
 from backend.yaml_store import YamlStoreError
 
@@ -1542,7 +1543,7 @@ async def _sync_integrations_if_mam_id_changed(
                 new_mam_id,
             )
             host = jackett_cfg.get("host", "").strip()
-            port = jackett_cfg.get("port", 9117)
+            port = coerce_port(jackett_cfg.get("port", 9117))
             api_key = jackett_cfg.get("api_key", "").strip()
             admin_password = jackett_cfg.get("admin_password", "").strip()
             result = await sync_mam_id_to_jackett(host, port, api_key, admin_password, new_mam_id)
@@ -1567,7 +1568,7 @@ async def _sync_integrations_if_mam_id_changed(
                 new_mam_id,
             )
             host = audiobookrequest_cfg.get("host", "").strip()
-            port = audiobookrequest_cfg.get("port", 3000)
+            port = coerce_port(audiobookrequest_cfg.get("port", 3000))
             api_key = audiobookrequest_cfg.get("api_key", "").strip()
             result = await sync_mam_id_to_audiobookrequest(host, port, api_key, new_mam_id)
             if result.get("success"):
@@ -1591,7 +1592,7 @@ async def _sync_integrations_if_mam_id_changed(
                 new_mam_id,
             )
             host = autobrr_cfg.get("host", "").strip()
-            port = autobrr_cfg.get("port", 7474)
+            port = coerce_port(autobrr_cfg.get("port", 7474))
             api_key = autobrr_cfg.get("api_key", "").strip()
             result = await sync_mam_id_to_autobrr(host, port, api_key, new_mam_id)
             if result.get("success"):
@@ -2124,7 +2125,7 @@ async def api_prowlarr_test(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
         host = data.get("host", "").strip()
-        port = data.get("port")
+        port = coerce_port(data.get("port"))
         api_key = data.get("api_key", "").strip()
 
         _logger.debug(
@@ -2175,7 +2176,7 @@ async def api_prowlarr_find_indexer(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
         host = data.get("host", "").strip()
-        port = data.get("port")
+        port = coerce_port(data.get("port"))
         api_key = data.get("api_key", "").strip()
 
         if not all([host, port, api_key]):
@@ -2241,7 +2242,7 @@ async def api_chaptarr_test(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
         host = data.get("host", "").strip()
-        port = data.get("port")
+        port = coerce_port(data.get("port"))
         api_key = data.get("api_key", "").strip()
 
         _logger.debug(
@@ -2337,7 +2338,7 @@ async def api_jackett_test(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
         host = data.get("host", "").strip()
-        port = data.get("port")
+        port = coerce_port(data.get("port"))
         api_key = data.get("api_key", "").strip()
         admin_password = data.get("admin_password", "").strip()
 
@@ -2389,7 +2390,7 @@ async def api_jackett_update(request: Request) -> dict[str, Any]:
             return {"success": False, "message": "Jackett integration not enabled"}
 
         host = jackett_cfg.get("host", "").strip()
-        port = jackett_cfg.get("port", 9117)
+        port = coerce_port(jackett_cfg.get("port", 9117))
         api_key = jackett_cfg.get("api_key", "").strip()
         admin_password = jackett_cfg.get("admin_password", "").strip()
 
@@ -2427,7 +2428,7 @@ async def api_audiobookrequest_test(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
         host = data.get("host", "").strip()
-        port = data.get("port")
+        port = coerce_port(data.get("port"))
         api_key = data.get("api_key", "").strip()
 
         _logger.debug(
@@ -2477,7 +2478,7 @@ async def api_audiobookrequest_update(request: Request) -> dict[str, Any]:
             return {"success": False, "message": "AudioBookRequest integration not enabled"}
 
         host = abr_cfg.get("host", "").strip()
-        port = abr_cfg.get("port", 3000)
+        port = coerce_port(abr_cfg.get("port", 3000))
         api_key = abr_cfg.get("api_key", "").strip()
 
         if not all([host, port, api_key]):
@@ -2514,7 +2515,7 @@ async def api_autobrr_test(request: Request) -> dict[str, Any]:
     try:
         data = await request.json()
         host = data.get("host", "").strip()
-        port = data.get("port")
+        port = coerce_port(data.get("port"))
         api_key = data.get("api_key", "").strip()
 
         _logger.debug(
@@ -2564,7 +2565,7 @@ async def api_autobrr_update(request: Request) -> dict[str, Any]:
             return {"success": False, "message": "Autobrr integration not enabled"}
 
         host = autobrr_cfg.get("host", "").strip()
-        port = autobrr_cfg.get("port", 7474)
+        port = coerce_port(autobrr_cfg.get("port", 7474))
         api_key = autobrr_cfg.get("api_key", "").strip()
 
         if not all([host, port, api_key]):
@@ -2675,7 +2676,7 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
         if jackett_enabled:
             try:
                 host = jackett_cfg.get("host", "").strip()
-                port = jackett_cfg.get("port", 9117)
+                port = coerce_port(jackett_cfg.get("port", 9117))
                 api_key = jackett_cfg.get("api_key", "").strip()
                 admin_password = jackett_cfg.get("admin_password", "").strip()
 
@@ -2699,7 +2700,7 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
         if audiobookrequest_enabled:
             try:
                 host = audiobookrequest_cfg.get("host", "").strip()
-                port = audiobookrequest_cfg.get("port", 3000)
+                port = coerce_port(audiobookrequest_cfg.get("port", 3000))
                 api_key = audiobookrequest_cfg.get("api_key", "").strip()
 
                 if not all([host, port, api_key]):
@@ -2720,7 +2721,7 @@ async def api_indexer_update(request: Request) -> dict[str, Any]:
         if autobrr_enabled:
             try:
                 host = autobrr_cfg.get("host", "").strip()
-                port = autobrr_cfg.get("port", 7474)
+                port = coerce_port(autobrr_cfg.get("port", 7474))
                 api_key = autobrr_cfg.get("api_key", "").strip()
 
                 if not all([host, port, api_key]):
