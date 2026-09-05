@@ -41,6 +41,21 @@ async def test_port_monitor_create_edit_recheck_delete(
         51414,
         10,
     )
+    overridden = await api_client.put(
+        "/api/port-monitor/stacks?name=media",
+        json={
+            "primary_container": "vpn-new",
+            "primary_port": 51414,
+            "secondary_containers": ["client", "arr"],
+            "interval": 10,
+            "public_ip": "203.0.113.7",
+        },
+    )
+    assert overridden.json() == {"success": True}
+    assert (await api_client.get("/api/port-monitor/stacks")).json()[0][
+        "public_ip"
+    ] == "203.0.113.7"
+
     assert (await api_client.post("/api/port-monitor/stacks/recheck?name=media")).json() == {
         "success": True
     }
@@ -53,8 +68,14 @@ async def test_port_monitor_create_edit_recheck_delete(
     assert [event["event"] for event in events] == [
         "port_monitor_created",
         "port_monitor_edit",
+        "port_monitor_edit",
         "port_monitor_deleted",
     ]
+    override_details = events[2]["details"]
+    assert (override_details["old"]["public_ip"], override_details["new"]["public_ip"]) == (
+        None,
+        "203.0.113.7",
+    )
 
 
 @pytest.mark.workflow
