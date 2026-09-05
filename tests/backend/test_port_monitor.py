@@ -18,6 +18,24 @@ def _raise_yaml_store_error(*_args: object, **_kwargs: object) -> None:
     raise YamlStoreError
 
 
+def test_stack_defines_every_attribute_from_four_arguments() -> None:
+    """A minimally-constructed stack still carries all twelve attributes."""
+    stack = port_monitor.PortMonitorStack("x", "container", 80, [])
+
+    assert stack.name == "x"
+    assert stack.primary_container == "container"
+    assert stack.primary_port == 80
+    assert stack.secondary_containers == []
+    assert stack.interval == 60
+    assert stack.status == "Unknown"
+    assert stack.last_checked == 0.0
+    assert stack.last_result is False
+    assert stack.public_ip is None
+    assert stack.public_ip_detected is None
+    assert stack.consecutive_manual_ip_failures == 0
+    assert stack.manual_ip_paused is False
+
+
 def test_constructor_does_not_load(monkeypatch: pytest.MonkeyPatch) -> None:
     """Construction has no configuration I/O side effect."""
     monkeypatch.setattr(
