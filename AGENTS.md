@@ -170,6 +170,52 @@ for backend pytest and `coverage/frontend/` for Playwright E2E.
 - Keep Docker socket operations limited to the port-monitoring feature and avoid
   expanding socket permissions without documentation and user-visible warnings.
 
+## Releases and Versioning
+
+Publishing is automatic: a push to `main` runs `Tests`, and a successful run
+triggers `Publish Docker image`, which builds the image, derives the next
+version, and creates the GitHub Release. Release versions come only from git
+tags — `frontend/package.json`'s `version` field is inert and must not be
+treated as the release version.
+
+The default is a patch bump. To cut a larger release, include a keyword as a
+standalone word in a commit message landing since the previous release:
+
+| Keyword  | Effect on `2.3.67` | Use for          |
+| -------- | ------------------ | ---------------- |
+| `#major` | `3.0.0`            | Breaking change  |
+| `#minor` | `2.4.0`            | New feature      |
+| *none*   | `2.3.68`           | Everything else  |
+
+- Only **commit messages** are scanned, never file contents, so documenting
+  the keywords in a file like this one is safe.
+- Writing a keyword into a commit message *about* the mechanism will promote
+  that release. Refer to them indirectly ("hash-minor") when that is not
+  intended.
+- Keywords are matched as whole words, so `#minority`, `#majorly` and issue
+  references such as `#123` do not promote a release.
+- `#major` wins when both appear.
+- Squash merges keep the PR title and the squashed commit bodies, so a
+  contributor can signal intent in a commit and a reviewer can add or remove
+  the keyword in the squash message at merge time. **When merging, check the
+  squash message for an unintended keyword.**
+- A release scans every commit since the last tag, so one flagged commit
+  promotes the whole batch.
+
+To merge several pull requests under a single release instead of one release
+each, suppress the publish for the duration and then trigger it once:
+
+```bash
+gh workflow disable "Publish Docker image"   # before merging
+# ...merge the pull requests...
+gh workflow enable "Publish Docker image"
+gh run list --workflow=Tests --branch main --limit 1   # confirm Tests passed
+gh workflow run "Publish Docker image"
+```
+
+Confirm `Tests` succeeded on the merged `main` before the final step:
+`workflow_dispatch` is an unconditional override and does not check it.
+
 ## Pull Request Handoff
 
 When preparing a change for review, include:
