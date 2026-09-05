@@ -287,8 +287,9 @@ async def manual_vip(request: Request) -> dict[str, Any]:
 
     Expects a JSON body with the following fields:
     - label: session label (required)
-    - weeks: number of weeks for VIP (optional, defaults to 4). Special
-      values like "max" or "90" are treated as max-duration purchases.
+    - weeks: whole number of weeks for VIP, as a number or a string
+      (optional, defaults to 4). "max" and 90 are treated as max-duration
+      purchases.
 
     The endpoint performs the VIP purchase, records an event, and attempts
     notifications. Returns a dict with a "success" boolean and purchase
@@ -296,7 +297,8 @@ async def manual_vip(request: Request) -> dict[str, Any]:
 
     Raises:
         HTTPException: If the required `label` field is missing from the
-            request JSON.
+            request JSON, or if `weeks` is neither "max" nor a whole number
+            of weeks.
 
     """
     data = await request.json()
@@ -304,6 +306,19 @@ async def manual_vip(request: Request) -> dict[str, Any]:
     weeks = data.get("weeks", 4)
     if not label:
         raise HTTPException(status_code=400, detail="Session label required.")
+    invalid_weeks = (
+        f"Invalid VIP week count: {weeks!r}. Valid values are a whole number of weeks or 'max'."
+    )
+    if isinstance(weeks, bool) or not isinstance(weeks, int | str):
+        raise HTTPException(status_code=400, detail=invalid_weeks)
+    # "max" is MAM's 90-week purchase, priced variably rather than per week
+    if isinstance(weeks, str) and weeks.lower() == "max":
+        weeks_int = 90
+    else:
+        try:
+            weeks_int = int(weeks)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=invalid_weeks) from None
     cfg = load_session(label)
     if cfg is None:
         _logger.warning("[ManualVIP] Session '%s' not found or not configured.", label)
@@ -311,13 +326,13 @@ async def manual_vip(request: Request) -> dict[str, Any]:
     mam_id = cfg.get("mam", {}).get("mam_id", "")
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
-    is_max = str(weeks).lower() in ["max", "90"]
+    is_max = weeks_int == 90
     # --- Enforce minimum points guardrail (prevent spend below minimum) ---
     # Max/90-week VIP has variable cost; guardrail is skipped for that case
     enforce_min_pts = cfg.get("perk_automation", {}).get("enforce_min_points_guardrail", False)
     session_min_points = cfg.get("perk_automation", {}).get("min_points")
     if enforce_min_pts and session_min_points is not None and not is_max:
-        purchase_cost = _VIP_POINTS_COST.get(int(weeks)) if int(weeks) in _VIP_POINTS_COST else None
+        purchase_cost = _VIP_POINTS_COST.get(weeks_int)
         if purchase_cost is not None:
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             current_points = status.get("points", 0) if isinstance(status, dict) else 0
@@ -337,7 +352,7 @@ async def manual_vip(request: Request) -> dict[str, Any]:
                         "event_type": "manual",
                         "trigger": "manual",
                         "purchase_type": "vip",
-                        "amount": weeks,
+                        "amount": weeks_int,
                         "details": {"points_before": current_points},
                         "result": "blocked",
                         "status_message": f"Manual VIP purchase blocked: {guardrail_reason}",
@@ -401,10 +416,12 @@ async def manual_vip(request: Request) -> dict[str, Any]:
             )
         return {"success": success, **result}
     # For 4 or 8 weeks, just send the value as string
-    result = await buy_vip(mam_id, duration=str(weeks), proxy_cfg=proxy_cfg)
+    result = await buy_vip(mam_id, duration=str(weeks_int), proxy_cfg=proxy_cfg)
     success = result.get("success", False)
     status_message = (
-        f"Purchased VIP ({weeks} weeks)" if success else f"VIP purchase failed ({weeks} weeks)"
+        f"Purchased VIP ({weeks_int} weeks)"
+        if success
+        else f"VIP purchase failed ({weeks_int} weeks)"
     )
     event = {
         "timestamp": now.isoformat(),
@@ -412,7 +429,7 @@ async def manual_vip(request: Request) -> dict[str, Any]:
         "event_type": "manual",
         "trigger": "manual",
         "purchase_type": "vip",
-        "amount": weeks,
+        "amount": weeks_int,
         "details": {},
         "result": "success" if success else "failed",
         "error": result.get("error") if not success else None,
@@ -425,23 +442,23 @@ async def manual_vip(request: Request) -> dict[str, Any]:
                 event_type="manual_purchase_success",
                 label=label,
                 status="SUCCESS",
-                message=f"Manual VIP purchase succeeded: {weeks} weeks",
-                details={"weeks": weeks},
+                message=f"Manual VIP purchase succeeded: {weeks_int} weeks",
+                details={"weeks": weeks_int},
             )
         else:
             await notify_event(
                 event_type="manual_purchase_failure",
                 label=label,
                 status="FAILED",
-                message=f"Manual VIP purchase failed: {weeks} weeks",
-                details={"weeks": weeks, "error": result.get("error")},
+                message=f"Manual VIP purchase failed: {weeks_int} weeks",
+                details={"weeks": weeks_int, "error": result.get("error")},
             )
     except Exception:
         _logger.debug("[ManualVIP] Manual VIP purchase notification failed.")
     if success:
         _logger.info(
             "[ManualVIP] Purchase: VIP (%s weeks) for session '%s' succeeded.",
-            weeks,
+            weeks_int,
             label,
         )
     else:
@@ -451,7 +468,7 @@ async def manual_vip(request: Request) -> dict[str, Any]:
         )
         _logger.warning(
             "[ManualVIP] Purchase: VIP (%s weeks) for session '%s' FAILED. Error: %s",
-            weeks,
+            weeks_int,
             label,
             error_val,
         )
