@@ -606,8 +606,11 @@ class PortMonitorStackManager:
             if not self.running:
                 return
             result = self.check_port(stack.primary_container, stack.primary_port)
+            # Re-checked after the blocking call above: another thread can request
+            # shutdown while check_port() runs. mypy narrows self.running to True
+            # from the earlier guard and cannot model that, hence the ignore.
             if not self.running:
-                return
+                return  # type: ignore[unreachable]
             stack.last_checked = time.time()
             stack.last_result = result
             stack.status = "OK" if result else "Failed"
@@ -633,8 +636,11 @@ class PortMonitorStackManager:
                     # Manual IP failure tracking logic
                     manual_ip = stack.public_ip
                     result = self.check_port(stack.primary_container, stack.primary_port)
+                    # Re-checked after the blocking call above: another thread can request
+                    # shutdown while check_port() runs. mypy narrows self.running to True
+                    # from the earlier guard and cannot model that, hence the ignore.
                     if not self.running:
-                        return
+                        return  # type: ignore[unreachable]
                     stack.last_checked = time.time()
                     stack.last_result = result
                     stack.status = "OK" if result else "Failed"
@@ -759,7 +765,12 @@ class PortMonitorStackManager:
             return
         with self._worker_lock:
             if self.thread is not None:
-                if self.thread.is_alive():
+                # Second half of a double-checked lock: the worker lock is released for
+                # load_stacks() above, so a concurrent start() can assign self.thread in
+                # that window. mypy narrows it to None from the first check and cannot
+                # model the re-acquire, so it calls this unreachable. Removing it would
+                # let two callers each spawn a monitor thread.
+                if self.thread.is_alive():  # type: ignore[unreachable]
                     return
                 self.thread = None
             with self._restart_tasks_lock:

@@ -14,7 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
-from backend.config import load_session
+from backend.config import load_session, session_exists
 from backend.event_log import append_ui_event_log
 from backend.mam_api import get_status
 from backend.notifications_backend import notify_event
@@ -65,10 +65,10 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
             detail=f"Invalid upload credit amount: {amount}GB. Valid amounts are: {', '.join(map(str, valid_amounts))}GB",
         )
 
-    cfg = load_session(label)
-    if cfg is None:
+    if not session_exists(label):
         _logger.warning("[ManualUpload] Session '%s' not found or not configured.", label)
         return {"success": False, "error": f"Session '{label}' not found."}
+    cfg = load_session(label)
     mam_id = cfg.get("mam", {}).get("mam_id", "")
 
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
@@ -185,10 +185,10 @@ async def manual_wedge(request: Request) -> dict[str, Any]:
     method = data.get("method", "points")
     if not label:
         raise HTTPException(status_code=400, detail="Session label required.")
-    cfg = load_session(label)
-    if cfg is None:
+    if not session_exists(label):
         _logger.warning("[ManualWedge] Session '%s' not found or not configured.", label)
         return {"success": False, "error": f"Session '{label}' not found."}
+    cfg = load_session(label)
     mam_id = cfg.get("mam", {}).get("mam_id", "")
 
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
@@ -319,10 +319,10 @@ async def manual_vip(request: Request) -> dict[str, Any]:
             weeks_int = int(weeks)
         except ValueError:
             raise HTTPException(status_code=400, detail=invalid_weeks) from None
-    cfg = load_session(label)
-    if cfg is None:
+    if not session_exists(label):
         _logger.warning("[ManualVIP] Session '%s' not found or not configured.", label)
         return {"success": False, "error": f"Session '{label}' not found."}
+    cfg = load_session(label)
     mam_id = cfg.get("mam", {}).get("mam_id", "")
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
