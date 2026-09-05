@@ -1,0 +1,8 @@
+{
+  "minTokens": 30,
+  "reporters": ["console", "json"],
+  "output": "coverage/jscpd",
+  "absolute": false,
+  "gitignore": true,
+  "ignore": ["**/node_modules/**", "**/build/**", "**/coverage/**", "**/*.json", "**/*.lock"]
+}

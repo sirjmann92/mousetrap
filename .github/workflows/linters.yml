@@ -34,6 +34,75 @@ jobs:
       - name: Audit frontend dependencies
         run: npm --prefix frontend audit --no-fund
 
+  duplication-report:
+    name: Duplication report
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 'lts/Krypton'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install npm with script approval support
+        run: npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend --strict-allow-scripts --no-fund
+
+      # Reporting only. No threshold is configured, so jscpd exits 0 whatever it
+      # finds; this job cannot fail the build. Adding `--threshold N` turns it
+      # into a gate once the current duplication has been brought down.
+      - name: Report duplicated code
+        run: |
+          set -o pipefail
+          frontend/node_modules/.bin/jscpd backend frontend/src scripts \
+            | tee jscpd-console.txt
+
+      # The console output ends with promotional lines, so the summary is built
+      # from the JSON report rather than by tailing stdout.
+      - name: Publish the summary
+        if: always()
+        run: |
+          python3 - <<'PYEOF' >> "$GITHUB_STEP_SUMMARY"
+          import collections, json, pathlib
+          report = pathlib.Path("coverage/jscpd/jscpd-report.json")
+          print("## Duplicated code\n")
+          print("Reporting only \u2014 this job does not gate.\n")
+          if not report.is_file():
+              print("No report was produced.")
+              raise SystemExit
+          data = json.loads(report.read_text())
+          stats = data.get("statistics", {}).get("total", {})
+          print(
+              f"**{stats.get('clones', 0)} clones**, "
+              f"{stats.get('duplicatedLines', 0)} duplicated lines "
+              f"({float(stats.get('percentage', 0)):.2f}%) across {stats.get('sources', 0)} files.\n"
+          )
+          counts: collections.Counter[str] = collections.Counter()
+          for dup in data.get("duplicates", []):
+              for side in ("firstFile", "secondFile"):
+                  counts[dup[side]["name"]] += 1
+          if counts:
+              print("| File | Clones |")
+              print("| --- | ---: |")
+              for name, n in counts.most_common(12):
+                  print(f"| `{name}` | {n} |")
+          PYEOF
+
+      - name: Upload the duplication report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: duplication-report
+          path: coverage/jscpd/
+          if-no-files-found: ignore
+          retention-days: 14
+
   linters:
     name: Run Linters
     runs-on: ubuntu-latest
