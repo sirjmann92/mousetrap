@@ -17,6 +17,7 @@
   "linter": {
     "rules": {
       "preset": "recommended",
+      "a11y": "error",
       "correctness": {
         "noUnusedVariables": {
           "level": "error",
