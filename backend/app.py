@@ -390,7 +390,7 @@ def api_automation_guardrails() -> dict[str, Any]:
 
     Example:
         {
-            "Gluetun": {"username": "example_user", "autoUpload": true, "autoWedge": false, "autoVIP": false},
+            "Gluetun": {"username": "example_user", "autoUpload": true, "autoVIP": false},
             ...
         }
 
@@ -411,7 +411,6 @@ def api_automation_guardrails() -> dict[str, Any]:
         result[label] = {
             "username": username,
             "autoUpload": perk_auto.get("upload_credit", {}).get("enabled", False),
-            "autoWedge": perk_auto.get("wedge_automation", {}).get("enabled", False),
             "autoVIP": perk_auto.get("vip_automation", {}).get("enabled", False),
         }
     return result
@@ -1861,8 +1860,6 @@ async def api_save_perkautomation(request: Request) -> dict[str, Any]:
                 ts_field = "last_upload_time"
             elif automation_key == "vip_automation":
                 ts_field = "last_vip_time"
-            elif automation_key == "wedge_automation":
-                ts_field = "last_wedge_time"
             if not ts_field:
                 return
             # If disabling, always clear timestamp
@@ -1885,7 +1882,6 @@ async def api_save_perkautomation(request: Request) -> dict[str, Any]:
 
         handle_time_trigger("upload_credit")
         handle_time_trigger("vip_automation")
-        handle_time_trigger("wedge_automation")
 
         cfg["perk_automation"] = new_pa
         save_session(cfg, old_label=label)

@@ -16,7 +16,6 @@ export default function AutomationStatusRow({ autoVIP, autoUpload }) {
         <Typography sx={{ fontWeight: 600, mr: 1 }} variant="subtitle1">
           Automation:
         </Typography>
-        {/* Wedge status hidden - MAM removed wedge purchase from their API */}
         <Box sx={{ alignItems: 'center', display: 'flex', gap: 0.5, ml: 2 }}>
           <Typography sx={{ fontWeight: 500 }} variant="body2">
             VIP Time:

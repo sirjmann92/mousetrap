@@ -37,7 +37,6 @@ def test_invalid_session_yaml_raises(config_dir: Path, contents: str) -> None:
     [
         ("perk_automation: []\n", "perk_automation"),
         ("perk_automation:\n  upload_credit: []\n", "perk_automation.upload_credit"),
-        ("perk_automation:\n  wedge_automation: []\n", "perk_automation.wedge_automation"),
         ("perk_automation:\n  vip_automation: []\n", "perk_automation.vip_automation"),
         ("mam: []\n", "mam"),
         ("prowlarr: []\n", "prowlarr"),

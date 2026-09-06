@@ -1,7 +1,7 @@
 """Automation helpers for scheduled MaM perk purchases.
 
 This module contains functions that implement scheduled automation jobs for
-MyAnonamouse (MaM) perk purchases such as upload credit, VIP, and wedge.
+MyAnonamouse (MaM) perk purchases such as upload credit and VIP.
 Each job enumerates saved sessions, evaluates guardrails (session-level and
 automation-level), and attempts purchases via helper functions in
 `backend.perk_automation`. Events and status updates are recorded via
@@ -11,7 +11,6 @@ Functions provided:
 - run_all_automation_jobs: convenience runner that invokes each job.
 - upload_credit_automation_job: automation for upload credit purchases.
 - vip_automation_job: automation for VIP purchases.
-- wedge_automation_job: automation for wedge purchases.
 """
 
 from datetime import UTC, datetime, timedelta
@@ -24,13 +23,12 @@ from backend.config import list_sessions, load_session, save_session
 from backend.event_log import append_ui_event_log
 from backend.mam_api import get_status
 from backend.notifications_backend import notify_event
-from backend.perk_automation import buy_upload_credit, buy_vip, buy_wedge
+from backend.perk_automation import buy_upload_credit, buy_vip
 from backend.proxy_config import resolve_proxy_from_session_cfg
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
 # Point costs for the enforce-minimum-points guardrail
-_WEDGE_POINTS_COST = 50_000
 _VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
 _UPLOAD_POINTS_PER_GB = 500
 _shutdown_event = threading.Event()
@@ -79,13 +77,11 @@ def _persist_automation_state(
 async def run_all_automation_jobs() -> None:
     """Run all available automation jobs.
 
-    Convenience function to sequentially run upload credit, wedge, and VIP
-    automation jobs. Intended to be called by a scheduler or from startup
-    code.
+    Convenience function to sequentially run upload credit and VIP automation
+    jobs. Intended to be called by a scheduler or from startup code.
     """
     for automation_job in (
         upload_credit_automation_job,
-        wedge_automation_job,
         vip_automation_job,
     ):
         if automation_shutdown_requested():
@@ -621,224 +617,4 @@ async def vip_automation_job() -> None:
         except Exception as e:
             _logger.error(
                 "[VIPAuto] label=%s trigger=automation result=exception error=%s", label, e
-            )
-
-
-async def wedge_automation_job() -> None:
-    """Evaluate and run wedge automation for all sessions.
-
-    For each configured session this function:
-    - loads session configuration
-    - checks session- and automation-level guardrails (min points, time,
-      point thresholds)
-    - attempts wedge purchases via `buy_wedge` when guardrails are satisfied
-    - logs results and records events via `append_ui_event_log`.
-    """
-
-    session_labels = list_sessions()
-    now = datetime.now(UTC)
-    for label in session_labels:
-        if automation_shutdown_requested():
-            return
-        try:
-            cfg = load_session(label)  # Always reload config
-            mam_id = cfg.get("mam", {}).get("mam_id", "")
-            if not mam_id:
-                continue
-            automation = cfg.get("perk_automation", {}).get("wedge_automation", {})
-            enabled = automation.get("enabled", False)
-            if not enabled:
-                continue
-            trigger_type = automation.get("trigger_type", "points")
-            trigger_days = automation.get("trigger_days", 7)
-            trigger_point_threshold = automation.get("trigger_point_threshold", 50000)
-
-            proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
-            status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get("points", 0)
-            if points is None:
-                points = 0
-            # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
-            session_min_points = cfg.get("perk_automation", {}).get("min_points")
-            _logger.debug(
-                "[AutoWedge][DEBUG] Session '%s': points=%s, session_min_points=%s",
-                label,
-                points,
-                session_min_points,
-            )
-            if session_min_points is not None and int(points) < int(session_min_points):
-                guardrail_reason = f"Below session minimum points: {points} < {session_min_points}"
-                log_msg = "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "wedge",
-                        "amount": 1,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated Wedge purchase skipped: {guardrail_reason}",
-                    }
-                )
-                # Do not check any automation-level guardrails if session minimum is not met
-                continue
-            # --- Enforce minimum points guardrail (prevent spend below minimum) ---
-            enforce_min_points_guardrail = cfg.get("perk_automation", {}).get(
-                "enforce_min_points_guardrail", False
-            )
-            if enforce_min_points_guardrail and session_min_points is not None:
-                purchase_cost = _WEDGE_POINTS_COST  # Automation always uses points method
-                if int(points) - purchase_cost < int(session_min_points):
-                    guardrail_reason = (
-                        f"Purchase would drop below minimum points: "
-                        f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
-                        f"< {session_min_points}"
-                    )
-                    log_msg = (
-                        "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                    )
-                    _logger.info(log_msg, label, guardrail_reason)
-                    append_ui_event_log(
-                        {
-                            "timestamp": now.isoformat(),
-                            "label": label,
-                            "event_type": "automation",
-                            "trigger": "automation",
-                            "purchase_type": "wedge",
-                            "amount": 1,
-                            "details": {"points_before": points},
-                            "result": "skipped",
-                            "status_message": f"Automated Wedge purchase skipped: {guardrail_reason}",
-                        }
-                    )
-                    continue
-            # --- Time-based trigger enforcement ---
-            last_wedge_time = (
-                cfg.get("perk_automation", {}).get("wedge_automation", {}).get("last_wedge_time")
-            )
-            last_purchase = None
-            if last_wedge_time:
-                try:
-                    last_purchase = datetime.fromisoformat(last_wedge_time)
-                except Exception:
-                    last_purchase = None
-            now_dt = now
-            time_trigger_ok = True
-            if trigger_type in ("time", "both"):
-                if last_purchase:
-                    next_allowed = last_purchase + timedelta(days=int(trigger_days))
-                    if now_dt < next_allowed:
-                        time_trigger_ok = False
-                else:
-                    # No last purchase: skip until a successful purchase sets the timestamp
-                    time_trigger_ok = False
-            if not time_trigger_ok:
-                if last_purchase:
-                    next_allowed = last_purchase + timedelta(days=int(trigger_days))
-                    next_allowed_str = next_allowed.isoformat()
-                    guardrail_reason = (
-                        f"Time-based trigger not satisfied: next allowed after {next_allowed_str}"
-                    )
-                else:
-                    guardrail_reason = (
-                        "No previous purchase timestamp found. "
-                        "Please toggle and save the automation to start the timer. "
-                        "(Time-based trigger not satisfied.)"
-                    )
-                log_msg = "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "wedge",
-                        "amount": 1,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated Wedge purchase skipped: {guardrail_reason}",
-                    }
-                )
-                continue
-            # --- Automation-level point threshold guardrail ---
-            if trigger_type in ("points", "both") and int(points) < int(trigger_point_threshold):
-                guardrail_reason = (
-                    f"Below automation point threshold: {points} < {trigger_point_threshold}"
-                )
-                log_msg = "[AutoWedge] SKIP: Automated Wedge purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "wedge",
-                        "amount": 1,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated Wedge purchase skipped: {guardrail_reason}",
-                    }
-                )
-                continue
-            # All guardrails passed, attempt purchase
-            result = await buy_wedge(mam_id, proxy_cfg=proxy_cfg)
-            success = result.get("success", False) if result else False
-            status_message = (
-                "Automated purchase: Wedge (points)"
-                if success
-                else "Automated Wedge purchase failed (points)"
-            )
-            event = {
-                "timestamp": now.isoformat(),
-                "label": label,
-                "event_type": "automation",
-                "trigger": "automation",
-                "purchase_type": "wedge",
-                "amount": 1,
-                "details": {"points_before": points},
-                "result": "success" if success else "failed",
-                "error": None
-                if success
-                else (result.get("error") or result.get("response") or "Unknown error"),
-                "status_message": status_message,
-            }
-
-            if success:
-                # Update last purchase timestamp in new field
-                _persist_automation_state(
-                    label, "wedge_automation", {"last_wedge_time": now_dt.isoformat()}
-                )
-                _logger.info(
-                    "[WedgeAuto] Automated purchase: Wedge (points) for session '%s' succeeded.",
-                    label,
-                )
-                await notify_event(
-                    event_type="automation_success",
-                    label=label,
-                    status="SUCCESS",
-                    message="Automated Wedge purchase succeeded: 1",
-                    details={"amount": 1, "points_before": points},
-                )
-            else:
-                _logger.warning(
-                    "[WedgeAuto] Automated purchase: Wedge (points) for session '%s' FAILED. Error: %s",
-                    label,
-                    event["error"],
-                )
-                await notify_event(
-                    event_type="automation_failure",
-                    label=label,
-                    status="FAILED",
-                    message="Automated Wedge purchase failed: 1",
-                    details={"amount": 1, "points_before": points, "error": event["error"]},
-                )
-            append_ui_event_log(event)
-        except Exception as e:
-            _logger.error(
-                "[WedgeAuto] label=%s trigger=automation result=exception error=%s", label, e
             )

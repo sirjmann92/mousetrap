@@ -66,12 +66,10 @@ export default function App() {
     setAutobrr,
   } = useSession();
   // State for automation and perks
-  const [autoWedge, setAutoWedge] = React.useState(false);
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
   const [uploadAmount, setUploadAmount] = React.useState(0);
   const [vipWeeks, setVipWeeks] = React.useState(0);
-  const [wedgeMethod, setWedgeMethod] = React.useState('');
   const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
   const [proxies, setProxies] = React.useState({});
   const [sessions, setSessions] = React.useState([]);
@@ -367,7 +365,6 @@ export default function App() {
             <PerkAutomationCard
               autoUpload={autoUpload}
               autoVIP={autoVIP}
-              autoWedge={autoWedge}
               onActionComplete={() => {
                 if (statusCardRef.current?.fetchStatus) {
                   statusCardRef.current.fetchStatus();
@@ -375,13 +372,10 @@ export default function App() {
               }}
               setAutoUpload={setAutoUpload}
               setAutoVIP={setAutoVIP}
-              setAutoWedge={setAutoWedge}
               setUploadAmount={setUploadAmount}
               setVipWeeks={setVipWeeks}
-              setWedgeMethod={setWedgeMethod}
               uploadAmount={uploadAmount}
               vipWeeks={vipWeeks}
-              wedgeMethod={wedgeMethod}
             />
           )}
           {/* 4. Notifications */}

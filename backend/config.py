@@ -110,21 +110,6 @@ def load_session(label: str) -> dict[str, Any]:
     for k, v in upload_defaults.items():
         upload_auto.setdefault(k, v)
 
-    # Wedge Automation defaults
-    wedge_defaults = {
-        "enabled": False,
-        "trigger_days": 7,
-        "trigger_point_threshold": 50000,
-        "trigger_type": "time",
-    }
-    wedge_auto = _ensure_mapping(
-        perk_auto,
-        "wedge_automation",
-        "perk_automation.wedge_automation",
-    )
-    for k, v in wedge_defaults.items():
-        wedge_auto.setdefault(k, v)
-
     # VIP Automation defaults
     vip_defaults = {
         "enabled": False,
