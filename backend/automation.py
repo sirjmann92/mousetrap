@@ -74,6 +74,59 @@ def _persist_automation_state(
 
 
 # --- Automation Scheduler ---
+def _evaluate_time_trigger(
+    last_purchase_iso: str | None,
+    trigger_type: str,
+    trigger_days: Any,
+    now: datetime,
+) -> tuple[bool, str]:
+    """Decide whether a time-based automation trigger is satisfied.
+
+    Shared by the upload-credit and VIP jobs, which carried identical copies of
+    this arithmetic. A trigger type that does not include time is always
+    satisfied here; the caller applies its own points guardrail separately.
+
+    A session with no recorded purchase is deliberately held back rather than
+    treated as due: the interval is measured from the last successful purchase,
+    so the timer only starts once one has been recorded. An unparseable
+    timestamp is treated the same way as no timestamp at all.
+
+    Args:
+        last_purchase_iso: Stored ISO timestamp of the last purchase, if any.
+        trigger_type: Configured trigger type, e.g. "time", "points" or "both".
+        trigger_days: Configured interval in days, as stored in YAML.
+        now: Current time, passed in so callers share one clock.
+
+    Returns:
+        ``(satisfied, reason)``. ``reason`` is empty when satisfied, and
+        otherwise carries the user-facing explanation for the skip.
+
+    """
+    last_purchase = None
+    if last_purchase_iso:
+        try:
+            last_purchase = datetime.fromisoformat(last_purchase_iso)
+        except Exception:
+            last_purchase = None
+
+    if trigger_type not in ("time", "both"):
+        return True, ""
+
+    if last_purchase:
+        next_allowed = last_purchase + timedelta(days=int(trigger_days))
+        if now >= next_allowed:
+            return True, ""
+        return False, (
+            f"Time-based trigger not satisfied: next allowed after {next_allowed.isoformat()}"
+        )
+
+    return False, (
+        "No previous purchase timestamp found. "
+        "Please toggle and save the automation to start the timer. "
+        "(Time-based trigger not satisfied.)"
+    )
+
+
 async def run_all_automation_jobs() -> None:
     """Run all available automation jobs.
 
@@ -190,35 +243,10 @@ async def upload_credit_automation_job() -> None:
             last_upload_time = (
                 cfg.get("perk_automation", {}).get("upload_credit", {}).get("last_upload_time")
             )
-            last_purchase = None
-            if last_upload_time:
-                try:
-                    last_purchase = datetime.fromisoformat(last_upload_time)
-                except Exception:
-                    last_purchase = None
-            now_dt = now
-            time_trigger_ok = True
-            if trigger_type in ("time", "both"):
-                if last_purchase:
-                    next_allowed = last_purchase + timedelta(days=int(trigger_days))
-                    if now_dt < next_allowed:
-                        time_trigger_ok = False
-                else:
-                    # No last purchase: skip until a successful purchase sets the timestamp
-                    time_trigger_ok = False
+            time_trigger_ok, guardrail_reason = _evaluate_time_trigger(
+                last_upload_time, trigger_type, trigger_days, now
+            )
             if not time_trigger_ok:
-                if last_purchase:
-                    next_allowed = last_purchase + timedelta(days=int(trigger_days))
-                    next_allowed_str = next_allowed.isoformat()
-                    guardrail_reason = (
-                        f"Time-based trigger not satisfied: next allowed after {next_allowed_str}"
-                    )
-                else:
-                    guardrail_reason = (
-                        "No previous purchase timestamp found. "
-                        "Please toggle and save the automation to start the timer. "
-                        "(Time-based trigger not satisfied.)"
-                    )
                 log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
                 _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
@@ -287,7 +315,7 @@ async def upload_credit_automation_job() -> None:
                 )
                 # Update last purchase timestamp in new field
                 _persist_automation_state(
-                    label, "upload_credit", {"last_upload_time": now_dt.isoformat()}
+                    label, "upload_credit", {"last_upload_time": now.isoformat()}
                 )
                 await notify_event(
                     event_type="automation_success",
@@ -419,35 +447,10 @@ async def vip_automation_job() -> None:
             last_vip_time = (
                 cfg.get("perk_automation", {}).get("vip_automation", {}).get("last_vip_time")
             )
-            last_purchase = None
-            if last_vip_time:
-                try:
-                    last_purchase = datetime.fromisoformat(last_vip_time)
-                except Exception:
-                    last_purchase = None
-            now_dt = now
-            time_trigger_ok = True
-            if trigger_type in ("time", "both"):
-                if last_purchase:
-                    next_allowed = last_purchase + timedelta(days=int(trigger_days))
-                    if now_dt < next_allowed:
-                        time_trigger_ok = False
-                else:
-                    # No last purchase: skip until a successful purchase sets the timestamp
-                    time_trigger_ok = False
+            time_trigger_ok, guardrail_reason = _evaluate_time_trigger(
+                last_vip_time, trigger_type, trigger_days, now
+            )
             if not time_trigger_ok:
-                if last_purchase:
-                    next_allowed = last_purchase + timedelta(days=int(trigger_days))
-                    next_allowed_str = next_allowed.isoformat()
-                    guardrail_reason = (
-                        f"Time-based trigger not satisfied: next allowed after {next_allowed_str}"
-                    )
-                else:
-                    guardrail_reason = (
-                        "No previous purchase timestamp found. "
-                        "Please toggle and save the automation to start the timer. "
-                        "(Time-based trigger not satisfied.)"
-                    )
                 log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
                 _logger.info(log_msg, label, guardrail_reason)
                 append_ui_event_log(
@@ -576,7 +579,7 @@ async def vip_automation_job() -> None:
                 _persist_automation_state(
                     label,
                     "vip_automation",
-                    {"last_vip_time": now_dt.isoformat(), "retry": 0},
+                    {"last_vip_time": now.isoformat(), "retry": 0},
                     remove=("cooldown_until", "last_fail_time"),
                 )
                 await notify_event(
