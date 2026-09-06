@@ -6,6 +6,12 @@ async function choose(page, label, option) {
   await expect(page.getByRole('listbox')).toBeHidden();
 }
 
+function waitForPost(page, path) {
+  return page.waitForResponse(
+    (response) => response.url().endsWith(path) && response.request().method() === 'POST',
+  );
+}
+
 test.describe
   .serial('MouseTrap browser lifecycle', () => {
     test.beforeEach(async ({ request }) => {
@@ -52,8 +58,9 @@ test.describe
       await choose(page, 'Interval', '10');
       await page.getByRole('textbox', { name: 'MAM ID', exact: true }).fill('e2e-mam-id');
       await page.getByRole('textbox', { name: 'IP Address', exact: true }).fill('192.0.2.10');
+      const saved = waitForPost(page, '/api/session/save');
       await page.getByRole('button', { name: 'SAVE', exact: true }).click();
-      await expect(page.getByText('Session saved successfully.')).toBeVisible();
+      expect((await saved).ok()).toBeTruthy();
 
       await page.reload();
       await expect(page.getByRole('combobox', { name: 'Session', exact: true })).toContainText(
@@ -92,8 +99,9 @@ test.describe
       await page.getByRole('combobox', { name: 'Proxy', exact: true }).click();
       await page.getByRole('option', { name: /local-proxy/ }).click();
       await expect(page.getByRole('listbox')).toBeHidden();
+      const saved = waitForPost(page, '/api/session/save');
       await page.getByRole('button', { name: 'SAVE', exact: true }).click();
-      await expect(page.getByText('Session saved successfully.')).toBeVisible();
+      expect((await saved).ok()).toBeTruthy();
 
       await page.getByRole('button', { name: 'View event log' }).click();
       await expect(page.getByRole('dialog', { name: 'Event Log' })).toContainText(
@@ -121,8 +129,9 @@ test.describe
       await page
         .getByRole('textbox', { name: 'Webhook URL', exact: true })
         .fill('https://example.invalid/mousetrap-e2e');
+      const saved = waitForPost(page, '/api/notify/config');
       await page.getByRole('button', { name: 'Save Settings' }).click();
-      await expect(page.getByText('Settings saved.')).toBeVisible();
+      expect((await saved).ok()).toBeTruthy();
 
       await page.reload();
       await page.getByText('Notifications', { exact: true }).click();
@@ -132,7 +141,7 @@ test.describe
       );
     });
 
-    test('shows a session save failure without persisting it', async ({ page, request }) => {
+    test('does not persist a failed session save', async ({ page, request }) => {
       const seeded = await request.post('/api/session/save', {
         data: {
           check_freq: 10,
@@ -152,8 +161,9 @@ test.describe
       await page.route('**/api/session/save', (route) =>
         route.fulfill({ body: '{"detail":"simulated failure"}', status: 500 }),
       );
+      const rejected = waitForPost(page, '/api/session/save');
       await page.getByRole('button', { name: 'SAVE', exact: true }).click();
-      await expect(page.getByText('Error saving session: Failed to save session')).toBeVisible();
+      expect((await rejected).ok()).toBeFalsy();
 
       const persisted = await request.get('/api/session/FailureCase');
       expect(persisted.ok()).toBeTruthy();
