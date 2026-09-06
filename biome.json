@@ -16,7 +16,6 @@
   },
   "linter": {
     "rules": {
-      "preset": "recommended",
       "a11y": "error",
       "correctness": {
         "noUnusedVariables": {
@@ -41,10 +40,8 @@
     }
   },
   "assist": {
-    "enabled": true,
     "actions": {
       "source": {
-        "organizeImports": "on",
         "useSortedAttributes": "on",
         "useSortedProperties": "on"
       }
