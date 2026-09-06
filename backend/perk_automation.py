@@ -1,4 +1,4 @@
-"""Utilities to automate purchases of perks (upload credit, VIP, wedges) via the MaM API.
+"""Utilities to automate purchases of perks (upload credit, VIP) via the MaM API.
 
 Functions handle proxy configuration, make HTTP requests to the MaM JSON API,
 and return structured result dictionaries.
@@ -186,85 +186,6 @@ async def buy_vip(
                 return {"success": True, "response": data}
     except Exception as e:
         _logger.error("[buy_vip] Exception: %s", e)
-        return {"success": False, "error": str(e)}
-    else:
-        return {"success": False, "response": data}
-
-
-async def buy_wedge(
-    mam_id: str, method: str = "points", proxy_cfg: dict[str, Any] | None = None
-) -> dict[str, Any]:
-    """Purchase a wedge using points or cheese via the MaM API.
-
-    method: "points" or "cheese"
-    proxy_cfg: optional proxy config dict
-    """
-    if method not in ("points", "cheese"):
-        return {"success": False, "error": f"Unsupported wedge purchase method: {method}"}
-
-    timestamp = int(time.time() * 1000)
-    url = f"https://www.myanonamouse.net/json/bonusBuy.php/?spendtype=wedges&source={method}&_={timestamp}"
-    cookies = {"mam_id": mam_id}
-    proxies = None
-    if proxy_cfg is not None:
-        proxies = build_proxy_dict(proxy_cfg)
-        if proxies:
-            proxy_label = proxy_cfg.get("label") if proxy_cfg else None
-            proxy_url_log = {
-                k: v.replace(proxy_cfg.get("password", ""), "***")
-                if proxy_cfg and proxy_cfg.get("password")
-                else v
-                for k, v in proxies.items()
-            }
-            _logger.debug(
-                "[buy_wedge] Using proxy label: %s, proxies: %s", proxy_label, proxy_url_log
-            )
-    try:
-        _logger.debug("[buy_wedge] Making request to: %s", url)
-        proxy_url = None
-        proxy_auth = None
-        if proxy_cfg is not None:
-            proxies = build_proxy_dict(proxy_cfg)
-            proxy_url = (
-                proxies.get("https")
-                if proxies and proxies.get("https")
-                else (proxies.get("http") if proxies else None)
-            )
-            username = proxy_cfg.get("username") if proxy_cfg else None
-            password = proxy_cfg.get("password") if proxy_cfg else None
-            if username and password:
-                proxy_auth = aiohttp.BasicAuth(username, password)
-
-        timeout = aiohttp.ClientTimeout(total=10)
-        async with (
-            aiohttp.ClientSession(timeout=timeout) as session,
-            session.get(
-                url, cookies=cookies, proxy=proxy_url, proxy_auth=proxy_auth, headers=_BONUS_HEADERS
-            ) as resp,
-        ):
-            _logger.debug("[buy_wedge] Response: status=%s", resp.status)
-            if resp.status != 200:
-                text = await resp.text()
-                return {
-                    "success": False,
-                    "error": f"HTTP {resp.status}",
-                    "raw_response": text[:500],
-                    "status_code": resp.status,
-                }
-            try:
-                data = await resp.json()
-            except Exception as json_e:
-                text = await resp.text()
-                return {
-                    "success": False,
-                    "error": f"Non-JSON response: {json_e}",
-                    "raw_response": text[:500],
-                    "status_code": resp.status,
-                }
-            if data.get("success") or data.get("Success"):
-                return {"success": True, "response": data}
-    except Exception as e:
-        _logger.error("[buy_wedge] Exception: %s", e)
         return {"success": False, "error": str(e)}
     else:
         return {"success": False, "response": data}

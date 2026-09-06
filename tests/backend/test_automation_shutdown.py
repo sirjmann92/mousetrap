@@ -82,9 +82,7 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
     monkeypatch.setattr(automation, "notify_event", AsyncMock())
     monkeypatch.setattr(automation, "append_ui_event_log", Mock())
     monkeypatch.setattr(automation, "datetime", FixedDateTime)
-    wedge_job = AsyncMock()
     vip_job = AsyncMock()
-    monkeypatch.setattr(automation, "wedge_automation_job", wedge_job)
     monkeypatch.setattr(automation, "vip_automation_job", vip_job)
     automation.reset_automation_shutdown()
 
@@ -101,5 +99,4 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
 
     assert not worker.is_alive()
     assert saved_labels == ["first"]
-    wedge_job.assert_not_awaited()
     vip_job.assert_not_awaited()

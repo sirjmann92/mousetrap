@@ -113,16 +113,14 @@ async def _buy_one_of_each() -> None:
     """Run every purchase the module offers, one call each."""
     await perk_automation.buy_upload_credit(1, mam_id=PLACEHOLDER_MAM_ID)
     await perk_automation.buy_vip(PLACEHOLDER_MAM_ID)
-    await perk_automation.buy_wedge(PLACEHOLDER_MAM_ID)
 
 
 async def test_every_purchase_sends_identical_headers(bonus_buy_session: _StubSession) -> None:
-    """Present one identity across the upload credit, VIP and wedge purchases."""
+    """Present one identity across the upload credit and VIP purchases."""
     await _buy_one_of_each()
 
-    upload_credit, vip, wedge = bonus_buy_session.headers_sent
+    upload_credit, vip = bonus_buy_session.headers_sent
     assert upload_credit == vip
-    assert vip == wedge
 
 
 async def test_every_purchase_sends_all_four_header_fields(

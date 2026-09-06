@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 
 /**
- * Generic automation section for PerkAutomationCard (Wedge, VIP, Upload, etc)
+ * Generic automation section for PerkAutomationCard (VIP, Upload, etc)
  * Props:
  * - title: string
  * - enabled: boolean

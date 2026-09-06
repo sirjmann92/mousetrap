@@ -1,4 +1,4 @@
-"""API endpoints for manual perk purchases (upload credit, wedge, VIP).
+"""API endpoints for manual perk purchases (upload credit, VIP).
 
 This module exposes FastAPI endpoints under `/automation/*` that allow a
 client to trigger manual perk purchases for a configured session. Each
@@ -18,14 +18,13 @@ from backend.config import load_session, session_exists
 from backend.event_log import append_ui_event_log
 from backend.mam_api import get_status
 from backend.notifications_backend import notify_event
-from backend.perk_automation import buy_upload_credit, buy_vip, buy_wedge
+from backend.perk_automation import buy_upload_credit, buy_vip
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils_redact import redact_sensitive
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
 # Point costs for the enforce-minimum-points guardrail
-_WEDGE_POINTS_COST = 50_000
 _VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
 _UPLOAD_POINTS_PER_GB = 500
 
@@ -156,125 +155,6 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
         _logger.warning(
             "[ManualUpload] Purchase: %sGB upload credit for session '%s' FAILED. Error: %s",
             amount,
-            label,
-            error_val,
-        )
-    return {"success": success, **result}
-
-
-@router.post("/automation/wedge")
-async def manual_wedge(request: Request) -> dict[str, Any]:
-    """Trigger a manual wedge purchase for a session.
-
-    Expects a JSON body with the following fields:
-    - label: session label (required)
-    - method: purchase method (optional, defaults to "points")
-
-    The endpoint logs the event, attempts the wedge purchase via the
-    perk_automation module, and tries to notify configured notification
-    backends. Returns a dict with a "success" boolean and details from the
-    purchase attempt.
-
-    Raises:
-        HTTPException: If the required `label` field is missing from the
-            request JSON.
-
-    """
-    data = await request.json()
-    label = data.get("label")
-    method = data.get("method", "points")
-    if not label:
-        raise HTTPException(status_code=400, detail="Session label required.")
-    if not session_exists(label):
-        _logger.warning("[ManualWedge] Session '%s' not found or not configured.", label)
-        return {"success": False, "error": f"Session '{label}' not found."}
-    cfg = load_session(label)
-    mam_id = cfg.get("mam", {}).get("mam_id", "")
-
-    proxy_cfg = resolve_proxy_from_session_cfg(cfg)
-    now = datetime.now(UTC)
-    # --- Enforce minimum points guardrail (prevent spend below minimum) ---
-    # Only applies to points method; cheese method has no point cost
-    enforce_min_pts = cfg.get("perk_automation", {}).get("enforce_min_points_guardrail", False)
-    session_min_points = cfg.get("perk_automation", {}).get("min_points")
-    if enforce_min_pts and session_min_points is not None and method == "points":
-        status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        current_points = status.get("points", 0)
-        if current_points is None:
-            current_points = 0
-        purchase_cost = _WEDGE_POINTS_COST
-        if int(current_points) - purchase_cost < int(session_min_points):
-            guardrail_reason = (
-                f"Purchase would drop below minimum points: "
-                f"{current_points} - {purchase_cost} = {int(current_points) - purchase_cost} "
-                f"< {session_min_points}"
-            )
-            _logger.info("[ManualWedge] BLOCKED for session '%s': %s", label, guardrail_reason)
-            append_ui_event_log(
-                {
-                    "timestamp": now.isoformat(),
-                    "label": label,
-                    "event_type": "manual",
-                    "trigger": "manual",
-                    "purchase_type": "wedge",
-                    "amount": 1,
-                    "details": {"method": method, "points_before": current_points},
-                    "result": "blocked",
-                    "status_message": f"Manual Wedge purchase blocked: {guardrail_reason}",
-                }
-            )
-            return {"success": False, "error": guardrail_reason}
-    result = await buy_wedge(mam_id, method=method, proxy_cfg=proxy_cfg)
-    success = result.get("success", False)
-    status_message = (
-        f"Purchased Wedge ({method})" if success else f"Wedge purchase failed ({method})"
-    )
-    event = {
-        "timestamp": now.isoformat(),
-        "label": label,
-        "event_type": "manual",
-        "trigger": "manual",
-        "purchase_type": "wedge",
-        "amount": 1,
-        "details": {"method": method},
-        "result": "success" if success else "failed",
-        "error": result.get("error") if not success else None,
-        "status_message": status_message,
-    }
-    append_ui_event_log(event)
-    try:
-        if success:
-            await notify_event(
-                event_type="manual_purchase_success",
-                label=label,
-                status="SUCCESS",
-                message=f"Manual Wedge purchase succeeded: {method}",
-                details={"method": method},
-            )
-        else:
-            await notify_event(
-                event_type="manual_purchase_failure",
-                label=label,
-                status="FAILED",
-                message=f"Manual Wedge purchase failed: {method}",
-                details={"method": method, "error": result.get("error")},
-            )
-    except Exception:
-        _logger.debug("[ManualWedge] Manual wedge purchse notification failed.")
-    if success:
-        _logger.info(
-            "[ManualWedge] Purchase: Wedge (%s) for session '%s' succeeded.",
-            method,
-            label,
-        )
-    else:
-        redacted_result = redact_sensitive(result)
-        error_val = (
-            redacted_result.get("error") if isinstance(redacted_result, dict) else redacted_result
-        )
-        _logger.warning(
-            "[ManualWedge] Purchase: Wedge (%s) for session '%s' FAILED. Error: %s",
-            method,
             label,
             error_val,
         )
