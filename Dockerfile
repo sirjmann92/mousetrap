@@ -43,10 +43,9 @@ COPY backend/app.py logconfig.yaml.template /app/
 # Copy frontend build output and minimal public assets
 COPY --from=frontend-build /frontend/build /app/frontend/build
 COPY frontend/public/favicon.ico frontend/public/favicon.svg /app/frontend/public/
-# Copy startup script and set permissions
+# Copy startup script
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh \
-    && mkdir -p /frontend && ln -s /app/frontend/build /frontend/build
+RUN mkdir -p /frontend && ln -s /app/frontend/build /frontend/build
 
 # Expose the default port
 EXPOSE 39842
