@@ -30,9 +30,15 @@ class _FixedDateTime(datetime):
 
 
 def _install(
-    monkeypatch: pytest.MonkeyPatch, cfg: dict[str, Any], points: int = 1_000_000
+    monkeypatch: pytest.MonkeyPatch,
+    cfg: dict[str, Any],
+    points: int = 1_000_000,
+    events: list[dict[str, Any]] | None = None,
 ) -> list[str]:
-    """Point one automation job at a single stub session and record purchases."""
+    """Point one automation job at a single stub session and record purchases.
+
+    Pass `events` to also capture every UI event-log payload the job writes.
+    """
     purchases: list[str] = []
 
     async def _buy(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
@@ -47,7 +53,11 @@ def _install(
     monkeypatch.setattr(automation, "buy_vip", _buy)
     monkeypatch.setattr(automation, "save_session", Mock())
     monkeypatch.setattr(automation, "notify_event", AsyncMock())
-    monkeypatch.setattr(automation, "append_ui_event_log", Mock())
+    monkeypatch.setattr(
+        automation,
+        "append_ui_event_log",
+        events.append if events is not None else Mock(),
+    )
     monkeypatch.setattr(automation, "datetime", _FixedDateTime)
     automation.reset_automation_shutdown()
     return purchases
@@ -160,3 +170,39 @@ async def test_a_points_trigger_ignores_the_timestamp(
     await getattr(automation, job)()
 
     assert purchases == ["bought"]
+
+
+@pytest.mark.parametrize(
+    ("job", "build", "purchase_type", "prefix"),
+    [
+        ("upload_credit_automation_job", _upload_cfg, "upload_credit", "Upload Credit"),
+        ("vip_automation_job", _vip_cfg, "vip", "VIP"),
+    ],
+)
+async def test_a_time_skip_writes_the_expected_event(
+    monkeypatch: pytest.MonkeyPatch, job: str, build: Any, purchase_type: str, prefix: str
+) -> None:
+    """Pin the skip event's shape, not just that the purchase did not happen.
+
+    Ten of these blocks are written out longhand across the two jobs and are
+    identical bar the reason, so the payload is what a shared implementation
+    has to reproduce.
+    """
+    events: list[dict[str, Any]] = []
+    recent = (NOW - timedelta(days=2)).isoformat()
+    purchases = _install(monkeypatch, build(recent, days=7), events=events)
+
+    await getattr(automation, job)()
+
+    assert purchases == []
+    skipped = [e for e in events if e.get("result") == "skipped"]
+    assert len(skipped) == 1
+    event = skipped[0]
+    assert event["label"] == "seedbox"
+    assert event["event_type"] == "automation"
+    assert event["trigger"] == "automation"
+    assert event["purchase_type"] == purchase_type
+    assert event["details"] == {"points_before": 1_000_000}
+    assert event["status_message"].startswith(f"Automated {prefix} purchase skipped: ")
+    assert "Time-based trigger not satisfied" in event["status_message"]
+    assert event["timestamp"] == NOW.isoformat()

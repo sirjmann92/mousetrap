@@ -13,6 +13,7 @@ Functions provided:
 - vip_automation_job: automation for VIP purchases.
 """
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 import logging
 import threading
@@ -74,6 +75,72 @@ def _persist_automation_state(
 
 
 # --- Automation Scheduler ---
+@dataclass(frozen=True)
+class _PerkJob:
+    """Names the parts of a perk automation job that differ between perks.
+
+    The upload-credit and VIP jobs write the same guardrail-skip event ten
+    times between them, varying only in these fields and the reason text.
+
+    Attributes:
+        purchase_type: Value recorded as `purchase_type` in the event log.
+        state_key: Key under `perk_automation` holding this perk's settings.
+        log_prefix: Prefix used in this job's log lines, e.g. "[AutoUpload]".
+        perk_label: Human-readable perk name used in user-facing messages.
+
+    """
+
+    purchase_type: str
+    state_key: str
+    log_prefix: str
+    perk_label: str
+
+
+_UPLOAD_JOB = _PerkJob("upload_credit", "upload_credit", "[AutoUpload]", "Upload Credit")
+_VIP_JOB = _PerkJob("vip", "vip_automation", "[AutoVIP]", "VIP")
+
+
+def _log_automation_skip(
+    job: _PerkJob,
+    label: str,
+    amount: Any,
+    points: Any,
+    reason: str,
+    now: datetime,
+) -> None:
+    """Record a guardrail-blocked purchase in the log and the UI event log.
+
+    Args:
+        job: Which perk job is skipping.
+        label: Session label.
+        amount: Perk amount that would have been purchased.
+        points: Points held before the skip, for the event details.
+        reason: Guardrail explanation shown to the user.
+        now: Current time, so the event shares the job's clock.
+
+    """
+    _logger.info(
+        "%s SKIP: Automated %s purchase for session '%s' skipped: %s",
+        job.log_prefix,
+        job.perk_label,
+        label,
+        reason,
+    )
+    append_ui_event_log(
+        {
+            "timestamp": now.isoformat(),
+            "label": label,
+            "event_type": "automation",
+            "trigger": "automation",
+            "purchase_type": job.purchase_type,
+            "amount": amount,
+            "details": {"points_before": points},
+            "result": "skipped",
+            "status_message": f"Automated {job.perk_label} purchase skipped: {reason}",
+        }
+    )
+
+
 def _evaluate_time_trigger(
     last_purchase_iso: str | None,
     trigger_type: str,
@@ -194,21 +261,7 @@ async def upload_credit_automation_job() -> None:
             session_min_points = cfg.get("perk_automation", {}).get("min_points")
             if session_min_points is not None and int(points) < int(session_min_points):
                 guardrail_reason = f"Below session minimum points: {points} < {session_min_points}"
-                log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "upload_credit",
-                        "amount": gb_amount,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated Upload Credit purchase skipped: {guardrail_reason}",
-                    }
-                )
+                _log_automation_skip(_UPLOAD_JOB, label, gb_amount, points, guardrail_reason, now)
                 # Do not check any automation-level guardrails if session minimum is not met
                 continue
             # --- Enforce minimum points guardrail (prevent spend below minimum) ---
@@ -223,20 +276,8 @@ async def upload_credit_automation_job() -> None:
                         f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
                         f"< {session_min_points}"
                     )
-                    log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                    _logger.info(log_msg, label, guardrail_reason)
-                    append_ui_event_log(
-                        {
-                            "timestamp": now.isoformat(),
-                            "label": label,
-                            "event_type": "automation",
-                            "trigger": "automation",
-                            "purchase_type": "upload_credit",
-                            "amount": gb_amount,
-                            "details": {"points_before": points},
-                            "result": "skipped",
-                            "status_message": f"Automated Upload Credit purchase skipped: {guardrail_reason}",
-                        }
+                    _log_automation_skip(
+                        _UPLOAD_JOB, label, gb_amount, points, guardrail_reason, now
                     )
                     continue
             # --- Time-based trigger enforcement ---
@@ -247,42 +288,14 @@ async def upload_credit_automation_job() -> None:
                 last_upload_time, trigger_type, trigger_days, now
             )
             if not time_trigger_ok:
-                log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "upload_credit",
-                        "amount": gb_amount,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated Upload Credit purchase skipped: {guardrail_reason}",
-                    }
-                )
+                _log_automation_skip(_UPLOAD_JOB, label, gb_amount, points, guardrail_reason, now)
                 continue
             # --- Automation-level point threshold guardrail ---
             if trigger_type in ("points", "both") and int(points) < int(trigger_point_threshold):
                 guardrail_reason = (
                     f"Below automation point threshold: {points} < {trigger_point_threshold}"
                 )
-                log_msg = "[AutoUpload] SKIP: Automated Upload Credit purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "upload_credit",
-                        "amount": gb_amount,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated Upload Credit purchase skipped: {guardrail_reason}",
-                    }
-                )
+                _log_automation_skip(_UPLOAD_JOB, label, gb_amount, points, guardrail_reason, now)
                 continue
             # All guardrails passed, attempt purchase
             result = await buy_upload_credit(gb_amount, mam_id=mam_id, proxy_cfg=proxy_cfg)
@@ -383,21 +396,7 @@ async def vip_automation_job() -> None:
             session_min_points = cfg.get("perk_automation", {}).get("min_points")
             if session_min_points is not None and int(points) < int(session_min_points):
                 guardrail_reason = f"Below session minimum points: {points} < {session_min_points}"
-                log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "vip",
-                        "amount": weeks,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated VIP purchase skipped: {guardrail_reason}",
-                    }
-                )
+                _log_automation_skip(_VIP_JOB, label, weeks, points, guardrail_reason, now)
                 # Reset retry state if not eligible
                 if "retry" in automation:
                     _persist_automation_state(
@@ -423,21 +422,7 @@ async def vip_automation_job() -> None:
                         f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
                         f"< {session_min_points}"
                     )
-                    log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                    _logger.info(log_msg, label, guardrail_reason)
-                    append_ui_event_log(
-                        {
-                            "timestamp": now.isoformat(),
-                            "label": label,
-                            "event_type": "automation",
-                            "trigger": "automation",
-                            "purchase_type": "vip",
-                            "amount": weeks,
-                            "details": {"points_before": points},
-                            "result": "skipped",
-                            "status_message": f"Automated VIP purchase skipped: {guardrail_reason}",
-                        }
-                    )
+                    _log_automation_skip(_VIP_JOB, label, weeks, points, guardrail_reason, now)
                     if "retry" in automation:
                         _persist_automation_state(
                             label, "vip_automation", {}, remove=("retry", "cooldown_until")
@@ -451,21 +436,7 @@ async def vip_automation_job() -> None:
                 last_vip_time, trigger_type, trigger_days, now
             )
             if not time_trigger_ok:
-                log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "vip",
-                        "amount": weeks,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated VIP purchase skipped: {guardrail_reason}",
-                    }
-                )
+                _log_automation_skip(_VIP_JOB, label, weeks, points, guardrail_reason, now)
                 # Reset retry state if not eligible
                 if "retry" in automation:
                     _persist_automation_state(
@@ -477,21 +448,7 @@ async def vip_automation_job() -> None:
                 guardrail_reason = (
                     f"Below automation point threshold: {points} < {trigger_point_threshold}"
                 )
-                log_msg = "[AutoVIP] SKIP: Automated VIP purchase for session '%s' skipped: %s"
-                _logger.info(log_msg, label, guardrail_reason)
-                append_ui_event_log(
-                    {
-                        "timestamp": now.isoformat(),
-                        "label": label,
-                        "event_type": "automation",
-                        "trigger": "automation",
-                        "purchase_type": "vip",
-                        "amount": weeks,
-                        "details": {"points_before": points},
-                        "result": "skipped",
-                        "status_message": f"Automated VIP purchase skipped: {guardrail_reason}",
-                    }
-                )
+                _log_automation_skip(_VIP_JOB, label, weeks, points, guardrail_reason, now)
                 # Reset retry state if not eligible
                 if "retry" in automation:
                     _persist_automation_state(
