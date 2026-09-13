@@ -415,6 +415,31 @@ def test_monitor_exits_without_persisting_after_cancelled_restart(
     save.assert_called_once_with()
 
 
+@pytest.mark.parametrize("docker_host", [None, ""])
+def test_docker_client_failure_reports_the_endpoint_it_tried(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    docker_host: str | None,
+) -> None:
+    """Without a proxy URL the failure names the default socket, not an empty value."""
+    if docker_host is None:
+        monkeypatch.delenv("DOCKER_HOST", raising=False)
+    else:
+        monkeypatch.setenv("DOCKER_HOST", docker_host)
+    from_env = Mock(side_effect=port_monitor.docker.errors.DockerException("socket unreachable"))
+    monkeypatch.setattr(port_monitor.docker, "from_env", from_env)
+    manager = port_monitor.PortMonitorStackManager()
+
+    with caplog.at_level(logging.ERROR):
+        assert manager.get_docker_client() is None
+
+    from_env.assert_called_once_with()
+    assert (
+        "Failed to create docker client (DOCKER_HOST=/var/run/docker.sock): socket unreachable"
+        in caplog.text
+    )
+
+
 @pytest.mark.parametrize("port_ok", [True, False])
 def test_restart_rechecks_once_on_completion_paths(
     monkeypatch: pytest.MonkeyPatch, port_ok: bool

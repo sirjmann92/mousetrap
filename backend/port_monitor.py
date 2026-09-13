@@ -243,7 +243,7 @@ class PortMonitorStackManager:
             # Log the error creating the docker client (rate limited)
             warning_key = "docker_from_env_failed"
             if self._should_log_warning(warning_key, min_interval=60):
-                docker_host = os.environ.get("DOCKER_HOST", "/var/run/docker.sock")
+                docker_host = os.environ.get("DOCKER_HOST") or "/var/run/docker.sock"
                 _logger.error(
                     "[PortMonitorStack] Failed to create docker client (DOCKER_HOST=%s): %s",
                     docker_host,
