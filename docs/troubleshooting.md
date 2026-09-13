@@ -50,6 +50,8 @@ services:
 **Symptoms:**
 - Port monitoring shows "Docker permissions not available"
 - Backend logs: "Permission denied: '/var/run/docker.sock'"
+- Backend logs: "Failed to create docker client (DOCKER_HOST=...)" — the value shown is the
+  endpoint that was tried, which is `/var/run/docker.sock` when `DOCKER_HOST` is unset or empty
 - No containers shown in port monitoring dropdown
 
 **Causes & Solutions:**
