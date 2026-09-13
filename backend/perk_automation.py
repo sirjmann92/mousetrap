@@ -116,7 +116,6 @@ async def buy_vip(
     duration: 'max', '4', '8', etc. (string)
     proxy_cfg: optional proxy config dict
     """
-
     timestamp = int(time.time() * 1000)
     url = "https://www.myanonamouse.net/json/bonusBuy.php/"
     params: dict[str, Any] = {"spendtype": "VIP", "duration": duration, "_": timestamp}

@@ -234,7 +234,6 @@ def dummy_purchase(item: Any) -> dict[str, Any]:
         - message: human-readable message about the simulated purchase
 
     """
-
     return {
         "result": "success",
         "item": item,

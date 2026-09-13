@@ -25,7 +25,6 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
     or the inline proxy config if present (for backward compatibility).
     Returns None if no proxy is set.
     """
-
     proxy = cfg.get("proxy", {})
     # Rate-limit debug logs to avoid flooding when this resolver is called frequently
     log_key = None

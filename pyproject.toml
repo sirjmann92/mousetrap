@@ -197,7 +197,6 @@ select = [
 ]
 
 ignore = [
-    "D202", # No blank lines allowed after function docstring
     "E501", # line too long
 
     "PLC1901", # {existing} can be simplified to {replacement} as an empty string is falsey; too many false positives
