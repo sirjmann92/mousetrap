@@ -208,11 +208,29 @@ excluded from `Tests` by `paths-ignore` and therefore cut no release at all.
 
 ## Releases and Versioning
 
-Publishing is automatic: a push to `main` runs `Tests`, and a successful run
-triggers `Publish Docker image`, which builds the image, derives the next
-version, and creates the GitHub Release. Release versions come only from git
-tags — `frontend/package.json`'s `version` field is inert and must not be
-treated as the release version.
+**`Publish Docker image` stays disabled. Do not enable it except to cut a
+release the maintainer has asked for, and disable it again afterwards.**
+Check its state before merging anything; if it is enabled and no release was
+requested, disable it and say so.
+
+That is a standing instruction, not a per-batch technique. Left enabled, the
+workflow publishes on *every* merge to `main`: a push runs `Tests`, and a
+successful run triggers `Publish Docker image`, which builds the image,
+derives the next version, creates the GitHub Release, and notifies everyone
+watching the repository. Each unwanted merge is a release that cannot be
+recalled.
+
+This has already gone wrong once. `v2.4.3` was cut unintentionally because
+the workflow was re-enabled to dispatch `v2.4.2` and never disabled again;
+the next merge published itself. Nothing was broken by it, but the choice of
+when to release was lost.
+
+It matters more now that Dependabot security updates are on, because
+Dependabot opens pull requests unprompted. A security fix merged on a quiet
+afternoon would publish a release nobody asked for.
+
+Release versions come only from git tags — `frontend/package.json`'s
+`version` field is inert and must not be treated as the release version.
 
 The default is a patch bump. To cut a larger release, include a keyword as a
 standalone word in a commit message landing since the previous release:
@@ -238,19 +256,30 @@ standalone word in a commit message landing since the previous release:
 - A release scans every commit since the last tag, so one flagged commit
   promotes the whole batch.
 
-To merge several pull requests under a single release instead of one release
-each, suppress the publish for the duration and then trigger it once:
+Merge freely while it is disabled — that is the normal state, and any number
+of pull requests can land without publishing anything. When the maintainer
+asks for a release:
 
 ```bash
-gh workflow disable "Publish Docker image"   # before merging
-# ...merge the pull requests...
+gh workflow list | grep -i publish                      # expect it absent, i.e. disabled
+gh run list --workflow=Tests --branch main --limit 1    # Tests must be green on HEAD
 gh workflow enable "Publish Docker image"
-gh run list --workflow=Tests --branch main --limit 1   # confirm Tests passed
 gh workflow run "Publish Docker image"
+# ...confirm the release, then:
+gh workflow disable "Publish Docker image"
 ```
 
-Confirm `Tests` succeeded on the merged `main` before the final step:
-`workflow_dispatch` is an unconditional override and does not check it.
+Two ordering points, both learned the hard way:
+
+- **Wait for `Tests` to reach a terminal state before enabling.** Enabling
+  while a run is in flight lets its completion event fire against a now-live
+  workflow and publishes early.
+- **Confirm `Tests` passed before dispatching.** `workflow_dispatch` is an
+  unconditional override and does not check it.
+
+Fetch tags before reporting what is or is not released. `git pull` does not
+fetch them, so `git log <tag>..origin/main` against a stale tag list will
+report commits as unreleased when they have already shipped.
 
 ## Pull Request Handoff
 
