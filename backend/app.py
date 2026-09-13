@@ -2806,21 +2806,32 @@ def api_version() -> dict[str, str]:
     return {"version": version}
 
 
+def _serve_favicon(filename: str, media_type: str) -> FileResponse:
+    """Serve a favicon from the frontend public directory.
+
+    Args:
+        filename: Name of the favicon file inside the frontend public directory.
+        media_type: Media type to serve the file as.
+
+    Returns:
+        A FileResponse for the requested favicon.
+
+    Raises:
+        HTTPException: 404 when the file is not present in the public directory.
+    """
+    path = Path(FRONTEND_PUBLIC_DIR) / filename
+    if path.exists():
+        return FileResponse(str(path), media_type=media_type)
+    raise HTTPException(status_code=404, detail=f"{filename} not found")
+
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon_ico() -> FileResponse:
     """Serve the glyphicon favicon.ico from the frontend public directory.
 
     Returns a FileResponse when the file exists, otherwise raises 404.
     """
-    # Try Docker-friendly public dir first, then local repo frontend/public
-    candidates = [
-        Path(FRONTEND_PUBLIC_DIR) / "favicon.ico",
-        Path(BASE_DIR) / "../frontend/public/favicon.ico",
-    ]
-    for path in candidates:
-        if path.exists():
-            return FileResponse(str(path), media_type="image/x-icon")
-    raise HTTPException(status_code=404, detail="favicon.ico not found")
+    return _serve_favicon("favicon.ico", "image/x-icon")
 
 
 @app.get("/favicon.svg", include_in_schema=False)
@@ -2829,14 +2840,7 @@ def favicon_svg() -> FileResponse:
 
     Returns a FileResponse when the file exists, otherwise raises 404.
     """
-    candidates = [
-        Path(FRONTEND_PUBLIC_DIR) / "favicon.svg",
-        Path(BASE_DIR) / "../frontend/public/favicon.svg",
-    ]
-    for path in candidates:
-        if path.exists():
-            return FileResponse(str(path), media_type="image/svg+xml")
-    raise HTTPException(status_code=404, detail="favicon.svg not found")
+    return _serve_favicon("favicon.svg", "image/svg+xml")
 
 
 @app.get("/", include_in_schema=False)
