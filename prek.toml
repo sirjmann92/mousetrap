@@ -33,6 +33,12 @@ id = "check-merge-conflict"
 id = "check-json"
 
 [[repos.hooks]]
+id = "check-shebang-scripts-are-executable"
+
+[[repos.hooks]]
+id = "check-executables-have-shebangs"
+
+[[repos.hooks]]
 id = "detect-private-key"
 
 [[repos]]
