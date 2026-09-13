@@ -84,3 +84,11 @@ async def test_recheck_unknown_stack_returns_not_found(api_client: AsyncClient) 
     response = await api_client.post("/api/port-monitor/stacks/recheck?name=missing")
     assert response.status_code == 404
     assert response.json() == {"detail": "Stack not found"}
+
+
+@pytest.mark.workflow
+async def test_restart_unknown_stack_returns_not_found(api_client: AsyncClient) -> None:
+    """Reject a restart for a missing stack before any worker is created."""
+    response = await api_client.post("/api/port-monitor/stacks/restart?name=missing")
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Stack not found"}

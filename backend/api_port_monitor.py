@@ -16,7 +16,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from backend.event_log import append_ui_event_log
-from backend.port_monitor import port_monitor_manager
+from backend.port_monitor import PortMonitorStack, port_monitor_manager
 from backend.yaml_store import YamlStoreError
 
 _logger: logging.Logger = logging.getLogger(__name__)
@@ -270,8 +270,14 @@ def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str,
     )
 
     # Run restart in background
-    async def do_restart() -> None:
-        """Background worker that performs the restart and subsequent recheck."""
+    async def do_restart(stack: PortMonitorStack) -> None:
+        """Background worker that performs the restart and subsequent recheck.
+
+        Args:
+            stack: Stack to restart. Bound at thread creation rather than
+                captured, so the worker cannot observe a later rebinding of the
+                enclosing name.
+        """
         _logger.info(
             "[PortMonitorStackAPI] Background restart thread started for stack '%s'",
             name,
@@ -308,5 +314,5 @@ def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str,
             }
         )
 
-    threading.Thread(target=lambda: asyncio.run(do_restart()), daemon=True).start()
+    threading.Thread(target=asyncio.run, args=(do_restart(stack),), daemon=True).start()
     return {"success": True}
