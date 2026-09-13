@@ -51,6 +51,20 @@ def test_invalid_nested_session_mapping_raises(
         config.load_session("Bad")
 
 
+def test_session_round_trip_preserves_undeclared_mam_keys(config_dir: Path) -> None:
+    """Keep persisted ``mam`` keys the defaults do not declare across a round trip."""
+    config.get_session_path("Legacy").write_text(
+        "label: Legacy\nmam:\n  mam_id: abc\n  auto_purchase:\n    wedge: true\n",
+        encoding="utf-8",
+    )
+
+    loaded = config.load_session("Legacy")
+    assert loaded["mam"]["auto_purchase"] == {"wedge": True}
+
+    config.save_session(loaded)
+    assert config.load_session("Legacy")["mam"]["auto_purchase"] == {"wedge": True}
+
+
 def test_save_update_rename_and_delete(config_dir: Path) -> None:
     """Support the complete primary-file lifecycle."""
     config.save_session({"label": "Old", "value": 1})
