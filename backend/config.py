@@ -194,7 +194,6 @@ def get_default_config(label: str | None = None) -> dict[str, Any]:
             "mam_id": "",
             "session_type": "ip",
             "ip_monitoring_mode": "auto",  # "auto", "manual", "static"
-            "auto_purchase": {"wedge": False, "vip": False, "upload": False},
         },
         "browser_cookie": "",
         "mam_ip": "",
