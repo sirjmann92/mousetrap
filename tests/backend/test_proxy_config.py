@@ -1,5 +1,6 @@
 """Backend tests for proxy configuration helpers."""
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,28 @@ def test_resolve_proxy_returns_the_inline_proxy() -> None:
     resolved = proxy_config.resolve_proxy_from_session_cfg({"proxy": inline})
 
     assert resolved == inline
+
+
+@pytest.mark.parametrize("label", [["work"], {"work": True}, {"work"}])
+def test_resolve_proxy_rejects_a_label_that_is_not_a_string(
+    temp_proxy_path: Path,
+    label: object,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Return None for an unhashable label instead of raising from the proxies lookup."""
+    temp_proxy_path.write_text("work:\n  host: proxy.internal\n  port: 8080\n", encoding="utf-8")
+
+    with caplog.at_level(logging.WARNING, logger="backend.proxy_config"):
+        resolved = proxy_config.resolve_proxy_from_session_cfg({"proxy": {"label": label}})
+
+    assert resolved is None
+    assert type(label).__name__ in caplog.text
+    assert str(label) not in caplog.text
+
+
+def test_resolve_proxy_ignores_a_falsy_label_before_the_lookup() -> None:
+    """Fall through an empty non-string label, which the truthiness test rejects first."""
+    assert proxy_config.resolve_proxy_from_session_cfg({"proxy": {"label": []}}) is None
 
 
 @pytest.mark.parametrize(

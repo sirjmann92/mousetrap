@@ -60,3 +60,34 @@ async def test_deleting_proxy_cascades_to_session(
     assert (await api_client.delete("/api/proxies/vpn")).json() == {"success": True}
     assert (await api_client.get("/api/proxies")).json() == {}
     assert (await api_client.get("/api/session/seedbox")).json()["proxy"] == {}
+
+
+@pytest.mark.integration
+async def test_status_survives_a_saved_proxy_label_that_is_not_a_string(
+    api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Serve status for a session whose persisted proxy label cannot be a mapping key."""
+    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+
+    async def detected_ipinfo(
+        ip: str | None = None, proxy_cfg: dict[str, str] | None = None
+    ) -> dict[str, str]:
+        """Return deterministic public IP metadata instead of calling out to a provider.
+
+        Args:
+            ip: Address to look up; unused, the stub answers for every input.
+            proxy_cfg: Proxy to look up through; unused, for the same reason.
+
+        Returns:
+            A fixed normalized IP metadata mapping.
+        """
+        return {"ip": "198.51.100.10", "asn": "AS64500"}
+
+    monkeypatch.setattr(app, "get_ipinfo_with_fallback", detected_ipinfo)
+    session = {"label": "seedbox", "mam": {}, "proxy": {"label": ["vpn"]}}
+    assert (await api_client.post("/api/session/save", json=session)).json() == {"success": True}
+
+    status = await api_client.get("/api/status?label=seedbox")
+
+    assert status.status_code == 200
+    assert status.json()["configured"] is False

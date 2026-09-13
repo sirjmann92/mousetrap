@@ -233,6 +233,15 @@ gluetun:
 - **Check container status**: `docker ps` to verify VPN container is running
 - **Network inspection**: `docker network inspect bridge` to see container IPs
 
+**Session Runs Unproxied After Hand-Editing Its Config:**
+
+A session whose `proxy.label` is not a string resolves to no proxy at all, and logs:
+```
+WARNING: Ignoring proxy label of type list; expected str.
+```
+- **Inspect the session file**: `docker exec mousetrap cat /config/session-<label>.yaml`
+- **Fix**: set `label` to the proxy name as a plain string (`label: gluetun`), or re-assign the proxy in the Web UI
+
 **DNS Resolution Issues in VPN Environments:**
 
 Some VPN configurations (especially unRAID Wireguard) block DNS resolution to IP lookup services while allowing regular HTTP traffic to MaM.
