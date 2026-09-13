@@ -110,7 +110,6 @@ warn_unreachable = true
 
 [tool.ruff]
 line-length = 100
-fix = true
 force-exclude = true
 target-version = "py313"
 required-version = ">=0.15.0"
