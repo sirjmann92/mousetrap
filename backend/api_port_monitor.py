@@ -74,7 +74,6 @@ def update_stack(
     immediate status recheck. Returns a success dict or raises HTTP errors
     for invalid stack names.
     """
-
     stack = port_monitor_manager.get_stack(name)
     _logger.info("[PortMonitorStackAPI] Update requested for stack '%s'", name)
     if not stack:
@@ -164,7 +163,6 @@ class AddPortMonitorStackRequest(BaseModel):
 @router.get("/stacks", response_model=list[PortMonitorStackModel])
 def list_stacks() -> list[PortMonitorStackModel]:
     """Return the configured port monitor stacks in the API response model."""
-
     return [
         PortMonitorStackModel(
             name=s.name,
@@ -185,7 +183,6 @@ def list_stacks() -> list[PortMonitorStackModel]:
 @router.post("/stacks", response_model=dict)
 def add_stack(req: AddPortMonitorStackRequest) -> dict[str, Any]:
     """Create a new port monitor stack and emit a UI event about it."""
-
     port_monitor_manager.add_stack(
         req.name,
         req.primary_container,
@@ -223,7 +220,6 @@ def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str,
     Returns success if the stack exists and was rechecked; otherwise raises
     HTTP 404.
     """
-
     ok = port_monitor_manager.recheck_stack(name)
     if not ok:
         raise HTTPException(status_code=404, detail="Stack not found")
@@ -233,7 +229,6 @@ def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str,
 @router.delete("/stacks", response_model=dict)
 def delete_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
     """Remove a configured stack by name and emit a UI event about deletion."""
-
     port_monitor_manager.remove_stack(name)
     append_ui_event_log(
         {
@@ -258,7 +253,6 @@ def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str,
     Marks the stack restarting and runs the restart work in a daemon
     thread so the API call returns immediately.
     """
-
     stack = port_monitor_manager.get_stack(name)
     if not stack:
         raise HTTPException(status_code=404, detail="Stack not found")
