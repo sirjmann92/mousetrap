@@ -547,10 +547,22 @@ def test_api_restart_omits_completion_events_after_shutdown_cancellation(
     restart = AsyncMock(return_value=False)
     events = Mock()
 
-    def immediate_thread(*, target: Callable[[], None], daemon: bool) -> Mock:
+    def immediate_thread(
+        *, target: Callable[..., object], args: tuple[object, ...], daemon: bool
+    ) -> Mock:
+        """Run the worker in place of starting a daemon thread.
+
+        Args:
+            target: Callable the endpoint hands the thread.
+            args: Positional arguments the endpoint binds at thread creation.
+            daemon: Whether the endpoint requested a daemon thread.
+
+        Returns:
+            A thread stub whose ``start`` runs the worker synchronously.
+        """
         assert daemon
         thread = Mock()
-        thread.start.side_effect = target
+        thread.start.side_effect = lambda: target(*args)
         return thread
 
     monkeypatch.setattr(
