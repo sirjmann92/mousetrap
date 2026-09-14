@@ -1056,7 +1056,16 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
     # Use proxied public IP if available, else fallback
     ip_to_use: str | None = mam_ip_override or proxied_public_ip or detected_public_ip
     # Get ASN for configured IP
-    asn_full, _ = await get_asn_and_timezone_from_ip(ip_to_use) if ip_to_use else (None, None)
+    asn_full, _ = (
+        await get_asn_and_timezone_from_ip(
+            ip_to_use,
+            proxy_cfg
+            if (proxy_cfg and proxy_cfg.get("host") and ip_to_use == proxied_public_ip)
+            else None,
+        )
+        if ip_to_use
+        else (None, None)
+    )
     match = re.search(r"(AS)?(\d+)", asn_full or "") if asn_full else None
     asn = match.group(2) if match else asn_full
     mam_session_as = asn_full
@@ -1238,7 +1247,16 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
         mam_ip_override = cfg.get("mam_ip", "").strip()
         detected_ip = detected_public_ip
         curr_ip = mam_ip_override or proxied_ip or detected_ip
-        asn_full, _ = await get_asn_and_timezone_from_ip(curr_ip) if curr_ip else (None, None)
+        asn_full, _ = (
+            await get_asn_and_timezone_from_ip(
+                curr_ip,
+                proxy_cfg
+                if (proxy_cfg and proxy_cfg.get("host") and curr_ip == proxied_ip)
+                else None,
+            )
+            if curr_ip
+            else (None, None)
+        )
         match = re.search(r"(AS)?(\d+)", asn_full or "") if asn_full else None
         curr_asn = match.group(2) if match else asn_full
 
@@ -1322,7 +1340,10 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
     status["proxied_public_ip_as"] = None
     if proxied_public_ip:
         # Get full AS string for proxied IP
-        asn_full_proxied, _ = await get_asn_and_timezone_from_ip(proxied_public_ip)
+        asn_full_proxied, _ = await get_asn_and_timezone_from_ip(
+            proxied_public_ip,
+            proxy_cfg if (proxy_cfg and proxy_cfg.get("host")) else None,
+        )
         status["proxied_public_ip_as"] = asn_full_proxied
     # Always set the top-level status message for the UI, prioritizing error/rate limit, then success, then fallback
     if auto_update_result is not None:
@@ -2923,7 +2944,16 @@ async def session_check_job(label: str) -> None:
             proxied_ip = cfg.get("proxied_public_ip")
             mam_ip_override = cfg.get("mam_ip", "").strip()
             new_ip = proxied_ip or detected_public_ip  # Reuse data from earlier
-            asn_full, _ = await get_asn_and_timezone_from_ip(new_ip) if new_ip else (None, None)
+            asn_full, _ = (
+                await get_asn_and_timezone_from_ip(
+                    new_ip,
+                    proxy_cfg
+                    if (proxy_cfg and proxy_cfg.get("host") and new_ip == proxied_ip)
+                    else None,
+                )
+                if new_ip
+                else (None, None)
+            )
             match = re.search(r"(AS)?(\d+)", asn_full or "") if asn_full else None
             new_asn = match.group(2) if match else asn_full
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
