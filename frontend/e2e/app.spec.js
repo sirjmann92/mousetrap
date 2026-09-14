@@ -143,6 +143,36 @@ test.describe
       await expect(page.getByText('No proxies configured.')).toBeVisible();
     });
 
+    test('reports a proxy taken by another client between refresh and delete', async ({ page }) => {
+      // The delete control is disabled from usage this page has already
+      // fetched. Another tab, another user, or a direct API call can assign the
+      // proxy after that, and nothing pushes the change here - so the refusal
+      // still has to be reported rather than the click silently failing.
+      await page.request.post('/api/proxies', {
+        data: { label: 'shared-proxy', host: '127.0.0.1', port: 8080 },
+      });
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Create New Session', exact: true }).click();
+      await page.getByText('Proxy Configuration', { exact: true }).click();
+
+      const trash = page.getByRole('button', { name: 'Delete proxy shared-proxy' });
+      await expect(trash).toBeEnabled();
+
+      await page.request.post('/api/session/save', {
+        data: { label: 'Other', mam: { mam_id: 'cookie' }, proxy: { label: 'shared-proxy' } },
+      });
+
+      // Still enabled here: this page has no way to know yet.
+      await expect(trash).toBeEnabled();
+      await trash.click();
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
+
+      await expect(page.getByRole('alert').filter({ hasText: 'shared-proxy' })).toContainText(
+        "still used by 'Other'",
+      );
+      await expect(page.getByText('Host: 127.0.0.1:8080')).toBeVisible();
+    });
+
     test('saves notification configuration without sending a notification', async ({ page }) => {
       await page.goto('/');
       await page.getByText('Notifications', { exact: true }).click();
