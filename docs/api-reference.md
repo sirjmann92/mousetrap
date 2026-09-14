@@ -7,26 +7,22 @@ This document provides a comprehensive reference for MouseTrap's REST API endpoi
 - Configurable via `PORT` environment variable
 
 ## Authentication
-Currently, MouseTrap does not implement authentication. All endpoints are publicly accessible on the configured port.
+MouseTrap does not implement authentication. Every endpoint is reachable by
+anyone who can reach the configured port, and `GET /api/proxies` returns stored
+proxy passwords, so the port should be exposed only to a trusted network or
+placed behind an authenticating reverse proxy.
 
 ---
 
 ## Session Management
 
 ### GET `/api/sessions`
-List all configured sessions.
+List the configured session labels. This returns labels only, not session
+contents — use `GET /api/session/{label}` for one session's configuration.
 
 **Response:**
 ```json
-[
-  {
-    "label": "session-name",
-    "mam_id": "your_mam_id", 
-    "session_type": "auto",
-    "mam_ip": "1.2.3.4",
-    "check_frequency": 30
-  }
-]
+{ "sessions": ["Primary", "Seedbox"] }
 ```
 
 ### GET `/api/session/{label}`
@@ -117,33 +113,34 @@ Delete a session and clear its UI event-log entries.
 ## Status & Monitoring
 
 ### GET `/api/status`
-Get the current status for a specific session.
+Get the current status for a session.
 
 **Query Parameters:**
-- `label` (**required** for session data): Session label to query. If omitted, the response returns `configured: false` along with a list of available session labels.
-- `force` (optional): Set to `1` to bypass the cache and perform a fresh status check immediately.
+- `label` (**required** for session data): Session label to query. If omitted,
+  the response reports the available labels instead.
+- `force` (optional): Set to `1` to bypass the cache and check immediately.
 
 **Response (configured session):**
 ```json
 {
-  "configured": true,
   "status_message": "OK",
-  "mam_id": "your_mam_id",
+  "message": "",
   "points": 50000,
   "mam_cookie_exists": true,
   "wedge_active": false,
   "vip_active": true,
   "current_ip": "1.2.3.4",
   "current_ip_asn": "12345",
+  "ip_source": "proxy",
   "mam_session_as": "AS12345 Some ISP",
   "mam_seen_asn": "12345",
   "mam_seen_as": "AS12345 Some ISP",
   "configured_ip": "1.2.3.4",
   "configured_asn": "12345",
   "check_freq": 15,
-  "last_check_time": "2025-09-04T12:00:00+00:00",
-  "next_check_time": "2025-09-04T12:15:00+00:00",
-  "auto_update_seedbox": null,
+  "last_check_time": "2026-09-14T12:00:00+00:00",
+  "next_check_time": "2026-09-14T12:15:00+00:00",
+  "timezone": "UTC",
   "details": {},
   "detected_public_ip": "1.2.3.4",
   "detected_public_ip_asn": "12345",
@@ -151,11 +148,22 @@ Get the current status for a specific session.
   "proxied_public_ip": null,
   "proxied_public_ip_asn": null,
   "proxied_public_ip_as": null,
-  "ip_monitoring_mode": "auto"
+  "ip_monitoring_mode": "auto",
+  "mam_invalid_since": null,
+  "last_mam_valid_check": "2026-09-14T12:00:00+00:00"
 }
 ```
 
-**Response (no label provided or label not found):**
+- **The MAM ID is never returned.** The session cookie is write-only over the
+  API: `POST /api/session/save` accepts it, and no response echoes it back.
+- `auto_update_seedbox` is present only when an automatic seedbox update ran
+  during this check, and carries that attempt's result.
+- `configured` appears only in the unconfigured response below; its absence
+  means a session was found.
+- `mam_invalid_since` and `last_mam_valid_check` track cookie validity, set from
+  MaM's own response classification rather than from a failed request.
+
+**Response (no label provided, or no sessions exist):**
 ```json
 {
   "configured": false,
@@ -169,11 +177,29 @@ Get the current status for a specific session.
 }
 ```
 
-### POST `/api/update-seedbox/{label}`
-Manually trigger seedbox update for a session.
+### POST `/api/session/update_seedbox`
+Force a seedbox IP/ASN update for a session using the IP entered on it. The
+session must have both a `mam_id` and a `mam_ip`; either missing returns `400`.
 
-**Parameters:**
-- `label` (path): Session label/name
+**Request Body:**
+```json
+{ "label": "session-name" }
+```
+
+**Response:** `{"success": true, "msg": "..."}`, or `{"success": false, "error": "..."}`
+when MaM rejects the update or cannot be reached. `{"success": true, "msg": "No
+change: IP/ASN already set."}` when nothing needed updating.
+
+---
+
+### POST `/api/session/refresh`
+Confirm a session's MaM ID is configured. The frontend calls this to check that
+session data are available; it performs no MaM request.
+
+**Request Body:**
+```json
+{ "label": "session-name" }
+```
 
 ---
 
@@ -205,28 +231,47 @@ Test ASN mismatch notification for a session (debugging/testing only).
 
 ## Automation & Purchases
 
-### POST `/api/automation/{label}`
-Update automation settings for a session.
-
-**Parameters:**
-- `label` (path): Session label/name
+### POST `/api/session/perkautomation/save`
+Save a session's perk automation settings. Time-based triggers have their
+`last_purchase` timestamp set or cleared as appropriate before the session is
+persisted.
 
 **Request Body:**
 ```json
 {
-  "min_points": 10000,
-  "upload_credit": {
-    "enabled": true,
-    "gb": 50,
-    "trigger_type": "time",
-    "trigger_days": 14
-  },
-  "vip": {
-    "enabled": true,
-    "weeks": 8,
-    "trigger_type": "points",
-    "trigger_point_threshold": 30000
+  "label": "session-name",
+  "perk_automation": {
+    "min_points": 10000,
+    "upload_credit": {
+      "enabled": true,
+      "gb": 50,
+      "min_points": 0,
+      "points_to_keep": 0,
+      "trigger_type": "time",
+      "trigger_days": 14,
+      "trigger_point_threshold": 50000
+    },
+    "vip_automation": {
+      "enabled": true,
+      "weeks": 8,
+      "trigger_type": "points",
+      "trigger_days": 7,
+      "trigger_point_threshold": 30000
+    }
   }
+}
+```
+
+The VIP section is `vip_automation`, not `vip`.
+
+### GET `/api/automation/guardrails`
+Report which automations are enabled per session, keyed by label, so the UI can
+enforce one enabled automation of each type per MaM account.
+
+**Response:**
+```json
+{
+  "Gluetun": { "username": "example_user", "autoUpload": true, "autoVIP": false }
 }
 ```
 
@@ -271,12 +316,13 @@ Manually trigger a VIP purchase.
 ## Proxy Management
 
 ### GET `/api/proxies`
-List all configured proxies.
+List the configured proxies, keyed by label.
 
 **Response:**
 ```json
 {
   "proxy-name": {
+    "label": "proxy-name",
     "host": "proxy.example.com",
     "port": 8080,
     "username": "user",
@@ -285,19 +331,40 @@ List all configured proxies.
 }
 ```
 
+This returns the stored proxy entries verbatim, **including proxy passwords**.
+Combined with the lack of authentication, anyone who can reach the port can read
+them, so treat the configured port as trusted-network only. This is the one
+endpoint that returns a stored credential; the MAM session cookie is never
+returned by any endpoint.
+
 ### POST `/api/proxies`
-Create or update proxy configuration.
+Create a proxy. Returns `400` if `label` is missing, or if a proxy with that
+label already exists — this endpoint does not update.
 
 **Request Body:**
 ```json
 {
   "label": "proxy-name",
-  "host": "proxy.example.com", 
+  "host": "proxy.example.com",
   "port": 8080,
   "username": "user",
   "password": "pass"
 }
 ```
+
+Only `label` is enforced. Anything else in the body is stored as sent, so a
+proxy saved without a `host` resolves to no proxy at all; the UI requires
+label, host and port before it will save.
+
+### PUT `/api/proxies/{label}`
+Replace an existing proxy's configuration. Returns `404` if no proxy has that
+label.
+
+**Parameters:**
+- `label` (path): Proxy label/name. The stored proxy is keyed by this path
+  value, so a proxy cannot be renamed through this endpoint.
+
+**Request Body:** the same shape as `POST /api/proxies`.
 
 ### DELETE `/api/proxies/{label}`
 Delete a proxy configuration.
@@ -314,7 +381,8 @@ Delete a proxy configuration.
   since its reference cannot be inspected.
 
 ### GET `/api/proxy_test/{label}`
-Test a proxy and return detected IP.
+Look up the public IP and ASN seen through a proxy. Returns `404` if no proxy
+has that label.
 
 **Parameters:**
 - `label` (path): Proxy label/name
@@ -322,19 +390,22 @@ Test a proxy and return detected IP.
 **Response:**
 ```json
 {
-  "success": true,
-  "detected_ip": "1.2.3.4",
-  "asn": "AS12345",
-  "message": "Proxy test successful"
+  "proxied_ip": "1.2.3.4",
+  "proxied_asn": "AS12345 Example Network"
 }
 ```
+
+Both values are `null` when the lookup through the proxy fails, which is how a
+proxy that is configured but unreachable presents.
 
 ---
 
 ## Port Monitoring
 
+Stacks are addressed by a `name` **query parameter**, not a path segment.
+
 ### GET `/api/port-monitor/stacks`
-List all port monitoring configurations.
+List the configured stacks.
 
 **Response:**
 ```json
@@ -344,16 +415,21 @@ List all port monitoring configurations.
     "primary_container": "gluetun",
     "primary_port": 8080,
     "secondary_containers": ["qbittorrent", "prowlarr"],
-    "interval": 5,
-    "public_ip": null,
+    "interval": 60,
     "status": "OK",
-    "last_check": "2025-09-04T12:00:00Z"
+    "last_checked": 1757851200.0,
+    "last_result": true,
+    "public_ip": null,
+    "public_ip_detected": null
   }
 ]
 ```
 
+`last_checked` is a Unix timestamp, not an ISO string. `interval` is in seconds
+and defaults to 60.
+
 ### POST `/api/port-monitor/stacks`
-Create a new port monitoring configuration.
+Create a stack.
 
 **Request Body:**
 ```json
@@ -362,173 +438,338 @@ Create a new port monitoring configuration.
   "primary_container": "container_name",
   "primary_port": 8080,
   "secondary_containers": ["container2", "container3"],
-  "interval": 5,
+  "interval": 60,
   "public_ip": "1.2.3.4"
 }
 ```
 
-### PUT `/api/port-monitor/stacks/{name}`
-Update an existing port monitoring configuration.
+`name`, `primary_container` and `primary_port` are required; the rest default as
+shown.
 
-### DELETE `/api/port-monitor/stacks/{name}`
-Delete a port monitoring configuration.
+### PUT `/api/port-monitor/stacks?name={name}`
+Update a stack and trigger an immediate recheck.
 
 **Parameters:**
-- `name` (path): Monitor configuration name
+- `name` (query): Stack name
+
+**Request Body:** the same fields as the create body **without** `name`, which
+comes from the query parameter.
+
+### DELETE `/api/port-monitor/stacks?name={name}`
+Delete a stack.
+
+**Parameters:**
+- `name` (query): Stack name
+
+### POST `/api/port-monitor/stacks/recheck?name={name}`
+Recheck one stack immediately. Returns `404` if no stack has that name.
+
+**Parameters:**
+- `name` (query): Stack name
+
+### POST `/api/port-monitor/stacks/restart?name={name}`
+Restart a stack's primary container. The restart runs in a background thread, so
+this returns as soon as the stack is marked restarting rather than when the
+container is back.
+
+**Parameters:**
+- `name` (query): Stack name
 
 ### GET `/api/port-monitor/containers`
-List all available Docker containers.
+List running Docker container names.
 
-**Response:**
+**Response:** a flat array of strings, not objects.
 ```json
-[
-  {
-    "name": "gluetun",
-    "status": "running",
-    "id": "container_id_here"
-  }
-]
+["gluetun", "qbittorrent", "prowlarr"]
 ```
+
+Returns an empty list when the Docker socket is not mounted; port monitoring
+degrades rather than failing.
 
 ---
 
 ## Notifications
 
-### GET `/api/notifications`
-Get current notification configuration.
+Notification settings are global, not per session.
+
+### GET `/api/notify/config`
+Return the stored notification configuration.
 
 **Response:**
 ```json
 {
-  "email": {
-    "enabled": true,
-    "smtp_server": "smtp.gmail.com",
-    "smtp_port": 587,
-    "username": "user@gmail.com",
-    "recipient": "recipient@gmail.com"
+  "webhook_url": "https://discord.com/api/webhooks/...",
+  "discord_webhook": true,
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": 587,
+    "username": "user@example.com",
+    "password": "app-password",
+    "to_email": "recipient@example.com"
   },
-  "webhook": {
-    "enabled": true,
-    "url": "https://discord.com/api/webhooks/...",
-    "discord": true
+  "apprise": {
+    "url": "http://apprise:8000",
+    "mode": "stateless",
+    "notify_url_string": "",
+    "key": "",
+    "tags": "",
+    "include_prefix": false
   },
+  "pushover": { "user_key": "...", "api_token": "..." },
   "event_rules": {
     "automation_success": {
-      "email": false,
-      "webhook": true,
-      "apprise": false,
-      "pushover": false
-    },
-    "automation_failure": {
-      "email": true,
-      "webhook": true,
-      "apprise": false,
-      "pushover": true
+      "enabled": true, "email": false, "webhook": true,
+      "apprise": false, "pushover": false
     }
   }
 }
 ```
 
-### POST `/api/notifications`
-Update notification configuration.
+`webhook_url` and `discord_webhook` are top-level, not nested under a `webhook`
+object. SMTP requires all of `host`, `port`, `username`, `password` and
+`to_email`; a partial section is skipped rather than half-sent.
 
-### POST `/api/notifications/test-email`
-Test email notification configuration.
+An event fires only when its rule enables at least one channel, and an explicit
+`"enabled": false` on the rule suppresses it regardless of the channel flags.
 
-### POST `/api/notifications/test-webhook`
-Test webhook notification configuration.
+### POST `/api/notify/config`
+Replace the notification configuration. The body is the same shape returned by
+`GET /api/notify/config`.
+
+**Response:** `{"success": true}`
+
+### POST `/api/notify/test/webhook`
+Send a test payload to the configured webhook. Returns `400` if no webhook URL
+is configured.
+
+**Request Body:** an arbitrary object, forwarded as the payload.
+
+### POST `/api/notify/test/smtp`
+Send a test email using the stored SMTP settings. Returns `400` if the SMTP
+configuration is incomplete.
+
+**Request Body:**
+```json
+{ "subject": "optional", "body": "optional" }
+```
 
 ### POST `/api/notify/test/apprise`
-Test Apprise notification configuration.
+Send a test notification via Apprise, in whichever of stateless (URLs) or
+stateful (key/tags) mode is configured.
+
+**Request Body:**
+```json
+{ "event_type": "optional", "label": "optional", "status": "optional",
+  "message": "optional", "details": {} }
+```
 
 ### POST `/api/notify/test/pushover`
-Test Pushover notification configuration.
+Send a test Pushover notification. Returns `400` if `user_key` or `api_token`
+are not configured.
 
-**Raises:** `400` if `user_key` or `api_token` are not configured.
+**Request Body:**
+```json
+{ "message": "optional" }
+```
+
+All four test endpoints answer `{"success": true|false}`.
+
+---
+
+## Indexer Integrations
+
+MouseTrap can push a session's MAM ID into Prowlarr, Chaptarr, Jackett,
+AudioBookRequest and Autobrr, so a rotated cookie does not have to be pasted
+into each one by hand.
+
+Every endpoint here answers `200` with `{"success": false, "message": "..."}`
+on failure rather than an HTTP error status, because the frontend reads these
+bodies without checking the status code.
+
+### Connection tests
+
+`POST /api/prowlarr/test`, `/api/chaptarr/test`, `/api/jackett/test`,
+`/api/audiobookrequest/test`, `/api/autobrr/test`
+
+**Request Body:**
+```json
+{
+  "host": "prowlarr",
+  "port": 9696,
+  "api_key": "your-api-key",
+  "admin_password": ""
+}
+```
+
+`host`, `port` and `api_key` are required. `port` is declared as an integer, so
+a numeric string is converted and anything else is rejected. `admin_password`
+is used only by Jackett, which authenticates before its API accepts calls.
+
+**Response:** `{"success": true, "message": "...", "indexer_count": 12}` — the
+Prowlarr test also reports `indexer_id` when it finds the MyAnonamouse indexer.
+
+### POST `/api/prowlarr/find_indexer`
+Locate the MyAnonamouse indexer's ID in Prowlarr. Same request body as the
+connection tests.
+
+### MAM ID updates
+
+`POST /api/prowlarr/update`, `/api/chaptarr/update`, `/api/jackett/update`,
+`/api/audiobookrequest/update`, `/api/autobrr/update`
+
+**Request Body:**
+```json
+{ "label": "session-name", "mam_id": "" }
+```
+
+`label` is required and names the session whose stored integration settings are
+used. `mam_id` is optional: when omitted or blank, the session's current MAM ID
+is sent, which is what the automatic sync after a cookie rotation does.
+
+### POST `/api/indexer/update`
+Update every integration enabled on the session in one call, rather than one
+endpoint at a time. Same request body as the individual updates.
 
 ---
 
 ## Event Log
 
-### GET `/api/event-log`
-Retrieve event log entries.
+The UI event log is stored in SQLite under the persistent config directory.
 
-**Query Parameters:**
-- `filter` (optional): Filter by session label or "global"
-- `limit` (optional): Number of entries to return (default: 50)
+### GET `/api/ui_event_log`
+Return every logged event in insertion order. There are no query parameters;
+filtering and limiting are done by the client.
 
-**Response:**
+**Response:** events are stored as whole JSON objects, so the keys vary by event
+type. An automation event looks like:
 ```json
 [
   {
-    "timestamp": "2025-09-04T12:00:00Z",
-    "event": "automation_success",
-    "event_type": "automation_success", 
+    "timestamp": "2026-09-14T12:00:00+00:00",
     "label": "session-name",
-    "details": "VIP purchase successful (4 weeks)",
-    "status": "success",
-    "auto_update": "N/A"
+    "event_type": "automation",
+    "trigger": "automation",
+    "purchase_type": "vip",
+    "amount": 4,
+    "details": { "points_before": 51234 },
+    "result": "success",
+    "status_message": "Automated VIP purchase succeeded: 4 weeks"
   }
 ]
 ```
 
-### DELETE `/api/event-log`
-Clear all event log entries.
+`result` is one of `success`, `failed` or `skipped`. A skipped event's
+`status_message` names the guardrail that blocked the purchase, or the MaM
+failure that stopped any guardrail from being evaluated — in which case
+`details.points_before` is `null`, since no balance was read.
+
+Returns an empty list if the log cannot be read, rather than erroring.
+
+### DELETE `/api/ui_event_log`
+Clear the whole event log.
+
+**Response:** `{"success": true}`, or `{"success": false, "error": "..."}`.
+
+### DELETE `/api/ui_event_log/{label}`
+Clear only the events for one session. Called automatically when a session is
+deleted.
+
+**Parameters:**
+- `label` (path): Session label/name
 
 ---
 
 ## Health & Information
 
-### GET `/api/health`
-Basic health check endpoint.
-
-**Response:**
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-09-04T12:00:00Z"
-}
-```
+There is no `/api/health` endpoint. Container health is checked by the
+Dockerfile `HEALTHCHECK`, which requests the application root.
 
 ### GET `/api/version`
-Get application version information.
+Return the running application version.
 
 **Response:**
 ```json
-{
-  "version": "1.0.0",
-  "build_date": "2025-09-04",
-  "git_commit": "abc123"
-}
+{ "version": "2.4.6" }
+```
+
+The value comes from the `APP_VERSION` build argument injected during the Docker
+build, and is `dev` for a local source run. Release versions come from git tags;
+`frontend/package.json`'s `version` field is inert.
+
+### GET `/api/server_time`
+Return the server's current time in its local timezone, ISO formatted. The UI
+uses it to render schedules in the container's `TZ` rather than the browser's.
+
+### GET `/api/last_session`
+Return the session label the UI last had selected.
+
+**Response:** `{"label": "session-name"}`, or `{"label": null}` if none is saved.
+
+### POST `/api/last_session`
+Persist the selected session label. Returns `400` if `label` is missing.
+
+**Request Body:**
+```json
+{ "label": "session-name" }
 ```
 
 ---
 
 ## Error Responses
 
-All endpoints may return error responses in the following format:
+There is no single error shape. Which one you get depends on how the endpoint
+reports failure, and the difference matters to clients:
 
+**1. An HTTP error status** — FastAPI's `HTTPException`, used for refusals such
+as a missing session, a proxy still in use, or a session naming a proxy that
+does not exist:
 ```json
-{
-  "success": false,
-  "error": "Error message describing what went wrong",
-  "details": "Additional technical details (optional)"
-}
+{ "detail": "Proxy 'vpn' is still used by 'seedbox'. Change or remove ..." }
 ```
 
-Common HTTP status codes:
-- `200`: Success
-- `400`: Bad Request (invalid parameters)
-- `404`: Not Found (session/proxy/monitor not found)  
-- `500`: Internal Server Error
+**2. `200` with a success flag** — used by the automation and indexer endpoints,
+because the frontend reads those bodies without checking the status code.
+Binding their bodies as FastAPI parameters would return `422` instead and break
+that:
+```json
+{ "success": false, "message": "Session 'seedbox' not found" }
+```
+
+**3. `200` with an `error` key** — the seedbox update and manual purchase
+routes, where the call reached MaM and MaM refused:
+```json
+{ "success": false, "error": "Rate limit: last change too recent. Try again in 42 minutes." }
+```
+
+Status codes in use:
+- `200`: Success, or a handled failure in shapes 2 and 3 above
+- `400`: Bad request — a missing label, an unparsable body, a proxy label
+  naming no configured proxy
+- `404`: Session, proxy, or port-monitor stack not found
+- `409`: Proxy still selected by a session, so it was not deleted
+- `500`: Unhandled server error
 
 ---
 
 ## Rate Limiting
 
-MouseTrap implements internal rate limiting for MaM API calls:
-- Status checks: Maximum once per hour per session
-- Seedbox updates: Maximum once per hour per session
-- Purchase attempts: No built-in rate limiting (respects MaM's limits)
+MouseTrap does not impose its own rate limits on MaM calls. It paces scheduled
+work and surfaces the limits MaM itself enforces.
 
-Rate limiting information is included in status responses when active.
+**What MouseTrap paces:**
+- Status checks run on each session's configured interval (`check_freq`, in
+  minutes). There is no additional hourly cap.
+- The MaM session keepalive runs at most once every 24 hours per session,
+  enough to hold off the roughly 30-day session expiry.
+
+**What MaM enforces:**
+- Seedbox IP/ASN updates are refused when the previous change was too recent.
+  MouseTrap detects this from the response rather than from a local timer — a
+  `429`, or a message containing "too recent" — and reports how many minutes
+  remain in `rate_limit_minutes` alongside the `error` string.
+- Purchases have no MouseTrap-side limit and are subject to whatever MaM
+  applies.
+
+A rate-limited seedbox update is a handled outcome, not an error: it is logged
+to the event log as `seedbox_update_rate_limited` and answers `200` in shape 3
+above.
