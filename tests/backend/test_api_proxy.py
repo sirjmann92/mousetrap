@@ -99,3 +99,40 @@ def test_deleting_an_unknown_proxy_still_reports_not_found(
         api_proxy.delete_proxy("ABSENT")
 
     assert excinfo.value.status_code == 404
+
+
+def test_usage_reports_which_sessions_select_each_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The UI disables deletion from this, so it must list every user."""
+    _install(
+        monkeypatch,
+        {
+            "seedbox": {"label": "seedbox", "proxy": {"label": "VPN"}},
+            "spare": {"label": "spare", "proxy": {"label": "VPN"}},
+            "unrelated": {"label": "unrelated", "proxy": {}},
+        },
+    )
+
+    assert api_proxy.proxy_usage() == {"VPN": ["seedbox", "spare"]}
+
+
+def test_usage_lists_an_unused_proxy_with_no_sessions(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every configured proxy appears, so the UI can tell unused from unknown."""
+    _install(monkeypatch, {"unrelated": {"label": "unrelated", "proxy": {}}})
+
+    assert api_proxy.proxy_usage() == {"VPN": []}
+
+
+def test_usage_attributes_a_corrupt_session_to_every_proxy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A session that cannot be read might use any proxy, so none look free."""
+    _install(monkeypatch, {"bad": YamlStoreError("malformed")})
+
+    assert api_proxy.proxy_usage() == {"VPN": ["bad"]}
+
+
+def test_usage_ignores_a_non_string_proxy_label(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A label that cannot key the proxy store matches no configured proxy."""
+    _install(monkeypatch, {"odd": {"label": "odd", "proxy": {"label": ["VPN"]}}})
+
+    assert api_proxy.proxy_usage() == {"VPN": []}
