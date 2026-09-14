@@ -337,6 +337,21 @@ them, so treat the configured port as trusted-network only. This is the one
 endpoint that returns a stored credential; the MAM session cookie is never
 returned by any endpoint.
 
+### GET `/api/proxies/usage`
+Report which sessions select each configured proxy. Every configured proxy
+appears, with an empty list when unused, so a caller can tell "unused" from
+"unknown".
+
+**Response:**
+```json
+{ "vpn": ["seedbox", "spare"], "backup-vpn": [] }
+```
+
+The UI disables the delete control from this rather than accepting the click
+and refusing afterwards. It shares its scan with `DELETE /api/proxies/{label}`,
+so the two cannot disagree — a session whose file cannot be parsed is
+attributed to every proxy, since its reference cannot be read.
+
 ### POST `/api/proxies`
 Create a proxy. Returns `400` if `label` is missing, or if a proxy with that
 label already exists — this endpoint does not update.
