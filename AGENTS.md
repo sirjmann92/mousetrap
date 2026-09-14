@@ -86,6 +86,27 @@ account management.
   development.
 - Redact secrets in logs, examples, screenshots, and troubleshooting snippets.
 
+**Any change to an API route updates `docs/api-reference.md` in the same
+change.** That means a new or removed endpoint, a changed path or method, a
+changed request or response shape, and a new status code a caller can receive.
+
+The reference drifted badly once because this was left implicit: an audit
+against the running routes found 13 documented endpoints that did not exist and
+33 real ones that were undocumented, out of 49. Request and response bodies had
+drifted as far as the paths, and two places claimed `/api/status` returns the
+MAM ID, which it never has — documentation wrong in a direction that invites
+someone to "fix" the code to match it.
+
+Verify the shape rather than describing it from memory or from the handler
+name. Read the code, or call the endpoint and dump the keys. To check nothing
+has drifted, compare the documented endpoints against the routes FastAPI
+actually registers:
+
+```python
+from backend.app import app
+{f"{m} {r.path}" for r in app.routes for m in (getattr(r, "methods", set()) or set())}
+```
+
 ## Local Setup
 
 Set up both backend and frontend development environments:
