@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from backend.config import load_session, session_exists
 from backend.event_log import append_ui_event_log
-from backend.mam_api import get_status
+from backend.mam_api import get_status, points_unavailable_reason
 from backend.notifications_backend import notify_event
 from backend.perk_automation import buy_upload_credit, buy_vip
 from backend.proxy_config import resolve_proxy_from_session_cfg
@@ -43,6 +43,10 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
     log, and attempt to notify configured notification backends. It returns
     a dict including a "success" boolean and any result details from the
     purchase attempt.
+
+    With the minimum-points guardrail enabled, a MaM status response carrying
+    no point balance blocks the purchase and reports that failure, because the
+    guardrail the user asked for cannot be evaluated without one.
 
     Raises:
         HTTPException: If the required `label` field is missing from the
@@ -77,16 +81,19 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
     session_min_points = cfg.get("perk_automation", {}).get("min_points")
     if enforce_min_pts and session_min_points is not None:
         status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-        current_points = status.get("points", 0)
-        if current_points is None:
-            current_points = 0
+        current_points = status.get("points")
         purchase_cost = amount * _UPLOAD_POINTS_PER_GB
-        if int(current_points) - purchase_cost < int(session_min_points):
+        if current_points is None:
+            guardrail_reason = points_unavailable_reason(status)
+        elif int(current_points) - purchase_cost < int(session_min_points):
             guardrail_reason = (
                 f"Purchase would drop below minimum points: "
                 f"{current_points} - {purchase_cost} = {int(current_points) - purchase_cost} "
                 f"< {session_min_points}"
             )
+        else:
+            guardrail_reason = ""
+        if guardrail_reason:
             _logger.info("[ManualUpload] BLOCKED for session '%s': %s", label, guardrail_reason)
             append_ui_event_log(
                 {
@@ -175,6 +182,10 @@ async def manual_vip(request: Request) -> dict[str, Any]:
     notifications. Returns a dict with a "success" boolean and purchase
     details.
 
+    With the minimum-points guardrail enabled, a MaM status response carrying
+    no point balance blocks the purchase and reports that failure, because the
+    guardrail the user asked for cannot be evaluated without one.
+
     Raises:
         HTTPException: If the required `label` field is missing from the
             request JSON, or if `weeks` is neither "max" nor a whole number
@@ -215,15 +226,18 @@ async def manual_vip(request: Request) -> dict[str, Any]:
         purchase_cost = _VIP_POINTS_COST.get(weeks_int)
         if purchase_cost is not None:
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            current_points = status.get("points", 0)
+            current_points = status.get("points")
             if current_points is None:
-                current_points = 0
-            if int(current_points) - purchase_cost < int(session_min_points):
+                guardrail_reason = points_unavailable_reason(status)
+            elif int(current_points) - purchase_cost < int(session_min_points):
                 guardrail_reason = (
                     f"Purchase would drop below minimum points: "
                     f"{current_points} - {purchase_cost} = {int(current_points) - purchase_cost} "
                     f"< {session_min_points}"
                 )
+            else:
+                guardrail_reason = ""
+            if guardrail_reason:
                 _logger.info("[ManualVIP] BLOCKED for session '%s': %s", label, guardrail_reason)
                 append_ui_event_log(
                     {

@@ -22,7 +22,7 @@ from typing import Any
 
 from backend.config import list_sessions, load_session, save_session
 from backend.event_log import append_ui_event_log
-from backend.mam_api import get_status
+from backend.mam_api import get_status, points_unavailable_reason
 from backend.notifications_backend import notify_event
 from backend.perk_automation import buy_upload_credit, buy_vip
 from backend.proxy_config import resolve_proxy_from_session_cfg
@@ -108,14 +108,17 @@ def _log_automation_skip(
     reason: str,
     now: datetime,
 ) -> None:
-    """Record a guardrail-blocked purchase in the log and the UI event log.
+    """Record a skipped purchase in the log and the UI event log.
 
     Args:
         job: Which perk job is skipping.
         label: Session label.
         amount: Perk amount that would have been purchased.
-        points: Points held before the skip, for the event details.
-        reason: Guardrail explanation shown to the user.
+        points: Points held before the skip, for the event details. ``None``
+            when MaM did not report a balance, which is itself a skip reason.
+        reason: Explanation shown to the user, either a guardrail that blocked
+            the purchase or the MaM API failure that stopped any guardrail from
+            being evaluated.
         now: Current time, so the event shares the job's clock.
 
     """
@@ -214,6 +217,8 @@ async def upload_credit_automation_job() -> None:
 
     For each configured session this function:
     - loads session configuration
+    - abandons the session for this run when MaM reports no point balance,
+        since every guardrail below is a comparison against it
     - checks session- and automation-level guardrails (min points, time,
         point thresholds)
     - attempts an upload credit purchase via `buy_upload_credit` when
@@ -254,9 +259,12 @@ async def upload_credit_automation_job() -> None:
 
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get("points", 0)
+            points = status.get("points")
             if points is None:
-                points = 0
+                _log_automation_skip(
+                    _UPLOAD_JOB, label, gb_amount, points, points_unavailable_reason(status), now
+                )
+                continue
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
             session_min_points = cfg.get("perk_automation", {}).get("min_points")
             if session_min_points is not None and int(points) < int(session_min_points):
@@ -361,6 +369,9 @@ async def vip_automation_job() -> None:
 
     For each configured session this function:
     - loads session configuration
+    - abandons the session for this run when MaM reports no point balance,
+        since every guardrail below is a comparison against it, leaving the
+        retry state untouched because no purchase was attempted
     - checks session- and automation-level guardrails (min points, time,
         point thresholds, retry/cooldown logic)
     - attempts VIP purchases via `buy_vip` when guardrails are satisfied
@@ -389,9 +400,12 @@ async def vip_automation_job() -> None:
             # Read weeks from automation config (default 4)
             weeks = automation.get("weeks", 4)
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
-            points = status.get("points", 0)
+            points = status.get("points")
             if points is None:
-                points = 0
+                _log_automation_skip(
+                    _VIP_JOB, label, weeks, points, points_unavailable_reason(status), now
+                )
+                continue
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
             session_min_points = cfg.get("perk_automation", {}).get("min_points")
             if session_min_points is not None and int(points) < int(session_min_points):
