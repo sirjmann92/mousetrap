@@ -102,7 +102,8 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
     dict
         A dictionary with keys:
             - mam_cookie_exists (bool): whether a mam_id was provided and a successful response was obtained.
-            - points: seedbonus value or None.
+            - points: seedbonus value, or None when no balance could be read. None is
+              never a balance of zero; see `points_unavailable_reason`.
             - wedge_active: wedge status (bool) or None.
             - vip_active: vip status (bool) or None.
             - message: present when there is an error or missing mam_id.
@@ -215,6 +216,30 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
             # No 'message' key unless there is an error
             "raw": data,
         }
+
+
+def points_unavailable_reason(status: dict[str, Any]) -> str:
+    """Explain why a ``get_status`` result carried no point balance.
+
+    ``get_status`` returns ``points: None`` on every path that failed to reach a
+    usable balance: a missing mam_id, a body that is not valid JSON, any request
+    exception, and a 200 response that omitted ``seedbonus``. The first three
+    carry a ``message`` naming the failure; the fourth does not, so it falls
+    back to a description of the response.
+
+    ``None`` is never a balance of zero — MAM reports that as ``seedbonus: 0``,
+    which ``data.get`` returns as ``0`` rather than ``None``. Callers must treat
+    it as "unknown" and not compare it against a points guardrail.
+
+    Args:
+        status: A ``get_status`` result whose ``points`` is None.
+
+    Returns:
+        A user-facing sentence naming the failure, for a skip or block message.
+
+    """
+    message = status.get("message")
+    return str(message) if message else "MaM API returned no point balance."
 
 
 def dummy_purchase(item: Any) -> dict[str, Any]:

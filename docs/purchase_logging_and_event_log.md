@@ -19,6 +19,7 @@ All manual and automated purchases are logged if and only if a purchase is attem
 - **Skipped Automations:**
   - "Not enough points: 9133 < 20000" (session-level guardrail)
   - "Below automation point threshold: 9133 < 10000" (automation-level guardrail)
+  - "Failed to fetch status: ..." (MaM reported no point balance, so no guardrail could be evaluated and the session is left until the next run)
   - Skipped events are only logged for automations that are enabled and managed by the backend.
 
 

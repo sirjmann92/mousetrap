@@ -216,6 +216,9 @@ Manually trigger an upload credit purchase.
 
 - `label` is required; a missing label returns `400`.
 - `amount` is a number of GB and must be `50` or `100`; any other value returns `400`.
+- When the session enables the minimum-points guardrail and MaM returns no point
+  balance, the purchase is not attempted and the response carries the MaM failure
+  in `error`.
 
 ### POST `/api/automation/vip`
 Manually trigger a VIP purchase.
@@ -232,6 +235,9 @@ Manually trigger a VIP purchase.
 - `weeks` is a whole number of weeks, sent as a number or a string, and defaults
   to `4`. `"max"` and `90` both buy the max duration. Any other value returns
   `400`.
+- When the session enables the minimum-points guardrail and MaM returns no point
+  balance, the purchase is not attempted and the response carries the MaM failure
+  in `error`.
 
 ---
 

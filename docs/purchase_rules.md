@@ -8,6 +8,12 @@ This document describes all rules and guardrails for purchases (Upload Credit, V
   - No automated or manual purchase will be attempted if the user's current points are below this session-level minimum.
   - This rule is enforced before any individual automation or purchase rule.
 
+- **Unknown Points:**
+  - Every points guardrail is a comparison against the balance MaM reports, so none can be applied when MaM returns no balance at all — an unreachable API, a rejected session cookie, or a response that omits the balance.
+  - An automation run in that state skips the session and records the MaM failure as the reason, rather than measuring a guardrail against an assumed zero.
+  - A manual purchase in that state is blocked and reports the same failure, since the guardrail the user asked for cannot be enforced.
+  - A balance MaM reports as zero is a real balance and is measured normally.
+
 ## 2. Automation-Specific Guardrails
 - **Enabled State (One Automation per User):**
   - You can only enable each automation type (VIP, Upload Credit) for one session per user account (`uid`).

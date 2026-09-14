@@ -161,6 +161,12 @@ volumes:
 - **Wait for points**: Automation waits until both trigger conditions AND sufficient points
 - **Verify costs**: Upload credit (500/GB), VIP (1250/week)
 
+**MaM Status Unreadable:**
+- **Read the skip reason**: A skip that names a status failure rather than a threshold means MaM returned no point balance, so no guardrail was evaluated at all
+- **Check the session cookie**: A rejected or expired `mam_id` is the most common cause, covered under Session Configuration Issues above
+- **Check connectivity**: An unreachable MaM, a proxy failure, or a maintenance page all surface here
+- **No action needed once fixed**: The next automation run re-reads the balance and resumes
+
 **Trigger Conditions Not Met:**
 - **Time trigger**: Check "days since last purchase" requirement
 - **Point trigger**: Verify current points exceed trigger threshold
