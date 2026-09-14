@@ -47,6 +47,18 @@ export default function App() {
     }
   }, []);
 
+  // Which sessions select which proxy, so the proxy card can disable deleting
+  // one that is in use. It lives here because it changes with *sessions*, not
+  // just proxies, and this is where session saves and deletes are handled.
+  const refreshProxyUsage = useCallback(async () => {
+    try {
+      const res = await fetch('/api/proxies/usage');
+      setProxyUsage(res.ok ? (await res.json()) || {} : {});
+    } catch (_e) {
+      setProxyUsage({});
+    }
+  }, []);
+
   // Get context setters from SessionContext
   const {
     setSessionLabel,
@@ -72,6 +84,7 @@ export default function App() {
   const [vipWeeks, setVipWeeks] = React.useState(0);
   const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
   const [proxies, setProxies] = React.useState({});
+  const [proxyUsage, setProxyUsage] = React.useState({});
   const [sessions, setSessions] = React.useState([]);
   const [selectedLabel, setSelectedLabel] = React.useState('');
   const statusCardRef = React.useRef(null);
@@ -82,7 +95,8 @@ export default function App() {
   // On mount, fetch proxies
   React.useEffect(() => {
     refreshProxies();
-  }, [refreshProxies]);
+    refreshProxyUsage();
+  }, [refreshProxies, refreshProxyUsage]);
 
   // Handler to refresh session and proxies after session save
   const handleSessionSaved = (label) => {
@@ -90,6 +104,9 @@ export default function App() {
     loadSession(label);
     // Optionally refresh sessions or proxies if needed
     refreshSessions();
+    // The save may have taken or released a proxy, which changes whether that
+    // proxy can be deleted.
+    refreshProxyUsage();
     // Always force status refresh to update timer immediately
     if (statusCardRef?.current?.forceStatusRefresh) {
       statusCardRef.current.forceStatusRefresh();
@@ -245,6 +262,8 @@ export default function App() {
     await fetch(`/api/session/delete/${label}`, { method: 'DELETE' });
     // After delete, load the first available session
     refreshSessions();
+    // A deleted session releases whatever proxy it held.
+    refreshProxyUsage();
     const res = await fetch('/api/sessions');
     const data = await res.json();
     const nextLabel = data.sessions[0] || null;
@@ -383,7 +402,12 @@ export default function App() {
           {/* 5. Docker Port Monitor */}
           <PortMonitorCard />
           {/* 6. Proxy Configuration */}
-          <ProxyConfigCard proxies={proxies} refreshProxies={refreshProxies} />
+          <ProxyConfigCard
+            proxies={proxies}
+            proxyUsage={proxyUsage}
+            refreshProxies={refreshProxies}
+            refreshProxyUsage={refreshProxyUsage}
+          />
         </Container>
       </Box>
     </ThemeProvider>

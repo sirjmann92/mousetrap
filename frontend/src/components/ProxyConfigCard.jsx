@@ -19,10 +19,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
 import ConfirmDialog from './ConfirmDialog';
 
-export default function ProxyConfigCard({ proxies, refreshProxies }) {
+export default function ProxyConfigCard({
+  proxies,
+  proxyUsage = {},
+  refreshProxies,
+  refreshProxyUsage,
+}) {
   const [_sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
-  const [proxyUsage, setProxyUsage] = useState({});
   const [deleteBlocked, setDeleteBlocked] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const { proxy, setProxy } = useSession();
@@ -52,19 +56,12 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
       .then((data) => setSessions(data.sessions || []));
   }, []);
 
-  // Which sessions select which proxy. The delete control is disabled from
-  // this, so it is refreshed whenever the proxy list changes and whenever the
-  // panel is opened, picking up a session edited elsewhere on the page.
+  // Usage comes from the owner, which refreshes it on every session save and
+  // delete as well as on proxy changes. Those are the only things that alter
+  // the mapping, so the card never has to poll for it.
   const refreshUsage = useCallback(() => {
-    fetch('/api/proxies/usage')
-      .then((res) => (res.ok ? res.json() : {}))
-      .then((data) => setProxyUsage(data || {}))
-      .catch(() => setProxyUsage({}));
-  }, []);
-
-  useEffect(() => {
-    if (expanded) refreshUsage();
-  }, [expanded, refreshUsage]);
+    if (refreshProxyUsage) refreshProxyUsage();
+  }, [refreshProxyUsage]);
 
   const sessionsUsing = (label) => proxyUsage[label] || [];
   const describeUsers = (label) => {

@@ -126,9 +126,9 @@ test.describe
       await deleteProxy.locator('xpath=..').hover();
       await expect(page.getByRole('tooltip')).toContainText("Used by session 'Proxied'");
 
-      // Release it from the session, and the delete goes through.
-      await page.reload();
-      await page.getByText('Session Configuration', { exact: true }).click();
+      // Release it from the session and save. The delete control has to follow
+      // that without a page reload, since usage changes with sessions and not
+      // just with proxies.
       await page.getByRole('combobox', { name: 'Proxy', exact: true }).click();
       await page.getByRole('option', { name: 'None' }).click();
       await expect(page.getByRole('listbox')).toBeHidden();
@@ -136,7 +136,6 @@ test.describe
       await page.getByRole('button', { name: 'SAVE', exact: true }).click();
       expect((await released).ok()).toBeTruthy();
 
-      await page.getByText('Proxy Configuration', { exact: true }).click();
       const freed = page.getByRole('button', { name: 'Delete proxy local-proxy' });
       await expect(freed).toBeEnabled();
       await freed.click();
