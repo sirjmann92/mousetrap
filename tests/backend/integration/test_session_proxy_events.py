@@ -5,7 +5,7 @@ from pathlib import Path
 from httpx import AsyncClient
 import pytest
 
-from backend import app
+from backend import app, config
 
 
 @pytest.mark.integration
@@ -92,7 +92,13 @@ async def test_deleting_a_proxy_succeeds_once_the_session_releases_it(
 async def test_status_survives_a_saved_proxy_label_that_is_not_a_string(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Serve status for a session whose persisted proxy label cannot be a mapping key."""
+    """Serve status for a session whose persisted proxy label cannot be a mapping key.
+
+    The save endpoint refuses such a label, so this writes the config directly.
+    That is how the state arises in the first place: a hand-edited file, or one
+    written before the reference was validated. The read path has to survive it
+    either way.
+    """
     monkeypatch.setattr(app, "register_session_job", lambda _label: None)
 
     async def detected_ipinfo(
@@ -110,8 +116,7 @@ async def test_status_survives_a_saved_proxy_label_that_is_not_a_string(
         return {"ip": "198.51.100.10", "asn": "AS64500"}
 
     monkeypatch.setattr(app, "get_ipinfo_with_fallback", detected_ipinfo)
-    session = {"label": "seedbox", "mam": {}, "proxy": {"label": ["vpn"]}}
-    assert (await api_client.post("/api/session/save", json=session)).json() == {"success": True}
+    config.save_session({"label": "seedbox", "mam": {}, "proxy": {"label": ["vpn"]}})
 
     status = await api_client.get("/api/status?label=seedbox")
 

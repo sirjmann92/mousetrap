@@ -75,7 +75,7 @@ from backend.prowlarr_integration import (
     sync_mam_id_to_prowlarr,
     test_prowlarr_connection,
 )
-from backend.proxy_config import resolve_proxy_from_session_cfg
+from backend.proxy_config import load_proxies, resolve_proxy_from_session_cfg
 from backend.url_builder import coerce_port
 from backend.utils import build_proxy_dict, build_status_message, extract_asn_number, setup_logging
 from backend.yaml_store import YamlStoreError
@@ -1651,6 +1651,42 @@ async def _sync_integrations_if_mam_id_changed(
         )
 
 
+def _reject_unknown_proxy_label(proxy_cfg: Any) -> None:
+    """Refuse a session whose selected proxy does not exist.
+
+    A session holding a label with no proxy behind it resolves to no proxy at
+    all, so its MyAnonaMouse traffic leaves over a direct connection with
+    nothing in the UI saying so. The form keeps its selection when the proxy is
+    deleted from another tab, or from this one before the session was ever
+    saved, which is how a reference to a deleted proxy gets submitted.
+
+    Paired with the in-use check on proxy deletion, this keeps every saved
+    proxy reference resolvable from both directions: deletion cannot orphan a
+    reference, and a save cannot create a dangling one.
+
+    Args:
+        proxy_cfg: The session's proxy mapping as it will be persisted.
+
+    Raises:
+        HTTPException: 400 if a label is set and names no configured proxy.
+
+    """
+    if not isinstance(proxy_cfg, dict):
+        return
+    label = proxy_cfg.get("label")
+    if not label:
+        # No proxy selected, or a legacy inline proxy carrying only a host.
+        return
+    if not isinstance(label, str) or label not in load_proxies():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Proxy '{label}' no longer exists. Pick an existing proxy, or "
+                "select None to run without one, then save again."
+            ),
+        )
+
+
 @app.post("/api/session/save")
 async def api_save_session(request: Request) -> dict[str, Any]:
     """Save or update a session configuration.
@@ -1704,6 +1740,7 @@ async def api_save_session(request: Request) -> dict[str, Any]:
             ):
                 proxy_cfg["password"] = prev_cfg["proxy"]["password"]
             cfg["proxy"] = proxy_cfg
+            _reject_unknown_proxy_label(proxy_cfg)
 
         # Merge backend-managed fields from previous config unless explicitly overwritten
         backend_fields = [
