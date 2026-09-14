@@ -23,7 +23,7 @@ _resolve_log_min_interval = 60
 def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None:
     """Given a session config dict, return the full proxy config dict (from proxies.yaml) if a label is set,
     or the inline proxy config if present (for backward compatibility).
-    Returns None if no proxy is set.
+    Returns None if no proxy is set, or if the label is not a string.
     """
     proxy = cfg.get("proxy", {})
     # Rate-limit debug logs to avoid flooding when this resolver is called frequently
@@ -42,6 +42,12 @@ def resolve_proxy_from_session_cfg(cfg: dict[str, Any]) -> dict[str, Any] | None
     if isinstance(proxy, dict) and proxy.get("label"):
         proxies = load_proxies()
         label = proxy["label"]
+        if not isinstance(label, str):
+            _logger.warning(
+                "[resolve_proxy_from_session_cfg] Ignoring proxy label of type %s; expected str.",
+                type(label).__name__,
+            )
+            return None
         resolved = proxies.get(label)
         # Rate-limit the resolved-label debug message using the same log key
         now = time.monotonic()
