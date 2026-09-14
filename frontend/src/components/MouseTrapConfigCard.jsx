@@ -206,7 +206,12 @@ export default function MouseTrapConfigCard({
         headers: { 'Content-Type': 'application/json' },
         method: 'POST',
       });
-      if (!res.ok) throw new Error('Failed to save session');
+      if (!res.ok) {
+        // The backend explains refusals in `detail` — a proxy that no longer
+        // exists, say. Discarding it leaves the user with nothing to act on.
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || 'Failed to save session');
+      }
       setSaveStatus('Session saved successfully.');
       setTimeout(() => setSaveStatus(''), 2000);
       if (onSessionSaved) onSessionSaved(label, oldLabel);

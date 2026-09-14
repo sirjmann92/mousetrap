@@ -79,6 +79,15 @@ Create or update a session configuration.
 }
 ```
 
+- A proxy label that names no configured proxy returns `400`. A session holding
+  an unresolvable label runs with no proxy at all, so its MyAnonaMouse traffic
+  would leave over a direct connection with nothing in the UI saying so. Pick an
+  existing proxy, or none.
+- Sessions predating named proxies carry inline host details and no label; those
+  are still accepted.
+- This pairs with the `409` on proxy deletion: a delete cannot orphan a
+  reference, and a save cannot create a dangling one.
+
 ### DELETE `/api/session/{label}`
 Delete a session configuration.
 

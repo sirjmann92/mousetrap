@@ -202,6 +202,13 @@ perk_automation:
 - "Connection timeout" errors
 - "Proxy is still used by ..." when deleting a proxy
 
+**"Proxy ... no longer exists" when saving a session:**
+The proxy selected in the form was deleted before the session was saved, most
+often from a second browser tab, or from this one while the session was still
+unsaved. The form keeps the selection, so the save is refused rather than
+storing a reference to a proxy that is gone. Reopen the proxy dropdown and pick
+an existing proxy, or None.
+
 **Deleting a proxy a session still uses:**
 A proxy assigned to a session cannot be deleted, and the error names the
 sessions holding it. Open each one, change or clear its proxy, then delete the
