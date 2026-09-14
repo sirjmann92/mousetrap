@@ -30,55 +30,67 @@ List all configured sessions.
 ```
 
 ### GET `/api/session/{label}`
-Get detailed configuration for a specific session.
+Get the full stored configuration for a session. Returns `404` if no session has
+that label.
 
 **Parameters:**
 - `label` (path): Session label/name
 
-**Response:**
+**Response:** the session config as persisted, with any missing fields filled in
+from defaults:
 ```json
 {
-  "label": "session-name",
-  "mam_id": "your_mam_id",
-  "session_type": "auto", 
-  "mam_ip": "1.2.3.4",
-  "check_frequency": 30,
+  "label": "example",
+  "mam": { "mam_id": "", "session_type": "ip", "ip_monitoring_mode": "auto" },
+  "browser_cookie": "",
+  "mam_ip": "",
+  "proxy": { "host": "", "port": 0, "username": "", "password": "" },
+  "last_check_time": null,
   "perk_automation": {
-    "min_points": 0,
     "upload_credit": {
-      "enabled": false,
-      "gb": 1,
-      "trigger_type": "time",
-      "trigger_days": 7
+      "enabled": false, "gb": 1, "min_points": 0, "points_to_keep": 0,
+      "trigger_type": "time", "trigger_days": 7, "trigger_point_threshold": 50000
     },
-    "vip": {
-      "enabled": false,
-      "weeks": 4,
-      "trigger_type": "time",
-      "trigger_days": 7
+    "vip_automation": {
+      "enabled": false, "trigger_type": "time", "trigger_days": 7,
+      "trigger_point_threshold": 50000, "weeks": 4
     }
   },
-  "proxy_label": null
+  "prowlarr": {
+    "enabled": false, "host": "", "port": 9696, "api_key": "",
+    "auto_update_on_save": false
+  },
+  "mam_invalid_notified": false,
+  "mam_invalid_since": null,
+  "last_mam_valid_check": null
 }
 ```
 
-### POST `/api/session/{label}`
-Create or update a session configuration.
+A saved session also carries backend-managed fields such as `last_seedbox_ip`,
+`last_seedbox_asn`, `proxied_public_ip`, and `last_status`. Those are written by
+status checks, not by the client, and `POST /api/session/save` preserves them
+when they are absent from the request.
 
-**Parameters:**
-- `label` (path): Session label/name
+### POST `/api/session/save`
+Create or update a session. The label comes from the body, not the path.
 
 **Request Body:**
 ```json
 {
-  "mam_id": "your_mam_id",
-  "session_type": "auto",
-  "mam_ip": "1.2.3.4", 
-  "check_frequency": 30,
-  "proxy_label": null
+  "label": "example",
+  "old_label": "",
+  "mam": { "mam_id": "your_mam_id", "session_type": "ip", "ip_monitoring_mode": "auto" },
+  "mam_ip": "1.2.3.4",
+  "check_freq": 30,
+  "proxy": { "label": "my-proxy" }
 }
 ```
 
+- `label` is required; a missing or blank one returns `400`.
+- `old_label` renames an existing session. The new file is written before the old
+  one is removed, and the scheduler job is re-registered under the new label.
+- `proxy` is a mapping, not a bare string. `{"label": "my-proxy"}` selects a
+  configured proxy and `{}` means none.
 - A proxy label that names no configured proxy returns `400`. A session holding
   an unresolvable label runs with no proxy at all, so its MyAnonaMouse traffic
   would leave over a direct connection with nothing in the UI saying so. Pick an
@@ -87,9 +99,15 @@ Create or update a session configuration.
   are still accepted.
 - This pairs with the `409` on proxy deletion: a delete cannot orphan a
   reference, and a save cannot create a dangling one.
+- An omitted proxy password is carried over from the stored session, so a client
+  that never received the password does not blank it on save.
+- The integration sections (`prowlarr`, `chaptarr`, `jackett`, `audiobookrequest`,
+  `autobrr`) are optional and stored as sent. Unlike the backend-managed fields
+  above they are not merged from the stored session, so a save that omits one
+  drops it.
 
-### DELETE `/api/session/{label}`
-Delete a session configuration.
+### DELETE `/api/session/delete/{label}`
+Delete a session and clear its UI event-log entries.
 
 **Parameters:**
 - `label` (path): Session label/name
