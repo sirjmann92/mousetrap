@@ -117,6 +117,24 @@ test.describe
       await page.getByRole('button', { name: 'Update Proxy' }).click();
       await expect(page.getByText('Host: 127.0.0.1:8081')).toBeVisible();
 
+      // A proxy a session still selects cannot be deleted, because clearing the
+      // reference would leave that session connecting directly.
+      await page.getByRole('button', { name: 'Delete proxy local-proxy' }).click();
+      await page.getByRole('button', { name: 'Delete', exact: true }).click();
+      await expect(page.getByText(/still used by 'Proxied'/)).toBeVisible();
+      await expect(page.getByText('Host: 127.0.0.1:8081')).toBeVisible();
+
+      // Release it from the session, and the delete goes through.
+      await page.reload();
+      await page.getByText('Session Configuration', { exact: true }).click();
+      await page.getByRole('combobox', { name: 'Proxy', exact: true }).click();
+      await page.getByRole('option', { name: 'None' }).click();
+      await expect(page.getByRole('listbox')).toBeHidden();
+      const released = waitForPost(page, '/api/session/save');
+      await page.getByRole('button', { name: 'SAVE', exact: true }).click();
+      expect((await released).ok()).toBeTruthy();
+
+      await page.getByText('Proxy Configuration', { exact: true }).click();
       await page.getByRole('button', { name: 'Delete proxy local-proxy' }).click();
       await page.getByRole('button', { name: 'Delete', exact: true }).click();
       await expect(page.getByText('No proxies configured.')).toBeVisible();
