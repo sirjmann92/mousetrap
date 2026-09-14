@@ -68,6 +68,54 @@ def update_proxy(label: str, proxy: dict[str, Any]) -> dict[str, Any]:
     return {"success": True}
 
 
+def _proxy_usage() -> dict[str, list[str]]:
+    """Map every configured proxy label to the sessions selecting it.
+
+    A session whose file cannot be parsed is attributed to every proxy. Its
+    reference cannot be read, so treating it as using none would be the one
+    case where a proxy could be deleted out from under a session and leave it
+    connecting directly.
+
+    Returns:
+        Proxy label mapped to the session labels using it, one entry per
+        configured proxy, empty list when unused.
+
+    """
+    usage: dict[str, list[str]] = {label: [] for label in load_proxies()}
+    for sess_label in list_sessions():
+        try:
+            cfg = load_session(sess_label)
+        except YamlStoreError as err:
+            _logger.warning(
+                "Treating corrupt session '%s' as a possible user of every proxy: %s",
+                sess_label,
+                err,
+            )
+            for users in usage.values():
+                users.append(sess_label)
+            continue
+        proxy_cfg = cfg.get("proxy", {})
+        if isinstance(proxy_cfg, dict):
+            selected = proxy_cfg.get("label")
+            if isinstance(selected, str) and selected in usage:
+                usage[selected].append(sess_label)
+    return usage
+
+
+@router.get("/proxies/usage")
+def proxy_usage() -> dict[str, list[str]]:
+    """Report which sessions select each configured proxy.
+
+    The UI needs this to disable deletion before the user commits to it, rather
+    than accepting the click and refusing afterwards.
+
+    Returns:
+        Proxy label mapped to the session labels using it.
+
+    """
+    return _proxy_usage()
+
+
 @router.delete("/proxies/{label}")
 def delete_proxy(label: str) -> dict[str, Any]:
     """Delete a proxy configuration by label, unless a session still uses it.
@@ -88,24 +136,7 @@ def delete_proxy(label: str) -> dict[str, Any]:
     if label not in proxies:
         raise HTTPException(status_code=404, detail="Proxy not found.")
 
-    in_use = []
-    for sess_label in list_sessions():
-        try:
-            cfg = load_session(sess_label)
-        except YamlStoreError as err:
-            # A session that cannot be read cannot be cleared of the reference
-            # either, so it counts as in use rather than being skipped.
-            _logger.warning(
-                "Treating corrupt session '%s' as a possible proxy user: %s",
-                sess_label,
-                err,
-            )
-            in_use.append(sess_label)
-            continue
-        proxy_cfg = cfg.get("proxy", {})
-        if isinstance(proxy_cfg, dict) and proxy_cfg.get("label") == label:
-            in_use.append(sess_label)
-
+    in_use = _proxy_usage().get(label, [])
     if in_use:
         listed = ", ".join(f"'{name}'" for name in in_use)
         raise HTTPException(

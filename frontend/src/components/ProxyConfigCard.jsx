@@ -15,14 +15,14 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
 import ConfirmDialog from './ConfirmDialog';
 
 export default function ProxyConfigCard({ proxies, refreshProxies }) {
   const [_sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
-  const [_sessionsUsingProxy, setSessionsUsingProxy] = useState([]);
+  const [proxyUsage, setProxyUsage] = useState({});
   const [deleteBlocked, setDeleteBlocked] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const { proxy, setProxy } = useSession();
@@ -51,6 +51,29 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
       .then((res) => res.json())
       .then((data) => setSessions(data.sessions || []));
   }, []);
+
+  // Which sessions select which proxy. The delete control is disabled from
+  // this, so it is refreshed whenever the proxy list changes and whenever the
+  // panel is opened, picking up a session edited elsewhere on the page.
+  const refreshUsage = useCallback(() => {
+    fetch('/api/proxies/usage')
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data) => setProxyUsage(data || {}))
+      .catch(() => setProxyUsage({}));
+  }, []);
+
+  useEffect(() => {
+    if (expanded) refreshUsage();
+  }, [expanded, refreshUsage]);
+
+  const sessionsUsing = (label) => proxyUsage[label] || [];
+  const describeUsers = (label) => {
+    const users = sessionsUsing(label);
+    const names = users.map((name) => `'${name}'`).join(', ');
+    return users.length === 1
+      ? `Used by session ${names}. Change or remove the proxy on that session before deleting it.`
+      : `Used by sessions ${names}. Change or remove the proxy on those sessions before deleting it.`;
+  };
 
   // Auto-dismiss success messages after 2 seconds
   useEffect(() => {
@@ -88,7 +111,6 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
 
   const handleDelete = (label) => {
     setDeleteLabel(label);
-    setSessionsUsingProxy([]);
     setDeleteBlocked('');
     setShowConfirm(true);
   };
@@ -104,11 +126,11 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
           return;
         }
         setDeleteLabel(null);
-        setSessionsUsingProxy([]);
         if (proxy?.label === deleteLabel && setProxy) {
           setProxy({});
         }
         if (refreshProxies) refreshProxies();
+        refreshUsage();
       })
       .catch(() => {
         setDeleteBlocked('Could not reach the server to delete this proxy.');
@@ -130,6 +152,7 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
         setEditLabel('');
         setEditProxy(null);
         if (refreshProxies) refreshProxies();
+        refreshUsage();
       });
   };
 
@@ -394,14 +417,26 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
                               <EditIcon color="primary" fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Delete Proxy">
-                            <IconButton
-                              aria-label={`Delete proxy ${label}`}
-                              onClick={() => handleDelete(label)}
-                              size="small"
-                            >
-                              <DeleteIcon color="error" fontSize="small" />
-                            </IconButton>
+                          <Tooltip
+                            title={
+                              sessionsUsing(label).length ? describeUsers(label) : 'Delete Proxy'
+                            }
+                          >
+                            {/* A disabled button fires no pointer events, so
+                                the tooltip needs a wrapper that still does. */}
+                            <span>
+                              <IconButton
+                                aria-label={`Delete proxy ${label}`}
+                                disabled={sessionsUsing(label).length > 0}
+                                onClick={() => handleDelete(label)}
+                                size="small"
+                              >
+                                <DeleteIcon
+                                  color={sessionsUsing(label).length ? 'disabled' : 'error'}
+                                  fontSize="small"
+                                />
+                              </IconButton>
+                            </span>
                           </Tooltip>
                         </Box>
                       </Box>
@@ -453,9 +488,6 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
         confirmLabel="Delete"
         message={
           <span>
-            A proxy still assigned to a session cannot be deleted. Change or remove the proxy on
-            those sessions first.
-            <br />
             This action cannot be undone.
             <br />
             <br />

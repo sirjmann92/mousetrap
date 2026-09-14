@@ -118,11 +118,13 @@ test.describe
       await expect(page.getByText('Host: 127.0.0.1:8081')).toBeVisible();
 
       // A proxy a session still selects cannot be deleted, because clearing the
-      // reference would leave that session connecting directly.
-      await page.getByRole('button', { name: 'Delete proxy local-proxy' }).click();
-      await page.getByRole('button', { name: 'Delete', exact: true }).click();
-      await expect(page.getByText(/still used by 'Proxied'/)).toBeVisible();
-      await expect(page.getByText('Host: 127.0.0.1:8081')).toBeVisible();
+      // reference would leave that session connecting directly. The control is
+      // disabled rather than accepting the click and refusing afterwards.
+      const deleteProxy = page.getByRole('button', { name: 'Delete proxy local-proxy' });
+      await expect(deleteProxy).toBeDisabled();
+      // The disabled button fires no pointer events; its wrapper carries them.
+      await deleteProxy.locator('xpath=..').hover();
+      await expect(page.getByRole('tooltip')).toContainText("Used by session 'Proxied'");
 
       // Release it from the session, and the delete goes through.
       await page.reload();
@@ -135,7 +137,9 @@ test.describe
       expect((await released).ok()).toBeTruthy();
 
       await page.getByText('Proxy Configuration', { exact: true }).click();
-      await page.getByRole('button', { name: 'Delete proxy local-proxy' }).click();
+      const freed = page.getByRole('button', { name: 'Delete proxy local-proxy' });
+      await expect(freed).toBeEnabled();
+      await freed.click();
       await page.getByRole('button', { name: 'Delete', exact: true }).click();
       await expect(page.getByText('No proxies configured.')).toBeVisible();
     });
