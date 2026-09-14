@@ -11,7 +11,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
-from backend.config import list_sessions, load_session, save_session
+from backend.config import list_sessions, load_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.proxy_config import load_proxies, save_proxies
 from backend.yaml_store import YamlStoreError
@@ -70,27 +70,53 @@ def update_proxy(label: str, proxy: dict[str, Any]) -> dict[str, Any]:
 
 @router.delete("/proxies/{label}")
 def delete_proxy(label: str) -> dict[str, Any]:
-    """Delete a proxy configuration by label."""
+    """Delete a proxy configuration by label, unless a session still uses it.
+
+    Deleting a proxy used to clear the reference from every session holding it.
+    That left those sessions with no proxy at all, which means their MaM traffic
+    silently continued over a direct connection — the opposite of what someone
+    who configured a proxy wants, and invisible because the delete reported
+    success. A proxy still in use is now refused so the user reassigns those
+    sessions deliberately.
+
+    Raises:
+        HTTPException: 404 if no such proxy exists, or 409 naming the sessions
+            that still reference it.
+
+    """
     proxies = load_proxies()
     if label not in proxies:
         raise HTTPException(status_code=404, detail="Proxy not found.")
-    del proxies[label]
-    save_proxies(proxies)
-    # Remove proxy reference from all sessions that use this proxy
 
-    sessions = list_sessions()
-    for sess_label in sessions:
+    in_use = []
+    for sess_label in list_sessions():
         try:
             cfg = load_session(sess_label)
         except YamlStoreError as err:
+            # A session that cannot be read cannot be cleared of the reference
+            # either, so it counts as in use rather than being skipped.
             _logger.warning(
-                "Skipping proxy cleanup for corrupt session '%s': %s",
+                "Treating corrupt session '%s' as a possible proxy user: %s",
                 sess_label,
                 err,
             )
+            in_use.append(sess_label)
             continue
         proxy_cfg = cfg.get("proxy", {})
         if isinstance(proxy_cfg, dict) and proxy_cfg.get("label") == label:
-            cfg["proxy"] = {}  # Remove proxy reference
-            save_session(cfg)
+            in_use.append(sess_label)
+
+    if in_use:
+        listed = ", ".join(f"'{name}'" for name in in_use)
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Proxy '{label}' is still used by {listed}. Change or remove the "
+                f"proxy on {'those sessions' if len(in_use) > 1 else 'that session'} "
+                f"first, then delete it."
+            ),
+        )
+
+    del proxies[label]
+    save_proxies(proxies)
     return {"success": True}

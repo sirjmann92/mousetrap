@@ -23,6 +23,7 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
   const [_sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
   const [_sessionsUsingProxy, setSessionsUsingProxy] = useState([]);
+  const [deleteBlocked, setDeleteBlocked] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const { proxy, setProxy } = useSession();
 
@@ -88,19 +89,30 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
   const handleDelete = (label) => {
     setDeleteLabel(label);
     setSessionsUsingProxy([]);
+    setDeleteBlocked('');
     setShowConfirm(true);
   };
 
   const confirmDelete = () => {
-    fetch(`/api/proxies/${deleteLabel}`, { method: 'DELETE' }).then(() => {
-      setShowConfirm(false);
-      setDeleteLabel(null);
-      setSessionsUsingProxy([]);
-      if (proxy?.label === deleteLabel && setProxy) {
-        setProxy({});
-      }
-      if (refreshProxies) refreshProxies();
-    });
+    fetch(`/api/proxies/${deleteLabel}`, { method: 'DELETE' })
+      .then(async (res) => {
+        if (res.status === 409) {
+          // The proxy is still assigned to a session. Keep the label so the
+          // message can name it, and surface why the delete was refused.
+          const body = await res.json().catch(() => ({}));
+          setDeleteBlocked(body.detail || 'This proxy is still in use by a session.');
+          return;
+        }
+        setDeleteLabel(null);
+        setSessionsUsingProxy([]);
+        if (proxy?.label === deleteLabel && setProxy) {
+          setProxy({});
+        }
+        if (refreshProxies) refreshProxies();
+      })
+      .catch(() => {
+        setDeleteBlocked('Could not reach the server to delete this proxy.');
+      });
   };
 
   const handleSave = () => {
@@ -310,6 +322,11 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
               <Typography sx={{ fontWeight: 600, mb: 1, mt: 2 }} variant="subtitle2">
                 Configured Proxies
               </Typography>
+              {deleteBlocked && (
+                <Alert onClose={() => setDeleteBlocked('')} severity="warning" sx={{ mb: 2 }}>
+                  {deleteBlocked}
+                </Alert>
+              )}
               {error && (
                 <Alert severity="error" sx={{ mb: 2 }}>
                   {error}
@@ -436,8 +453,8 @@ export default function ProxyConfigCard({ proxies, refreshProxies }) {
         confirmLabel="Delete"
         message={
           <span>
-            <b>Warning:</b> Deleting this proxy will immediately remove it from any sessions that
-            are using it.
+            A proxy still assigned to a session cannot be deleted. Change or remove the proxy on
+            those sessions first.
             <br />
             This action cannot be undone.
             <br />

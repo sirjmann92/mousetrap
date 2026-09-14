@@ -200,6 +200,14 @@ perk_automation:
 - Proxy test fails
 - Wrong IP detected
 - "Connection timeout" errors
+- "Proxy is still used by ..." when deleting a proxy
+
+**Deleting a proxy a session still uses:**
+A proxy assigned to a session cannot be deleted, and the error names the
+sessions holding it. Open each one, change or clear its proxy, then delete the
+proxy. The reference is not cleared automatically: a session left with no proxy
+would keep talking to MyAnonaMouse over a direct connection, which is rarely
+what someone who configured a proxy wants and is not otherwise visible.
 
 **Causes & Solutions:**
 

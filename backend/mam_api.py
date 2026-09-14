@@ -12,6 +12,7 @@ from typing import Any, Literal
 import aiohttp
 
 from backend.utils import build_proxy_dict
+from backend.utils_redact import redact_sensitive, redact_text
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
@@ -160,7 +161,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
                         url,
                         proxy_label,
                         proxy_url_log,
-                        cookies,
+                        redact_sensitive(cookies),
                         text[:200],
                     )
                 else:
@@ -170,7 +171,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
                         url,
                         proxy_label,
                         proxy_url_log,
-                        cookies,
+                        redact_sensitive(cookies),
                         text[:200],
                     )
                 raise Exception(f"HTTP {resp.status}: {text[:200]}")
@@ -197,12 +198,16 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
             vip_active = data.get("vip", False)
 
     except Exception as e:
+        # An aiohttp failure can carry the whole proxy URL, credentials and
+        # all, and this message is surfaced verbatim as a status and skip
+        # reason. Redact before it leaves this function.
+        detail = redact_text(str(e), proxy_cfg.get("password") if proxy_cfg else None, mam_id)
         return {
             "mam_cookie_exists": False,
             "points": None,
             "wedge_active": None,
             "vip_active": None,
-            "message": f"Failed to fetch status: {e}",
+            "message": f"Failed to fetch status: {detail}",
         }
     else:
         # Do not set a default message here; let the main logic in app.py set the status_message

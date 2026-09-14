@@ -278,6 +278,14 @@ Delete a proxy configuration.
 **Parameters:**
 - `label` (path): Proxy label/name
 
+- Returns `404` if no proxy has that label.
+- Returns `409`, naming the sessions, if any session still selects this proxy.
+  Clearing the reference instead would leave those sessions with no proxy at
+  all, so their MaM traffic would continue over a direct connection. Change or
+  remove the proxy on each session first, then delete it.
+- A session whose file cannot be parsed is counted as a user of the proxy,
+  since its reference cannot be inspected.
+
 ### GET `/api/proxy_test/{label}`
 Test a proxy and return detected IP.
 

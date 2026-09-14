@@ -47,19 +47,45 @@ async def test_session_lifecycle_persists_events(
 
 
 @pytest.mark.integration
-async def test_deleting_proxy_cascades_to_session(
+async def test_deleting_a_proxy_a_session_uses_is_refused(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Deleting a named proxy removes its reference from every saved session."""
+    """A proxy in use survives the delete, and so does the session that uses it.
+
+    Clearing the reference instead would leave the session with no proxy at
+    all, which means its MaM traffic quietly continues over a direct
+    connection.
+    """
     monkeypatch.setattr(app, "register_session_job", lambda _label: None)
     proxy = {"label": "vpn", "host": "proxy.local", "port": 1080}
     assert (await api_client.post("/api/proxies", json=proxy)).json() == {"success": True}
     session = {"label": "seedbox", "mam": {"mam_id": "cookie"}, "proxy": {"label": "vpn"}}
     assert (await api_client.post("/api/session/save", json=session)).is_success
 
+    refused = await api_client.delete("/api/proxies/vpn")
+    assert refused.status_code == 409
+    assert "seedbox" in refused.json()["detail"]
+    assert (await api_client.get("/api/proxies")).json() == {"vpn": proxy}
+    assert (await api_client.get("/api/session/seedbox")).json()["proxy"] == {"label": "vpn"}
+
+
+@pytest.mark.integration
+async def test_deleting_a_proxy_succeeds_once_the_session_releases_it(
+    api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The documented way out of the refusal actually works."""
+    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    proxy = {"label": "vpn", "host": "proxy.local", "port": 1080}
+    assert (await api_client.post("/api/proxies", json=proxy)).json() == {"success": True}
+    session = {"label": "seedbox", "mam": {"mam_id": "cookie"}, "proxy": {"label": "vpn"}}
+    assert (await api_client.post("/api/session/save", json=session)).is_success
+    assert (await api_client.delete("/api/proxies/vpn")).status_code == 409
+
+    session["proxy"] = {}
+    assert (await api_client.post("/api/session/save", json=session)).is_success
+
     assert (await api_client.delete("/api/proxies/vpn")).json() == {"success": True}
     assert (await api_client.get("/api/proxies")).json() == {}
-    assert (await api_client.get("/api/session/seedbox")).json()["proxy"] == {}
 
 
 @pytest.mark.integration
