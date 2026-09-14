@@ -25,7 +25,6 @@ export default function ProxyConfigCard({
   refreshProxies,
   refreshProxyUsage,
 }) {
-  const [_sessions, setSessions] = useState([]);
   const [deleteLabel, setDeleteLabel] = useState(null);
   const [deleteBlocked, setDeleteBlocked] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
@@ -34,7 +33,6 @@ export default function ProxyConfigCard({
   // State declarations must come before useEffect hooks that reference them
   const [expanded, setExpanded] = useState(false);
   const [editLabel, setEditLabel] = useState('');
-  const [_editProxy, setEditProxy] = useState(null);
   const [form, setForm] = useState({
     host: '',
     label: '',
@@ -47,14 +45,6 @@ export default function ProxyConfigCard({
   const [testResults, setTestResults] = useState({});
   const [success, setSuccess] = useState(null);
   const [error, setError] = useState(null);
-
-  // Fetch sessions on mount. Parent manages `proxies` and will re-render this
-  // component if needed; no need to re-run this effect when `proxies` changes.
-  useEffect(() => {
-    fetch('/api/sessions')
-      .then((res) => res.json())
-      .then((data) => setSessions(data.sessions || []));
-  }, []);
 
   // Usage comes from the owner, which refreshes it on every session save and
   // delete as well as on proxy changes. Those are the only things that alter
@@ -100,7 +90,6 @@ export default function ProxyConfigCard({
 
   const handleEdit = (label) => {
     setEditLabel(label);
-    setEditProxy(proxies[label]);
     setForm(proxies[label]);
     setIsEditing(true);
     setExpanded(true);
@@ -147,7 +136,6 @@ export default function ProxyConfigCard({
         setForm({ host: '', label: '', password: '', port: '', username: '' });
         setIsEditing(false);
         setEditLabel('');
-        setEditProxy(null);
         if (refreshProxies) refreshProxies();
         refreshUsage();
       });
@@ -157,7 +145,6 @@ export default function ProxyConfigCard({
     setForm({ host: '', label: '', password: '', port: '', username: '' });
     setIsEditing(false);
     setEditLabel('');
-    setEditProxy(null);
     setExpanded(true);
   };
 
