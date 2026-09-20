@@ -215,7 +215,7 @@ async def test_purchase_is_blocked_before_reaching_mam_when_over_the_cap(
 
     event = get_ui_event_log()[-1]
     assert event["result"] == "blocked"
-    assert "2026-09-25 23:01 UTC" in event["status_message"]
+    assert "2026-09-26 23:01 UTC" in event["status_message"]
 
 
 @pytest.mark.integration
@@ -229,8 +229,8 @@ async def test_purchase_proceeds_once_enough_vip_has_burned_off(
             "label": "seedbox",
             "mam": {"mam_id": "cookie"},
             "perk_automation": {},
-            # Exactly 84 days out, the first point a full week fits.
-            "last_status": {"raw": {"vip_until": "2026-12-13 14:43:34"}},
+            # Exactly 83 days out, the first point a full week fits.
+            "last_status": {"raw": {"vip_until": "2026-12-12 14:43:34"}},
         }
     )
 

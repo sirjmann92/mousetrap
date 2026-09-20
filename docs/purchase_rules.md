@@ -56,11 +56,15 @@ counts a purchase made through MouseTrap as automated even when a person
 clicked the button, so this applies to manual purchases as well as automated
 ones.
 
-MouseTrap reads `vip_until` from the session's last status check and skips the
-purchase when more than **84 days** of VIP remain, for every duration rather
-than just "Max me out!". The Purchase VIP button is disabled with a tooltip
-while this applies, and re-enables itself once enough VIP has burned off,
-without needing a page reload.
+MaM caps VIP at **90 days**, so once more than **83 days** remain no purchase
+can add the required week. MouseTrap reads `vip_until` from the session's last
+status check and skips the purchase above that threshold, for every duration
+rather than just "Max me out!". The Purchase VIP button is disabled and states
+the reason, re-enabling itself once enough VIP has burned off without needing a
+page reload.
+
+MaM displays VIP in weeks, but the cap itself is in days; a reading of
+"12.765 weeks" is 89.4 days and is above the threshold.
 
 Notes:
 

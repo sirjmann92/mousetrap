@@ -22,15 +22,11 @@ _logger: logging.Logger = logging.getLogger(__name__)
 # button, so this applies to manual purchases too.
 VIP_MIN_PURCHASE_DAYS = 7
 
-# MaM caps VIP, but the exact cap is not exposed by the API. A purchase was
-# refused with 89.36 days banked (github.com/sirjmann92/mousetrap/issues/145),
-# which puts the cap somewhere in [89.4, 96.4) days; both 90 days and 13 weeks
-# fit. Assuming the larger makes the guardrail exact if the cap is 13 weeks and
-# err toward allowing if it is 90 days, leaving the boundary to MaM's own error
-# rather than to a guess. Blocking too eagerly would stop a purchase that would
-# have worked, which has no recourse; allowing one that fails costs one clear
-# message.
-VIP_CAP_DAYS = 91
+# MaM caps VIP at 90 days. The API does not report the cap, but MaM's store API
+# and documentation both state it, and a purchase refused with 89.36 days banked
+# (github.com/sirjmann92/mousetrap/issues/145) is consistent with it. MaM
+# displays VIP in weeks, which is presentation only; the cap itself is in days.
+VIP_CAP_DAYS = 90
 
 # Above this much VIP remaining, a purchase cannot add the required week.
 VIP_PURCHASE_BLOCK_ABOVE_DAYS = VIP_CAP_DAYS - VIP_MIN_PURCHASE_DAYS

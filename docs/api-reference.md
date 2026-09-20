@@ -317,7 +317,7 @@ Manually trigger a VIP purchase.
   refusal is `Min VIP is 1 week purchased for Automated methods`: purchases made
   through the API must add at least a full week, so `max` fails once VIP is
   within a week of its cap even though the MaM website allows a partial top-up.
-- When the session's last status reports more than 84 days of VIP remaining, no
+- When the session's last status reports more than 83 days of VIP remaining, no
   duration can add that full week, so the purchase is not attempted: the
   response is `{"success": false, "error": "..."}` naming the days remaining and
   when the purchase becomes possible. A session with no stored status, or an

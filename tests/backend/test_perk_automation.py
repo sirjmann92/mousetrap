@@ -248,8 +248,8 @@ def test_vip_purchase_is_blocked_with_too_much_banked() -> None:
     reason = perk_automation.vip_purchase_block_reason(REAL_VIP_UNTIL, now=REAL_READING_AT)
 
     assert "89.3 days remaining" in reason
-    # 84 days before expiry, the point at which a full week can be added.
-    assert "2026-09-25 23:01 UTC" in reason
+    # 83 days before expiry, the point at which a full week fits under the cap.
+    assert "2026-09-26 23:01 UTC" in reason
 
 
 @pytest.mark.parametrize(
@@ -275,10 +275,14 @@ def test_unknown_vip_expiry_never_blocks(raw: Any) -> None:
 
 @pytest.mark.parametrize(
     ("days_left", "blocked"),
-    [(200.0, True), (90.0, True), (84.5, True), (84.0, False), (83.0, False), (1.0, False)],
+    [(200.0, True), (89.4, True), (84.0, True), (83.5, True), (83.0, False), (1.0, False)],
 )
 def test_block_threshold_boundary(days_left: float, blocked: bool) -> None:
-    """Block strictly above 84 days, allowing the boundary itself through."""
+    """Block strictly above 83 days, allowing the boundary itself through.
+
+    MaM caps VIP at 90 days and requires a purchase to add a full week, so
+    83 days remaining is the last point at which one still fits.
+    """
     raw = {"vip_until": (REAL_READING_AT + timedelta(days=days_left)).strftime("%Y-%m-%d %H:%M:%S")}
 
     reason = perk_automation.vip_purchase_block_reason(raw, now=REAL_READING_AT)

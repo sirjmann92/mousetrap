@@ -232,7 +232,7 @@ async def test_vip_automation_skips_when_no_full_week_fits(
     three retries, then failed again after each cooldown, indefinitely.
     """
     events: list[dict[str, Any]] = []
-    # NOW is 2026-09-06; 89 days later is well past the 84-day threshold.
+    # NOW is 2026-09-06; 89 days later is well past the 83-day threshold.
     purchases = _install_with_vip_until(
         monkeypatch, _vip_cfg(None, trigger_type="points"), "2026-12-04 12:00:00", events
     )

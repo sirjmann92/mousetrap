@@ -176,8 +176,8 @@ export default function PerkAutomationCard(props) {
     const expires = new Date(`${vipUntil.trim().replace(' ', 'T')}Z`);
     if (Number.isNaN(expires.getTime())) return '';
     const daysLeft = (expires.getTime() - nowMs) / 86400000;
-    if (daysLeft <= 84) return '';
-    const eligibleAt = new Date(expires.getTime() - 84 * 86400000);
+    if (daysLeft <= 83) return '';
+    const eligibleAt = new Date(expires.getTime() - 83 * 86400000);
     return `VIP has ${daysLeft.toFixed(1)} days remaining. MAM refuses a purchase that would add less than a full week, so this becomes available ${eligibleAt.toLocaleString()}.`;
   })();
 
