@@ -1,6 +1,7 @@
 """Backend integration coverage for the manual VIP purchase route."""
 
-from typing import Any
+from datetime import UTC, datetime
+from typing import Any, Self
 
 from httpx import AsyncClient
 import pytest
@@ -173,3 +174,93 @@ async def _passthrough_rejection() -> dict[str, Any]:
 async def test_rejection_reason_extraction(body: object, expected: str) -> None:
     """Every refusal shape yields a non-empty reason rather than ``None``."""
     assert _rejection_reason(body) == expected
+
+
+# Enough VIP banked that no purchase can add the week MaM requires.
+_OVER_CAP_STATUS = {"raw": {"vip_until": "2026-12-18 23:01:14"}}
+_OVER_CAP_NOW = datetime(2026, 9, 20, 14, 43, 34, tzinfo=UTC)
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("weeks", ["max", 4, 8])
+async def test_purchase_is_blocked_before_reaching_mam_when_over_the_cap(
+    api_client: AsyncClient,
+    purchases: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+    weeks: object,
+) -> None:
+    """Stop every duration, not just max, without spending a request.
+
+    At 89 days banked no duration can add a full week, so the purchase is
+    refused whatever the user picked.
+    """
+    monkeypatch.setattr(api_automation, "datetime", _FrozenDatetime)
+    config.save_session(
+        {
+            "label": "seedbox",
+            "mam": {"mam_id": "cookie"},
+            "perk_automation": {},
+            "last_status": _OVER_CAP_STATUS,
+        }
+    )
+
+    response = await api_client.post(
+        "/api/automation/vip", json={"label": "seedbox", "weeks": weeks}
+    )
+
+    body = response.json()
+    assert body["success"] is False
+    assert "89.3 days remaining" in body["error"]
+    assert purchases == [], "the guardrail must not reach MAM"
+
+    event = get_ui_event_log()[-1]
+    assert event["result"] == "blocked"
+    assert "2026-09-26 23:01 UTC" in event["status_message"]
+
+
+@pytest.mark.integration
+async def test_purchase_proceeds_once_enough_vip_has_burned_off(
+    api_client: AsyncClient, purchases: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Let the purchase through at the threshold rather than blocking early."""
+    monkeypatch.setattr(api_automation, "datetime", _FrozenDatetime)
+    config.save_session(
+        {
+            "label": "seedbox",
+            "mam": {"mam_id": "cookie"},
+            "perk_automation": {},
+            # Exactly 83 days out, the first point a full week fits.
+            "last_status": {"raw": {"vip_until": "2026-12-12 14:43:34"}},
+        }
+    )
+
+    response = await api_client.post(
+        "/api/automation/vip", json={"label": "seedbox", "weeks": "max"}
+    )
+
+    assert response.json()["success"] is True
+    assert purchases == ["max"]
+
+
+@pytest.mark.integration
+async def test_missing_status_does_not_block_the_purchase(
+    api_client: AsyncClient, purchases: list[str]
+) -> None:
+    """A session that has never been checked still reaches MAM."""
+    _save_vip_session("seedbox", guardrail=False)
+
+    response = await api_client.post(
+        "/api/automation/vip", json={"label": "seedbox", "weeks": "max"}
+    )
+
+    assert response.json()["success"] is True
+    assert purchases == ["max"]
+
+
+class _FrozenDatetime(datetime):
+    """Pin ``datetime.now`` to the instant hobesman's reading was taken."""
+
+    @classmethod
+    def now(cls, tz: Any = None) -> Self:
+        """Return the frozen instant regardless of the requested timezone."""
+        return cls.fromtimestamp(_OVER_CAP_NOW.timestamp(), tz=tz or UTC)

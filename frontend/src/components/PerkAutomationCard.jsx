@@ -76,6 +76,13 @@ export default function PerkAutomationCard(props) {
   const [vipDisabled, setVIPDisabled] = useState(false);
   const [uploadGuardMsg, setUploadGuardMsg] = useState('');
   const [vipGuardMsg, setVIPGuardMsg] = useState('');
+  // MAM's vip_until, and a clock that re-renders so the purchase button
+  // re-enables itself the moment enough VIP has burned off.
+  const [vipUntil, setVipUntil] = useState(null);
+  // Whether MAM accepted the session on the last check. A purchase cannot
+  // succeed while it did not, so both purchase buttons are held closed.
+  const [sessionRejected, setSessionRejected] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   // Upload automation options state
   const [triggerType, setTriggerType] = useState('time');
   const [triggerDays, setTriggerDays] = useState(7);
@@ -122,6 +129,12 @@ export default function PerkAutomationCard(props) {
           username = cfg.last_status.raw.username;
         }
         setCurrentUsername(username);
+        setVipUntil(cfg.last_status?.raw?.vip_until ?? null);
+        // A session that has never been checked has no verdict yet, so it
+        // is left alone rather than assumed broken.
+        setSessionRejected(
+          Boolean(cfg.mam_invalid_since) || cfg.last_status?.mam_cookie_exists === false,
+        );
       });
     fetch('/api/automation/guardrails')
       .then((res) => res.json())
@@ -153,6 +166,36 @@ export default function PerkAutomationCard(props) {
     setUploadGuardMsg(uploadMsg);
     setVIPGuardMsg(vipMsg);
   }, [guardrails, currentUsername, sessionLabel]);
+
+  // vip_until is absolute, so remaining time can be recomputed from it without
+  // refetching. Tick only while a purchase is actually blocked.
+  useEffect(() => {
+    if (!vipUntil) return undefined;
+    const id = setInterval(() => setNowMs(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, [vipUntil]);
+
+  // MAM serves its login page to a rejected session, so a purchase attempted
+  // in this state can only fail. Shown on both buttons, since neither perk can
+  // be bought without a working session.
+  const sessionBlockMsg = sessionRejected
+    ? 'MAM rejected this session on the last check. Update the MAM ID and use Check Now before purchasing.'
+    : '';
+
+  // MAM refuses an API purchase that would add less than a full week of VIP, so
+  // one is impossible until enough has burned off. Mirrors
+  // VIP_PURCHASE_BLOCK_ABOVE_DAYS in backend/perk_automation.py; the backend
+  // still enforces it, this only avoids a click that cannot succeed.
+  const vipPurchaseBlockMsg = (() => {
+    if (sessionBlockMsg) return sessionBlockMsg;
+    if (typeof vipUntil !== 'string' || !vipUntil.trim()) return '';
+    const expires = new Date(`${vipUntil.trim().replace(' ', 'T')}Z`);
+    if (Number.isNaN(expires.getTime())) return '';
+    const daysLeft = (expires.getTime() - nowMs) / 86400000;
+    if (daysLeft <= 83) return '';
+    const eligibleAt = new Date(expires.getTime() - 83 * 86400000);
+    return `VIP has ${daysLeft.toFixed(1)} days remaining. MAM refuses a purchase that would add less than a full week, so this becomes available ${eligibleAt.toLocaleString()}.`;
+  })();
 
   // API call helpers
   const _triggerVIP = async () => {
@@ -414,17 +457,28 @@ export default function PerkAutomationCard(props) {
           {/* VIP Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Tooltip title="This will instantly purchase VIP for the selected duration.">
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button
-                    onClick={() => setConfirmVIPOpen(true)}
-                    sx={{ minWidth: 180 }}
-                    variant="contained"
-                  >
-                    Purchase VIP
-                  </Button>
-                </Box>
-              </Tooltip>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                <Tooltip
+                  title={
+                    vipPurchaseBlockMsg ||
+                    'This will instantly purchase VIP for the selected duration.'
+                  }
+                >
+                  {/* The span wraps the button tightly so the tooltip still has
+                      a hover target: a disabled button fires no pointer events. */}
+                  <span>
+                    <Button
+                      data-testid="purchase-vip"
+                      disabled={Boolean(vipPurchaseBlockMsg)}
+                      onClick={() => setConfirmVIPOpen(true)}
+                      sx={{ minWidth: 180 }}
+                      variant="contained"
+                    >
+                      Purchase VIP
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
             }
             enabled={autoVIP}
             extraControls={
@@ -479,17 +533,26 @@ export default function PerkAutomationCard(props) {
           {/* Upload Credit Purchase Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Tooltip title="This will instantly purchase upload credit for the selected amount.">
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button
-                    onClick={() => setConfirmUploadOpen(true)}
-                    sx={{ minWidth: 180 }}
-                    variant="contained"
-                  >
-                    Purchase Upload
-                  </Button>
-                </Box>
-              </Tooltip>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                <Tooltip
+                  title={
+                    sessionBlockMsg ||
+                    'This will instantly purchase upload credit for the selected amount.'
+                  }
+                >
+                  <span>
+                    <Button
+                      data-testid="purchase-upload"
+                      disabled={Boolean(sessionBlockMsg)}
+                      onClick={() => setConfirmUploadOpen(true)}
+                      sx={{ minWidth: 180 }}
+                      variant="contained"
+                    >
+                      Purchase Upload
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
             }
             enabled={autoUpload}
             onSelectChange={(e) => setUploadAmount(parseFloat(e.target.value) || 0)}

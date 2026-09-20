@@ -21,6 +21,7 @@ All manual and automated purchases are logged if and only if a purchase is attem
   - "Not enough points: 9133 < 20000" (session-level guardrail)
   - "Below automation point threshold: 9133 < 10000" (automation-level guardrail)
   - "Failed to fetch status: ..." (MaM reported no point balance, so no guardrail could be evaluated and the session is left until the next run)
+  - "VIP has 89.3 days remaining, and MaM refuses an automated purchase that would add less than 7 days. Eligible from ... UTC." (the VIP minimum-purchase guardrail; see [purchase_rules.md](purchase_rules.md))
   - Skipped events are only logged for automations that are enabled and managed by the backend.
 
 

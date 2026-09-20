@@ -47,3 +47,52 @@ This document describes all rules and guardrails for purchases (Upload Credit, V
 
 ---
 _Last updated: 2025-09-01_
+
+## VIP Minimum-Purchase Guardrail
+
+MaM refuses any VIP purchase made through its API that would add less than a
+full week, reporting `Min VIP is 1 week purchased for Automated methods`. It
+counts a purchase made through MouseTrap as automated even when a person
+clicked the button, so this applies to manual purchases as well as automated
+ones.
+
+MaM caps VIP at **90 days**, so once more than **83 days** remain no purchase
+can add the required week. MouseTrap reads `vip_until` from the session's last
+status check and skips the purchase above that threshold, for every duration
+rather than just "Max me out!". The Purchase VIP button is disabled while this
+applies, with the reason on hover, and re-enables itself once enough VIP has
+burned off without needing a page reload.
+
+MaM displays VIP in weeks, but the cap itself is in days; a reading of
+"12.765 weeks" is 89.4 days and is above the threshold.
+
+Notes:
+
+- `vip_until` is an absolute timestamp, so the stored status stays accurate
+  without refetching; no extra request is made to evaluate this guardrail.
+- A session with no stored status, or an unreadable `vip_until`, is never
+  blocked. Blocking wrongly would stop a purchase the user cannot otherwise
+  make, while allowing one that fails costs a single clear message from MaM.
+- MaM's own error remains the authority. The guardrail avoids the common case;
+  it is not a substitute for the error.
+- If VIP is bought directly on the MaM website, the stored `vip_until` is
+  behind until the next check, which can only permit a purchase MaM then
+  refuses. Use **Check Now** to refresh it.
+
+## Rejected Session Guardrail
+
+MaM answers a session it does not accept by redirecting to its login page and
+serving HTML, so no purchase can succeed while a session is in that state.
+
+When the last status check was rejected — `mam_invalid_since` is set, or the
+check reported no usable cookie — both **Purchase VIP** and **Purchase Upload**
+are disabled, with the reason on hover. Update the MAM ID and use **Check Now**
+to clear it.
+
+A session that has never been checked has no verdict yet and is not blocked.
+
+If a purchase is attempted anyway, for example through the API directly, the
+login redirect is reported as "MaM rejected the session and redirected to its
+login page", rather than as a JSON decoder error followed by the markup of the
+login page.
+

@@ -18,7 +18,7 @@ from backend.config import load_session, session_exists
 from backend.event_log import append_ui_event_log
 from backend.mam_api import get_status, points_unavailable_reason
 from backend.notifications_backend import notify_event
-from backend.perk_automation import buy_upload_credit, buy_vip
+from backend.perk_automation import buy_upload_credit, buy_vip, vip_purchase_block_reason
 from backend.proxy_config import resolve_proxy_from_session_cfg
 from backend.utils_redact import redact_sensitive
 
@@ -218,6 +218,27 @@ async def manual_vip(request: Request) -> dict[str, Any]:
     proxy_cfg = resolve_proxy_from_session_cfg(cfg)
     now = datetime.now(UTC)
     is_max = weeks_int == 90
+    # --- MaM minimum-purchase guardrail (applies to every duration) ---
+    # vip_until is absolute, so the stored status stays accurate without a
+    # refetch. Checked before the points guardrail because it costs no request.
+    vip_block_reason = vip_purchase_block_reason(cfg.get("last_status", {}).get("raw"), now=now)
+    if vip_block_reason:
+        _logger.info("[ManualVIP] BLOCKED for session '%s': %s", label, vip_block_reason)
+        append_ui_event_log(
+            {
+                "timestamp": now.isoformat(),
+                "label": label,
+                "event_type": "manual",
+                "trigger": "manual",
+                "purchase_type": "vip",
+                "amount": "max" if is_max else weeks_int,
+                "details": {},
+                "result": "blocked",
+                "error": vip_block_reason,
+                "status_message": f"Manual VIP purchase blocked: {vip_block_reason}",
+            }
+        )
+        return {"success": False, "error": vip_block_reason}
     # --- Enforce minimum points guardrail (prevent spend below minimum) ---
     # Max/90-week VIP has variable cost; guardrail is skipped for that case
     enforce_min_pts = cfg.get("perk_automation", {}).get("enforce_min_points_guardrail", False)

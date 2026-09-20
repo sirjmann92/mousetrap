@@ -4,6 +4,8 @@ Functions handle proxy configuration, make HTTP requests to the MaM JSON API,
 and return structured result dictionaries.
 """
 
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 import logging
 import time
 from typing import Any
@@ -13,6 +15,109 @@ import aiohttp
 from backend.utils import build_proxy_dict
 
 _logger: logging.Logger = logging.getLogger(__name__)
+
+# MaM refuses any API purchase that would add less than a full week of VIP:
+# "Min VIP is 1 week purchased for Automated methods". It counts a purchase made
+# through a tool like MouseTrap as automated even when a person clicked the
+# button, so this applies to manual purchases too.
+VIP_MIN_PURCHASE_DAYS = 7
+
+# MaM caps VIP at 90 days. The API does not report the cap, but MaM's store API
+# and documentation both state it, and a purchase refused with 89.36 days banked
+# (github.com/sirjmann92/mousetrap/issues/145) is consistent with it. MaM
+# displays VIP in weeks, which is presentation only; the cap itself is in days.
+VIP_CAP_DAYS = 90
+
+# Above this much VIP remaining, a purchase cannot add the required week.
+VIP_PURCHASE_BLOCK_ABOVE_DAYS = VIP_CAP_DAYS - VIP_MIN_PURCHASE_DAYS
+
+# Format of the `vip_until` field in a jsonLoad.php response, in UTC. Confirmed
+# against a live account: MaM's own "weeks remaining" figure reproduces exactly
+# when the value is read as UTC.
+_VIP_UNTIL_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def vip_days_remaining(
+    raw: Mapping[str, Any] | None, *, now: datetime | None = None
+) -> float | None:
+    """Days of VIP left according to MaM's ``vip_until``.
+
+    ``vip_until`` is an absolute timestamp, so a value read from a cached status
+    stays accurate without refetching; the remaining time is simply measured
+    against the current clock.
+
+    Args:
+        raw: The ``raw`` jsonLoad.php payload from a status check, or None.
+        now: Instant to measure from. Defaults to the current UTC time.
+
+    Returns:
+        Days remaining as a float, negative when VIP has lapsed, or None when
+        the field is missing or unparseable so callers can skip the check
+        rather than guess.
+    """
+    if not isinstance(raw, Mapping):
+        return None
+    vip_until = raw.get("vip_until")
+    if not isinstance(vip_until, str) or not vip_until.strip():
+        return None
+    try:
+        expires = datetime.strptime(vip_until.strip(), _VIP_UNTIL_FORMAT).replace(tzinfo=UTC)
+    except ValueError:
+        _logger.debug("[vip_days_remaining] Unparseable vip_until: %r", vip_until)
+        return None
+    return (expires - (now or datetime.now(UTC))).total_seconds() / 86400
+
+
+def vip_purchase_block_reason(raw: Mapping[str, Any] | None, *, now: datetime | None = None) -> str:
+    """Explain why a VIP purchase would be refused for having too much banked.
+
+    Args:
+        raw: The ``raw`` jsonLoad.php payload from a status check, or None.
+        now: Instant to measure from. Defaults to the current UTC time.
+
+    Returns:
+        A reason naming when the purchase becomes possible, or an empty string
+        when the purchase should be attempted. Unknown remaining time yields an
+        empty string, so a missing field never blocks a purchase.
+    """
+    remaining = vip_days_remaining(raw, now=now)
+    if remaining is None or remaining <= VIP_PURCHASE_BLOCK_ABOVE_DAYS:
+        return ""
+    eligible_at = (now or datetime.now(UTC)) + timedelta(
+        days=remaining - VIP_PURCHASE_BLOCK_ABOVE_DAYS
+    )
+    return (
+        f"VIP has {remaining:.1f} days remaining, and MaM refuses an automated "
+        f"purchase that would add less than {VIP_MIN_PURCHASE_DAYS} days. "
+        f"Eligible from {eligible_at.strftime('%Y-%m-%d %H:%M')} UTC."
+    )
+
+
+def _non_json_reason(response_url: str, body: str) -> str:
+    """Explain a bonusBuy.php reply that was not JSON.
+
+    MaM answers an unusable session by redirecting to its login page and
+    serving HTML, which surfaced to the user as a decoder error followed by a
+    page of markup. The redirect target is the useful signal; the markup is
+    noise and is never included.
+
+    Args:
+        response_url: Final URL of the response, after any redirect.
+        body: Response body, used only to tell HTML from a short plain reply.
+
+    Returns:
+        A short message naming the likely cause.
+    """
+    if "login.php" in response_url:
+        return (
+            "MaM rejected the session and redirected to its login page. "
+            "The MAM ID is most likely invalid or expired — update it, then "
+            "use Check Now before purchasing again."
+        )
+    snippet = body.strip()
+    if snippet[:1] == "<" or "<html" in snippet[:200].lower():
+        return "MaM returned an HTML page instead of a purchase response."
+    return f"MaM returned an unreadable response: {snippet[:120]}"
 
 
 def _rejection_reason(data: Any) -> str:
@@ -116,12 +221,13 @@ async def buy_upload_credit(
                 }
             try:
                 data = await resp.json()
-            except Exception as json_e:
+            except Exception:
                 text = await resp.text()
                 return {
                     "success": False,
-                    "error": f"MaM API did not return valid JSON: {json_e}. Response: {text[:200]}",
+                    "error": _non_json_reason(str(resp.url), text),
                     "gb": gb,
+                    "status_code": resp.status,
                 }
         if data.get("success") or data.get("Success"):
             return {"success": True, "gb": gb, "response": data}
@@ -203,12 +309,11 @@ async def buy_vip(
                 }
             try:
                 data = await resp.json()
-            except Exception as json_e:
+            except Exception:
                 text = await resp.text()
                 return {
                     "success": False,
-                    "error": f"Non-JSON response: {json_e}",
-                    "raw_response": text[:500],
+                    "error": _non_json_reason(str(resp.url), text),
                     "status_code": resp.status,
                 }
             if data.get("success") or data.get("Success"):

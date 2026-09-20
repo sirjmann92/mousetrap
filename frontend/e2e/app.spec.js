@@ -281,4 +281,64 @@ test.describe
         'Min VIP is 1 week purchased for Automated methods',
       );
     });
+    test('disables the VIP purchase button while no full week of VIP fits', async ({
+      page,
+      request,
+    }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'VipCapped',
+          mam: {
+            ip_monitoring_mode: 'static',
+            mam_id: 'e2e-mam-id',
+            session_type: 'IP Locked',
+          },
+          mam_ip: '192.0.2.42',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+      // The stub reports vip_until in 2099, far above the 84-day threshold.
+      expect((await request.get('/api/status?label=VipCapped&force=1')).ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
+
+      await expect(page.getByTestId('purchase-vip')).toBeDisabled();
+      // Dispatch the event the tooltip listens for rather than relying on
+      // pointer geometry, which is what made this flake on CI. The span is the
+      // hover target because a disabled button fires no pointer events.
+      await page.getByTestId('purchase-vip').locator('..').dispatchEvent('mouseover');
+      await expect(page.getByRole('tooltip')).toContainText(
+        /MAM refuses a purchase that would add less than a full week/,
+      );
+    });
+    test('disables both purchase buttons when MAM rejected the session', async ({
+      page,
+      request,
+    }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'VipRejected',
+          mam: {
+            ip_monitoring_mode: 'static',
+            mam_id: 'e2e-rejected-mam-id',
+            session_type: 'IP Locked',
+          },
+          mam_ip: '192.0.2.43',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+      expect((await request.get('/api/status?label=VipRejected&force=1')).ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
+
+      // A purchase on a rejected session can only fail, and used to fail with a
+      // page of login HTML in the snackbar.
+      await expect(page.getByTestId('purchase-vip')).toBeDisabled();
+      await expect(page.getByTestId('purchase-upload')).toBeDisabled();
+
+      await page.getByTestId('purchase-upload').locator('..').dispatchEvent('mouseover');
+      await expect(page.getByRole('tooltip')).toContainText(/MAM rejected this session/);
+    });
   });
