@@ -132,3 +132,91 @@ async def test_every_purchase_sends_all_four_header_fields(
     assert [tuple(headers) for headers in bonus_buy_session.headers_sent] == [
         BONUS_HEADER_NAMES
     ] * len(bonus_buy_session.headers_sent)
+
+
+class _RefusingResponse(_StubResponse):
+    """Stub response replaying a MaM refusal, which arrives as HTTP 200."""
+
+    def __init__(self, payload: Any) -> None:
+        """Bind the refusal body this response decodes to.
+
+        Args:
+            payload: Decoded JSON body bonusBuy.php replies with.
+
+        """
+        self._payload = payload
+
+    async def json(self) -> Any:
+        """Return the refusal body."""
+        return self._payload
+
+
+class _RefusingSession(_StubSession):
+    """Stub session whose every purchase is refused by MaM."""
+
+    def __init__(self, payload: Any) -> None:
+        """Bind the refusal body every request resolves to.
+
+        Args:
+            payload: Decoded JSON body bonusBuy.php replies with.
+
+        """
+        super().__init__()
+        self._payload = payload
+
+    def get(self, _url: str, *, headers: dict[str, str], **_kwargs: Any) -> _StubRequest:
+        """Record the headers and hand back a refusal.
+
+        Args:
+            _url: Request URL, unused because no request leaves the process.
+            headers: Request headers, recorded to match the base stub.
+            **_kwargs: Cookies, proxy and proxy auth, none of which are asserted.
+
+        Returns:
+            A request handle resolving to a refusing stub response.
+
+        """
+        self.headers_sent.append(headers)
+        return _StubRequest(_RefusingResponse(self._payload))
+
+
+# MaM's verbatim wording when a VIP purchase would add less than a full week,
+# captured in https://github.com/sirjmann92/mousetrap/issues/72.
+MIN_VIP_REFUSAL = {
+    "success": False,
+    "error": "Min VIP is 1 week purchased for Automated methods",
+}
+
+
+@pytest.fixture
+def refusing_session(monkeypatch: pytest.MonkeyPatch) -> _RefusingSession:
+    """Replace the purchase transport with one that refuses every purchase."""
+    session = _RefusingSession(MIN_VIP_REFUSAL)
+    monkeypatch.setattr(
+        perk_automation.aiohttp, "ClientSession", lambda **_kwargs: session, raising=True
+    )
+    return session
+
+
+async def test_vip_refusal_reports_mam_wording(refusing_session: _RefusingSession) -> None:
+    """Lift MaM's reason into ``error``, which every caller reads.
+
+    A refusal arrives as HTTP 200 with the reason in the body. Leaving it only
+    under ``response`` made every surface report ``Error: None`` (issue #145).
+    """
+    result = await perk_automation.buy_vip(PLACEHOLDER_MAM_ID)
+
+    assert result["success"] is False
+    assert result["error"] == "Min VIP is 1 week purchased for Automated methods"
+    assert result["response"] == MIN_VIP_REFUSAL
+
+
+async def test_upload_credit_refusal_reports_mam_wording(
+    refusing_session: _RefusingSession,
+) -> None:
+    """Report the same way for upload credit, which dropped the reason too."""
+    result = await perk_automation.buy_upload_credit(1, mam_id=PLACEHOLDER_MAM_ID)
+
+    assert result["success"] is False
+    assert result["error"] == "Min VIP is 1 week purchased for Automated methods"
+    assert result["gb"] == 1

@@ -6,6 +6,8 @@ from httpx import AsyncClient
 import pytest
 
 from backend import api_automation, config
+from backend.event_log import get_ui_event_log
+from backend.perk_automation import _rejection_reason
 
 
 def _save_vip_session(label: str, *, guardrail: bool) -> None:
@@ -101,3 +103,73 @@ async def test_guardrail_blocks_a_priced_purchase(
     assert body["success"] is False
     assert "minimum points" in body["error"]
     assert purchases == []
+
+
+# MAM's verbatim refusal when a purchase would add less than a full week. See
+# https://github.com/sirjmann92/mousetrap/issues/72 for the captured response.
+_MIN_VIP_REFUSAL = {
+    "success": False,
+    "error": "Min VIP is 1 week purchased for Automated methods",
+}
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(("weeks", "amount"), [("max", "max"), (4, 4)])
+async def test_mam_refusal_reason_reaches_the_caller_and_the_event_log(
+    api_client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    weeks: object,
+    amount: object,
+) -> None:
+    """A 200-OK refusal surfaces MAM's wording instead of a bare failure.
+
+    bonusBuy.php reports refusals in the body, so the reason was dropped and
+    every surface reported ``Error: None`` (issue #145).
+    """
+
+    async def refusing_buy_vip(
+        _mam_id: str, duration: str = "max", proxy_cfg: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        return await _passthrough_rejection()
+
+    monkeypatch.setattr(api_automation, "buy_vip", refusing_buy_vip)
+    _save_vip_session("seedbox", guardrail=False)
+
+    response = await api_client.post(
+        "/api/automation/vip", json={"label": "seedbox", "weeks": weeks}
+    )
+
+    body = response.json()
+    assert body["success"] is False
+    assert body["error"] == "Min VIP is 1 week purchased for Automated methods"
+
+    event = get_ui_event_log()[-1]
+    assert event["result"] == "failed"
+    assert event["amount"] == amount
+    assert event["error"] == "Min VIP is 1 week purchased for Automated methods"
+
+
+async def _passthrough_rejection() -> dict[str, Any]:
+    """Return what the real ``buy_vip`` builds from a MAM refusal body."""
+    return {
+        "success": False,
+        "error": _rejection_reason(_MIN_VIP_REFUSAL),
+        "response": _MIN_VIP_REFUSAL,
+    }
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("body", "expected"),
+    [
+        ({"success": False, "error": "Invalid duration specified"}, "Invalid duration specified"),
+        ({"success": False, "error": "  padded  "}, "padded"),
+        ({"success": False, "msg": "alternate key"}, "alternate key"),
+        ({"success": False}, "MaM refused the purchase without giving a reason."),
+        ({"success": False, "error": ""}, "MaM refused the purchase without giving a reason."),
+        ([], "MaM refused the purchase without giving a reason."),
+    ],
+)
+async def test_rejection_reason_extraction(body: object, expected: str) -> None:
+    """Every refusal shape yields a non-empty reason rather than ``None``."""
+    assert _rejection_reason(body) == expected

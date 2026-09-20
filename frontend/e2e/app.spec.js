@@ -226,4 +226,59 @@ test.describe
         '192.0.2.30',
       );
     });
+    test('shows the VIP expiry MAM reports in the MAM Details panel', async ({ page, request }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'VipDetails',
+          mam: {
+            ip_monitoring_mode: 'static',
+            mam_id: 'e2e-mam-id',
+            session_type: 'IP Locked',
+          },
+          mam_ip: '192.0.2.40',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+      // A session has no details until a check runs, so force one first.
+      expect((await request.get('/api/status?label=VipDetails&force=1')).ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.getByText('MAM Details', { exact: true }).click();
+
+      // vip_until is already in the status payload; before this row existed the
+      // panel rendered twelve fields and silently dropped the VIP expiry.
+      await expect(page.getByTestId('mam-details-vip-until')).toContainText('2099-01-02 03:04:05');
+      await expect(page.getByTestId('mam-details-vip-until')).toContainText('left');
+    });
+
+    test('surfaces the reason MAM refused a VIP purchase in the event log', async ({
+      page,
+      request,
+    }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'VipRefusal',
+          mam: {
+            ip_monitoring_mode: 'static',
+            mam_id: 'e2e-mam-id',
+            session_type: 'IP Locked',
+          },
+          mam_ip: '192.0.2.41',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
+      const purchased = waitForPost(page, '/api/automation/vip');
+      await page.getByRole('button', { name: 'Purchase VIP', exact: true }).click();
+      await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+      expect((await purchased).ok()).toBeTruthy();
+
+      await page.getByRole('button', { name: 'View event log', exact: true }).click();
+      // Issue #145: this read only "VIP purchase failed" with the reason dropped.
+      await expect(page.getByTestId('event-log-error').first()).toContainText(
+        'Min VIP is 1 week purchased for Automated methods',
+      );
+    });
   });

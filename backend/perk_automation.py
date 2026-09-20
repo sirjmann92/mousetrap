@@ -14,6 +14,31 @@ from backend.utils import build_proxy_dict
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
+
+def _rejection_reason(data: Any) -> str:
+    """Extract the reason MaM refused a purchase from a 200-OK rejection body.
+
+    bonusBuy.php reports refusals as ``{"success": false, "error": "..."}`` with
+    an HTTP 200, so the reason lives in the body rather than the status line.
+    Callers read the returned dict's ``error`` key, so the message has to be
+    lifted out of the response here or it is lost entirely.
+
+    Args:
+        data: Decoded JSON body from bonusBuy.php. Usually a dict, but MaM is
+            not obliged to return one.
+
+    Returns:
+        MaM's own wording when it supplied a usable message, otherwise a
+        generic fallback so callers never report an empty reason.
+    """
+    if isinstance(data, dict):
+        for key in ("error", "Error", "msg", "message"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+    return "MaM refused the purchase without giving a reason."
+
+
 # Every bonusBuy.php purchase presents this one browser identity.
 _BONUS_HEADERS: dict[str, str] = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
@@ -104,7 +129,12 @@ async def buy_upload_credit(
         _logger.error("[buy_upload_credit] Exception: %s", e)
         return {"success": False, "error": str(e), "gb": gb}
     else:
-        return {"success": False, "gb": gb, "response": data}
+        return {
+            "success": False,
+            "error": _rejection_reason(data),
+            "gb": gb,
+            "response": data,
+        }
 
 
 async def buy_vip(
@@ -187,4 +217,4 @@ async def buy_vip(
         _logger.error("[buy_vip] Exception: %s", e)
         return {"success": False, "error": str(e)}
     else:
-        return {"success": False, "response": data}
+        return {"success": False, "error": _rejection_reason(data), "response": data}
