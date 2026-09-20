@@ -441,26 +441,48 @@ export default function PerkAutomationCard(props) {
           {/* VIP Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Tooltip
-                title={
-                  vipPurchaseBlockMsg ||
-                  'This will instantly purchase VIP for the selected duration.'
-                }
+              <Box
+                sx={{
+                  alignItems: 'flex-end',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.5,
+                  width: '100%',
+                }}
               >
-                {/* The Box keeps the tooltip working while the button is
-                    disabled, since a disabled button fires no pointer events. */}
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button
-                    data-testid="purchase-vip"
-                    disabled={Boolean(vipPurchaseBlockMsg)}
-                    onClick={() => setConfirmVIPOpen(true)}
-                    sx={{ minWidth: 180 }}
-                    variant="contained"
+                {/* Shown rather than left to the tooltip: a disabled button
+                    with a hover-only explanation says nothing at all on a
+                    touch device, which is the obscurity this is meant to fix. */}
+                {vipPurchaseBlockMsg && (
+                  <Typography
+                    data-testid="vip-purchase-blocked"
+                    sx={{ textAlign: 'right' }}
+                    variant="caption"
                   >
-                    Purchase VIP
-                  </Button>
-                </Box>
-              </Tooltip>
+                    {vipPurchaseBlockMsg}
+                  </Typography>
+                )}
+                <Tooltip
+                  title={
+                    vipPurchaseBlockMsg ||
+                    'This will instantly purchase VIP for the selected duration.'
+                  }
+                >
+                  {/* The span keeps the tooltip working while the button is
+                      disabled, since a disabled button fires no pointer events. */}
+                  <span>
+                    <Button
+                      data-testid="purchase-vip"
+                      disabled={Boolean(vipPurchaseBlockMsg)}
+                      onClick={() => setConfirmVIPOpen(true)}
+                      sx={{ minWidth: 180 }}
+                      variant="contained"
+                    >
+                      Purchase VIP
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
             }
             enabled={autoVIP}
             extraControls={

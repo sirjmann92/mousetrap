@@ -303,14 +303,11 @@ test.describe
       await page.goto('/');
       await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
 
-      const purchase = page.getByTestId('purchase-vip');
-      await expect(purchase).toBeDisabled();
-
-      // A disabled button fires no pointer events, so the wrapping Box is what
-      // carries the tooltip explaining why.
-      await purchase.locator('..').hover();
-      await expect(
-        page.getByRole('tooltip').filter({ hasText: /MAM refuses a purchase/ }),
-      ).toBeVisible();
+      await expect(page.getByTestId('purchase-vip')).toBeDisabled();
+      // The reason is rendered, not hover-only: a tooltip alone would leave a
+      // touch user with a greyed-out button and no explanation.
+      await expect(page.getByTestId('vip-purchase-blocked')).toContainText(
+        /MAM refuses a purchase that would add less than a full week/,
+      );
     });
   });
