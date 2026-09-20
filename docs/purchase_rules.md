@@ -59,9 +59,9 @@ ones.
 MaM caps VIP at **90 days**, so once more than **83 days** remain no purchase
 can add the required week. MouseTrap reads `vip_until` from the session's last
 status check and skips the purchase above that threshold, for every duration
-rather than just "Max me out!". The Purchase VIP button is disabled and states
-the reason, re-enabling itself once enough VIP has burned off without needing a
-page reload.
+rather than just "Max me out!". The Purchase VIP button is disabled while this
+applies, with the reason on hover, and re-enables itself once enough VIP has
+burned off without needing a page reload.
 
 MaM displays VIP in weeks, but the cap itself is in days; a reading of
 "12.765 weeks" is 89.4 days and is above the threshold.
@@ -86,8 +86,8 @@ serving HTML, so no purchase can succeed while a session is in that state.
 
 When the last status check was rejected — `mam_invalid_since` is set, or the
 check reported no usable cookie — both **Purchase VIP** and **Purchase Upload**
-are disabled and state the reason. Update the MAM ID and use **Check Now** to
-clear it.
+are disabled, with the reason on hover. Update the MAM ID and use **Check Now**
+to clear it.
 
 A session that has never been checked has no verdict yet and is not blocked.
 

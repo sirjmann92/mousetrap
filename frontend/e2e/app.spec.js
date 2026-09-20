@@ -304,9 +304,11 @@ test.describe
       await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
 
       await expect(page.getByTestId('purchase-vip')).toBeDisabled();
-      // The reason is rendered, not hover-only: a tooltip alone would leave a
-      // touch user with a greyed-out button and no explanation.
-      await expect(page.getByTestId('vip-purchase-blocked')).toContainText(
+      // Dispatch the event the tooltip listens for rather than relying on
+      // pointer geometry, which is what made this flake on CI. The span is the
+      // hover target because a disabled button fires no pointer events.
+      await page.getByTestId('purchase-vip').locator('..').dispatchEvent('mouseover');
+      await expect(page.getByRole('tooltip')).toContainText(
         /MAM refuses a purchase that would add less than a full week/,
       );
     });
@@ -335,8 +337,8 @@ test.describe
       // page of login HTML in the snackbar.
       await expect(page.getByTestId('purchase-vip')).toBeDisabled();
       await expect(page.getByTestId('purchase-upload')).toBeDisabled();
-      await expect(page.getByTestId('upload-purchase-blocked')).toContainText(
-        /MAM rejected this session/,
-      );
+
+      await page.getByTestId('purchase-upload').locator('..').dispatchEvent('mouseover');
+      await expect(page.getByRole('tooltip')).toContainText(/MAM rejected this session/);
     });
   });

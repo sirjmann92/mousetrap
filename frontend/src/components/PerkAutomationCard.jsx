@@ -457,35 +457,15 @@ export default function PerkAutomationCard(props) {
           {/* VIP Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Box
-                sx={{
-                  alignItems: 'flex-end',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 0.5,
-                  width: '100%',
-                }}
-              >
-                {/* Shown rather than left to the tooltip: a disabled button
-                    with a hover-only explanation says nothing at all on a
-                    touch device, which is the obscurity this is meant to fix. */}
-                {vipPurchaseBlockMsg && (
-                  <Typography
-                    data-testid="vip-purchase-blocked"
-                    sx={{ textAlign: 'right' }}
-                    variant="caption"
-                  >
-                    {vipPurchaseBlockMsg}
-                  </Typography>
-                )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                 <Tooltip
                   title={
                     vipPurchaseBlockMsg ||
                     'This will instantly purchase VIP for the selected duration.'
                   }
                 >
-                  {/* The span keeps the tooltip working while the button is
-                      disabled, since a disabled button fires no pointer events. */}
+                  {/* The span wraps the button tightly so the tooltip still has
+                      a hover target: a disabled button fires no pointer events. */}
                   <span>
                     <Button
                       data-testid="purchase-vip"
@@ -553,24 +533,7 @@ export default function PerkAutomationCard(props) {
           {/* Upload Credit Purchase Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Box
-                sx={{
-                  alignItems: 'flex-end',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 0.5,
-                  width: '100%',
-                }}
-              >
-                {sessionBlockMsg && (
-                  <Typography
-                    data-testid="upload-purchase-blocked"
-                    sx={{ textAlign: 'right' }}
-                    variant="caption"
-                  >
-                    {sessionBlockMsg}
-                  </Typography>
-                )}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                 <Tooltip
                   title={
                     sessionBlockMsg ||
