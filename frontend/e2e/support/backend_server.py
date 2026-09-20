@@ -37,7 +37,22 @@ async def _mam_seen(*_args: Any, **_kwargs: Any) -> dict[str, str | int]:
     return {"AS": "TEST-NET", "ASN": 64500, "ip": "192.0.2.100"}
 
 
-async def _mam_status(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+# A session using this MaM ID is answered as rejected, so the E2E suite can
+# exercise the invalid-session surfaces without a real bad cookie.
+REJECTED_MAM_ID = "e2e-rejected-mam-id"
+
+
+async def _mam_status(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    mam_id = kwargs.get("mam_id") or (args[0] if args else None)
+    if mam_id == REJECTED_MAM_ID:
+        # Shaped like get_status's failure return: no raw, cookie not accepted.
+        return {
+            "mam_cookie_exists": False,
+            "points": None,
+            "wedge_active": None,
+            "vip_active": None,
+            "message": "Failed to fetch status: HTTP 403: Invalid session - Invalid Cookie",
+        }
     return {
         "mam_cookie_exists": True,
         "points": 0,

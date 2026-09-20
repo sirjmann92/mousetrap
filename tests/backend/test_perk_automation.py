@@ -296,3 +296,47 @@ def test_lapsed_vip_is_not_blocked() -> None:
 
     assert perk_automation.vip_purchase_block_reason(raw, now=REAL_READING_AT) == ""
     assert (perk_automation.vip_days_remaining(raw, now=REAL_READING_AT) or 0) < 0
+
+
+# What MaM actually served for a rejected session in issue #145: a redirect to
+# the login page, answered with HTML rather than JSON.
+LOGIN_REDIRECT_URL = (
+    "https://www.myanonamouse.net/login.php?returnto=/json/bonusBuy.php/"
+    "?spendtype%3Dupload%26amount%3D50%26_%3D1789917807172"
+)
+LOGIN_PAGE_HTML = (
+    '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+    '<link rel="apple-touch-icon" sizes="180x180" href="https://sas.example/x.png">'
+)
+
+
+def test_login_redirect_is_reported_as_a_rejected_session() -> None:
+    """Name the cause instead of quoting a decoder error and a page of HTML."""
+    reason = perk_automation._non_json_reason(LOGIN_REDIRECT_URL, LOGIN_PAGE_HTML)
+
+    assert "invalid or expired" in reason
+    assert "Check Now" in reason
+    assert "<" not in reason, "markup must never reach the user"
+    assert len(reason) < 200
+
+
+@pytest.mark.parametrize(
+    "body",
+    [LOGIN_PAGE_HTML, "  <html><body>nope</body></html>", "<!doctype HTML><HTML>"],
+)
+def test_html_without_a_login_redirect_is_summarised(body: str) -> None:
+    """Never paste markup into the message, whatever the URL was."""
+    reason = perk_automation._non_json_reason(
+        "https://www.myanonamouse.net/json/bonusBuy.php/", body
+    )
+
+    assert reason == "MaM returned an HTML page instead of a purchase response."
+
+
+def test_short_non_html_body_is_quoted() -> None:
+    """A brief plain-text reply is worth showing verbatim."""
+    reason = perk_automation._non_json_reason(
+        "https://www.myanonamouse.net/json/bonusBuy.php/", "rate limited"
+    )
+
+    assert reason == "MaM returned an unreadable response: rate limited"

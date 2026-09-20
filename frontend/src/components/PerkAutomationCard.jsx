@@ -79,6 +79,9 @@ export default function PerkAutomationCard(props) {
   // MAM's vip_until, and a clock that re-renders so the purchase button
   // re-enables itself the moment enough VIP has burned off.
   const [vipUntil, setVipUntil] = useState(null);
+  // Whether MAM accepted the session on the last check. A purchase cannot
+  // succeed while it did not, so both purchase buttons are held closed.
+  const [sessionRejected, setSessionRejected] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   // Upload automation options state
   const [triggerType, setTriggerType] = useState('time');
@@ -127,6 +130,11 @@ export default function PerkAutomationCard(props) {
         }
         setCurrentUsername(username);
         setVipUntil(cfg.last_status?.raw?.vip_until ?? null);
+        // A session that has never been checked has no verdict yet, so it
+        // is left alone rather than assumed broken.
+        setSessionRejected(
+          Boolean(cfg.mam_invalid_since) || cfg.last_status?.mam_cookie_exists === false,
+        );
       });
     fetch('/api/automation/guardrails')
       .then((res) => res.json())
@@ -167,11 +175,19 @@ export default function PerkAutomationCard(props) {
     return () => clearInterval(id);
   }, [vipUntil]);
 
+  // MAM serves its login page to a rejected session, so a purchase attempted
+  // in this state can only fail. Shown on both buttons, since neither perk can
+  // be bought without a working session.
+  const sessionBlockMsg = sessionRejected
+    ? 'MAM rejected this session on the last check. Update the MAM ID and use Check Now before purchasing.'
+    : '';
+
   // MAM refuses an API purchase that would add less than a full week of VIP, so
   // one is impossible until enough has burned off. Mirrors
   // VIP_PURCHASE_BLOCK_ABOVE_DAYS in backend/perk_automation.py; the backend
   // still enforces it, this only avoids a click that cannot succeed.
   const vipPurchaseBlockMsg = (() => {
+    if (sessionBlockMsg) return sessionBlockMsg;
     if (typeof vipUntil !== 'string' || !vipUntil.trim()) return '';
     const expires = new Date(`${vipUntil.trim().replace(' ', 'T')}Z`);
     if (Number.isNaN(expires.getTime())) return '';
@@ -537,17 +553,43 @@ export default function PerkAutomationCard(props) {
           {/* Upload Credit Purchase Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Tooltip title="This will instantly purchase upload credit for the selected amount.">
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                  <Button
-                    onClick={() => setConfirmUploadOpen(true)}
-                    sx={{ minWidth: 180 }}
-                    variant="contained"
+              <Box
+                sx={{
+                  alignItems: 'flex-end',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 0.5,
+                  width: '100%',
+                }}
+              >
+                {sessionBlockMsg && (
+                  <Typography
+                    data-testid="upload-purchase-blocked"
+                    sx={{ textAlign: 'right' }}
+                    variant="caption"
                   >
-                    Purchase Upload
-                  </Button>
-                </Box>
-              </Tooltip>
+                    {sessionBlockMsg}
+                  </Typography>
+                )}
+                <Tooltip
+                  title={
+                    sessionBlockMsg ||
+                    'This will instantly purchase upload credit for the selected amount.'
+                  }
+                >
+                  <span>
+                    <Button
+                      data-testid="purchase-upload"
+                      disabled={Boolean(sessionBlockMsg)}
+                      onClick={() => setConfirmUploadOpen(true)}
+                      sx={{ minWidth: 180 }}
+                      variant="contained"
+                    >
+                      Purchase Upload
+                    </Button>
+                  </span>
+                </Tooltip>
+              </Box>
             }
             enabled={autoUpload}
             onSelectChange={(e) => setUploadAmount(parseFloat(e.target.value) || 0)}

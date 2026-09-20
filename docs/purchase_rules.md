@@ -78,3 +78,21 @@ Notes:
 - If VIP is bought directly on the MaM website, the stored `vip_until` is
   behind until the next check, which can only permit a purchase MaM then
   refuses. Use **Check Now** to refresh it.
+
+## Rejected Session Guardrail
+
+MaM answers a session it does not accept by redirecting to its login page and
+serving HTML, so no purchase can succeed while a session is in that state.
+
+When the last status check was rejected — `mam_invalid_since` is set, or the
+check reported no usable cookie — both **Purchase VIP** and **Purchase Upload**
+are disabled and state the reason. Update the MAM ID and use **Check Now** to
+clear it.
+
+A session that has never been checked has no verdict yet and is not blocked.
+
+If a purchase is attempted anyway, for example through the API directly, the
+login redirect is reported as "MaM rejected the session and redirected to its
+login page", rather than as a JSON decoder error followed by the markup of the
+login page.
+
