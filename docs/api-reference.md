@@ -291,6 +291,8 @@ Manually trigger an upload credit purchase.
 - When the session enables the minimum-points guardrail and MaM returns no point
   balance, the purchase is not attempted and the response carries the MaM failure
   in `error`.
+- When MaM refuses the purchase it answers `200 OK` with `{"success": false,
+  "error": "..."}`, and that wording is returned verbatim in `error`.
 
 ### POST `/api/automation/vip`
 Manually trigger a VIP purchase.
@@ -310,6 +312,11 @@ Manually trigger a VIP purchase.
 - When the session enables the minimum-points guardrail and MaM returns no point
   balance, the purchase is not attempted and the response carries the MaM failure
   in `error`.
+- When MaM refuses the purchase it answers `200 OK` with `{"success": false,
+  "error": "..."}`, and that wording is returned verbatim in `error`. A common
+  refusal is `Min VIP is 1 week purchased for Automated methods`: purchases made
+  through the API must add at least a full week, so `max` fails once VIP is
+  within a week of its cap even though the MaM website allows a partial top-up.
 
 ---
 

@@ -11,6 +11,7 @@ import uvicorn
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 app_module: Any = importlib.import_module("backend.app")
 api_proxy_module: Any = importlib.import_module("backend.api_proxy")
+api_automation_module: Any = importlib.import_module("backend.api_automation")
 
 
 async def _public_ip(*_args: Any, **_kwargs: Any) -> str:
@@ -26,7 +27,9 @@ async def _ipinfo(*_args: Any, **_kwargs: Any) -> dict[str, str]:
     }
 
 
-async def _asn(_ip: str, **_kwargs: Any) -> tuple[str, str]:
+async def _asn(*_args: Any, **_kwargs: Any) -> tuple[str, str]:
+    # get_asn_and_timezone_from_ip is called with (ip, proxy_cfg) positionally,
+    # so a single-positional stub made /api/status raise a TypeError.
     return "AS64500", "UTC"
 
 
@@ -41,6 +44,36 @@ async def _mam_status(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         "status_message": "OK",
         "vip_active": False,
         "wedge_active": False,
+        # Shaped like a jsonLoad.php body so the MAM Details panel renders.
+        # Not a real account: every value here is from the TEST-NET fixtures.
+        "raw": {
+            "classname": "VIP",
+            "connectable": "yes",
+            "downloaded": "1.00 GiB",
+            "ratio": 1.0,
+            "seedbonus": 0,
+            "uid": 64500,
+            "uploaded": "1.00 GiB",
+            "username": "e2e-user",
+            "vip_until": "2099-01-02 03:04:05",
+        },
+    }
+
+
+# MaM's verbatim refusal when a purchase would add less than a full week, from
+# https://github.com/sirjmann92/mousetrap/issues/72. Stubbed so the purchase
+# routes exercise the failure surfaces without reaching myanonamouse.net.
+_MIN_VIP_REFUSAL = {
+    "success": False,
+    "error": "Min VIP is 1 week purchased for Automated methods",
+}
+
+
+async def _buy_vip(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+    return {
+        "success": False,
+        "error": _MIN_VIP_REFUSAL["error"],
+        "response": dict(_MIN_VIP_REFUSAL),
     }
 
 
@@ -50,6 +83,8 @@ app_module.get_asn_and_timezone_from_ip = _asn
 app_module.get_mam_seen_ip_info = _mam_seen
 app_module.get_status = _mam_status
 api_proxy_module.get_ipinfo_with_fallback = _ipinfo
+api_automation_module.buy_vip = _buy_vip
+api_automation_module.get_status = _mam_status
 
 if __name__ == "__main__":
     uvicorn.run(

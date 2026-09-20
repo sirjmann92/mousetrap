@@ -8,6 +8,25 @@ import {
   Typography,
 } from '@mui/material';
 
+/**
+ * Format MAM's `vip_until` timestamp for display, with days remaining.
+ *
+ * MAM sends "YYYY-MM-DD HH:MM:SS", which browsers parse inconsistently, so the
+ * value is normalised to ISO before being read as UTC. The day count is marked
+ * approximate because whether MAM means UTC or site-local is still unconfirmed.
+ *
+ * @param {any} vipUntil Raw `vip_until` value from jsonLoad.php.
+ * @returns {string} The timestamp with days remaining, or 'N/A' when absent.
+ */
+function formatVipUntil(vipUntil) {
+  if (typeof vipUntil !== 'string' || !vipUntil.trim()) return 'N/A';
+  const parsed = new Date(`${vipUntil.trim().replace(' ', 'T')}Z`);
+  if (Number.isNaN(parsed.getTime())) return vipUntil;
+  const days = Math.floor((parsed.getTime() - Date.now()) / 86400000);
+  if (days < 0) return `${vipUntil} (expired)`;
+  return `${vipUntil} (≈${days} ${days === 1 ? 'day' : 'days'} left)`;
+}
+
 export default function MamDetailsAccordion({ status }) {
   if (!status?.details?.raw) return null;
   const raw = status.details.raw;
@@ -99,6 +118,26 @@ export default function MamDetailsAccordion({ status }) {
             </Typography>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
               {raw.classname ?? 'N/A'}
+            </Typography>
+            <Tooltip title="When your VIP status expires, as reported by MAM.">
+              <Typography
+                component="dt"
+                sx={{
+                  fontSize: '0.92rem',
+                  fontWeight: 500,
+                  lineHeight: 1.3,
+                  py: 0.2,
+                }}
+              >
+                VIP Expires:
+              </Typography>
+            </Tooltip>
+            <Typography
+              component="dd"
+              data-testid="mam-details-vip-until"
+              sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}
+            >
+              {formatVipUntil(raw.vip_until)}
             </Typography>
             <Typography
               component="dt"

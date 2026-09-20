@@ -20,7 +20,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useCallback, useEffect, useId, useState } from 'react';
-import { getStatusMessageColor } from '../utils/utils';
+import { getStatusMessageColor, stringifyMessage } from '../utils/utils';
 
 export default function EventLogModalButton({ sessionLabel }) {
   const sessionFilterLabelId = useId();
@@ -376,6 +376,18 @@ export default function EventLogModalButton({ sessionLabel }) {
                   >
                     {event.status_message}
                   </Typography>
+                  {/* MAM's own wording for a refusal. Without this the reason
+                      reached the backend log but never the UI, so a failed
+                      purchase read only as "failed". */}
+                  {event.error && (
+                    <Typography
+                      data-testid="event-log-error"
+                      sx={{ color: 'error.main', mt: 0.5, wordBreak: 'break-word' }}
+                      variant="body2"
+                    >
+                      Reason: {stringifyMessage(event.error)}
+                    </Typography>
+                  )}
                   {event.details && (
                     <Box
                       sx={{
