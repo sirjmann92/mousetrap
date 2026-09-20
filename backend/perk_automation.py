@@ -4,6 +4,8 @@ Functions handle proxy configuration, make HTTP requests to the MaM JSON API,
 and return structured result dictionaries.
 """
 
+from collections.abc import Mapping
+from datetime import UTC, datetime, timedelta
 import logging
 import time
 from typing import Any
@@ -13,6 +15,86 @@ import aiohttp
 from backend.utils import build_proxy_dict
 
 _logger: logging.Logger = logging.getLogger(__name__)
+
+# MaM refuses any API purchase that would add less than a full week of VIP:
+# "Min VIP is 1 week purchased for Automated methods". It counts a purchase made
+# through a tool like MouseTrap as automated even when a person clicked the
+# button, so this applies to manual purchases too.
+VIP_MIN_PURCHASE_DAYS = 7
+
+# MaM caps VIP, but the exact cap is not exposed by the API. A purchase was
+# refused with 89.36 days banked (github.com/sirjmann92/mousetrap/issues/145),
+# which puts the cap somewhere in [89.4, 96.4) days; both 90 days and 13 weeks
+# fit. Assuming the larger makes the guardrail exact if the cap is 13 weeks and
+# err toward allowing if it is 90 days, leaving the boundary to MaM's own error
+# rather than to a guess. Blocking too eagerly would stop a purchase that would
+# have worked, which has no recourse; allowing one that fails costs one clear
+# message.
+VIP_CAP_DAYS = 91
+
+# Above this much VIP remaining, a purchase cannot add the required week.
+VIP_PURCHASE_BLOCK_ABOVE_DAYS = VIP_CAP_DAYS - VIP_MIN_PURCHASE_DAYS
+
+# Format of the `vip_until` field in a jsonLoad.php response, in UTC. Confirmed
+# against a live account: MaM's own "weeks remaining" figure reproduces exactly
+# when the value is read as UTC.
+_VIP_UNTIL_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+
+def vip_days_remaining(
+    raw: Mapping[str, Any] | None, *, now: datetime | None = None
+) -> float | None:
+    """Days of VIP left according to MaM's ``vip_until``.
+
+    ``vip_until`` is an absolute timestamp, so a value read from a cached status
+    stays accurate without refetching; the remaining time is simply measured
+    against the current clock.
+
+    Args:
+        raw: The ``raw`` jsonLoad.php payload from a status check, or None.
+        now: Instant to measure from. Defaults to the current UTC time.
+
+    Returns:
+        Days remaining as a float, negative when VIP has lapsed, or None when
+        the field is missing or unparseable so callers can skip the check
+        rather than guess.
+    """
+    if not isinstance(raw, Mapping):
+        return None
+    vip_until = raw.get("vip_until")
+    if not isinstance(vip_until, str) or not vip_until.strip():
+        return None
+    try:
+        expires = datetime.strptime(vip_until.strip(), _VIP_UNTIL_FORMAT).replace(tzinfo=UTC)
+    except ValueError:
+        _logger.debug("[vip_days_remaining] Unparseable vip_until: %r", vip_until)
+        return None
+    return (expires - (now or datetime.now(UTC))).total_seconds() / 86400
+
+
+def vip_purchase_block_reason(raw: Mapping[str, Any] | None, *, now: datetime | None = None) -> str:
+    """Explain why a VIP purchase would be refused for having too much banked.
+
+    Args:
+        raw: The ``raw`` jsonLoad.php payload from a status check, or None.
+        now: Instant to measure from. Defaults to the current UTC time.
+
+    Returns:
+        A reason naming when the purchase becomes possible, or an empty string
+        when the purchase should be attempted. Unknown remaining time yields an
+        empty string, so a missing field never blocks a purchase.
+    """
+    remaining = vip_days_remaining(raw, now=now)
+    if remaining is None or remaining <= VIP_PURCHASE_BLOCK_ABOVE_DAYS:
+        return ""
+    eligible_at = (now or datetime.now(UTC)) + timedelta(
+        days=remaining - VIP_PURCHASE_BLOCK_ABOVE_DAYS
+    )
+    return (
+        f"VIP has {remaining:.1f} days remaining, and MaM refuses an automated "
+        f"purchase that would add less than {VIP_MIN_PURCHASE_DAYS} days. "
+        f"Eligible from {eligible_at.strftime('%Y-%m-%d %H:%M')} UTC."
+    )
 
 
 def _rejection_reason(data: Any) -> str:

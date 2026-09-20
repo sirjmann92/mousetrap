@@ -47,3 +47,30 @@ This document describes all rules and guardrails for purchases (Upload Credit, V
 
 ---
 _Last updated: 2025-09-01_
+
+## VIP Minimum-Purchase Guardrail
+
+MaM refuses any VIP purchase made through its API that would add less than a
+full week, reporting `Min VIP is 1 week purchased for Automated methods`. It
+counts a purchase made through MouseTrap as automated even when a person
+clicked the button, so this applies to manual purchases as well as automated
+ones.
+
+MouseTrap reads `vip_until` from the session's last status check and skips the
+purchase when more than **84 days** of VIP remain, for every duration rather
+than just "Max me out!". The Purchase VIP button is disabled with a tooltip
+while this applies, and re-enables itself once enough VIP has burned off,
+without needing a page reload.
+
+Notes:
+
+- `vip_until` is an absolute timestamp, so the stored status stays accurate
+  without refetching; no extra request is made to evaluate this guardrail.
+- A session with no stored status, or an unreadable `vip_until`, is never
+  blocked. Blocking wrongly would stop a purchase the user cannot otherwise
+  make, while allowing one that fails costs a single clear message from MaM.
+- MaM's own error remains the authority. The guardrail avoids the common case;
+  it is not a substitute for the error.
+- If VIP is bought directly on the MaM website, the stored `vip_until` is
+  behind until the next check, which can only permit a purchase MaM then
+  refuses. Use **Check Now** to refresh it.

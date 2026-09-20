@@ -281,4 +281,36 @@ test.describe
         'Min VIP is 1 week purchased for Automated methods',
       );
     });
+    test('disables the VIP purchase button while no full week of VIP fits', async ({
+      page,
+      request,
+    }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'VipCapped',
+          mam: {
+            ip_monitoring_mode: 'static',
+            mam_id: 'e2e-mam-id',
+            session_type: 'IP Locked',
+          },
+          mam_ip: '192.0.2.42',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+      // The stub reports vip_until in 2099, far above the 84-day threshold.
+      expect((await request.get('/api/status?label=VipCapped&force=1')).ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
+
+      const purchase = page.getByTestId('purchase-vip');
+      await expect(purchase).toBeDisabled();
+
+      // A disabled button fires no pointer events, so the wrapping Box is what
+      // carries the tooltip explaining why.
+      await purchase.locator('..').hover();
+      await expect(
+        page.getByRole('tooltip').filter({ hasText: /MAM refuses a purchase/ }),
+      ).toBeVisible();
+    });
   });

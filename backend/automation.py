@@ -24,7 +24,7 @@ from backend.config import list_sessions, load_session, save_session
 from backend.event_log import append_ui_event_log
 from backend.mam_api import get_status, points_unavailable_reason
 from backend.notifications_backend import notify_event
-from backend.perk_automation import buy_upload_credit, buy_vip
+from backend.perk_automation import buy_upload_credit, buy_vip, vip_purchase_block_reason
 from backend.proxy_config import resolve_proxy_from_session_cfg
 
 _logger: logging.Logger = logging.getLogger(__name__)
@@ -405,6 +405,20 @@ async def vip_automation_job() -> None:
                 _log_automation_skip(
                     _VIP_JOB, label, weeks, points, points_unavailable_reason(status), now
                 )
+                continue
+            # --- MaM minimum-purchase guardrail (applies to every duration) ---
+            # Without this the automation retries a structurally impossible
+            # purchase every run until it exhausts its retries, then again after
+            # each cooldown (github.com/sirjmann92/mousetrap/issues/72).
+            vip_block_reason = vip_purchase_block_reason(status.get("raw"), now=now)
+            if vip_block_reason:
+                _log_automation_skip(_VIP_JOB, label, weeks, points, vip_block_reason, now)
+                # Not a failure, so clear any retry state rather than counting
+                # this run against the retry budget.
+                if "retry" in automation:
+                    _persist_automation_state(
+                        label, "vip_automation", {}, remove=("retry", "cooldown_until")
+                    )
                 continue
             # --- Session-level minimum points guardrail (first, before any automation-level checks) ---
             session_min_points = cfg.get("perk_automation", {}).get("min_points")

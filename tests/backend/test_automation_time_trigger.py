@@ -206,3 +206,64 @@ async def test_a_time_skip_writes_the_expected_event(
     assert event["status_message"].startswith(f"Automated {prefix} purchase skipped: ")
     assert "Time-based trigger not satisfied" in event["status_message"]
     assert event["timestamp"] == NOW.isoformat()
+
+
+def _install_with_vip_until(
+    monkeypatch: pytest.MonkeyPatch,
+    cfg: dict[str, Any],
+    vip_until: str | None,
+    events: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    """Install the VIP job with a status carrying MaM's vip_until."""
+    purchases = _install(monkeypatch, cfg, events=events)
+    raw = {"vip_until": vip_until} if vip_until else {}
+    monkeypatch.setattr(
+        automation, "get_status", AsyncMock(return_value={"points": 1_000_000, "raw": raw})
+    )
+    return purchases
+
+
+async def test_vip_automation_skips_when_no_full_week_fits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Skip instead of retrying a purchase MaM must refuse.
+
+    Issue #72: with VIP near its cap, the job failed every run, burned its
+    three retries, then failed again after each cooldown, indefinitely.
+    """
+    events: list[dict[str, Any]] = []
+    # NOW is 2026-09-06; 89 days later is well past the 84-day threshold.
+    purchases = _install_with_vip_until(
+        monkeypatch, _vip_cfg(None, trigger_type="points"), "2026-12-04 12:00:00", events
+    )
+
+    await automation.vip_automation_job()
+
+    assert purchases == [], "a purchase that cannot succeed must not be attempted"
+    skipped = [e for e in events if e["result"] == "skipped"]
+    assert len(skipped) == 1
+    assert "89.0 days remaining" in skipped[0]["status_message"]
+
+
+async def test_vip_automation_proceeds_when_a_week_fits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Still buy once enough VIP has burned off."""
+    purchases = _install_with_vip_until(
+        monkeypatch, _vip_cfg(None, trigger_type="points"), "2026-11-01 12:00:00"
+    )
+
+    await automation.vip_automation_job()
+
+    assert purchases == ["bought"]
+
+
+async def test_vip_automation_proceeds_when_expiry_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Never let a missing vip_until stop the automation."""
+    purchases = _install_with_vip_until(monkeypatch, _vip_cfg(None, trigger_type="points"), None)
+
+    await automation.vip_automation_job()
+
+    assert purchases == ["bought"]

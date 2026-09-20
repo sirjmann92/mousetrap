@@ -76,6 +76,10 @@ export default function PerkAutomationCard(props) {
   const [vipDisabled, setVIPDisabled] = useState(false);
   const [uploadGuardMsg, setUploadGuardMsg] = useState('');
   const [vipGuardMsg, setVIPGuardMsg] = useState('');
+  // MAM's vip_until, and a clock that re-renders so the purchase button
+  // re-enables itself the moment enough VIP has burned off.
+  const [vipUntil, setVipUntil] = useState(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   // Upload automation options state
   const [triggerType, setTriggerType] = useState('time');
   const [triggerDays, setTriggerDays] = useState(7);
@@ -122,6 +126,7 @@ export default function PerkAutomationCard(props) {
           username = cfg.last_status.raw.username;
         }
         setCurrentUsername(username);
+        setVipUntil(cfg.last_status?.raw?.vip_until ?? null);
       });
     fetch('/api/automation/guardrails')
       .then((res) => res.json())
@@ -153,6 +158,28 @@ export default function PerkAutomationCard(props) {
     setUploadGuardMsg(uploadMsg);
     setVIPGuardMsg(vipMsg);
   }, [guardrails, currentUsername, sessionLabel]);
+
+  // vip_until is absolute, so remaining time can be recomputed from it without
+  // refetching. Tick only while a purchase is actually blocked.
+  useEffect(() => {
+    if (!vipUntil) return undefined;
+    const id = setInterval(() => setNowMs(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, [vipUntil]);
+
+  // MAM refuses an API purchase that would add less than a full week of VIP, so
+  // one is impossible until enough has burned off. Mirrors
+  // VIP_PURCHASE_BLOCK_ABOVE_DAYS in backend/perk_automation.py; the backend
+  // still enforces it, this only avoids a click that cannot succeed.
+  const vipPurchaseBlockMsg = (() => {
+    if (typeof vipUntil !== 'string' || !vipUntil.trim()) return '';
+    const expires = new Date(`${vipUntil.trim().replace(' ', 'T')}Z`);
+    if (Number.isNaN(expires.getTime())) return '';
+    const daysLeft = (expires.getTime() - nowMs) / 86400000;
+    if (daysLeft <= 84) return '';
+    const eligibleAt = new Date(expires.getTime() - 84 * 86400000);
+    return `VIP has ${daysLeft.toFixed(1)} days remaining. MAM refuses a purchase that would add less than a full week, so this becomes available ${eligibleAt.toLocaleString()}.`;
+  })();
 
   // API call helpers
   const _triggerVIP = async () => {
@@ -414,9 +441,18 @@ export default function PerkAutomationCard(props) {
           {/* VIP Section (modularized) */}
           <AutomationSection
             confirmButton={
-              <Tooltip title="This will instantly purchase VIP for the selected duration.">
+              <Tooltip
+                title={
+                  vipPurchaseBlockMsg ||
+                  'This will instantly purchase VIP for the selected duration.'
+                }
+              >
+                {/* The Box keeps the tooltip working while the button is
+                    disabled, since a disabled button fires no pointer events. */}
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                   <Button
+                    data-testid="purchase-vip"
+                    disabled={Boolean(vipPurchaseBlockMsg)}
                     onClick={() => setConfirmVIPOpen(true)}
                     sx={{ minWidth: 180 }}
                     variant="contained"
