@@ -31,7 +31,7 @@ def list_containers() -> list[str]:
     """Returns a list of running Docker container names."""
     client = port_monitor_manager.get_docker_client()
     if not client:
-        # Docker client unavailable (SDK missing or unable to connect)
+        # Docker client unavailable (unable to connect)
         # Return an empty list for graceful degradation in environments
         # where Docker is not present (e.g., dev without docker socket).
         global _last_container_warn  # noqa: PLW0603
