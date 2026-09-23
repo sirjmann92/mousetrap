@@ -747,12 +747,27 @@ Persist the selected session label. Returns `400` if `label` is missing.
 There is no single error shape. Which one you get depends on how the endpoint
 reports failure, and the difference matters to clients:
 
-**1. An HTTP error status** — FastAPI's `HTTPException`, used for refusals such
-as a missing session, a proxy still in use, or a session naming a proxy that
-does not exist:
+**1. An HTTP error status** — used for refusals such as a missing session, a
+proxy still in use, or a session naming a proxy that does not exist. The body is
+an [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details document,
+sent as `application/problem+json`:
 ```json
-{ "detail": "Proxy 'vpn' is still used by 'seedbox'. Change or remove ..." }
+{
+  "type": "about:blank",
+  "status": 409,
+  "title": "Conflict",
+  "detail": "Proxy 'vpn' is still used by 'seedbox'. Change or remove ..."
+}
 ```
+
+Every failure with an error status answers in that shape, whatever raised it,
+including a rejected request body and an unhandled server error. `detail` is
+always a string and always present, so a client can show it without checking its
+type first. `type` is `about:blank` when the status code says everything there
+is to say, and otherwise a URI naming the problem and addressing its page under
+[`docs/problems/`](problems/README.md), which documents the members that type
+adds. `status` repeats the status line and is advisory; the status line is
+authoritative.
 
 **2. `200` with a success flag** — used by the automation and indexer endpoints,
 because the frontend reads those bodies without checking the status code.
@@ -774,6 +789,9 @@ Status codes in use:
   naming no configured proxy
 - `404`: Session, proxy, or port-monitor stack not found
 - `409`: Proxy still selected by a session, so it was not deleted
+- `422`: A request value was rejected — see
+  [`invalid-request`](problems/invalid-request.md), which lists every rejected
+  value and where it was
 - `500`: Unhandled server error
 
 ---
