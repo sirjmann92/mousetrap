@@ -21,7 +21,7 @@ def sent_notifications(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return sent
 
 
-def _status(inact_hnr: int, inact_unsat: int) -> dict[str, Any]:
+def _status(inact_hnr: int | str, inact_unsat: int | str) -> dict[str, Any]:
     """Build a MAM status payload carrying the two counts the notifier compares.
 
     Args:
@@ -89,3 +89,43 @@ async def test_unchanged_counts_notify_nothing(
     await app.check_and_notify_count_increments(cfg, _status(3, 6), "seedbox")
 
     assert sent_notifications == []
+
+
+async def test_counts_spelled_as_strings_compare_as_numbers(
+    sent_notifications: list[dict[str, Any]],
+) -> None:
+    """A count MAM sent as a string compares and subtracts as the number it spells."""
+    cfg = {"last_status": _status(1, 4), "mam": {"mam_id": "cookie"}}
+
+    await app.check_and_notify_count_increments(cfg, _status("3", "6"), "seedbox")
+
+    assert [event["event_type"] for event in sent_notifications] == [
+        "inactive_hit_and_run",
+        "inactive_unsatisfied",
+    ]
+    assert "increased by 2 (from 1 to 3)" in sent_notifications[0]["message"]
+    assert "increased by 2 (from 4 to 6)" in sent_notifications[1]["message"]
+
+
+async def test_unusable_counts_read_as_zero(
+    sent_notifications: list[dict[str, Any]],
+) -> None:
+    """A bucket that is not a mapping, and a count that is not a number, both read as 0."""
+    unusable = {
+        "raw": {
+            "uid": 7,
+            "username": "reader",
+            "inactHnr": "unavailable",
+            "inactUnsat": {"count": "many"},
+        }
+    }
+    cfg = {"last_status": unusable, "mam": {"mam_id": "cookie"}}
+
+    await app.check_and_notify_count_increments(cfg, _status(2, 5), "seedbox")
+
+    assert [event["event_type"] for event in sent_notifications] == [
+        "inactive_hit_and_run",
+        "inactive_unsatisfied",
+    ]
+    assert "increased by 2 (from 0 to 2)" in sent_notifications[0]["message"]
+    assert "increased by 5 (from 0 to 5)" in sent_notifications[1]["message"]
