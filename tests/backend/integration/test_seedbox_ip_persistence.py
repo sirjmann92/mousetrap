@@ -118,8 +118,8 @@ def _install_scheduled_check(
     monkeypatch: pytest.MonkeyPatch,
     payload: dict[str, Any],
     proxy: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
-    """Point the scheduled check at one stubbed MaM reply and record its saves.
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Point the scheduled check at one stubbed MaM reply and record what it does.
 
     Args:
         monkeypatch: Fixture used to replace the check's collaborators.
@@ -127,12 +127,15 @@ def _install_scheduled_check(
         proxy: Proxy the session resolves to, or None for a direct session.
 
     Returns:
-        A list appended to with a snapshot of the config on every save.
+        Two lists: a snapshot of the config on every save, and one entry per
+        lookup of the host's own unproxied address.
 
     """
     saved: list[dict[str, Any]] = []
+    direct_lookups: list[str] = []
 
     async def detected_ip() -> str:
+        direct_lookups.append(_DETECTED_IP)
         return _DETECTED_IP
 
     async def noop(*_args: Any, **_kwargs: Any) -> None:
@@ -144,7 +147,7 @@ def _install_scheduled_check(
     monkeypatch.setattr(app, "safe_notify_event", noop)
     monkeypatch.setattr(app, "save_session", lambda cfg, **_kwargs: saved.append(dict(cfg)))
     monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(payload))
-    return saved
+    return saved, direct_lookups
 
 
 def _install_manual_route(monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]) -> None:
@@ -177,7 +180,7 @@ async def test_the_scheduled_check_records_the_detected_address_on_every_accepte
     the session has to catch up or every later check re-sends it.
     """
     cfg = _stale_session()
-    saved = _install_scheduled_check(monkeypatch, payload)
+    saved, _direct = _install_scheduled_check(monkeypatch, payload)
 
     triggered, result = await app.auto_update_seedbox_if_needed(
         cfg, "seedbox", _DETECTED_IP, _ASN, _NOW
@@ -199,11 +202,17 @@ async def test_the_scheduled_check_records_the_detected_address_on_every_accepte
 async def test_the_scheduled_check_records_the_proxied_address_for_a_proxied_session(
     monkeypatch: pytest.MonkeyPatch, payload: dict[str, Any]
 ) -> None:
-    """A proxied session records the address MaM sees, not the host's own."""
+    """A proxied session records the address MaM sees, and never looks up its own.
+
+    The host's unproxied address is not merely the wrong value to record here,
+    it is a value this session must not ask a third party for: doing so tells a
+    geo provider, from the user's real address, which seedbox address to
+    associate with it.
+    """
     cfg = _stale_session()
     cfg["proxied_public_ip"] = _PROXIED_IP
     cfg["proxy"] = {"label": "vpn"}
-    saved = _install_scheduled_check(monkeypatch, payload, proxy=_PROXY)
+    saved, direct = _install_scheduled_check(monkeypatch, payload, proxy=_PROXY)
 
     triggered, _result = await app.auto_update_seedbox_if_needed(
         cfg, "seedbox", _PROXIED_IP, _ASN, _NOW
@@ -213,6 +222,32 @@ async def test_the_scheduled_check_records_the_proxied_address_for_a_proxied_ses
     assert cfg["last_seedbox_ip"] == _PROXIED_IP
     assert cfg["mam_ip"] == _PROXIED_IP
     assert saved[-1]["last_seedbox_ip"] == _PROXIED_IP
+    assert direct == [], f"a proxied session looked up its own address: {direct}"
+
+
+@pytest.mark.integration
+async def test_a_proxied_session_already_at_its_address_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Change detection compares the proxied address, so a settled session is quiet.
+
+    Comparing the host's own address instead would find a difference on every
+    run of a proxied session and re-announce an address MaM already holds,
+    which MaM answers with a rate limit.
+    """
+    cfg = _stale_session()
+    cfg["proxied_public_ip"] = _PROXIED_IP
+    cfg["proxy"] = {"label": "vpn"}
+    cfg["last_seedbox_ip"] = _PROXIED_IP
+    saved, direct = _install_scheduled_check(monkeypatch, _ACCEPTED_REPLIES[0], proxy=_PROXY)
+
+    triggered, result = await app.auto_update_seedbox_if_needed(
+        cfg, "seedbox", _PROXIED_IP, _ASN, _NOW
+    )
+
+    assert (triggered, result) == (False, None)
+    assert saved == []
+    assert direct == [], f"a proxied session looked up its own address: {direct}"
 
 
 @pytest.mark.integration
