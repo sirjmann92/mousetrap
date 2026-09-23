@@ -57,6 +57,7 @@ from backend.config import (
     session_exists,
 )
 from backend.db import close_connection
+from backend.errors import register_error_handlers
 from backend.event_log import append_ui_event_log, clear_ui_event_log_for_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.jackett_integration import sync_mam_id_to_jackett, test_jackett_connection
@@ -117,6 +118,8 @@ async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 # FastAPI app creation
 app = FastAPI(title="MouseTrap API", lifespan=app_lifespan)
+
+register_error_handlers(app)
 
 # Mount static files BEFORE any catch-all routes
 if ASSETS_DIR.is_dir():
