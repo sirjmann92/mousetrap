@@ -285,17 +285,6 @@ async def get_ipinfo_with_fallback(
     return {"ip": None, "asn": None, "org": "", "timezone": None}
 
 
-async def async_get_public_ip(
-    proxy_cfg: dict[str, Any] | None = None, ipinfo_data: dict[str, Any] | None = None
-) -> str | None:
-    """Async variant returning public IP string or None."""
-    try:
-        data = ipinfo_data or await get_ipinfo_with_fallback(None, proxy_cfg)
-        return data.get("ip")
-    except Exception:
-        return None
-
-
 async def get_asn_and_timezone_from_ip(
     ip: str, proxy_cfg: dict[str, Any] | None = None, ipinfo_data: dict[str, Any] | None = None
 ) -> tuple[str | None, str | None]:
