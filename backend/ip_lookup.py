@@ -219,25 +219,25 @@ async def get_ipinfo_with_fallback(
                     _logger.debug("%s raw response for IP %s: %s", provider, ip or "self", data)
                     _logger.debug("%s lookup successful for IP %s", provider, ip or "self")
 
-                    # Normalize output for ipinfo_lite, ipinfo_standard and ipinfo_hardcoded
                     result = None
-                    if provider in ("ipinfo_lite", "ipinfo_standard", "ipinfo_hardcoded"):
+                    if provider == "ipinfo_lite":
                         # ipinfo_lite: ip, asn, as_name, as_domain, country_code, country, continent_code, continent
-                        # ipinfo_standard and ipinfo_hardcoded (ipinfo.io by hardcoded IP): ip, org, etc.
-                        if provider == "ipinfo_lite":
-                            as_name = data.get("as_name", "")
-                            asn_val = _format_asn(data.get("asn"), as_name)
-                            org_val = as_name
-                        else:
-                            asn_val = str(data.get("org", ""))
-                            org_val = data.get("org", "")
+                        as_name = data.get("as_name", "")
                         result = {
                             "ip": data.get("ip"),
-                            "asn": asn_val,
-                            "org": org_val,
+                            "asn": _format_asn(data.get("asn"), as_name),
+                            "org": as_name,
                             "timezone": data.get(
                                 "timezone", None
                             ),  # Not present in lite, but included for compatibility
+                        }
+                    elif provider in ("ipinfo_standard", "ipinfo_hardcoded"):
+                        # ipinfo_standard and ipinfo_hardcoded (ipinfo.io by hardcoded IP): ip, org, etc.
+                        result = {
+                            "ip": data.get("ip"),
+                            "asn": str(data.get("org", "")),
+                            "org": data.get("org", ""),
+                            "timezone": data.get("timezone", None),
                         }
                     elif provider in ("ipify", "httpbin_hardcoded"):
                         # Both return the IP only, no ASN data - return None for ASN to indicate unavailable
