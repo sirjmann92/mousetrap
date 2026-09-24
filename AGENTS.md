@@ -104,7 +104,7 @@ actually registers:
 
 ```python
 from backend.app import app
-{f"{m} {r.path}" for r in app.routes for m in (getattr(r, "methods", set()) or set())}
+{f"{m.upper()} {p}" for p, ops in app.openapi()["paths"].items() for m in ops}
 ```
 
 ## Local Setup
