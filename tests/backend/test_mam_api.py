@@ -1,4 +1,4 @@
-"""Backend MAM API tests for the proxied public IP lookup."""
+"""Backend MAM API tests for the proxied public IP lookup and status failures."""
 
 import logging
 from types import TracebackType
@@ -27,6 +27,7 @@ class _StubResponse:
 
         """
         self.status = status
+        self.cookies: dict[str, Any] = {}
         self._body = body
 
     async def text(self) -> str:
@@ -145,6 +146,90 @@ async def test_returns_none_without_a_request_when_no_proxy_is_configured(
 
     assert result is None
     assert session.requests == []
+
+
+def _assert_status_failure_shape(result: dict[str, Any]) -> None:
+    """Assert the payload every ``get_status`` failure path returns.
+
+    Args:
+        result: Value returned by ``get_status``.
+
+    """
+    assert list(result) == [
+        "mam_cookie_exists",
+        "points",
+        "wedge_active",
+        "vip_active",
+        "message",
+    ]
+    assert result["mam_cookie_exists"] is False
+    assert result["points"] is None
+    assert result["wedge_active"] is None
+    assert result["vip_active"] is None
+
+
+async def test_status_without_a_mam_id_returns_the_failure_payload() -> None:
+    """Report the missing mam_id without reaching the network."""
+    result = await mam_api.get_status("")
+
+    _assert_status_failure_shape(result)
+    assert result["message"] == "No MaM ID provided."
+
+
+async def test_status_on_unparseable_json_returns_the_failure_payload(
+    stub_session: Any,
+) -> None:
+    """Report a 200 that is not JSON, quoting the body MAM actually sent."""
+    stub_session(_StubResponse("<html>maintenance</html>", 200))
+
+    result = await mam_api.get_status("cookie")
+
+    _assert_status_failure_shape(result)
+    assert result["message"].startswith("MaM API did not return valid JSON: ")
+    assert result["message"].endswith(". Response: <html>maintenance</html>")
+
+
+async def test_status_on_a_request_failure_returns_the_failure_payload(
+    stub_session: Any,
+) -> None:
+    """Report a failed request, carrying the redacted reason."""
+    stub_session(aiohttp.ClientError("proxy refused"))
+
+    result = await mam_api.get_status("cookie")
+
+    _assert_status_failure_shape(result)
+    assert result["message"] == "Failed to fetch status: proxy refused"
+
+
+async def test_status_on_an_http_error_returns_the_failure_payload(
+    stub_session: Any,
+) -> None:
+    """Report an HTTP error through the same payload, quoting the body."""
+    stub_session(_StubResponse("Invalid session", 403))
+
+    result = await mam_api.get_status("cookie")
+
+    _assert_status_failure_shape(result)
+    assert result["message"] == "Failed to fetch status: HTTP 403: Invalid session"
+
+
+async def test_status_success_keeps_its_own_distinct_payload(stub_session: Any) -> None:
+    """The success path shares no shape with the failures and must stay separate."""
+    stub_session(_StubResponse('{"seedbonus": 1200, "wedge_active": true}', 200))
+
+    result = await mam_api.get_status("cookie")
+
+    assert list(result) == [
+        "mam_cookie_exists",
+        "points",
+        "wedge_active",
+        "vip_active",
+        "updated_mam_id",
+        "raw",
+    ]
+    assert result["mam_cookie_exists"] is True
+    assert result["points"] == 1200
+    assert "message" not in result
 
 
 async def test_mam_seen_ip_info_reports_a_non_object_response() -> None:
