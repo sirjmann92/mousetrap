@@ -529,6 +529,53 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
     return classification == "ok"
 
 
+def _record_seedbox_update(
+    cfg: dict[str, Any], ip: str | None, asn: str | None, now: datetime
+) -> None:
+    """Record the address and ASN MaM has just accepted, in memory only.
+
+    Args:
+        cfg: Session configuration dict, updated in place.
+        ip: Address MaM accepted for this session.
+        asn: ASN associated with that address.
+        now: Time the update was accepted.
+
+    """
+    cfg["last_seedbox_ip"] = ip
+    cfg["last_seedbox_asn"] = asn
+    cfg["last_seedbox_update"] = now.isoformat()
+
+
+async def _persist_seedbox_ip(
+    cfg: dict[str, Any], label: str, asn: str | None, now: datetime
+) -> str | None:
+    """Detect the address MaM now holds, record it against the session and save.
+
+    ``mam_ip`` follows the detected address because the scheduled check is the
+    component that chose it; a session whose address MaM tracks automatically
+    has no separately entered value to preserve.
+
+    Args:
+        cfg: Session configuration dict, updated in place.
+        label: Session label, used to locate the file to rewrite.
+        asn: ASN associated with the detected address.
+        now: Time the update was accepted.
+
+    Returns:
+        The detected address, or None if it could not be determined.
+
+    """
+    new_ip: str | None = cfg.get("proxied_public_ip") or await get_public_ip()
+    _record_seedbox_update(cfg, new_ip, asn, now)
+    cfg["mam_ip"] = new_ip
+    await apply_mam_validity_classification(cfg, label, "ok", now)
+    try:
+        save_session(cfg, old_label=label)
+    except Exception as e:
+        _logger.error("[AutoUpdate][ERROR] label=%s save_session failed: %s", label, e)
+    return new_ip
+
+
 async def auto_update_seedbox_if_needed(
     cfg: dict[str, Any], label: str, ip_to_use: str | None, asn: str | None, now: datetime
 ) -> tuple[bool, dict[str, Any] | None]:
@@ -608,13 +655,7 @@ async def auto_update_seedbox_if_needed(
                     norm_check,
                 )
     # For proxied sessions, use proxied IP; for non-proxied, use detected public IP
-    proxied_ip = cfg.get("proxied_public_ip")
-    if proxied_ip:
-        ip_to_check = proxied_ip
-    else:
-        # For non-proxied, get detected public IP (not mam_ip)
-        detected_ip = await get_public_ip()
-        ip_to_check = detected_ip
+    ip_to_check = cfg.get("proxied_public_ip") or await get_public_ip()
     # If IP lookup failed, skip config update and logging
     if ip_to_check is None:
         _logger.warning(
@@ -723,25 +764,7 @@ async def auto_update_seedbox_if_needed(
                     )
 
                 if resp.status == 200 and result.get("Success"):
-                    # Update last_seedbox_ip and mam_ip to the new detected/proxied IP
-                    proxied_ip = cfg.get("proxied_public_ip")
-                    if proxied_ip:
-                        new_ip = proxied_ip
-                    else:
-                        new_ip = await get_public_ip()
-                    cfg["last_seedbox_ip"] = new_ip
-                    cfg["mam_ip"] = new_ip
-                    cfg["last_seedbox_update"] = now.isoformat()
-                    cfg["last_seedbox_asn"] = asn
-                    await apply_mam_validity_classification(cfg, label, "ok", now)
-                    try:
-                        save_session(cfg, old_label=label)
-                    except Exception as e:
-                        _logger.error(
-                            "[AutoUpdate][ERROR] label=%s save_session failed: %s",
-                            label,
-                            e,
-                        )
+                    new_ip = await _persist_seedbox_ip(cfg, label, asn, now)
                     _logger.info(
                         "[AutoUpdate] label=%s result=success reason=%s",
                         label,
@@ -759,22 +782,7 @@ async def auto_update_seedbox_if_needed(
                     )
                     return True, {"success": True, "msg": api_msg, "reason": reason}
                 if resp.status == 200 and result.get("msg") == "No change":
-                    proxied_ip = cfg.get("proxied_public_ip")
-                    if proxied_ip:
-                        new_ip = proxied_ip
-                    else:
-                        new_ip = await get_public_ip()
-                    cfg["last_seedbox_ip"] = new_ip
-                    cfg["mam_ip"] = new_ip
-                    cfg["last_seedbox_update"] = now.isoformat()
-                    cfg["last_seedbox_asn"] = asn
-                    await apply_mam_validity_classification(cfg, label, "ok", now)
-                    try:
-                        save_session(cfg, old_label=label)
-                    except Exception as e:
-                        _logger.error(
-                            "[AutoUpdate][ERROR] label=%s save_session failed: %s", label, e
-                        )
+                    await _persist_seedbox_ip(cfg, label, asn, now)
                     _logger.info(
                         "[AutoUpdate] label=%s result=no_change reason=%s",
                         label,
@@ -2056,9 +2064,7 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
 
         _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp_status == 200 and result.get("Success"):
-            cfg["last_seedbox_ip"] = ip_to_use
-            cfg["last_seedbox_asn"] = asn
-            cfg["last_seedbox_update"] = now.isoformat()
+            _record_seedbox_update(cfg, ip_to_use, asn, now)
             save_session(cfg, old_label=label)
             # Use a user-friendly message if the API message is missing or generic
             api_msg = result.get("msg", "").strip()
@@ -2066,9 +2072,7 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
                 api_msg = "IP Changed. Seedbox IP updated."
             return {"success": True, "msg": api_msg, "ip": ip_to_use, "asn": asn}
         if resp_status == 200 and result.get("msg") == "No change":
-            cfg["last_seedbox_ip"] = ip_to_use
-            cfg["last_seedbox_asn"] = asn
-            cfg["last_seedbox_update"] = now.isoformat()
+            _record_seedbox_update(cfg, ip_to_use, asn, now)
             save_session(cfg, old_label=label)
             return {
                 "success": True,
