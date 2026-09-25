@@ -25,6 +25,11 @@ export default defineConfig(() => {
         '/api': {
           target: backendUrl,
           changeOrigin: true,
+          // Tell the backend the address the browser used. changeOrigin rewrites
+          // Host, and the backend's cross-site guard compares Origin against
+          // Host or X-Forwarded-Host, so without this a browser on another
+          // device reaching `vite --host` would have every change refused.
+          xfwd: true,
         },
       },
     },

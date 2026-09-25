@@ -20,6 +20,24 @@ verbatim:
 Expose the port only to a trusted network, or place it behind an authenticating
 reverse proxy.
 
+### Cross-site requests
+
+A page on another website can make the user's browser send requests to
+MouseTrap. It cannot read the replies, but without a guard a `POST` would still
+run. So a state-changing request (`POST`, `PUT`, `PATCH`, `DELETE`) that a
+browser marks as coming from another site is refused with `403` before it
+reaches any route:
+
+- With `Sec-Fetch-Site`, which browsers send to HTTPS and loopback addresses,
+  only `same-origin` and `none` are allowed. `same-site` is refused, because
+  another app on the same host on a different port is same-site.
+- Without it, as over plain HTTP to a LAN address, `Origin` must match the
+  address the request was sent to: `Host`, or `X-Forwarded-Host` when a reverse
+  proxy rewrites `Host`.
+- A request carrying neither header is not from a browser and is allowed, so
+  scripts and tools calling the API are unaffected. `GET` requests are never
+  refused.
+
 ---
 
 ## Session Management
@@ -778,6 +796,8 @@ Status codes in use:
 - `200`: Success, or a handled failure in shapes 2 and 3 above
 - `400`: Bad request — a missing label, an unparsable body, a proxy label
   naming no configured proxy
+- `403`: A state-changing request a browser sent on behalf of another site; see
+  [Cross-site requests](#cross-site-requests)
 - `404`: Session, proxy, or port-monitor stack not found
 - `409`: Proxy still selected by a session, so it was not deleted
 - `500`: Unhandled server error

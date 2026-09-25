@@ -173,6 +173,31 @@ test.describe
       await expect(page.getByText('Host: 127.0.0.1:8080')).toBeVisible();
     });
 
+    test('refuses a change another origin sends through the browser', async ({ page }) => {
+      // The frontend and backend listen on different ports, so a page on the
+      // frontend posting straight to the backend is a genuine cross-origin
+      // request carrying whatever headers this browser really sends. The body
+      // is a plain string sent without CORS, as any website could send it.
+      const backendOrigin = process.env.E2E_BACKEND_ORIGIN;
+      test.skip(!backendOrigin, 'needs the separately served development backend');
+      const saved = await page.request.post('/api/session/save', {
+        data: { label: 'Target', mam: { mam_id: 'real-cookie' } },
+      });
+      expect(saved.ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.evaluate(async (origin) => {
+        await fetch(`${origin}/api/session/save`, {
+          body: JSON.stringify({ label: 'Target', mam: { mam_id: 'attacker-value' } }),
+          method: 'POST',
+          mode: 'no-cors',
+        });
+      }, backendOrigin);
+
+      const session = await (await page.request.get('/api/session/Target')).json();
+      expect(session.mam.mam_id).toBe('real-cookie');
+    });
+
     test('saves notification configuration without sending a notification', async ({ page }) => {
       await page.goto('/');
       await page.getByText('Notifications', { exact: true }).click();
