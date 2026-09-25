@@ -83,6 +83,10 @@ def _ensure_mapping(parent: dict[str, Any], key: str, section: str) -> dict[str,
     return value
 
 
+# Session key left behind by the removed Millionaire's Vault feature.
+_RETIRED_BROWSER_COOKIE = "browser_cookie"
+
+
 def load_session(label: str) -> dict[str, Any]:
     """Load a session configuration by label.
 
@@ -136,8 +140,12 @@ def load_session(label: str) -> dict[str, Any]:
         cfg["last_check_time"] = None
     if "label" not in cfg:
         cfg["label"] = label
-    if "browser_cookie" not in cfg:
-        cfg["browser_cookie"] = ""
+    # The Millionaire's Vault feature (removed in v2.0.0 at MAM staff's request)
+    # stored the user's MAM browser cookie here, and its removal left the value
+    # on disk and in every `GET /api/session/{label}`. Nothing reads it, and a
+    # browser login cookie grants more than the MAM ID, so drop it: it is never
+    # returned again, and the next save of this session removes it from disk.
+    cfg.pop(_RETIRED_BROWSER_COOKIE, None)
 
     # Prowlarr integration defaults
     prowlarr_defaults = {
@@ -173,8 +181,9 @@ def save_session(cfg: dict[str, Any], old_label: str | None = None) -> None:
     if not label:
         raise ValueError("Session label is required to save a session.")
     path = get_session_path(label)
-    if "browser_cookie" not in cfg:
-        cfg["browser_cookie"] = ""
+    # Also dropped here, so a config not read through `load_session`, such as an
+    # API body that still sends it, cannot write the retired cookie back.
+    cfg.pop(_RETIRED_BROWSER_COOKIE, None)
     write_yaml_file(path, cfg)
     if old_label and old_label != label:
         old_path = get_session_path(old_label)
@@ -195,7 +204,6 @@ def get_default_config(label: str | None = None) -> dict[str, Any]:
             "session_type": "ip",
             "ip_monitoring_mode": "auto",  # "auto", "manual", "static"
         },
-        "browser_cookie": "",
         "mam_ip": "",
         "proxy": {"host": "", "port": 0, "username": "", "password": ""},
         "last_check_time": None,

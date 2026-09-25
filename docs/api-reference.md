@@ -13,7 +13,7 @@ verbatim:
 
 | Endpoint | Secrets in the response |
 | --- | --- |
-| `GET /api/session/{label}` | MAM ID, browser cookie, indexer integration API keys |
+| `GET /api/session/{label}` | MAM ID, indexer integration API keys |
 | `GET /api/notify/config` | SMTP password, webhook URL, Pushover token |
 | `GET /api/proxies` | Proxy passwords |
 
@@ -64,7 +64,6 @@ from defaults:
 {
   "label": "example",
   "mam": { "mam_id": "", "session_type": "ip", "ip_monitoring_mode": "auto" },
-  "browser_cookie": "",
   "mam_ip": "",
   "proxy": { "host": "", "port": 0, "username": "", "password": "" },
   "last_check_time": null,

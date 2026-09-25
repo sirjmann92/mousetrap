@@ -21,7 +21,50 @@ def test_missing_session_returns_defaults(config_dir: Path) -> None:
     """Return normalized defaults when a primary session is absent."""
     loaded = config.load_session("Missing")
     assert loaded["label"] == "Missing"
-    assert loaded["browser_cookie"] == ""
+    assert "browser_cookie" not in loaded
+
+
+# What a session saved while the Millionaire's Vault feature existed looks like:
+# the user's MAM browser cookie stored alongside the rest of the session.
+_VAULT_ERA_SESSION = """\
+label: Legacy
+browser_cookie: "mam_id=BROWSERSECRET; uid=12345"
+mam:
+  mam_id: seedbox-cookie
+  session_type: ip
+mam_ip: 192.0.2.10
+"""
+
+
+def test_a_retired_browser_cookie_is_never_loaded(config_dir: Path) -> None:
+    """The vault feature's cookie is dropped on load; the rest survives untouched."""
+    config.get_session_path("Legacy").write_text(_VAULT_ERA_SESSION, encoding="utf-8")
+
+    loaded = config.load_session("Legacy")
+
+    assert "browser_cookie" not in loaded
+    assert loaded["mam"]["mam_id"] == "seedbox-cookie"
+    assert loaded["mam_ip"] == "192.0.2.10"
+
+
+def test_a_scheduled_save_removes_the_retired_cookie_from_disk(config_dir: Path) -> None:
+    """Scheduled checks re-save what they loaded, which used to carry it forward."""
+    path = config.get_session_path("Legacy")
+    path.write_text(_VAULT_ERA_SESSION, encoding="utf-8")
+
+    config.save_session(config.load_session("Legacy"))
+
+    on_disk = path.read_text(encoding="utf-8")
+    assert "BROWSERSECRET" not in on_disk
+    assert "browser_cookie" not in on_disk
+    assert "seedbox-cookie" in on_disk
+
+
+def test_a_save_never_writes_the_retired_cookie(config_dir: Path) -> None:
+    """A config not read through load_session, such as an API body, cannot restore it."""
+    config.save_session({"label": "Fresh", "browser_cookie": "BROWSERSECRET"})
+
+    assert "BROWSERSECRET" not in config.get_session_path("Fresh").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("contents", ["broken: [", "- wrong\n- shape\n"])
