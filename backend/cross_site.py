@@ -24,12 +24,14 @@ tools calling the API keep working. Safe methods pass through untouched.
 
 from __future__ import annotations
 
+from http import HTTPStatus
 import logging
 from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from starlette.datastructures import Headers
-from starlette.responses import JSONResponse
+
+from backend.errors import ProblemDetails, problem_response
 
 if TYPE_CHECKING:
     from starlette.types import ASGIApp, Receive, Scope, Send
@@ -104,7 +106,14 @@ class CrossSiteRequestGuard:
                 _logger.warning(
                     "[CrossSite] Refused %s %s: %s", scope["method"], scope["path"], reason
                 )
-                response = JSONResponse({"detail": REFUSED_DETAIL}, status_code=403)
+                # Answered here, before routing, so the app's exception handlers
+                # never see it; build the same problem details they would.
+                forbidden = HTTPStatus.FORBIDDEN
+                response = problem_response(
+                    ProblemDetails(
+                        status=forbidden.value, title=forbidden.phrase, detail=REFUSED_DETAIL
+                    )
+                )
                 await response(scope, receive, send)
                 return
         await self.app(scope, receive, send)

@@ -113,7 +113,15 @@ async def test_a_forged_session_save_is_refused_and_changes_nothing(
     )
 
     assert forged.status_code == 403
-    assert forged.json() == {"detail": REFUSED_DETAIL}
+    # Answered before routing, but in the same problem details shape as every
+    # other error status.
+    assert forged.headers["content-type"] == "application/problem+json"
+    assert forged.json() == {
+        "type": "about:blank",
+        "status": 403,
+        "title": "Forbidden",
+        "detail": REFUSED_DETAIL,
+    }
     assert await _stored_mam_id(api_client) == "real-cookie"
 
 

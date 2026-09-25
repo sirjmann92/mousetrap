@@ -234,7 +234,9 @@ export default function IndexerIntegrations({
 
       const result = await response.json();
 
-      setUpdateResult(result);
+      // A refusal answered before the route ran carries its reason in
+      // `detail`, not `message`; show it rather than an empty alert.
+      setUpdateResult(result.message ? result : { ...result, message: result.detail });
     } catch (error) {
       setUpdateResult({ success: false, message: `Network error: ${error.message}` });
     } finally {
