@@ -237,6 +237,28 @@ def get_auto_update_val(status: dict[str, Any]) -> str:
     return str(val)
 
 
+def _bucket_count(raw: dict[str, Any], key: str) -> int:
+    """Read one MAM counter bucket from an unvalidated status payload.
+
+    MAM reports ``sSat``, ``unsat``, ``seedHnr``, ``inactHnr`` and ``inactUnsat``
+    as ``{"count": N}`` objects. ``raw`` is the response body exactly as parsed,
+    so neither the bucket nor the count has been checked, and a non-integer count
+    would raise from the comparison and subtraction the callers perform.
+
+    Args:
+        raw: The ``raw`` mapping from a MAM status payload.
+        key: The bucket key, such as ``inactHnr`` or ``inactUnsat``.
+
+    Returns:
+        The count, or 0 when the bucket is absent, is not a mapping, or does not
+        hold a non-negative integer literal.
+
+    """
+    bucket = raw.get(key)
+    value = bucket.get("count", 0) if isinstance(bucket, dict) else 0
+    return int(value) if isinstance(value, int | str) and str(value).isdigit() else 0
+
+
 async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: str) -> None:
     """Check for increments in hit & run and unsatisfied counts and send notifications."""
     # Get the previous status
@@ -257,27 +279,8 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
     dedup_key = str(uid) if uid else cfg.get("mam", {}).get("mam_id", "")
 
     # Check inactive hit & run increment
-    old_inact_hnr_raw = (
-        old_raw.get("inactHnr", {}).get("count", 0)
-        if isinstance(old_raw.get("inactHnr"), dict)
-        else 0
-    )
-    new_inact_hnr_raw = (
-        new_raw.get("inactHnr", {}).get("count", 0)
-        if isinstance(new_raw.get("inactHnr"), dict)
-        else 0
-    )
-    # Ensure values are integers for comparison
-    old_inact_hnr = (
-        int(old_inact_hnr_raw)
-        if isinstance(old_inact_hnr_raw, int | str) and str(old_inact_hnr_raw).isdigit()
-        else 0
-    )
-    new_inact_hnr = (
-        int(new_inact_hnr_raw)
-        if isinstance(new_inact_hnr_raw, int | str) and str(new_inact_hnr_raw).isdigit()
-        else 0
-    )
+    old_inact_hnr = _bucket_count(old_raw, "inactHnr")
+    new_inact_hnr = _bucket_count(new_raw, "inactHnr")
 
     if new_inact_hnr > old_inact_hnr:
         increment = new_inact_hnr - old_inact_hnr
@@ -301,27 +304,8 @@ async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: 
             )
 
     # Check inactive unsatisfied increment
-    old_inact_unsat_raw = (
-        old_raw.get("inactUnsat", {}).get("count", 0)
-        if isinstance(old_raw.get("inactUnsat"), dict)
-        else 0
-    )
-    new_inact_unsat_raw = (
-        new_raw.get("inactUnsat", {}).get("count", 0)
-        if isinstance(new_raw.get("inactUnsat"), dict)
-        else 0
-    )
-    # Ensure values are integers for comparison
-    old_inact_unsat = (
-        int(old_inact_unsat_raw)
-        if isinstance(old_inact_unsat_raw, int | str) and str(old_inact_unsat_raw).isdigit()
-        else 0
-    )
-    new_inact_unsat = (
-        int(new_inact_unsat_raw)
-        if isinstance(new_inact_unsat_raw, int | str) and str(new_inact_unsat_raw).isdigit()
-        else 0
-    )
+    old_inact_unsat = _bucket_count(old_raw, "inactUnsat")
+    new_inact_unsat = _bucket_count(new_raw, "inactUnsat")
 
     if new_inact_unsat > old_inact_unsat:
         increment = new_inact_unsat - old_inact_unsat
