@@ -15,22 +15,13 @@ import threading
 import time
 from typing import Any
 
+import docker
+from docker.errors import DockerException
+
 from backend.config import CONFIG_DIR
 from backend.event_log import append_ui_event_log
 from backend.notifications_backend import safe_notify_event
 from backend.yaml_store import YamlStoreError, load_yaml_file, write_yaml_file
-
-try:
-    import docker
-except ImportError:
-    docker = None  # type: ignore[assignment]
-
-# mypy resolves the optional import above as always succeeding, so it reports
-# the `is not None` test as redundant. It is not: the docker package is an
-# optional dependency and port monitoring must degrade cleanly without it.
-_DockerException: type[Exception] = (
-    docker.errors.DockerException if docker is not None else RuntimeError  # type: ignore[redundant-expr]
-)
 
 _logger: logging.Logger = logging.getLogger(__name__)
 PORT_MONITOR_STOP_TIMEOUT_SECONDS = 5.0
@@ -210,19 +201,11 @@ class PortMonitorStackManager:
         When DOCKER_HOST is set (e.g., tcp://docker-proxy:2375), connects via HTTP.
         Otherwise, uses the default docker socket at /var/run/docker.sock.
 
-        Returns None if the docker SDK is unavailable or client creation
-        fails. Returns docker.DockerClient when available.
+        Returns None if client creation fails. Returns docker.DockerClient
+        when available.
         """
         if self._docker_client is not None:
             return self._docker_client
-        # If the docker python SDK failed to import, warn once and return None
-        if not docker:
-            warning_key = "docker_module_missing"
-            if self._should_log_warning(warning_key, min_interval=60):
-                _logger.warning(
-                    "[PortMonitorStack] Docker python SDK not installed; docker-related features will be unavailable."
-                )
-            return None
         try:
             # Check for Docker Socket Proxy URL from environment variable
             docker_host = os.environ.get("DOCKER_HOST")
@@ -441,7 +424,7 @@ class PortMonitorStackManager:
                     try:
                         container = client.containers.get(stack.primary_container)
                         running = container.status == "running"
-                    except _DockerException as err:
+                    except DockerException as err:
                         _logger.warning(
                             "[PortMonitorStack] Unable to inspect container %s after restart: %s",
                             stack.primary_container,
