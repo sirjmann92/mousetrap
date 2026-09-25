@@ -27,6 +27,9 @@ export default function ProxyConfigCard({
 }) {
   const [deleteLabel, setDeleteLabel] = useState(null);
   const [deleteBlocked, setDeleteBlocked] = useState('');
+  // Unlike `error`, this does not auto-dismiss: the form is still filled in
+  // and the user has to act on it.
+  const [saveError, setSaveError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const { proxy, setProxy } = useSession();
 
@@ -89,6 +92,7 @@ export default function ProxyConfigCard({
   };
 
   const handleEdit = (label) => {
+    setSaveError('');
     setEditLabel(label);
     setForm(proxies[label]);
     setIsEditing(true);
@@ -126,22 +130,30 @@ export default function ProxyConfigCard({
   const handleSave = () => {
     const method = isEditing ? 'PUT' : 'POST';
     const url = isEditing ? `/api/proxies/${editLabel}` : '/api/proxies';
+    setSaveError('');
     fetch(url, {
       body: JSON.stringify(form),
       headers: { 'Content-Type': 'application/json' },
       method,
     })
-      .then((res) => res.json())
-      .then(() => {
+      .then(async (res) => {
+        if (!res.ok) {
+          // Keep the form as typed so the user can correct it.
+          const body = await res.json().catch(() => ({}));
+          setSaveError(body.detail || 'The proxy could not be saved.');
+          return;
+        }
         setForm({ host: '', label: '', password: '', port: '', username: '' });
         setIsEditing(false);
         setEditLabel('');
         if (refreshProxies) refreshProxies();
         refreshUsage();
-      });
+      })
+      .catch(() => setSaveError('Could not reach the server to save this proxy.'));
   };
 
   const handleAddNew = () => {
+    setSaveError('');
     setForm({ host: '', label: '', password: '', port: '', username: '' });
     setIsEditing(false);
     setEditLabel('');
@@ -192,8 +204,13 @@ export default function ProxyConfigCard({
   // Validation logic for buttons
   const hasAnyFieldFilled = form.label || form.host || form.port || form.username || form.password;
   const hasAllRequiredFields = form.label && form.host && form.port;
+  // The backend's rule: a whole number from 1 to 65535. Digits only, so a
+  // value such as `1e3` that the number input allows is refused here too.
+  const portText = String(form.port ?? '').trim();
+  const portIsValid = /^\d+$/.test(portText) && Number(portText) >= 1 && Number(portText) <= 65535;
+  const showPortError = portText !== '' && !portIsValid;
   const canClear = hasAnyFieldFilled;
-  const canSave = hasAllRequiredFields;
+  const canSave = hasAllRequiredFields && portIsValid;
 
   return (
     <>
@@ -266,12 +283,15 @@ export default function ProxyConfigCard({
                     variant="outlined"
                   />
                   <TextField
+                    error={showPortError}
+                    helperText={showPortError ? 'Must be 1-65535' : undefined}
                     label="Port"
                     name="port"
                     onChange={handleInputChange}
                     required
                     size="small"
-                    sx={{ width: 120 }}
+                    slotProps={{ htmlInput: { max: 65535, min: 1, step: 1 } }}
+                    sx={{ width: 140 }}
                     type="number"
                     value={form.port}
                     variant="outlined"
@@ -325,6 +345,11 @@ export default function ProxyConfigCard({
                   {isEditing ? 'Update Proxy' : 'Save Proxy'}
                 </Button>
               </Box>
+              {saveError && (
+                <Alert onClose={() => setSaveError('')} severity="error" sx={{ mt: 2 }}>
+                  {saveError}
+                </Alert>
+              )}
               {Object.keys(proxies).length > 0 && <Divider sx={{ my: 2 }} />}
               <Typography sx={{ fontWeight: 600, mb: 1, mt: 2 }} variant="subtitle2">
                 Configured Proxies

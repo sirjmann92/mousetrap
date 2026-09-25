@@ -14,6 +14,7 @@ frontend reads several of these responses without checking the status code.
 from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field
+from pydantic_core import PydanticCustomError
 
 
 def _strip(value: object) -> object:
@@ -48,3 +49,39 @@ class IndexerUpdateRequest(BaseModel):
 
     label: Annotated[StrippedStr, Field(min_length=1)]
     mam_id: StrippedStr = ""
+
+
+def _reject_bool(value: object) -> object:
+    """Refuse a boolean before Pydantic reads it as the integer 1 or 0.
+
+    Raised as `PydanticCustomError` because Pydantic converts only that,
+    `ValueError` and `AssertionError` into a validation error. A `TypeError`
+    would escape the model and answer 500 instead of 400.
+
+    Raises:
+        PydanticCustomError: If the value is a boolean.
+    """
+    if isinstance(value, bool):
+        raise PydanticCustomError("bool_port", "a boolean is not a port")
+    return value
+
+
+TcpPort = Annotated[int, BeforeValidator(_reject_bool), Field(ge=1, le=65535)]
+
+
+class ProxyRequest(BaseModel):
+    """Body for creating or replacing a proxy.
+
+    `host` and `port` are required because a proxy without them is no proxy at
+    all: `build_proxy_dict` returns None for a missing host, so a session
+    selecting it would connect directly. The form already required both; the API
+    did not. `port` accepts the numeric string the form sends and must be a TCP
+    port, so a typo cannot save a proxy that can never connect. Credentials are
+    stored exactly as typed.
+    """
+
+    label: Annotated[StrippedStr, Field(min_length=1)]
+    host: Annotated[StrippedStr, Field(min_length=1)]
+    port: TcpPort
+    username: str = ""
+    password: str = ""

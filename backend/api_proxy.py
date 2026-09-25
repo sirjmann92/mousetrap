@@ -10,7 +10,9 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
 
+from backend.api_models import ProxyRequest
 from backend.config import list_sessions, load_session
 from backend.ip_lookup import get_asn_and_timezone_from_ip, get_ipinfo_with_fallback, get_public_ip
 from backend.proxy_config import load_proxies, save_proxies
@@ -43,27 +45,68 @@ def list_proxies() -> dict[str, Any]:
     return load_proxies()
 
 
+_INVALID_FIELD = {
+    "label": "Proxy label is required.",
+    "host": "Proxy host is required.",
+    "port": "Proxy port must be a whole number from 1 to 65535.",
+}
+
+
+def _validated_proxy(body: dict[str, Any]) -> dict[str, Any]:
+    """Validate a proxy body and return the entry to store.
+
+    Args:
+        body: The request body as sent.
+
+    Returns:
+        The proxy as it should be persisted, with the port as an integer.
+
+    Raises:
+        HTTPException: 400 naming every field that was missing or invalid.
+    """
+    try:
+        return ProxyRequest.model_validate(body).model_dump()
+    except ValidationError as err:
+        fields = [str(e["loc"][0]) for e in err.errors() if e["loc"]]
+        messages = dict.fromkeys(
+            _INVALID_FIELD.get(field, "Proxy settings are not valid.") for field in fields
+        )
+        raise HTTPException(status_code=400, detail=" ".join(messages)) from None
+
+
 @router.post("/proxies")
 def create_proxy(proxy: dict[str, Any]) -> dict[str, Any]:
-    """Create a new proxy configuration. Expects a dict with at least a 'label'."""
+    """Create a proxy.
+
+    Raises:
+        HTTPException: 400 if a field is missing or invalid, or if a proxy with
+            that label already exists.
+    """
+    entry = _validated_proxy(proxy)
     proxies = load_proxies()
-    label = proxy.get("label")
-    if not label:
-        raise HTTPException(status_code=400, detail="Proxy label is required.")
-    if label in proxies:
+    if entry["label"] in proxies:
         raise HTTPException(status_code=400, detail="Proxy label already exists.")
-    proxies[label] = proxy
+    proxies[entry["label"]] = entry
     save_proxies(proxies)
     return {"success": True}
 
 
 @router.put("/proxies/{label}")
 def update_proxy(label: str, proxy: dict[str, Any]) -> dict[str, Any]:
-    """Update an existing proxy configuration."""
+    """Replace an existing proxy's settings.
+
+    The stored entry takes its label from the path, which is what sessions
+    reference, so a body naming a different label cannot leave the entry's own
+    `label` disagreeing with the key it is stored under.
+
+    Raises:
+        HTTPException: 404 if no proxy has that label, or 400 if a field is
+            missing or invalid.
+    """
     proxies = load_proxies()
     if label not in proxies:
         raise HTTPException(status_code=404, detail="Proxy not found.")
-    proxies[label] = proxy
+    proxies[label] = _validated_proxy({**proxy, "label": label})
     save_proxies(proxies)
     return {"success": True}
 
