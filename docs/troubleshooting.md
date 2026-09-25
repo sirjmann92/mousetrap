@@ -45,6 +45,14 @@ services:
 
 ---
 
+**"Cross-site request refused" when saving:**
+MouseTrap refuses changes a browser sends on behalf of another website. A change
+made from MouseTrap's own page is refused only when the address the browser used
+does not reach the backend: a reverse proxy that rewrites the `Host` header
+without sending `X-Forwarded-Host`. Configure the proxy to send
+`X-Forwarded-Host` with the address the browser used, or to pass `Host` through
+unchanged. Scripts and tools calling the API directly are not affected.
+
 ### 2. Docker Socket Permission Errors
 
 **Symptoms:**

@@ -16,6 +16,9 @@ const configDir = externalBaseUrl
   : mkdtempSync(join(tmpdir(), 'mousetrap-playwright-'));
 if (configDir) {
   process.env.MOUSETRAP_E2E_CONFIG_DIR = configDir;
+  // The development backend listens on its own port, so a page served by the
+  // frontend can reach it cross-origin, as another site would.
+  process.env.E2E_BACKEND_ORIGIN = `http://127.0.0.1:${backendPort}`;
 }
 
 export default defineConfig({
