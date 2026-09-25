@@ -60,7 +60,13 @@ async def test_webhook_requires_configuration(api_client: AsyncClient) -> None:
     """Expose missing notification configuration as a stable client error."""
     response = await api_client.post("/api/notify/test/webhook", json={"message": "test"})
     assert response.status_code == 400
-    assert response.json() == {"detail": "Webhook URL not set."}
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {
+        "type": "about:blank",
+        "status": 400,
+        "title": "Bad Request",
+        "detail": "Webhook URL not set.",
+    }
 
 
 @pytest.mark.integration

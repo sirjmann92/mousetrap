@@ -234,15 +234,7 @@ export default function IndexerIntegrations({
 
       const result = await response.json();
 
-      // Handle detailed error messages
-      if (!result.success && result.detail) {
-        setUpdateResult({
-          success: false,
-          message: result.detail || result.message || 'Update failed',
-        });
-      } else {
-        setUpdateResult(result);
-      }
+      setUpdateResult(result);
     } catch (error) {
       setUpdateResult({ success: false, message: `Network error: ${error.message}` });
     } finally {

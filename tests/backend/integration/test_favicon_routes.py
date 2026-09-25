@@ -37,8 +37,19 @@ async def test_favicon_routes_404_when_the_public_directory_lacks_them(
 
     ico = await api_client.get("/favicon.ico")
     assert ico.status_code == 404
-    assert ico.json() == {"detail": "favicon.ico not found"}
+    assert ico.headers["content-type"] == "application/problem+json"
+    assert ico.json() == {
+        "type": "about:blank",
+        "status": 404,
+        "title": "Not Found",
+        "detail": "favicon.ico not found",
+    }
 
     svg = await api_client.get("/favicon.svg")
     assert svg.status_code == 404
-    assert svg.json() == {"detail": "favicon.svg not found"}
+    assert svg.json() == {
+        "type": "about:blank",
+        "status": 404,
+        "title": "Not Found",
+        "detail": "favicon.svg not found",
+    }

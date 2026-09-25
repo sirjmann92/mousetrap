@@ -247,19 +247,7 @@ const StatusCard = forwardRef(
         });
         const data = await res.json();
 
-        // Extract detailed error message if available
-        let errorMessage = data.message || 'Update failed';
-        if (!data.success && data.detail) {
-          // Handle API error responses with detailed messages
-          if (typeof data.detail === 'string') {
-            errorMessage = data.detail;
-          } else if (Array.isArray(data.detail)) {
-            // Format array of error objects
-            errorMessage = data.detail
-              .map((err) => err.errorMessage || JSON.stringify(err))
-              .join('; ');
-          }
-        }
+        const errorMessage = data.message || 'Update failed';
 
         setSnackbar({
           message: data.success ? data.message || 'Indexer(s) updated!' : errorMessage,
