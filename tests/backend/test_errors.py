@@ -13,64 +13,13 @@ from backend.errors import (
     ABOUT_BLANK,
     INVALID_REQUEST_TYPE,
     PROBLEM_MEDIA_TYPE,
-    MouseTrapError,
     ProblemDetails,
     RejectedValue,
     _pointer,
     _rejected_value,
     _status_title,
-    problem_type,
     register_error_handlers,
 )
-
-
-class GuardrailRefusedProblem(ProblemDetails):
-    """A refusal carrying the numbers its detail was rendered from."""
-
-    limit: int
-    cost: int
-
-
-class GuardrailRefusedError(MouseTrapError):
-    """A purchase a guardrail declined to make."""
-
-    status = 409
-    type = problem_type("guardrail-refused")
-    title = "The purchase was refused by a guardrail"
-
-    def __init__(self, *, limit: int, cost: int) -> None:
-        """Record the two numbers and render the sentence from them.
-
-        Args:
-            limit: Configured ceiling, in points.
-            cost: Price of the refused purchase, in points.
-        """
-        self.limit = limit
-        self.cost = cost
-        super().__init__(f"Cost {cost} exceeds the configured limit of {limit}.")
-
-    def problem(self) -> ProblemDetails:
-        """Return the refusal with its numbers as extension members.
-
-        Returns:
-            The problem details, carrying `limit` and `cost` as typed fields.
-        """
-        return GuardrailRefusedProblem(
-            type=self.type,
-            status=self.status,
-            title=self.title,
-            detail=str(self),
-            limit=self.limit,
-            cost=self.cost,
-        )
-
-
-class SessionUnreadableError(MouseTrapError):
-    """A failure with nothing to carry beyond its sentence."""
-
-    status = 503
-    type = problem_type("session-unreadable")
-    title = "The session could not be read"
 
 
 @pytest.fixture
@@ -82,16 +31,6 @@ def problem_app() -> FastAPI:
     """
     app = FastAPI()
     register_error_handlers(app)
-
-    @app.get("/refused")
-    def refused() -> None:
-        """Raise a failure this application names."""
-        raise GuardrailRefusedError(limit=2000, cost=3000)
-
-    @app.get("/unreadable")
-    def unreadable() -> None:
-        """Raise a named failure that adds no extension members."""
-        raise SessionUnreadableError("The session file could not be read.")
 
     @app.get("/teapot")
     def teapot() -> None:
@@ -138,47 +77,6 @@ async def problem_client(problem_app: FastAPI) -> AsyncIterator[AsyncClient]:
     transport = ASGITransport(app=problem_app, raise_app_exceptions=False)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
         yield client
-
-
-async def test_a_named_failure_answers_with_its_problem_type(problem_client: AsyncClient) -> None:
-    """The status, type and title come from the class; the detail from the raise."""
-    response = await problem_client.get("/refused")
-
-    assert response.status_code == 409
-    assert response.headers["content-type"] == PROBLEM_MEDIA_TYPE
-    assert response.json() == {
-        "type": problem_type("guardrail-refused"),
-        "status": 409,
-        "title": "The purchase was refused by a guardrail",
-        "detail": "Cost 3000 exceeds the configured limit of 2000.",
-        "limit": 2000,
-        "cost": 3000,
-    }
-
-
-async def test_a_named_failure_carries_its_data_as_members_not_only_as_prose(
-    problem_client: AsyncClient,
-) -> None:
-    """A client reads the numbers rather than parsing them back out of `detail`."""
-    body = (await problem_client.get("/refused")).json()
-
-    assert (body["limit"], body["cost"]) == (2000, 3000)
-    assert str(body["cost"]) in body["detail"]
-
-
-async def test_a_failure_carrying_no_extension_members_still_answers_in_full(
-    problem_client: AsyncClient,
-) -> None:
-    """The base class renders the four members, so a subclass adding nothing writes nothing."""
-    response = await problem_client.get("/unreadable")
-
-    assert response.status_code == 503
-    assert response.json() == {
-        "type": problem_type("session-unreadable"),
-        "status": 503,
-        "title": "The session could not be read",
-        "detail": "The session file could not be read.",
-    }
 
 
 async def test_a_status_forbidding_a_body_sends_none(problem_client: AsyncClient) -> None:
@@ -300,14 +198,6 @@ async def test_one_response_lists_every_rejected_value(problem_client: AsyncClie
 def test_a_value_the_boundary_cannot_place_carries_no_locator() -> None:
     """Neither locator is better than one that points at nothing."""
     assert _rejected_value({"msg": "Field required"}) == RejectedValue(detail="Field required")
-
-
-def test_a_problem_type_subclass_must_name_its_status_type_and_title() -> None:
-    """A mapping table can omit an entry silently; a class attribute cannot."""
-    with pytest.raises(TypeError, match="status, type, title"):
-
-        class NamelessError(MouseTrapError):
-            """A subclass that decided nothing."""
 
 
 def test_a_problem_cannot_be_constructed_without_a_detail() -> None:

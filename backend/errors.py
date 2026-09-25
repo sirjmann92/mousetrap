@@ -1,31 +1,28 @@
 """The API's error boundary.
 
 Every failure this API reports leaves as RFC 9457 problem details with the
-`application/problem+json` media type, whatever raised it. Four handlers feed
-that one shape: `MouseTrapError` for a failure this application names,
-`HTTPException` for the routes that still raise FastAPI's own,
+`application/problem+json` media type, whatever raised it. Three handlers feed
+that one shape: `HTTPException` for the routes that raise FastAPI's own,
 `RequestValidationError` for a request value no route could accept, and a
 catch-all so an unhandled exception does not escape as plain text. Before these
 handlers existed, `detail` was a string from the first and a list of objects
 from the second, so no client could read both with one branch.
 
-`MouseTrapError` carries its status, its problem type and its title on the class
-rather than in a table consulted at this boundary: a table lets a new error with
-no entry become a silent 500, and the contract exists to remove exactly that.
-Messages are built inside the class from typed parameters, never at the raise
-site, which keeps a caught exception's own text off the wire (RFC 9457 §5).
+Nothing here logs. The catch-all in particular must not: Starlette's
+`ServerErrorMiddleware` re-raises after the handler answers, and that re-raise
+is what reaches the server's own logging, so logging here as well would record
+one failure twice.
 
-This boundary is where a failure is logged, and raise sites do not log. The
-catch-all is the one handler that stays silent: Starlette's `ServerErrorMiddleware`
-re-raises after it answers, and that re-raise is what reaches the server's own
-logging, so logging here as well would record one failure twice.
+A problem type of this application's own -- one with a URI of its own, or
+extension members a status code cannot carry -- needs an exception that names
+them. None exists yet, so that machinery arrives with the first failure that
+raises one rather than waiting here for it.
 """
 
 from __future__ import annotations
 
 from http import HTTPStatus
-import logging
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from fastapi.exceptions import RequestValidationError
 from fastapi.utils import is_body_allowed_for_status_code
@@ -43,8 +40,6 @@ PROBLEM_MEDIA_TYPE = "application/problem+json"
 
 ABOUT_BLANK = "about:blank"
 
-PROBLEM_TYPE_BASE = "https://github.com/sirjmann92/mousetrap/blob/main/docs/problems/"
-
 _PARAMETER_LOCATIONS = frozenset({"query", "path", "header", "cookie"})
 
 # Pydantic reports an undecodable body with a character offset where a field
@@ -53,26 +48,9 @@ _UNPARSED_BODY = "json_invalid"
 
 _GENERIC_FAILURE_DETAIL = "The server could not complete the request."
 
-_logger: logging.Logger = logging.getLogger(__name__)
-
-
-def problem_type(slug: str) -> str:
-    """Return the URI identifying a problem type.
-
-    The URI is the type's identity, so it never changes once a client has seen
-    it: RFC 9457 §3.1.1 warns that changing it introduces a breaking change even
-    when the page it names has merely moved.
-
-    Args:
-        slug: File stem of the type's page under `docs/problems/`.
-
-    Returns:
-        The absolute URI for that problem type.
-    """
-    return f"{PROBLEM_TYPE_BASE}{slug}.md"
-
-
-INVALID_REQUEST_TYPE = problem_type("invalid-request")
+INVALID_REQUEST_TYPE = (
+    "https://github.com/sirjmann92/mousetrap/blob/main/docs/problems/invalid-request.md"
+)
 
 
 class RejectedValue(BaseModel):
@@ -150,73 +128,6 @@ class InvalidRequestProblem(ProblemDetails):
     errors: list[RejectedValue]
 
 
-class MouseTrapError(Exception):
-    """Base class for every failure this application reports.
-
-    One subclass per problem type, each naming the status it answers with, the
-    URI identifying the problem, and its title. A subclass carrying extension
-    members declares them as fields on a `ProblemDetails` subclass and returns
-    it from `problem`:
-
-        class GuardrailRefusedError(MouseTrapError):
-            status = 409
-            type = problem_type("guardrail-refused")
-            title = "The purchase was refused by a guardrail"
-
-            def __init__(self, *, limit: int, cost: int) -> None:
-                self.limit = limit
-                self.cost = cost
-                super().__init__(f"Cost {cost} exceeds the configured limit of {limit}.")
-
-    Building the message in the constructor from typed parameters is what makes
-    the no-leak rule self-enforcing: a message written inside the class cannot
-    interpolate a caught exception unless someone deliberately passes one in.
-
-    Attributes:
-        status: HTTP status code this failure answers with.
-        type: Absolute URI identifying the problem type, resolving to its page
-            under `docs/problems/`.
-        title: Short, human-readable summary of the problem type.
-    """
-
-    status: ClassVar[int]
-    type: ClassVar[str]
-    title: ClassVar[str]
-
-    def __init_subclass__(cls, **kwargs: object) -> None:
-        """Reject a subclass that leaves any of the three class attributes unset.
-
-        Args:
-            cls: The subclass being defined.
-            **kwargs: Class-creation keywords, passed through untouched.
-
-        Raises:
-            TypeError: If the subclass names no status, type or title.
-        """
-        super().__init_subclass__(**kwargs)
-        missing = [name for name in ("status", "type", "title") if not hasattr(cls, name)]
-        if missing:
-            raise TypeError(f"{cls.__name__} must set {', '.join(missing)}")
-
-    def problem(self) -> ProblemDetails:
-        """Return this failure as the body the client receives.
-
-        Returns:
-            The problem details for this error, whose `detail` is the message
-            the class built for this occurrence.
-
-        Raises:
-            ValueError: If the subclass built an empty message, which the
-                contract does not permit.
-        """
-        return ProblemDetails(
-            type=self.type,
-            status=self.status,
-            title=self.title,
-            detail=str(self),
-        )
-
-
 def problem_response(problem: ProblemDetails, headers: Mapping[str, str] | None = None) -> Response:
     """Render problem details as the response the client receives.
 
@@ -249,31 +160,9 @@ def register_error_handlers(app: FastAPI) -> None:
     Args:
         app: The application to register the handlers on.
     """
-    app.exception_handler(MouseTrapError)(_mousetrap_error_handler)
     app.exception_handler(HTTPException)(_http_exception_handler)
     app.exception_handler(RequestValidationError)(_request_validation_error_handler)
     app.exception_handler(Exception)(_unhandled_exception_handler)
-
-
-async def _mousetrap_error_handler(request: Request, exc: MouseTrapError) -> Response:
-    """Answer a named failure, logging it once with its cause chain.
-
-    Args:
-        request: The request that failed.
-        exc: The failure being reported.
-
-    Returns:
-        The problem details response for this failure.
-    """
-    _logger.log(
-        logging.ERROR if exc.status >= HTTPStatus.INTERNAL_SERVER_ERROR else logging.WARNING,
-        "[API] %s %s: %s",
-        request.method,
-        request.url.path,
-        exc.title,
-        exc_info=exc,
-    )
-    return problem_response(exc.problem())
 
 
 async def _http_exception_handler(request: Request, exc: HTTPException) -> Response:

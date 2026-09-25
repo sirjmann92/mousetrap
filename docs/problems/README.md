@@ -74,11 +74,14 @@ showing a person.
 ## Adding a type
 
 1. Add the page here, named for the slug in its URI.
-2. Subclass `MouseTrapError` in `backend/errors.py`, setting `status`, `type`
-   (via `problem_type("<slug>")`) and `title`. Build the message inside the
-   class from typed constructor parameters.
-3. Declare any extra members as fields on a `ProblemDetails` subclass and return
-   it from `problem()`.
+2. Give the failure a way to carry that type to the boundary. Today the only
+   types are `about:blank`, which anything raising `HTTPException` gets for
+   free, and `invalid-request`, which the validation handler builds. A type of
+   its own needs an exception that names its `status`, `type` and `title`, and
+   that carrier arrives with the first failure to need it rather than waiting
+   here for one.
+3. Declare any extra members as fields on a `ProblemDetails` subclass, so every
+   member reaching the wire is one a model named.
 4. Declare the status on every route that can raise it, in the route's
    `responses={...}`. An exception handler is invisible to the OpenAPI schema,
    so a route that raises without declaring publishes a contract claiming it
