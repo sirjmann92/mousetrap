@@ -8,9 +8,17 @@ This document provides a comprehensive reference for MouseTrap's REST API endpoi
 
 ## Authentication
 MouseTrap does not implement authentication. Every endpoint is reachable by
-anyone who can reach the configured port, and `GET /api/proxies` returns stored
-proxy passwords, so the port should be exposed only to a trusted network or
-placed behind an authenticating reverse proxy.
+anyone who can reach the configured port, and several return stored secrets
+verbatim:
+
+| Endpoint | Secrets in the response |
+| --- | --- |
+| `GET /api/session/{label}` | MAM ID, browser cookie, indexer integration API keys |
+| `GET /api/notify/config` | SMTP password, webhook URL, Pushover token |
+| `GET /api/proxies` | Proxy passwords |
+
+Expose the port only to a trusted network, or place it behind an authenticating
+reverse proxy.
 
 ---
 
@@ -154,8 +162,8 @@ Get the current status for a session.
 }
 ```
 
-- **The MAM ID is never returned.** The session cookie is write-only over the
-  API: `POST /api/session/save` accepts it, and no response echoes it back.
+- This response does not include the MAM ID. `GET /api/session/{label}` does;
+  see [Authentication](#authentication).
 - `auto_update_seedbox` is present only when an automatic seedbox update ran
   during this check, and carries that attempt's result.
 - `configured` appears only in the unconfigured response below; its absence
@@ -344,10 +352,8 @@ List the configured proxies, keyed by label.
 ```
 
 This returns the stored proxy entries verbatim, **including proxy passwords**.
-Combined with the lack of authentication, anyone who can reach the port can read
-them, so treat the configured port as trusted-network only. This is the one
-endpoint that returns a stored credential; the MAM session cookie is never
-returned by any endpoint.
+It is not the only endpoint that returns stored secrets; see
+[Authentication](#authentication).
 
 ### GET `/api/proxies/usage`
 Report which sessions select each configured proxy. Every configured proxy
