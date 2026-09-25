@@ -87,6 +87,27 @@ async def get_proxied_public_ip_and_asn(proxy_cfg: dict[str, Any]) -> tuple[str 
     return None, None
 
 
+def _status_error(message: str) -> dict[str, Any]:
+    """Build the payload ``get_status`` returns when it could not read an account.
+
+    Args:
+        message: Reason for the failure, surfaced to the UI as the status
+            message and as an automation skip reason.
+
+    Returns:
+        A status dict carrying no balance, no wedge or VIP state, and the
+        supplied message.
+
+    """
+    return {
+        "mam_cookie_exists": False,
+        "points": None,
+        "wedge_active": None,
+        "vip_active": None,
+        "message": message,
+    }
+
+
 async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
     """Fetch MaM account status using the provided mam_id and optional proxy configuration.
 
@@ -117,13 +138,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
 
     """
     if not mam_id:
-        return {
-            "mam_cookie_exists": False,
-            "points": None,
-            "wedge_active": None,
-            "vip_active": None,
-            "message": "No MaM ID provided.",
-        }
+        return _status_error("No MaM ID provided.")
     url = "https://www.myanonamouse.net/jsonLoad.php?snatch_summary"
     cookies = {"mam_id": mam_id}
     proxies = None
@@ -180,13 +195,9 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
             try:
                 data = json.loads(text)
             except Exception as json_e:
-                return {
-                    "mam_cookie_exists": False,
-                    "points": None,
-                    "wedge_active": None,
-                    "vip_active": None,
-                    "message": f"MaM API did not return valid JSON: {json_e}. Response: {text[:200]}",
-                }
+                return _status_error(
+                    f"MaM API did not return valid JSON: {json_e}. Response: {text[:200]}"
+                )
         # Parse points, wedge, VIP status from response
         points = data.get("seedbonus")
         wedge_active = data.get("wedge_active")
@@ -202,13 +213,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
         # all, and this message is surfaced verbatim as a status and skip
         # reason. Redact before it leaves this function.
         detail = redact_text(str(e), proxy_cfg.get("password") if proxy_cfg else None, mam_id)
-        return {
-            "mam_cookie_exists": False,
-            "points": None,
-            "wedge_active": None,
-            "vip_active": None,
-            "message": f"Failed to fetch status: {detail}",
-        }
+        return _status_error(f"Failed to fetch status: {detail}")
     else:
         # Do not set a default message here; let the main logic in app.py set the status_message
         return {
