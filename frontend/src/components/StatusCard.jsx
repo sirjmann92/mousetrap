@@ -247,7 +247,7 @@ const StatusCard = forwardRef(
         });
         const data = await res.json();
 
-        const errorMessage = data.message || 'Update failed';
+        const errorMessage = data.message || data.detail || 'Update failed';
 
         setSnackbar({
           message: data.success ? data.message || 'Indexer(s) updated!' : errorMessage,

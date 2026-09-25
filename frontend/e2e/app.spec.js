@@ -228,6 +228,56 @@ test.describe
       await expect(port).toHaveValue('8081');
     });
 
+    // The UI's own requests are same-origin, so these simulate a refusal with
+    // the body the cross-site guard answers with. It carries its reason in
+    // `detail`, not in the `message` the indexer route normally sends. Each
+    // button gets its own test so an alert from one cannot satisfy the other.
+    const refusal = 'Cross-site request refused. If MouseTrap is behind a reverse proxy';
+
+    async function refuseIndexerUpdates(page) {
+      await page.route('**/api/indexer/update', (route) =>
+        route.fulfill({
+          body: JSON.stringify({
+            detail: `${refusal} that rewrites the Host header, have the proxy send X-Forwarded-Host.`,
+            status: 403,
+            title: 'Forbidden',
+            type: 'about:blank',
+          }),
+          contentType: 'application/problem+json',
+          status: 403,
+        }),
+      );
+      const saved = await page.request.post('/api/session/save', {
+        data: {
+          label: 'Indexed',
+          mam: { mam_id: 'cookie' },
+          prowlarr: { api_key: 'key', enabled: true, host: '127.0.0.1', port: 9696 },
+        },
+      });
+      expect(saved.ok()).toBeTruthy();
+      await page.goto('/');
+    }
+
+    test('shows why the status card indexer update was refused', async ({ page }) => {
+      await refuseIndexerUpdates(page);
+
+      await page.getByRole('button', { name: 'UPDATE', exact: true }).first().click();
+
+      await expect(page.getByRole('alert').filter({ hasText: refusal })).toBeVisible();
+    });
+
+    test('shows why the integrations indexer update was refused', async ({ page }) => {
+      await refuseIndexerUpdates(page);
+
+      await page.getByText('Session Configuration', { exact: true }).click();
+      await page.getByText('Indexer Integrations', { exact: true }).click();
+      // Its tooltip names it, so its accessible name is the tooltip text
+      // rather than the UPDATE it displays.
+      await page.getByRole('button', { name: /push the current MAM ID/ }).click();
+
+      await expect(page.getByRole('alert').filter({ hasText: refusal })).toBeVisible();
+    });
+
     test('saves notification configuration without sending a notification', async ({ page }) => {
       await page.goto('/');
       await page.getByText('Notifications', { exact: true }).click();
