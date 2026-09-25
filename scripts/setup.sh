@@ -76,7 +76,9 @@ fi
 
 echo "Installing Python development dependencies..."
 "$VENV_PYTHON" -m pip install --upgrade "pip>=25.1"
-"$VENV_PYTHON" -m pip install --group dev
+# The constraints file pins every version, so rerunning this also brings an
+# existing .venv back in line with the pins rather than keeping whatever it has.
+"$VENV_PYTHON" -m pip install --group dev --constraint "$REPO_ROOT/requirements/constraints.txt"
 
 # Install the repository-managed Git hook, replacing a pre-commit shim left by
 # an older checkout when necessary.

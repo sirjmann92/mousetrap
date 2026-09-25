@@ -14,11 +14,16 @@ cd "$REPO_ROOT"
 # Update the local Python environment when present, but keep the remaining
 # maintenance useful from a checkout that has not run setup.sh.
 if [ -x "$VENV_PYTHON" ]; then
-  echo "Updating Python development dependencies..."
-  "$VENV_PYTHON" -m pip install --upgrade --group dev
+  # The lock script needs the dev group's tools, so sync to the current pins
+  # first, then resolve the newest versions and install what that pinned.
+  "$VENV_PYTHON" -m pip install --group dev --constraint requirements/constraints.txt
+  echo "Resolving the newest Python dependencies and rewriting the pins..."
+  "$VENV_PYTHON" scripts/lock-python-dependencies.py
+  echo "Installing the new pins..."
+  "$VENV_PYTHON" -m pip install --group dev --constraint requirements/constraints.txt
   "$VENV_PYTHON" -m pip check
 else
-  echo "Skipping local Python dependency updates because .venv is not set up."
+  echo "Skipping Python dependency updates and pins because .venv is not set up."
 fi
 
 # Prefer the project installation. A global prek can still update hook

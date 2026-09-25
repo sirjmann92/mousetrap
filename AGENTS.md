@@ -117,7 +117,32 @@ Set up both backend and frontend development environments:
 
 The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm
 11.16.0 or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
-group, and runs `npm ci` against the frontend lockfile.
+group at the pinned versions, and runs `npm ci` against the frontend lockfile.
+Rerunning it brings an existing `.venv` back in line with the pins.
+
+### Python dependency pins
+
+`pyproject.toml` names each dependency group without versions.
+`requirements/constraints.txt` pins every Python dependency to an exact version,
+and **every `pip install --group ...` passes it with `--constraint`**: the
+Dockerfile, both CI workflows, and the setup and maintenance scripts. Add the
+same flag to any new install site.
+
+Without it, each fresh install took whatever was newest that day, so the Docker
+image, CI and local environments ran different code. A FastAPI release once
+silently changed what `app.routes` returns and broke the API drift check in
+Documentation Guidelines, while a stale local environment kept it looking
+correct.
+
+The file is generated. Change it through `./scripts/update-dependencies.sh`, or
+let Dependabot bump pins in its weekly pull request; do not add or remove
+entries by hand. The generator resolves for the Python version in the
+Dockerfile, and checks that the runtime pins install from wheels on both
+production platforms, since the image has no compiler.
+
+The prek mypy hook installs its own copy of the typecheck and runtime packages,
+by name only. They are not pinned there, because Dependabot does not edit
+`prek.toml` and pins in two places would drift apart.
 
 The root `package.json` forwards frontend commands into `frontend/`.
 
@@ -146,8 +171,9 @@ For routine dependency maintenance, run:
 ./scripts/update-dependencies.sh
 ```
 
-The helper updates available Python and frontend development dependencies and
-keeps their generated tool configuration synchronized. Review configuration and
+The helper re-resolves the newest Python dependencies and rewrites
+`requirements/constraints.txt`, updates the frontend dependencies, and keeps
+their generated tool configuration synchronized. Review configuration and
 lockfile changes, then run `./scripts/lint.sh` before committing.
 
 ## Validation Commands
@@ -247,7 +273,8 @@ the next merge published itself. Nothing was broken by it, but the choice of
 when to release was lost.
 
 It matters more now that Dependabot security updates are on, because
-Dependabot opens pull requests unprompted. A security fix merged on a quiet
+Dependabot opens pull requests unprompted, for GitHub Actions and for the
+Python pins. A security fix merged on a quiet
 afternoon would publish a release nobody asked for.
 
 Release versions come only from git tags — `frontend/package.json`'s
