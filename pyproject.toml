@@ -41,6 +41,8 @@ test = [
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
+    # scripts/lock-python-dependencies.py reads requirement markers with it.
+    "packaging",
 ]
 
 [tool.codespell]

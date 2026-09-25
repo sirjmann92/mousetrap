@@ -1,0 +1,63 @@
+# Exact versions of every Python dependency, resolved for Python 3.13, the
+# version the Docker image and CI run. Every `pip install --group ...` in this
+# repository passes this file with `-c`, so the image, CI and local
+# environments install the same versions.
+#
+# Regenerate with scripts/update-dependencies.sh. Dependabot also bumps
+# individual pins in a weekly pull request.
+aiohappyeyeballs==2.7.1
+aiohttp==3.14.3
+aiosignal==1.4.0
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+APScheduler==3.11.3
+ast_serialize==0.11.2
+attrs==26.1.0
+certifi==2026.7.22
+charset-normalizer==3.5.1
+click==8.5.0
+coverage==7.16.1
+docker==7.2.0
+fastapi==0.141.1
+frozenlist==1.8.0
+h11==0.16.0
+httpcore==1.0.9
+httpx==0.28.1
+idna==3.20
+iniconfig==2.3.0
+librt==0.15.0
+multidict==6.9.1
+mypy==2.3.1
+mypy_extensions==1.1.0
+packaging==26.3
+pathspec==1.1.1
+pluggy==1.6.0
+prek==0.5.3
+propcache==0.5.4
+pydantic==2.13.5
+pydantic_core==2.46.5
+Pygments==2.21.0
+pytest-asyncio==1.4.0
+pytest-cov==7.1.0
+pytest-timeout==2.4.0
+pytest==9.1.1
+PyYAML==6.0.3
+requests==2.34.2
+ruff==0.16.9
+starlette==1.7.0
+types-cffi==2.1.0.20260827
+types-docker==7.2.0.20260923
+types-PyMySQL==1.2.0.20260923
+types-pyRFC3339==2.0.1.20250825
+types-PySocks==1.7.1.20260518
+types-python-dateutil==2.9.0.20260807
+types-PyYAML==6.0.12.20260906
+types-requests==2.33.0.20260906
+types-setuptools==84.0.0.20260812
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+tzlocal==5.4.4
+urllib3==2.8.0
+uvicorn==0.54.0
+yarl==1.25.1

@@ -27,7 +27,7 @@ elif command -v prek >/dev/null 2>&1; then
   PREK="$(command -v prek)"
 else
   echo "prek was not found. Install the development dependency group:" >&2
-  echo "  .venv/bin/python -m pip install --group dev" >&2
+  echo "  .venv/bin/python -m pip install --group dev --constraint requirements/constraints.txt" >&2
   exit 1
 fi
 

@@ -51,7 +51,7 @@ if ! "$PYTHON" -c "import uvicorn" >/dev/null 2>&1; then
   echo "Create the development environment with:" >&2
   echo "  python3 -m venv .venv" >&2
   echo "  .venv/bin/python -m pip install --upgrade 'pip>=25.1'" >&2
-  echo "  .venv/bin/python -m pip install --group dev" >&2
+  echo "  .venv/bin/python -m pip install --group dev --constraint requirements/constraints.txt" >&2
   exit 1
 fi
 

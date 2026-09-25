@@ -5,3 +5,18 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+
+  # Bumps the exact versions in requirements/constraints.txt, which every
+  # Python install in this repository uses. Grouped into one weekly pull
+  # request so a batch of releases is reviewed and tested together; security
+  # updates still arrive on their own as soon as an advisory is published.
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      python:
+        applies-to: version-updates
+        patterns:
+          - "*"

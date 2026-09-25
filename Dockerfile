@@ -17,6 +17,7 @@ WORKDIR /app
 
 # Copy dependency metadata first for better caching.
 COPY pyproject.toml /app/pyproject.toml
+COPY requirements/constraints.txt /app/requirements/constraints.txt
 
 # Install system dependencies, create users/groups, and install Python deps
 RUN apk add --no-cache gettext su-exec shadow \
@@ -25,7 +26,7 @@ RUN apk add --no-cache gettext su-exec shadow \
     && adduser -u 1000 -G appgroup -D -s /bin/sh appuser \
     && adduser appuser docker \
     && python -m pip install --no-cache-dir --upgrade "pip>=25.1" \
-    && python -m pip install --no-cache-dir --group runtime \
+    && python -m pip install --no-cache-dir --group runtime --constraint requirements/constraints.txt \
     && rm -rf /root/.cache/pip /tmp/* /var/cache/apk/*
 
 # Set environment variables
