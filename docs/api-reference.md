@@ -389,8 +389,8 @@ so the two cannot disagree — a session whose file cannot be parsed is
 attributed to every proxy, since its reference cannot be read.
 
 ### POST `/api/proxies`
-Create a proxy. Returns `400` if `label` is missing, or if a proxy with that
-label already exists — this endpoint does not update.
+Create a proxy. Returns `400` if a field is missing or invalid, or if a proxy
+with that label already exists — this endpoint does not update.
 
 **Request Body:**
 ```json
@@ -403,9 +403,19 @@ label already exists — this endpoint does not update.
 }
 ```
 
-Only `label` is enforced. Anything else in the body is stored as sent, so a
-proxy saved without a `host` resolves to no proxy at all; the UI requires
-label, host and port before it will save.
+- `label` and `host` are required and must not be blank. A proxy with no host
+  resolves to no proxy at all, so a session selecting it would connect
+  directly.
+- `port` is required and must be a whole number from 1 to 65535. A numeric
+  string such as `"8080"` is accepted and stored as a number; a boolean is
+  refused.
+- `username` and `password` are optional and stored exactly as sent, including
+  surrounding spaces.
+- A `400` names every invalid field at once, for example
+  `"Proxy host is required. Proxy port must be a whole number from 1 to 65535."`
+- The stored entry is exactly these five fields; anything else in the body is
+  dropped. Entries written before this validation existed are loaded unchanged,
+  so an older string port keeps working until the proxy is next edited.
 
 ### PUT `/api/proxies/{label}`
 Replace an existing proxy's configuration. Returns `404` if no proxy has that
@@ -415,7 +425,10 @@ label.
 - `label` (path): Proxy label/name. The stored proxy is keyed by this path
   value, so a proxy cannot be renamed through this endpoint.
 
-**Request Body:** the same shape as `POST /api/proxies`.
+**Request Body:** the same shape and rules as `POST /api/proxies`, answering
+`400` on the same conditions and leaving the stored proxy untouched when it
+does. The entry is stored with the path's label even if the body names another,
+so its `label` field always matches the key sessions reference.
 
 ### DELETE `/api/proxies/{label}`
 Delete a proxy configuration.

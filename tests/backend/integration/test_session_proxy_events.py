@@ -65,7 +65,9 @@ async def test_deleting_a_proxy_a_session_uses_is_refused(
     refused = await api_client.delete("/api/proxies/vpn")
     assert refused.status_code == 409
     assert "seedbox" in refused.json()["detail"]
-    assert (await api_client.get("/api/proxies")).json() == {"vpn": proxy}
+    # Stored entries are normalized, so absent credentials come back empty.
+    stored = {**proxy, "username": "", "password": ""}
+    assert (await api_client.get("/api/proxies")).json() == {"vpn": stored}
     assert (await api_client.get("/api/session/seedbox")).json()["proxy"] == {"label": "vpn"}
 
 

@@ -198,6 +198,36 @@ test.describe
       expect(session.mam.mam_id).toBe('real-cookie');
     });
 
+    test('validates the proxy port and reports a save the backend refuses', async ({ page }) => {
+      await page.request.post('/api/proxies', {
+        data: { host: '127.0.0.1', label: 'taken', port: 8080 },
+      });
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Create New Session', exact: true }).click();
+      await page.getByText('Proxy Configuration', { exact: true }).click();
+
+      const port = page.getByRole('spinbutton', { name: 'Port', exact: true });
+      const save = page.getByRole('button', { name: 'Save Proxy' });
+      await page.getByRole('textbox', { name: 'Label', exact: true }).fill('taken');
+      await page.getByRole('textbox', { name: 'Host', exact: true }).fill('127.0.0.1');
+
+      // A port outside 1-65535 is flagged on the field and cannot be saved.
+      await port.fill('99999');
+      await expect(page.getByText('Must be 1-65535')).toBeVisible();
+      await expect(save).toBeDisabled();
+
+      // A valid one can. The backend then refuses the duplicate label, and the
+      // form keeps what was typed rather than clearing as if the save worked.
+      await port.fill('8081');
+      await expect(save).toBeEnabled();
+      await save.click();
+      await expect(
+        page.getByRole('alert').filter({ hasText: 'Proxy label already exists.' }),
+      ).toBeVisible();
+      await expect(page.getByRole('textbox', { name: 'Label', exact: true })).toHaveValue('taken');
+      await expect(port).toHaveValue('8081');
+    });
+
     test('saves notification configuration without sending a notification', async ({ page }) => {
       await page.goto('/');
       await page.getByText('Notifications', { exact: true }).click();
