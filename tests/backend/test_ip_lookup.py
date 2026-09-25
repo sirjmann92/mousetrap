@@ -243,6 +243,49 @@ async def test_response_is_released_on_the_success_path(stub_lookup_chain: Any) 
     assert session.responses[0].releases == 1
 
 
+async def test_ipinfo_lite_joins_the_asn_number_to_the_separate_org_name(
+    monkeypatch: pytest.MonkeyPatch, stub_lookup_chain: Any
+) -> None:
+    """Normalize an ipinfo Lite payload, which reports the ASN and org apart."""
+    # A token moves ipinfo Lite to the front of the chain; it is offered nowhere else.
+    monkeypatch.setenv("IPINFO_TOKEN", "test-token")
+    session = stub_lookup_chain(
+        _answered_only_at(0, {"ip": "203.0.113.7", "asn": "AS64500", "as_name": "TEST-NET"})
+    )
+
+    result = await ip_lookup.get_ipinfo_with_fallback("203.0.113.7")
+
+    assert result == {
+        "ip": "203.0.113.7",
+        "asn": "AS64500 TEST-NET",
+        "org": "TEST-NET",
+        "timezone": None,
+    }
+    assert len(session.responses) == 1
+
+
+async def test_ipinfo_standard_reports_its_combined_org_field_as_the_asn(
+    stub_lookup_chain: Any,
+) -> None:
+    """Normalize an ipinfo Standard payload, which combines the two into one field."""
+    session = stub_lookup_chain(
+        _answered_only_at(
+            PROVIDERS_FOR_A_SPECIFIC_IP - 1,
+            {"ip": "203.0.113.7", "org": "AS64500 TEST-NET", "timezone": "Etc/UTC"},
+        )
+    )
+
+    result = await ip_lookup.get_ipinfo_with_fallback("203.0.113.7")
+
+    assert result == {
+        "ip": "203.0.113.7",
+        "asn": "AS64500 TEST-NET",
+        "org": "AS64500 TEST-NET",
+        "timezone": "Etc/UTC",
+    }
+    assert len(session.responses) == PROVIDERS_FOR_A_SPECIFIC_IP
+
+
 async def test_a_self_lookup_offers_every_provider_in_the_chain(stub_lookup_chain: Any) -> None:
     """Offer all six self-lookup providers before reporting total failure."""
     session = stub_lookup_chain(lambda: _StubResponse({}, status=503))

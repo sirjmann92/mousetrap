@@ -37,6 +37,28 @@ _last_cache_log_time: dict[str, float] = {}
 _cache_log_min_interval = 60
 
 
+def _format_asn(asn_num: Any, name: Any) -> Any:
+    """Join a provider's ASN number and organization name into one display value.
+
+    The providers reaching this helper are not relied on to prefix the ASN
+    number with ``AS``, so the prefix is added only when it is absent, and
+    either half may be missing from the response.
+
+    Args:
+        asn_num: ASN number as the provider reported it, prefixed or bare.
+        name: Organization name the provider paired with that number.
+
+    Returns:
+        ``AS<number> <name>`` when the provider supplied both, whichever one
+        it supplied when it supplied only one, or an empty string when it
+        supplied neither. A lone number is passed through unconverted and so
+        keeps whatever type the decoded response carried.
+
+    """
+    asn_prefix = asn_num if str(asn_num).startswith("AS") else f"AS{asn_num}"
+    return f"{asn_prefix} {name}".strip() if asn_num and name else (asn_num or name or "")
+
+
 async def get_ipinfo_with_fallback(
     ip: str | None = None, proxy_cfg: dict[str, Any] | None = None
 ) -> dict[str, Any]:
@@ -197,35 +219,25 @@ async def get_ipinfo_with_fallback(
                     _logger.debug("%s raw response for IP %s: %s", provider, ip or "self", data)
                     _logger.debug("%s lookup successful for IP %s", provider, ip or "self")
 
-                    # Normalize output for ipinfo_lite, ipinfo_standard and ipinfo_hardcoded
                     result = None
-                    if provider in ("ipinfo_lite", "ipinfo_standard", "ipinfo_hardcoded"):
+                    if provider == "ipinfo_lite":
                         # ipinfo_lite: ip, asn, as_name, as_domain, country_code, country, continent_code, continent
-                        # ipinfo_standard and ipinfo_hardcoded (ipinfo.io by hardcoded IP): ip, org, etc.
-                        if provider == "ipinfo_lite":
-                            asn_num = data.get("asn")
-                            as_name = data.get("as_name", "")
-                            # Combine ASN number with name for consistency with other providers
-                            # Check if asn_num already has "AS" prefix to avoid duplication
-                            asn_prefix = (
-                                asn_num if str(asn_num).startswith("AS") else f"AS{asn_num}"
-                            )
-                            asn_val = (
-                                f"{asn_prefix} {as_name}".strip()
-                                if asn_num and as_name
-                                else (asn_num or as_name or "")
-                            )
-                            org_val = as_name
-                        else:
-                            asn_val = str(data.get("org", ""))
-                            org_val = data.get("org", "")
+                        as_name = data.get("as_name", "")
                         result = {
                             "ip": data.get("ip"),
-                            "asn": asn_val,
-                            "org": org_val,
+                            "asn": _format_asn(data.get("asn"), as_name),
+                            "org": as_name,
                             "timezone": data.get(
                                 "timezone", None
                             ),  # Not present in lite, but included for compatibility
+                        }
+                    elif provider in ("ipinfo_standard", "ipinfo_hardcoded"):
+                        # ipinfo_standard and ipinfo_hardcoded (ipinfo.io by hardcoded IP): ip, org, etc.
+                        result = {
+                            "ip": data.get("ip"),
+                            "asn": str(data.get("org", "")),
+                            "org": data.get("org", ""),
+                            "timezone": data.get("timezone", None),
                         }
                     elif provider in ("ipify", "httpbin_hardcoded"):
                         # Both return the IP only, no ASN data - return None for ASN to indicate unavailable
@@ -247,17 +259,8 @@ async def get_ipinfo_with_fallback(
                     elif provider == "ipdata":
                         asn: dict[str, Any] | str | None = data.get("asn", {})
                         if isinstance(asn, dict):
-                            asn_num = asn.get("asn", "")
                             asn_name = asn.get("name", "")
-                            # Check if asn_num already has "AS" prefix to avoid duplication
-                            asn_prefix = (
-                                asn_num if str(asn_num).startswith("AS") else f"AS{asn_num}"
-                            )
-                            asn_str = (
-                                f"{asn_prefix} {asn_name}".strip()
-                                if asn_num and asn_name
-                                else (asn_num or asn_name or "")
-                            )
+                            asn_str = _format_asn(asn.get("asn", ""), asn_name)
                             org_name = asn_name
                         else:
                             asn_str = str(asn) if asn else ""
@@ -283,17 +286,6 @@ async def get_ipinfo_with_fallback(
         ip or "self",
     )
     return {"ip": None, "asn": None, "org": "", "timezone": None}
-
-
-async def async_get_public_ip(
-    proxy_cfg: dict[str, Any] | None = None, ipinfo_data: dict[str, Any] | None = None
-) -> str | None:
-    """Async variant returning public IP string or None."""
-    try:
-        data = ipinfo_data or await get_ipinfo_with_fallback(None, proxy_cfg)
-        return data.get("ip")
-    except Exception:
-        return None
 
 
 async def get_asn_and_timezone_from_ip(
