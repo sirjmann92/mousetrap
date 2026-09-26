@@ -140,6 +140,11 @@ entries by hand. The generator resolves for the Python version in the
 Dockerfile, and checks that the runtime pins install from wheels on both
 production platforms, since the image has no compiler.
 
+A package that another pin requires at one exact version, such as
+`pydantic-core` under `pydantic`, is deliberately left out: it is pinned through
+its parent. Dependabot bumps lines independently, so listing both let a bump to
+either alone produce a pair pip cannot install.
+
 The prek mypy hook installs its own copy of the typecheck and runtime packages,
 by name only. They are not pinned there, because Dependabot does not edit
 `prek.toml` and pins in two places would drift apart.
