@@ -5,6 +5,9 @@
 #
 # Regenerate with scripts/update-dependencies.sh. Dependabot also bumps
 # individual pins in a weekly pull request.
+#
+# pydantic-core is left out: pydantic requires one exact version of it, so it
+# is pinned through pydantic, and a bump to either alone could not install.
 aiohappyeyeballs==2.7.1
 aiohttp==3.14.3
 aiosignal==1.4.0
@@ -36,7 +39,6 @@ pluggy==1.6.0
 prek==0.5.3
 propcache==0.5.4
 pydantic==2.13.5
-pydantic_core==2.46.5
 Pygments==2.21.0
 pytest-asyncio==1.4.0
 pytest-cov==7.1.0

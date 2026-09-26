@@ -55,7 +55,7 @@ HEADER = """\
 #
 # Regenerate with scripts/update-dependencies.sh. Dependabot also bumps
 # individual pins in a weekly pull request.
-"""
+{omitted}"""
 
 
 def _say(message: str) -> None:
@@ -150,6 +150,42 @@ def _markers_missed(report: dict[str, Any], python: str) -> list[str]:
     return missed
 
 
+def _fixed_by_a_parent(report: dict[str, Any]) -> dict[str, str]:
+    """Find packages whose version another resolved package fixes exactly.
+
+    Dependabot bumps each line of this file on its own, without re-resolving.
+    `pydantic` requires one exact `pydantic-core`, so pinning both let a bump to
+    either one alone produce a pair pip cannot install. Leaving the child out
+    keeps it pinned all the same, through its parent, and lets a bump to the
+    parent bring its matching child along.
+
+    Only an unconditional `==` counts. A wildcard such as `httpcore==1.*`
+    leaves the child free to move within it, so that child stays pinned here.
+
+    Args:
+        report: pip's installation report.
+
+    Returns:
+        Each such package, mapped to the package that fixes its version.
+    """
+    resolved = {canonicalize_name(item["metadata"]["name"]) for item in report["install"]}
+    fixed: dict[str, str] = {}
+    for item in report["install"]:
+        for spec in item["metadata"].get("requires_dist") or []:
+            requirement = Requirement(spec)
+            specifiers = list(requirement.specifier)
+            child = canonicalize_name(requirement.name)
+            if (
+                requirement.marker is None
+                and len(specifiers) == 1
+                and specifiers[0].operator == "=="
+                and not specifiers[0].version.endswith(".*")
+                and child in resolved
+            ):
+                fixed[child] = item["metadata"]["name"]
+    return fixed
+
+
 def _write(report: dict[str, Any], python: str) -> list[str]:
     """Write the constraints file.
 
@@ -160,15 +196,24 @@ def _write(report: dict[str, Any], python: str) -> list[str]:
     Returns:
         The pins written, as `name==version` lines.
     """
+    fixed = _fixed_by_a_parent(report)
     pins = sorted(
         (
             f"{item['metadata']['name']}=={item['metadata']['version']}"
             for item in report["install"]
+            if canonicalize_name(item["metadata"]["name"]) not in fixed
         ),
         key=str.casefold,
     )
+    omitted = "".join(
+        f"#\n# {child} is left out: {parent} requires one exact version of it, so it\n"
+        f"# is pinned through {parent}, and a bump to either alone could not install.\n"
+        for child, parent in sorted(fixed.items())
+    )
     CONSTRAINTS.parent.mkdir(exist_ok=True)
-    CONSTRAINTS.write_text(HEADER.format(python=python) + "".join(f"{pin}\n" for pin in pins))
+    CONSTRAINTS.write_text(
+        HEADER.format(python=python, omitted=omitted) + "".join(f"{pin}\n" for pin in pins)
+    )
     return pins
 
 
