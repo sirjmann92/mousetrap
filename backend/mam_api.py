@@ -4,6 +4,10 @@ This module provides helper functions to query MaM for user status, simulate pur
 and resolve public IP/ASN information through optional proxy configurations.
 """
 
+from collections.abc import Mapping
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from http.cookies import Morsel
 import json
 import logging
 import os
@@ -17,6 +21,57 @@ from backend.utils_redact import redact_sensitive, redact_text
 _logger: logging.Logger = logging.getLogger(__name__)
 
 MamResponseClass = Literal["ok", "invalid_cookie", "other_error"]
+
+
+def rotated_mam_id(status: int, cookies: Mapping[str, Morsel[str]]) -> str | None:
+    """Return the new MAM ID a response set, if it is safe to adopt.
+
+    MAM rolls the session cookie on every response, and saving the new value is
+    what keeps a session alive indefinitely. Only a response MAM accepted is
+    trusted, though. A refusal can carry a `Set-Cookie` that clears the cookie,
+    and adopting it replaced a working MAM ID with the clearing value and pushed
+    that to every indexer. Declining costs nothing: the current cookie stays
+    valid, and the next accepted response rolls it.
+
+    Beyond the status, a cookie that deletes itself is never adopted: a
+    `Max-Age` of zero or less, or an `Expires` in the past. Nor is an empty
+    value, or a `Max-Age` or `Expires` that cannot be read. When in doubt, keep
+    the cookie that works.
+
+    Args:
+        status: HTTP status of the MAM response.
+        cookies: The cookies that response set, as aiohttp exposes them.
+
+    Returns:
+        The new MAM ID, or None when the response set none or it should not be
+        adopted.
+    """
+    if status >= 400:
+        return None
+    morsel = cookies.get("mam_id")
+    if morsel is None:
+        return None
+    value = morsel.value.strip()
+    if not value:
+        return None
+    max_age = morsel["max-age"]
+    if max_age:
+        try:
+            if int(max_age) <= 0:
+                return None
+        except ValueError:
+            return None
+    expires = morsel["expires"]
+    if expires:
+        try:
+            when = parsedate_to_datetime(expires)
+        except (TypeError, ValueError):
+            return None
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=UTC)
+        if when <= datetime.now(UTC):
+            return None
+    return value
 
 
 def classify_mam_response(status_code: int, msg: str) -> MamResponseClass:
@@ -191,7 +246,7 @@ async def get_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> di
                     )
                 raise Exception(f"HTTP {resp.status}: {text[:200]}")
             # Capture updated mam_id cookie if MAM rotated it (rolling session cookie)
-            updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
+            updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
             try:
                 data = json.loads(text)
             except Exception as json_e:

@@ -69,6 +69,7 @@ from backend.mam_api import (
     get_mam_seen_ip_info,
     get_proxied_public_ip,
     get_status,
+    rotated_mam_id,
 )
 from backend.notifications_backend import notify_event, safe_notify_event
 from backend.port_monitor import port_monitor_manager
@@ -473,9 +474,9 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
             ) as resp,
         ):
             status_code = resp.status
-            # Capture updated mam_id cookie if MAM rotated it (rolling session cookie),
-            # mirroring get_status()'s handling for jsonLoad.php.
-            updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
+            # MAM rolls the cookie on every response; adopt the new value only
+            # from a response it accepted (see rotated_mam_id).
+            updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
             try:
                 result = await resp.json()
             except Exception:
@@ -743,11 +744,10 @@ async def auto_update_seedbox_if_needed(
                     text = await resp.text()
                     result = {"Success": False, "msg": f"Non-JSON response: {text}"}
 
-                # Capture updated mam_id cookie if MAM rotated it (rolling session cookie),
-                # mirroring get_status()'s handling for jsonLoad.php. Saved immediately so
-                # it persists regardless of which branch below is taken (not every branch
-                # below calls save_session, e.g. rate-limited/error responses).
-                updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
+                # MAM rolls the cookie on every response; adopt the new value only
+                # from a response it accepted (see rotated_mam_id). Saved immediately,
+                # because not every branch below calls save_session.
+                updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
                 if updated_mam_id and updated_mam_id != cfg.get("mam", {}).get("mam_id"):
                     _prev_mam_id = cfg.get("mam", {}).get("mam_id")
                     cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
@@ -2037,9 +2037,9 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             ):
                 resp_status = resp.status
                 resp_text = await resp.text()
-                # Capture updated mam_id cookie if MAM rotated it (rolling session cookie),
-                # mirroring get_status()'s handling for jsonLoad.php.
-                _updated_mam_id = resp.cookies["mam_id"].value if "mam_id" in resp.cookies else None
+                # MAM rolls the cookie on every response; adopt the new value only
+                # from a response it accepted (see rotated_mam_id).
+                _updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
                 try:
                     result = await resp.json()
                 except Exception:
@@ -2054,8 +2054,7 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             _logger.info(
                 "[SeedboxUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.", label
             )
-            # Save immediately so it persists even if the branch below (e.g.
-            # rate-limited/error) doesn't itself call save_session.
+            # Save immediately, because not every branch below calls save_session.
             try:
                 save_session(cfg, old_label=label)
             except Exception as e:
