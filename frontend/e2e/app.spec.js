@@ -187,7 +187,7 @@ test.describe
 
       await page.goto('/');
       await page.evaluate(async (origin) => {
-        await fetch(`${origin}/api/session/save`, {
+        await globalThis.fetch(`${origin}/api/session/save`, {
           body: JSON.stringify({ label: 'Target', mam: { mam_id: 'attacker-value' } }),
           method: 'POST',
           mode: 'no-cors',
