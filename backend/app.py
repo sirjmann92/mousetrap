@@ -475,8 +475,8 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
             ) as resp,
         ):
             status_code = resp.status
-            # MAM rolls the cookie on every response; adopt the new value only
-            # from a response it accepted (see rotated_mam_id).
+            # MAM may return a new MAM ID; adopt it only from a response it
+            # accepted (see rotated_mam_id).
             updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
             try:
                 result = await resp.json()
@@ -518,15 +518,17 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
         if classification == "ok":
             fresh_cfg["last_mam_keepalive"] = now.isoformat()
         await apply_mam_validity_classification(fresh_cfg, label, classification, now, detail=msg)
-        if updated_mam_id and updated_mam_id != fresh_cfg.get("mam", {}).get("mam_id"):
+        changed = bool(updated_mam_id and updated_mam_id != fresh_cfg.get("mam", {}).get("mam_id"))
+        if changed:
             fresh_cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
-            _logger.info(
-                "[Keepalive] label=%s mam_id cookie rotated by MAM; adopting new value.", label
-            )
+            _logger.info("[Keepalive] label=%s MAM issued a new MAM ID; adopting it.", label)
         save_session(fresh_cfg, old_label=label)
         # The daily indexer refresh rides on the keepalive, so it runs once a
-        # day and only when MAM has just accepted this session's cookie.
-        if classification == "ok":
+        # day and only when MAM has just accepted this session's cookie. A new
+        # MAM ID is pushed and announced instead, which covers the refresh.
+        if changed:
+            await announce_mam_id_change(fresh_cfg, label)
+        elif classification == "ok":
             await refresh_indexer_mam_ids(fresh_cfg, label)
     except Exception as e:
         _logger.warning("[Keepalive] label=%s Failed to save keepalive state: %s", label, e)
@@ -743,25 +745,26 @@ async def auto_update_seedbox_if_needed(
                     text = await resp.text()
                     result = {"Success": False, "msg": f"Non-JSON response: {text}"}
 
-                # MAM rolls the cookie on every response; adopt the new value only
-                # from a response it accepted (see rotated_mam_id). Saved immediately,
-                # because not every branch below calls save_session.
+                # MAM may return a new MAM ID; adopt it only from a response it
+                # accepted (see rotated_mam_id). Saved immediately, because not
+                # every branch below calls save_session.
                 updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
                 if updated_mam_id and updated_mam_id != cfg.get("mam", {}).get("mam_id"):
                     cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
                     _logger.info(
-                        "[AutoUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.",
-                        label,
+                        "[AutoUpdate] label=%s MAM issued a new MAM ID; adopting it.", label
                     )
                     try:
                         save_session(cfg, old_label=label)
                     except Exception as e:
                         _logger.error(
                             "[AutoUpdate][ERROR] label=%s save_session failed while persisting "
-                            "rotated mam_id: %s",
+                            "the new MAM ID: %s",
                             label,
                             e,
                         )
+                    else:
+                        await announce_mam_id_change(cfg, label)
 
                 if resp.status == 200 and result.get("Success"):
                     new_ip = await _persist_seedbox_ip(cfg, label, asn, now)
@@ -1162,7 +1165,8 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
             mam_id = _refreshed_mam_id
             cfg["mam"]["mam_id"] = _refreshed_mam_id
             save_session(cfg, old_label=label)
-            _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
+            _logger.info("[SessionCheck] MAM issued a new MAM ID for session '%s'", label)
+            await announce_mam_id_change(cfg, label)
         if "proxy_error" not in mam_status and proxy_error:
             mam_status["proxy_error"] = proxy_error
         mam_status["configured_ip"] = ip_to_use
@@ -1633,18 +1637,15 @@ async def _sync_integrations_if_mam_id_changed(
 
 
 async def refresh_indexer_mam_ids(cfg: dict[str, Any], label: str) -> None:
-    """Keep every enabled indexer's MAM ID current, once a day with the keepalive.
+    """Resend the current MAM ID to every enabled indexer, once a day and quietly.
 
-    MAM rolls the cookie on every response, and a value nobody refreshes
-    expires after about 30 days. MouseTrap keeps its own copy current, but an
-    indexer only holds what it was last given, so one that was never updated on
-    save went stale and started failing until the user pressed UPDATE. This
-    pushes the current MAM ID to every enabled indexer, whatever its "on Save"
-    setting, which covers only the user's own edits.
+    An indexer holds only what it was last given, so one restored from a backup,
+    reset, or missed by an earlier push keeps a stale MAM ID and fails until the
+    user presses UPDATE. This resends the current one to every enabled indexer,
+    whatever its "on Save" setting, which covers only the user's own edits.
 
-    Once a day rather than on every roll: that is well inside the expiry, and
-    pushing at every status check made each check a round of calls to every
-    indexer.
+    It sends no notification: the MAM ID has not changed, and a daily message
+    saying so would be noise. A failure still reaches the UI event log.
 
     Args:
         cfg: Session configuration holding the current MAM ID.
@@ -1656,25 +1657,43 @@ async def refresh_indexer_mam_ids(cfg: dict[str, Any], label: str) -> None:
         return
     updated, failed = await _push_mam_id_to_indexers(cfg, label, mam_id, indexers, "daily refresh")
     _log_indexer_push(label, updated, failed)
+
+
+async def announce_mam_id_change(cfg: dict[str, Any], label: str) -> None:
+    """Pass on a MAM ID that MAM issued, and tell the user it changed.
+
+    Called after MouseTrap adopted and saved a new MAM ID from a MAM response,
+    never for one the user saved. Every enabled indexer receives it straight
+    away, so none is left holding the old one, and the "MAM ID Changed"
+    notification says which of them took it.
+
+    Args:
+        cfg: Session configuration holding the new MAM ID.
+        label: Session label.
+    """
+    mam_id = cfg.get("mam", {}).get("mam_id")
+    if not mam_id:
+        return
+    updated: list[str] = []
+    failed: list[str] = []
+    indexers = _enabled_indexers(cfg, on_save_only=False)
+    if indexers:
+        updated, failed = await _push_mam_id_to_indexers(
+            cfg, label, mam_id, indexers, "changed by MAM"
+        )
+        _log_indexer_push(label, updated, failed)
+    message = "MAM issued a new MAM ID for this session."
+    if updated:
+        message += f" Updated in {', '.join(updated)}."
     if failed:
-        message = f"Could not update the MAM ID in {', '.join(failed)}"
-        if updated:
-            message += f". Updated in {', '.join(updated)}"
-        await safe_notify_event(
-            event_type="indexer_sync_failure",
-            label=label,
-            status="FAILED",
-            message=message,
-            details={"updated": updated, "failed": failed},
-        )
-    else:
-        await safe_notify_event(
-            event_type="indexer_sync_success",
-            label=label,
-            status="SUCCESS",
-            message=f"MAM ID updated in {', '.join(updated)}",
-            details={"updated": updated},
-        )
+        message += f" Could not update {', '.join(failed)}; press UPDATE to retry."
+    await safe_notify_event(
+        event_type="mam_id_changed",
+        label=label,
+        status="CHANGED",
+        message=message,
+        details={"updated": updated, "failed": failed},
+    )
 
 
 def _reject_unknown_proxy_label(proxy_cfg: Any) -> None:
@@ -2066,8 +2085,8 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             ):
                 resp_status = resp.status
                 resp_text = await resp.text()
-                # MAM rolls the cookie on every response; adopt the new value only
-                # from a response it accepted (see rotated_mam_id).
+                # MAM may return a new MAM ID; adopt it only from a response it
+                # accepted (see rotated_mam_id).
                 _updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
                 try:
                     result = await resp.json()
@@ -2079,19 +2098,19 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
 
         if _updated_mam_id and _updated_mam_id != cfg.get("mam", {}).get("mam_id"):
             cfg.setdefault("mam", {})["mam_id"] = _updated_mam_id
-            _logger.info(
-                "[SeedboxUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.", label
-            )
+            _logger.info("[SeedboxUpdate] label=%s MAM issued a new MAM ID; adopting it.", label)
             # Save immediately, because not every branch below calls save_session.
             try:
                 save_session(cfg, old_label=label)
             except Exception as e:
                 _logger.error(
-                    "[SeedboxUpdate] label=%s save_session failed while persisting rotated "
-                    "mam_id: %s",
+                    "[SeedboxUpdate] label=%s save_session failed while persisting the new "
+                    "MAM ID: %s",
                     label,
                     e,
                 )
+            else:
+                await announce_mam_id_change(cfg, label)
 
         _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp_status == 200 and result.get("Success"):
@@ -3017,7 +3036,11 @@ async def session_check_job(label: str) -> None:
             if _refreshed_mam_id and _refreshed_mam_id != mam_id:
                 mam_id = _refreshed_mam_id
                 cfg["mam"]["mam_id"] = _refreshed_mam_id
-                _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
+                # Saved now: the keepalive below reloads the session from disk,
+                # and would otherwise put the old MAM ID back.
+                save_session(cfg, old_label=label)
+                _logger.info("[SessionCheck] MAM issued a new MAM ID for session '%s'", label)
+                await announce_mam_id_change(cfg, label)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # MAM session keepalive: call dynamicSeedbox.php daily to prevent the

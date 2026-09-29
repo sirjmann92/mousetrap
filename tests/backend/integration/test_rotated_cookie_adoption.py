@@ -1,15 +1,12 @@
 """Coverage for adopting the MAM ID that MAM rolls on each response.
 
-MAM rolls the `mam_id` cookie on every response, and saving the new value is
+MAM can answer with a new `mam_id` cookie, and using the values it returns is
 what keeps a session alive indefinitely. Four requests read it: the status
 check, the daily keepalive, and the automatic and manual seedbox updates. All
-four adopt it from a response MAM accepted. None may adopt it from a refusal:
+four adopt it from a response MAM accepted, then announce it: every enabled
+indexer receives it and the user can be told. None may adopt it from a refusal:
 three did, so a refusal that cleared the cookie replaced a working MAM ID with
 the clearing value and pushed it to every indexer.
-
-A rolled value is adopted, not pushed: MAM rolls it on every response, so a
-push per roll meant a round of calls to every indexer at every status check.
-The indexers are refreshed once a day instead, after a keepalive MAM accepted.
 """
 
 from datetime import UTC, datetime
@@ -29,12 +26,14 @@ _WORKING = "working-cookie"
 _ROLLED = "rolled-cookie"
 _NOW = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
 
-# A normal accepted reply, rolling the cookie as MAM does on every response.
+# An accepted reply that issues a new MAM ID.
 _ACCEPTED: dict[str, Any] = {
     "status": 200,
     "body": {"Success": True, "msg": "Completed"},
     "cookie": (_ROLLED, {"max-age": "2592000"}),
 }
+# An accepted reply that sets the cookie it was sent, so nothing changed.
+_ACCEPTED_UNCHANGED: dict[str, Any] = {**_ACCEPTED, "cookie": (_WORKING, {"max-age": "2592000"})}
 # A refusal that also clears the cookie, the standard way to log a client out.
 _REFUSED_CLEARING: dict[str, Any] = {
     "status": 403,
@@ -155,22 +154,26 @@ def test_a_response_that_set_no_cookie_adopts_nothing() -> None:
     assert rotated_mam_id(200, {}) is None
 
 
-def _record_pushes(monkeypatch: pytest.MonkeyPatch) -> list[str | None]:
-    """Record every push of a new MAM ID to the indexers.
+def _record_announcements(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Record every announcement of a new MAM ID.
+
+    Each is checked against disk, so an announcement of a value MouseTrap has
+    not saved would show up as a mismatch.
 
     Args:
-        monkeypatch: Fixture used to replace the push.
+        monkeypatch: Fixture used to replace the announcement.
 
     Returns:
-        The MAM IDs pushed, in order.
+        The MAM IDs announced, in order.
     """
-    pushed: list[str | None] = []
+    announced: list[str] = []
 
-    async def push(_cfg: Any, _label: str, new: str | None, _prev: str | None) -> None:
-        pushed.append(new)
+    async def announce(cfg: dict[str, Any], _label: str) -> None:
+        assert cfg["mam"]["mam_id"] == _stored(), "announced before it was saved"
+        announced.append(cfg["mam"]["mam_id"])
 
-    monkeypatch.setattr(app, "_sync_integrations_if_mam_id_changed", push)
-    return pushed
+    monkeypatch.setattr(app, "announce_mam_id_change", announce)
+    return announced
 
 
 def _save_session() -> None:
@@ -192,26 +195,33 @@ def _stored() -> str:
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("reply", "stored", "pushed"),
-    [(_ACCEPTED, _ROLLED, []), (_REFUSED_CLEARING, _WORKING, [])],
-    ids=["accepted", "refused"],
+    ("reply", "stored", "announced", "refreshed"),
+    [
+        (_ACCEPTED, _ROLLED, [_ROLLED], []),
+        (_ACCEPTED_UNCHANGED, _WORKING, [], [_WORKING]),
+        (_REFUSED_CLEARING, _WORKING, [], []),
+    ],
+    ids=["accepted-new-id", "accepted-same-id", "refused"],
 )
 async def test_the_keepalive(
     isolated_backend: Path,
     monkeypatch: pytest.MonkeyPatch,
     reply: dict[str, Any],
     stored: str,
-    pushed: list[str],
+    announced: list[str],
+    refreshed: list[str],
 ) -> None:
     """The keepalive adopted a refusal's cookie whatever MAM's verdict was.
 
-    It also runs the daily indexer refresh, and only after MAM accepted.
+    After MAM accepted, it announces a new MAM ID, which reaches every indexer,
+    or else runs the quiet daily refresh. Never both, and neither after a
+    refusal.
     """
-    pushes = _record_pushes(monkeypatch)
-    refreshed: list[str] = []
+    announcements = _record_announcements(monkeypatch)
+    refreshes: list[str] = []
 
     async def refresh(cfg: dict[str, Any], _label: str) -> None:
-        refreshed.append(cfg["mam"]["mam_id"])
+        refreshes.append(cfg["mam"]["mam_id"])
 
     monkeypatch.setattr(app, "refresh_indexer_mam_ids", refresh)
     monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
@@ -221,15 +231,14 @@ async def test_the_keepalive(
     await app.keepalive_mam_session(config.load_session("seedbox"), "seedbox", _NOW)
 
     assert _stored() == stored
-    assert pushes == pushed
-    # The refresh sends the value just adopted, and nothing after a refusal.
-    assert refreshed == ([_ROLLED] if reply is _ACCEPTED else [])
+    assert announcements == announced
+    assert refreshes == refreshed
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("reply", "stored", "pushed"),
-    [(_ACCEPTED, _ROLLED, []), (_REFUSED_CLEARING, _WORKING, [])],
+    ("reply", "stored", "announced"),
+    [(_ACCEPTED, _ROLLED, [_ROLLED]), (_REFUSED_CLEARING, _WORKING, [])],
     ids=["accepted", "refused"],
 )
 async def test_the_automatic_seedbox_update(
@@ -237,10 +246,10 @@ async def test_the_automatic_seedbox_update(
     monkeypatch: pytest.MonkeyPatch,
     reply: dict[str, Any],
     stored: str,
-    pushed: list[str],
+    announced: list[str],
 ) -> None:
     """The scheduled seedbox update saved a refusal's cookie before its verdict."""
-    pushes = _record_pushes(monkeypatch)
+    announcements = _record_announcements(monkeypatch)
 
     async def detected() -> str:
         return "198.51.100.7"
@@ -255,13 +264,13 @@ async def test_the_automatic_seedbox_update(
     )
 
     assert _stored() == stored
-    assert pushes == pushed
+    assert announcements == announced
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
-    ("reply", "stored", "pushed"),
-    [(_ACCEPTED, _ROLLED, []), (_REFUSED_CLEARING, _WORKING, [])],
+    ("reply", "stored", "announced"),
+    [(_ACCEPTED, _ROLLED, [_ROLLED]), (_REFUSED_CLEARING, _WORKING, [])],
     ids=["accepted", "refused"],
 )
 async def test_the_update_seedbox_button(
@@ -269,14 +278,14 @@ async def test_the_update_seedbox_button(
     monkeypatch: pytest.MonkeyPatch,
     reply: dict[str, Any],
     stored: str,
-    pushed: list[str],
+    announced: list[str],
 ) -> None:
     """The Update Seedbox button saved a refusal's cookie before its verdict.
 
     The button registers the current IP with MAM. It never sets out to change
     the cookie, but MAM's reply rolls it like any other.
     """
-    pushes = _record_pushes(monkeypatch)
+    announcements = _record_announcements(monkeypatch)
 
     async def asn(*_args: Any, **_kwargs: Any) -> tuple[str, None]:
         return ("AS64500 Example", None)
@@ -289,7 +298,7 @@ async def test_the_update_seedbox_button(
     await api_client.post("/api/session/update_seedbox", json={"label": "seedbox"})
 
     assert _stored() == stored
-    assert pushes == pushed
+    assert announcements == announced
 
 
 @pytest.mark.integration
@@ -310,3 +319,47 @@ async def test_the_status_check(
     result = await mam_api.get_status(_WORKING)
 
     assert result.get("updated_mam_id") == adopted
+
+
+@pytest.mark.integration
+async def test_the_scheduled_check_keeps_a_new_mam_id_through_the_keepalive(
+    isolated_backend: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The scheduled check held a new MAM ID only in memory.
+
+    On a day the keepalive ran, the keepalive reloaded the session from disk and
+    saved it, and the check reloaded after it: the old MAM ID came back and the
+    new one was lost.
+    """
+    announcements = _record_announcements(monkeypatch)
+
+    async def status(**_kwargs: Any) -> dict[str, Any]:
+        return {"mam_cookie_exists": True, "points": 1, "raw": {}, "updated_mam_id": _ROLLED}
+
+    async def lookup(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {"ip": "192.0.2.1", "asn": "AS64500"}
+
+    async def asn(*_args: Any, **_kwargs: Any) -> tuple[str, None]:
+        return ("AS64500 Example", None)
+
+    async def no_update(*_args: Any, **_kwargs: Any) -> tuple[bool, None]:
+        return False, None
+
+    async def refresh(_cfg: dict[str, Any], _label: str) -> None:
+        """Stand in for the daily indexer refresh."""
+
+    monkeypatch.setattr(app, "get_status", status)
+    monkeypatch.setattr(app, "get_ipinfo_with_fallback", lookup)
+    monkeypatch.setattr(app, "get_asn_and_timezone_from_ip", asn)
+    monkeypatch.setattr(app, "auto_update_seedbox_if_needed", no_update)
+    monkeypatch.setattr(app, "refresh_indexer_mam_ids", refresh)
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    # The keepalive is real; MAM accepts it and issues nothing new.
+    no_cookie = {**_ACCEPTED, "cookie": (_ROLLED, {})}
+    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(no_cookie))
+    _save_session()
+
+    await app.session_check_job("seedbox")
+
+    assert _stored() == _ROLLED
+    assert announcements == [_ROLLED]

@@ -26,12 +26,12 @@ MamResponseClass = Literal["ok", "invalid_cookie", "other_error"]
 def rotated_mam_id(status: int, cookies: Mapping[str, Morsel[str]]) -> str | None:
     """Return the new MAM ID a response set, if it is safe to adopt.
 
-    MAM rolls the session cookie on every response, and saving the new value is
-    what keeps a session alive indefinitely. Only a response MAM accepted is
+    MAM can answer with a new `mam_id` cookie, and using the values it returns
+    is what keeps a session alive indefinitely. Only a response MAM accepted is
     trusted, though. A refusal can carry a `Set-Cookie` that clears the cookie,
     and adopting it replaced a working MAM ID with the clearing value and pushed
     that to every indexer. Declining costs nothing: the current cookie stays
-    valid, and the next accepted response rolls it.
+    valid.
 
     Beyond the status, a cookie that deletes itself is never adopted: a
     `Max-Age` of zero or less, or an `Expires` in the past. Nor is an empty

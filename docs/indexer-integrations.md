@@ -8,10 +8,11 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Ja
 
 ### Automatic MAM ID Sync
 - **Multi-service support**: Update Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr simultaneously
-- **Daily refresh**: MAM gives MouseTrap a new MAM ID on every request. Once a day, MouseTrap sends the current one to every enabled integration, so they never go stale
-- **Auto-update on save**: Also sends it straight away when you save a new MAM ID yourself
+- **Follows MAM**: When MAM issues a new MAM ID, MouseTrap sends it to every enabled integration straight away
+- **Daily refresh**: Once a day, MouseTrap also resends the current MAM ID to every enabled integration, so none goes stale
+- **Auto-update on save**: Sends it straight away when you save a new MAM ID yourself
 - **Manual override**: Send it now with the "UPDATE" button
-- **Notifications**: Choose to be told when the daily refresh succeeds, fails, or both
+- **Notifications**: Choose to be told when MAM issues a new MAM ID, and which integrations took it
 - **Event logging**: All operations logged for audit trail
 
 ### MAM Session Validity Detection
@@ -206,21 +207,26 @@ event_rules:
 
 ## 🔄 Auto-Update Behavior
 
+### When MAM Issues a New MAM ID
+
+MAM can answer a request with a new MAM ID, and using the value it returns is
+what keeps a session alive. MouseTrap saves it, then sends it straight away to
+**every enabled integration**, whatever its "Auto-update on Save" setting.
+Before this, an integration without "Auto-update on Save" kept the old value
+and failed until the MAM ID was pushed again with the UPDATE button.
+
+This can be sent as a notification: turn on **MAM ID Changed** in
+Notifications. It says which integrations were updated and which were not. It
+is never sent for a MAM ID you save yourself. Notifications never include the
+MAM ID or an integration's API key, and failure reasons are redacted.
+
 ### Daily Refresh
 
-MAM rolls the MAM ID on every request, and a value that is never refreshed
-expires after about 30 days. MouseTrap keeps its own copy current, but an
-integration only holds the value it was last sent. So once a day, after the
-daily keepalive MAM accepted, MouseTrap sends the current MAM ID to **every
-enabled integration**, whatever its "Auto-update on Save" setting.
-
-Before this, an integration without "Auto-update on Save" kept the value it was
-given until it expired, then failed until the MAM ID was pushed again with the
-UPDATE button.
-
-The result can be sent as a notification: turn on **Indexer MAM ID Update** in
-Notifications for success, failure, or both. Notifications never include the
-MAM ID or an integration's API key, and failure reasons are redacted.
+An integration only holds the value it was last sent, so one that was reset,
+restored from a backup, or unreachable when MAM issued a new MAM ID can fall
+behind. Once a day, after the daily keepalive MAM accepted, MouseTrap resends
+the current MAM ID to every enabled integration. This sends no notification,
+since the MAM ID has not changed; a failure is recorded in the event log.
 
 ### When You Save a New MAM ID
 

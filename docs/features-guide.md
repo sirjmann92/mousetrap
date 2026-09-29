@@ -241,10 +241,10 @@ failure, or both.
 - `automation_success` / `automation_failure`: Automated purchases
 - `manual_purchase_success` / `manual_purchase_failure`: Purchases made from the UI
 - `seedbox_update_success` / `seedbox_update_failure`: Updating MAM with a new IP/ASN (failure includes ASN mismatch detection for ASN Locked sessions)
-- `indexer_sync_success` / `indexer_sync_failure`: The daily refresh of each enabled indexer integration's MAM ID
 
 **Single events:**
 - `seedbox_update_rate_limited`: MAM refused a seedbox update as too recent
+- `mam_id_changed`: MAM issued a new MAM ID (never one you saved); says which indexer integrations took it
 - `port_monitor_failure`: Container port unreachable, container stopped/crashed, or manual IP paused
 - `inactive_hit_and_run`: Hit & Run count increased
 - `inactive_unsatisfied`: Inactive Unsatisfied count increased
