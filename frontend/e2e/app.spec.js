@@ -278,6 +278,27 @@ test.describe
       await expect(page.getByRole('alert').filter({ hasText: refusal })).toBeVisible();
     });
 
+    test('routes the indexer MAM ID update notification on failure only', async ({ page }) => {
+      await page.goto('/');
+      await page.getByText('Notifications', { exact: true }).click();
+
+      // Each paired event repeats Success and Failure, so scope to this one's row:
+      // the innermost element holding both its label and a Success checkbox.
+      const row = page
+        .locator('div')
+        .filter({ has: page.getByText('Indexer MAM ID Update', { exact: true }) })
+        .filter({ has: page.getByRole('checkbox', { name: 'Success' }) })
+        .last();
+      await row.getByRole('checkbox', { name: 'Failure' }).check();
+      const saved = waitForPost(page, '/api/notify/config');
+      await page.getByRole('button', { name: 'Save Settings' }).click();
+      expect((await saved).ok()).toBeTruthy();
+
+      const stored = await (await page.request.get('/api/notify/config')).json();
+      expect(stored.event_rules.indexer_sync_failure.enabled).toBe(true);
+      expect(stored.event_rules.indexer_sync_success?.enabled ?? false).toBe(false);
+    });
+
     test('saves notification configuration without sending a notification', async ({ page }) => {
       await page.goto('/');
       await page.getByText('Notifications', { exact: true }).click();

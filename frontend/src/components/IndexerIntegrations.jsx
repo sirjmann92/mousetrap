@@ -276,7 +276,7 @@ export default function IndexerIntegrations({
           </Typography>
           <Tooltip
             placement="right"
-            title="Auto-update your MAM ID in Prowlarr, Chaptarr, Jackett, and/or AudioBookRequest when it changes. You'll be notified before your 90-day MAM session expires so you can update it."
+            title="MAM gives MouseTrap a new MAM ID on every request. Once a day, MouseTrap sends the current one to every enabled integration so they never go stale. Auto-update on Save also sends it straight away when you save a new MAM ID yourself."
           >
             <IconButton size="small">
               <InfoOutlinedIcon fontSize="small" />

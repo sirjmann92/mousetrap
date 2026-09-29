@@ -6,6 +6,10 @@ check, the daily keepalive, and the automatic and manual seedbox updates. All
 four adopt it from a response MAM accepted. None may adopt it from a refusal:
 three did, so a refusal that cleared the cookie replaced a working MAM ID with
 the clearing value and pushed it to every indexer.
+
+A rolled value is adopted, not pushed: MAM rolls it on every response, so a
+push per roll meant a round of calls to every indexer at every status check.
+The indexers are refreshed once a day instead, after a keepalive MAM accepted.
 """
 
 from datetime import UTC, datetime
@@ -189,7 +193,7 @@ def _stored() -> str:
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("reply", "stored", "pushed"),
-    [(_ACCEPTED, _ROLLED, [_ROLLED]), (_REFUSED_CLEARING, _WORKING, [])],
+    [(_ACCEPTED, _ROLLED, []), (_REFUSED_CLEARING, _WORKING, [])],
     ids=["accepted", "refused"],
 )
 async def test_the_keepalive(
@@ -199,8 +203,17 @@ async def test_the_keepalive(
     stored: str,
     pushed: list[str],
 ) -> None:
-    """The keepalive adopted a refusal's cookie whatever MAM's verdict was."""
+    """The keepalive adopted a refusal's cookie whatever MAM's verdict was.
+
+    It also runs the daily indexer refresh, and only after MAM accepted.
+    """
     pushes = _record_pushes(monkeypatch)
+    refreshed: list[str] = []
+
+    async def refresh(cfg: dict[str, Any], _label: str) -> None:
+        refreshed.append(cfg["mam"]["mam_id"])
+
+    monkeypatch.setattr(app, "refresh_indexer_mam_ids", refresh)
     monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
     monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(reply))
     _save_session()
@@ -209,12 +222,14 @@ async def test_the_keepalive(
 
     assert _stored() == stored
     assert pushes == pushed
+    # The refresh sends the value just adopted, and nothing after a refusal.
+    assert refreshed == ([_ROLLED] if reply is _ACCEPTED else [])
 
 
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("reply", "stored", "pushed"),
-    [(_ACCEPTED, _ROLLED, [_ROLLED]), (_REFUSED_CLEARING, _WORKING, [])],
+    [(_ACCEPTED, _ROLLED, []), (_REFUSED_CLEARING, _WORKING, [])],
     ids=["accepted", "refused"],
 )
 async def test_the_automatic_seedbox_update(
@@ -246,7 +261,7 @@ async def test_the_automatic_seedbox_update(
 @pytest.mark.integration
 @pytest.mark.parametrize(
     ("reply", "stored", "pushed"),
-    [(_ACCEPTED, _ROLLED, [_ROLLED]), (_REFUSED_CLEARING, _WORKING, [])],
+    [(_ACCEPTED, _ROLLED, []), (_REFUSED_CLEARING, _WORKING, [])],
     ids=["accepted", "refused"],
 )
 async def test_the_update_seedbox_button(

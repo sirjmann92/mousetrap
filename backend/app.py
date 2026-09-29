@@ -81,6 +81,7 @@ from backend.prowlarr_integration import (
 from backend.proxy_config import load_proxies, resolve_proxy_from_session_cfg
 from backend.url_builder import coerce_port
 from backend.utils import build_proxy_dict, build_status_message, extract_asn_number, setup_logging
+from backend.utils_redact import redact_text
 from backend.yaml_store import YamlStoreError
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -517,18 +518,16 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
         if classification == "ok":
             fresh_cfg["last_mam_keepalive"] = now.isoformat()
         await apply_mam_validity_classification(fresh_cfg, label, classification, now, detail=msg)
-        _prev_mam_id: str | None = None
         if updated_mam_id and updated_mam_id != fresh_cfg.get("mam", {}).get("mam_id"):
-            _prev_mam_id = fresh_cfg.get("mam", {}).get("mam_id")
             fresh_cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
             _logger.info(
                 "[Keepalive] label=%s mam_id cookie rotated by MAM; adopting new value.", label
             )
         save_session(fresh_cfg, old_label=label)
-        if _prev_mam_id is not None:
-            await _sync_integrations_if_mam_id_changed(
-                fresh_cfg, label, updated_mam_id, _prev_mam_id
-            )
+        # The daily indexer refresh rides on the keepalive, so it runs once a
+        # day and only when MAM has just accepted this session's cookie.
+        if classification == "ok":
+            await refresh_indexer_mam_ids(fresh_cfg, label)
     except Exception as e:
         _logger.warning("[Keepalive] label=%s Failed to save keepalive state: %s", label, e)
 
@@ -749,7 +748,6 @@ async def auto_update_seedbox_if_needed(
                 # because not every branch below calls save_session.
                 updated_mam_id = rotated_mam_id(resp.status, resp.cookies)
                 if updated_mam_id and updated_mam_id != cfg.get("mam", {}).get("mam_id"):
-                    _prev_mam_id = cfg.get("mam", {}).get("mam_id")
                     cfg.setdefault("mam", {})["mam_id"] = updated_mam_id
                     _logger.info(
                         "[AutoUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.",
@@ -764,9 +762,6 @@ async def auto_update_seedbox_if_needed(
                             label,
                             e,
                         )
-                    await _sync_integrations_if_mam_id_changed(
-                        cfg, label, updated_mam_id, _prev_mam_id
-                    )
 
                 if resp.status == 200 and result.get("Success"):
                     new_ip = await _persist_seedbox_ip(cfg, label, asn, now)
@@ -1164,12 +1159,10 @@ async def api_status(label: str | None = Query(None), force: int = Query(0)) -> 
         # Persist refreshed cookie immediately so the reload below picks it up
         _refreshed_mam_id = mam_status.pop("updated_mam_id", None)
         if _refreshed_mam_id and _refreshed_mam_id != mam_id:
-            _prev_mam_id = mam_id
             mam_id = _refreshed_mam_id
             cfg["mam"]["mam_id"] = _refreshed_mam_id
             save_session(cfg, old_label=label)
             _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
-            await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
         if "proxy_error" not in mam_status and proxy_error:
             mam_status["proxy_error"] = proxy_error
         mam_status["configured_ip"] = ip_to_use
@@ -1464,169 +1457,141 @@ def api_load_session(label: str) -> dict[str, Any]:
     return load_session(label)
 
 
-async def _sync_integrations_if_mam_id_changed(
-    cfg: dict[str, Any], label: str, new_mam_id: str | None, prev_mam_id: str | None
-) -> None:
-    """Push updated mam_id to all enabled integrations when it has changed."""
-    prowlarr_cfg = cfg.get("prowlarr", {})
-    chaptarr_cfg = cfg.get("chaptarr", {})
-    jackett_cfg = cfg.get("jackett", {})
-    audiobookrequest_cfg = cfg.get("audiobookrequest", {})
-    autobrr_cfg = cfg.get("autobrr", {})
+_INDEXERS = ("prowlarr", "chaptarr", "jackett", "audiobookrequest", "autobrr")
+_INDEXER_NAMES = {
+    "prowlarr": "Prowlarr",
+    "chaptarr": "Chaptarr",
+    "jackett": "Jackett",
+    "audiobookrequest": "AudioBookRequest",
+    "autobrr": "Autobrr",
+}
 
-    prowlarr_enabled = prowlarr_cfg.get("enabled") and prowlarr_cfg.get("auto_update_on_save")
-    chaptarr_enabled = chaptarr_cfg.get("enabled") and chaptarr_cfg.get("auto_update_on_save")
-    jackett_enabled = jackett_cfg.get("enabled") and jackett_cfg.get("auto_update_on_save")
-    audiobookrequest_enabled = audiobookrequest_cfg.get("enabled") and audiobookrequest_cfg.get(
-        "auto_update_on_save"
-    )
-    autobrr_enabled = autobrr_cfg.get("enabled") and autobrr_cfg.get("auto_update_on_save")
 
-    if not (
-        (
-            prowlarr_enabled
-            or chaptarr_enabled
-            or jackett_enabled
-            or audiobookrequest_enabled
-            or autobrr_enabled
-        )
-        and new_mam_id
-        and new_mam_id != prev_mam_id
-    ):
-        if new_mam_id == prev_mam_id:
-            _logger.debug(
-                "[Indexers] Auto-update skipped for session '%s' (MAM ID unchanged: %s)",
-                label,
-                new_mam_id,
-            )
+def _enabled_indexers(cfg: dict[str, Any], *, on_save_only: bool) -> list[str]:
+    """Return the indexer integrations a push should reach.
+
+    Args:
+        cfg: Session configuration.
+        on_save_only: Limit the result to integrations whose "Auto-update on
+            Save" setting is on.
+
+    Returns:
+        Integration keys, in a fixed order.
+    """
+    selected = []
+    for key in _INDEXERS:
+        section = cfg.get(key, {})
+        if not isinstance(section, dict) or not section.get("enabled"):
+            continue
+        if on_save_only and not section.get("auto_update_on_save"):
+            continue
+        selected.append(key)
+    return selected
+
+
+def _indexer_secrets(cfg: dict[str, Any]) -> list[str | None]:
+    """Return every credential a push failure's text could echo back.
+
+    Some integrations authenticate with the API key in the URL, and aiohttp
+    includes the URL in its error messages. Those messages reach the event log
+    and notifications, so they are redacted against all of these.
+
+    Args:
+        cfg: Session configuration.
+
+    Returns:
+        The session's MAM ID and each integration's API key and password.
+    """
+    secrets: list[str | None] = [cfg.get("mam", {}).get("mam_id")]
+    for key in _INDEXERS:
+        section = cfg.get(key, {})
+        if isinstance(section, dict):
+            secrets += [section.get("api_key"), section.get("admin_password")]
+    return secrets
+
+
+async def _push_to_indexer(cfg: dict[str, Any], key: str, mam_id: str) -> dict[str, Any]:
+    """Send a MAM ID to one indexer integration.
+
+    Args:
+        cfg: Session configuration holding the integration's settings.
+        key: Integration key, one of `_INDEXERS`.
+        mam_id: The MAM ID to send.
+
+    Returns:
+        The integration's result, carrying `success` and a `message` or `error`.
+    """
+    if key == "prowlarr":
+        return await sync_mam_id_to_prowlarr(cfg, mam_id)
+    if key == "chaptarr":
+        return await sync_mam_id_to_chaptarr(cfg, mam_id)
+    section = cfg.get(key, {})
+    host = section.get("host", "").strip()
+    api_key = section.get("api_key", "").strip()
+    if key == "jackett":
+        port = coerce_port(section.get("port", 9117))
+        admin_password = section.get("admin_password", "").strip()
+        return await sync_mam_id_to_jackett(host, port, api_key, admin_password, mam_id)
+    if key == "audiobookrequest":
+        port = coerce_port(section.get("port", 3000))
+        return await sync_mam_id_to_audiobookrequest(host, port, api_key, mam_id)
+    port = coerce_port(section.get("port", 7474))
+    return await sync_mam_id_to_autobrr(host, port, api_key, mam_id)
+
+
+async def _push_mam_id_to_indexers(
+    cfg: dict[str, Any], label: str, mam_id: str, indexers: list[str], reason: str
+) -> tuple[list[str], list[str]]:
+    """Push a MAM ID to each given indexer, carrying on past any that fail.
+
+    Nothing logged or returned carries the MAM ID or an integration credential.
+
+    Args:
+        cfg: Session configuration.
+        label: Session label, for logging.
+        mam_id: The MAM ID to push.
+        indexers: Integration keys to push to.
+        reason: Why the push is happening, for logging.
+
+    Returns:
+        The names of the indexers updated, and one description per failure.
+    """
+    secrets = [*_indexer_secrets(cfg), mam_id]
+    updated: list[str] = []
+    failed: list[str] = []
+    for key in indexers:
+        name = _INDEXER_NAMES[key]
+        _logger.info("[%s] Updating the MAM ID for session '%s' (%s)", name, label, reason)
+        try:
+            result = await _push_to_indexer(cfg, key, mam_id)
+        except Exception as e:
+            detail = redact_text(str(e), *secrets)
+            _logger.error("[%s] MAM ID update error for session '%s': %s", name, label, detail)
         else:
-            _logger.debug(
-                "[Indexers] Auto-update skipped for session '%s' (no MAM ID provided or unchanged)",
-                label,
-            )
-        return
-
-    updated_services = []
-    failed_services = []
-
-    # Update Prowlarr if enabled
-    if prowlarr_enabled:
-        try:
-            _logger.info(
-                "[Prowlarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                label,
-                prev_mam_id,
-                new_mam_id,
-            )
-            result = await sync_mam_id_to_prowlarr(cfg, new_mam_id)
             if result.get("success"):
-                _logger.info("[Prowlarr] Auto-update successful: %s", result.get("message"))
-                updated_services.append("Prowlarr")
-            else:
-                _logger.warning("[Prowlarr] Auto-update failed: %s", result.get("message"))
-                failed_services.append(f"Prowlarr ({result.get('message')})")
-        except Exception as e:
-            _logger.error("[Prowlarr] Auto-update error for session '%s': %s", label, e)
-            failed_services.append(f"Prowlarr ({e!s})")
-
-    # Update Chaptarr if enabled
-    if chaptarr_enabled:
-        try:
-            _logger.info(
-                "[Chaptarr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                label,
-                prev_mam_id,
-                new_mam_id,
+                _logger.info("[%s] MAM ID updated for session '%s'", name, label)
+                updated.append(name)
+                continue
+            detail = redact_text(
+                str(result.get("message") or result.get("error") or "Unknown error"), *secrets
             )
-            result = await sync_mam_id_to_chaptarr(cfg, new_mam_id)
-            if result.get("success"):
-                _logger.info("[Chaptarr] Auto-update successful: %s", result.get("message"))
-                updated_services.append("Chaptarr")
-            else:
-                _logger.warning("[Chaptarr] Auto-update failed: %s", result.get("message"))
-                failed_services.append(f"Chaptarr ({result.get('message')})")
-        except Exception as e:
-            _logger.error("[Chaptarr] Auto-update error for session '%s': %s", label, e)
-            failed_services.append(f"Chaptarr ({e!s})")
+            _logger.warning("[%s] MAM ID update failed for session '%s': %s", name, label, detail)
+        failed.append(f"{name} ({detail})")
+    return updated, failed
 
-    # Update Jackett if enabled
-    if jackett_enabled:
-        try:
-            _logger.info(
-                "[Jackett] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                label,
-                prev_mam_id,
-                new_mam_id,
-            )
-            host = jackett_cfg.get("host", "").strip()
-            port = coerce_port(jackett_cfg.get("port", 9117))
-            api_key = jackett_cfg.get("api_key", "").strip()
-            admin_password = jackett_cfg.get("admin_password", "").strip()
-            result = await sync_mam_id_to_jackett(host, port, api_key, admin_password, new_mam_id)
-            if result.get("success"):
-                _logger.info("[Jackett] Auto-update successful: %s", result.get("message"))
-                updated_services.append("Jackett")
-            else:
-                error_msg = result.get("error", "Unknown error")
-                _logger.warning("[Jackett] Auto-update failed: %s", error_msg)
-                failed_services.append(f"Jackett ({error_msg})")
-        except Exception as e:
-            _logger.error("[Jackett] Auto-update error for session '%s': %s", label, e)
-            failed_services.append(f"Jackett ({e!s})")
 
-    # Update AudioBookRequest if enabled
-    if audiobookrequest_enabled:
-        try:
-            _logger.info(
-                "[AudioBookRequest] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                label,
-                prev_mam_id,
-                new_mam_id,
-            )
-            host = audiobookrequest_cfg.get("host", "").strip()
-            port = coerce_port(audiobookrequest_cfg.get("port", 3000))
-            api_key = audiobookrequest_cfg.get("api_key", "").strip()
-            result = await sync_mam_id_to_audiobookrequest(host, port, api_key, new_mam_id)
-            if result.get("success"):
-                _logger.info("[AudioBookRequest] Auto-update successful: %s", result.get("message"))
-                updated_services.append("AudioBookRequest")
-            else:
-                error_msg = result.get("error", "Unknown error")
-                _logger.warning("[AudioBookRequest] Auto-update failed: %s", error_msg)
-                failed_services.append(f"AudioBookRequest ({error_msg})")
-        except Exception as e:
-            _logger.error("[AudioBookRequest] Auto-update error for session '%s': %s", label, e)
-            failed_services.append(f"AudioBookRequest ({e!s})")
+def _log_indexer_push(label: str, updated: list[str], failed: list[str]) -> None:
+    """Record a push's outcome in the UI event log.
 
-    # Update Autobrr if enabled
-    if autobrr_enabled:
-        try:
-            _logger.info(
-                "[Autobrr] Auto-update triggered for session '%s' (MAM ID changed: %s -> %s)",
-                label,
-                prev_mam_id,
-                new_mam_id,
-            )
-            host = autobrr_cfg.get("host", "").strip()
-            port = coerce_port(autobrr_cfg.get("port", 7474))
-            api_key = autobrr_cfg.get("api_key", "").strip()
-            result = await sync_mam_id_to_autobrr(host, port, api_key, new_mam_id)
-            if result.get("success"):
-                _logger.info("[Autobrr] Auto-update successful: %s", result.get("message"))
-                updated_services.append("Autobrr")
-            else:
-                error_msg = result.get("error", "Unknown error")
-                _logger.warning("[Autobrr] Auto-update failed: %s", error_msg)
-                failed_services.append(f"Autobrr ({error_msg})")
-        except Exception as e:
-            _logger.error("[Autobrr] Auto-update error for session '%s': %s", label, e)
-            failed_services.append(f"Autobrr ({e!s})")
-
-    # Log event with detailed message
-    if updated_services:
-        status_msg = f"MAM ID synced to {', '.join(updated_services)}"
-        if failed_services:
-            status_msg += f". Failed: {', '.join(failed_services)}"
+    Args:
+        label: Session label.
+        updated: Names of the indexers updated.
+        failed: One description per indexer that failed.
+    """
+    if updated:
+        status_msg = f"MAM ID synced to {', '.join(updated)}"
+        if failed:
+            status_msg += f". Failed: {', '.join(failed)}"
         append_ui_event_log(
             {
                 "event": "indexer_auto_updated",
@@ -1636,15 +1601,79 @@ async def _sync_integrations_if_mam_id_changed(
                 "status_message": status_msg,
             }
         )
-    elif failed_services:
+    elif failed:
         append_ui_event_log(
             {
                 "event": "indexer_auto_update_failed",
                 "label": label,
                 "timestamp": datetime.now(UTC).isoformat(),
                 "user_action": False,
-                "status_message": f"Failed to sync MAM ID: {', '.join(failed_services)}",
+                "status_message": f"Failed to sync MAM ID: {', '.join(failed)}",
             }
+        )
+
+
+async def _sync_integrations_if_mam_id_changed(
+    cfg: dict[str, Any], label: str, new_mam_id: str | None, prev_mam_id: str | None
+) -> None:
+    """Push a MAM ID the user saved to the indexers set to update on save.
+
+    Args:
+        cfg: Session configuration as saved.
+        label: Session label.
+        new_mam_id: The MAM ID just saved.
+        prev_mam_id: The MAM ID the session held before the save.
+    """
+    indexers = _enabled_indexers(cfg, on_save_only=True)
+    if not indexers or not new_mam_id or new_mam_id == prev_mam_id:
+        _logger.debug("[Indexers] Auto-update on save skipped for session '%s'", label)
+        return
+    updated, failed = await _push_mam_id_to_indexers(cfg, label, new_mam_id, indexers, "saved")
+    _log_indexer_push(label, updated, failed)
+
+
+async def refresh_indexer_mam_ids(cfg: dict[str, Any], label: str) -> None:
+    """Keep every enabled indexer's MAM ID current, once a day with the keepalive.
+
+    MAM rolls the cookie on every response, and a value nobody refreshes
+    expires after about 30 days. MouseTrap keeps its own copy current, but an
+    indexer only holds what it was last given, so one that was never updated on
+    save went stale and started failing until the user pressed UPDATE. This
+    pushes the current MAM ID to every enabled indexer, whatever its "on Save"
+    setting, which covers only the user's own edits.
+
+    Once a day rather than on every roll: that is well inside the expiry, and
+    pushing at every status check made each check a round of calls to every
+    indexer.
+
+    Args:
+        cfg: Session configuration holding the current MAM ID.
+        label: Session label.
+    """
+    mam_id = cfg.get("mam", {}).get("mam_id")
+    indexers = _enabled_indexers(cfg, on_save_only=False)
+    if not mam_id or not indexers:
+        return
+    updated, failed = await _push_mam_id_to_indexers(cfg, label, mam_id, indexers, "daily refresh")
+    _log_indexer_push(label, updated, failed)
+    if failed:
+        message = f"Could not update the MAM ID in {', '.join(failed)}"
+        if updated:
+            message += f". Updated in {', '.join(updated)}"
+        await safe_notify_event(
+            event_type="indexer_sync_failure",
+            label=label,
+            status="FAILED",
+            message=message,
+            details={"updated": updated, "failed": failed},
+        )
+    else:
+        await safe_notify_event(
+            event_type="indexer_sync_success",
+            label=label,
+            status="SUCCESS",
+            message=f"MAM ID updated in {', '.join(updated)}",
+            details={"updated": updated},
         )
 
 
@@ -2049,7 +2078,6 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
             return {"success": False, "error": str(e)}
 
         if _updated_mam_id and _updated_mam_id != cfg.get("mam", {}).get("mam_id"):
-            _prev_mam_id = cfg.get("mam", {}).get("mam_id")
             cfg.setdefault("mam", {})["mam_id"] = _updated_mam_id
             _logger.info(
                 "[SeedboxUpdate] label=%s mam_id cookie rotated by MAM; adopting new value.", label
@@ -2064,7 +2092,6 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
                     label,
                     e,
                 )
-            await _sync_integrations_if_mam_id_changed(cfg, label, _updated_mam_id, _prev_mam_id)
 
         _logger.info("[SeedboxUpdate] MaM API response: status=%s, text=%s", resp_status, resp_text)
         if resp_status == 200 and result.get("Success"):
@@ -2988,11 +3015,9 @@ async def session_check_job(label: str) -> None:
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             _refreshed_mam_id = status.pop("updated_mam_id", None)
             if _refreshed_mam_id and _refreshed_mam_id != mam_id:
-                _prev_mam_id = mam_id
                 mam_id = _refreshed_mam_id
                 cfg["mam"]["mam_id"] = _refreshed_mam_id
                 _logger.info("[SessionCheck] mam_id cookie auto-refreshed for session '%s'", label)
-                await _sync_integrations_if_mam_id_changed(cfg, label, mam_id, _prev_mam_id)
             session_status_cache[label] = {"status": status, "last_check_time": now.isoformat()}
             cfg["last_check_time"] = now.isoformat()
             # MAM session keepalive: call dynamicSeedbox.php daily to prevent the

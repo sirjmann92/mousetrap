@@ -233,23 +233,22 @@ services:
 
 ### Event Types & Notifications
 
-**Automation Events:**
-- `automation_success`: Successful automated purchases
-- `automation_failure`: Failed purchase attempts
-- `automation_guardian_block`: Blocked by guardrails (insufficient points, etc.)
+These are the events the Notifications screen can route. Each is off until you
+choose a channel for it; the paired events can be turned on for success,
+failure, or both.
 
-**System Events:**
-- `seedbox_update_failure`: Failed to update MAM with new IP/ASN (includes ASN mismatch detection for ASN Locked sessions)
-- `detection_failure`: Unable to detect IP/ASN
-- `rate_limited`: MaM API rate limiting encountered
+**Paired (success / failure):**
+- `automation_success` / `automation_failure`: Automated purchases
+- `manual_purchase_success` / `manual_purchase_failure`: Purchases made from the UI
+- `seedbox_update_success` / `seedbox_update_failure`: Updating MAM with a new IP/ASN (failure includes ASN mismatch detection for ASN Locked sessions)
+- `indexer_sync_success` / `indexer_sync_failure`: The daily refresh of each enabled indexer integration's MAM ID
 
-**Port Monitoring Events:**
+**Single events:**
+- `seedbox_update_rate_limited`: MAM refused a seedbox update as too recent
 - `port_monitor_failure`: Container port unreachable, container stopped/crashed, or manual IP paused
-- `port_monitor_restart`: Container restart triggered
-
-**Count Increment Events:**
 - `inactive_hit_and_run`: Hit & Run count increased
 - `inactive_unsatisfied`: Inactive Unsatisfied count increased
+- `mam_session_invalid`: MAM reports the session's MAM ID is dead and a new one is needed
 
 ### Notification Configuration
 - **Per-event settings**: Enable/disable email and webhook per event type

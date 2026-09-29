@@ -117,6 +117,12 @@ export default function NotificationsCard() {
       successKey: 'seedbox_update_success',
       failureKey: 'seedbox_update_failure',
     },
+    {
+      baseKey: 'indexer_sync',
+      label: 'Indexer MAM ID Update',
+      successKey: 'indexer_sync_success',
+      failureKey: 'indexer_sync_failure',
+    },
   ];
 
   // Unique events (no success/failure pair)
