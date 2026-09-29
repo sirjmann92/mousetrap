@@ -22,17 +22,19 @@ import {
   Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useId, useState } from 'react';
+import { apiDelete, apiGet, apiPost, apiPut } from '../utils/apiClient';
 
 export default function PortMonitorCard() {
   const API_BASE = '/api/port-monitor';
   const fetchStacks = useCallback(async () => {
     try {
-      const res = await fetch('/api/port-monitor/stacks');
-      if (!res.ok) throw new Error('Failed to fetch stacks');
-      const data = await res.json();
+      const data = await apiGet('/api/port-monitor/stacks');
       setStacks(data);
-    } catch (_e) {
+      return data;
+    } catch (err) {
       setStacks([]);
+      setError(`Failed to fetch stacks: ${err.message}`);
+      return null;
     }
   }, []);
   // Fetch on mount
@@ -68,11 +70,10 @@ export default function PortMonitorCard() {
 
   const fetchContainers = useCallback(async () => {
     try {
-      const res = await fetch('/api/port-monitor/containers');
-      if (!res.ok) throw new Error('Failed to fetch containers');
-      setContainers(await res.json());
-    } catch (_e) {
+      setContainers(await apiGet('/api/port-monitor/containers'));
+    } catch (err) {
       setContainers([]);
+      setError(`Failed to fetch containers: ${err.message}`);
     }
   }, []);
 
@@ -104,25 +105,20 @@ export default function PortMonitorCard() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`${API_BASE}/stacks`, {
-        body: JSON.stringify({
-          interval,
-          name,
-          primary_container: primaryContainer,
-          primary_port: Number(primaryPort),
-          public_ip: publicIp || undefined,
-          secondary_containers: secondaryContainers,
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
+      await apiPost(`${API_BASE}/stacks`, {
+        interval,
+        name,
+        primary_container: primaryContainer,
+        primary_port: Number(primaryPort),
+        public_ip: publicIp || undefined,
+        secondary_containers: secondaryContainers,
       });
-      if (!res.ok) throw new Error('Failed to add stack');
       setSuccess('Stack added.');
-    } catch (_e) {
-      setError('Failed to add stack.');
-    } finally {
       resetForm();
       await fetchStacks();
+    } catch (err) {
+      setError(`Failed to add stack: ${err.message}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -142,24 +138,19 @@ export default function PortMonitorCard() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`${API_BASE}/stacks?name=${encodeURIComponent(editingStack)}`, {
-        body: JSON.stringify({
-          interval,
-          primary_container: primaryContainer,
-          primary_port: Number(primaryPort),
-          public_ip: publicIp || undefined,
-          secondary_containers: secondaryContainers,
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'PUT',
+      await apiPut(`${API_BASE}/stacks?name=${encodeURIComponent(editingStack)}`, {
+        interval,
+        primary_container: primaryContainer,
+        primary_port: Number(primaryPort),
+        public_ip: publicIp || undefined,
+        secondary_containers: secondaryContainers,
       });
-      if (!res.ok) throw new Error('Failed to update stack');
       setSuccess('Stack updated.');
-    } catch (_e) {
-      setError('Failed to update stack.');
-    } finally {
       resetForm();
       await fetchStacks();
+    } catch (err) {
+      setError(`Failed to update stack: ${err.message}`);
+    } finally {
       setLoading(false);
     }
   };
@@ -173,15 +164,12 @@ export default function PortMonitorCard() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`${API_BASE}/stacks?name=${encodeURIComponent(name)}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error('Failed to delete stack');
+      await apiDelete(`${API_BASE}/stacks?name=${encodeURIComponent(name)}`);
       setSuccess('Stack deleted.');
       await fetchStacks();
       resetForm();
-    } catch (_e) {
-      setError('Failed to delete stack.');
+    } catch (err) {
+      setError(`Failed to delete stack: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -192,15 +180,13 @@ export default function PortMonitorCard() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch(`${API_BASE}/stacks/restart?name=${encodeURIComponent(name)}`, {
-        method: 'POST',
-      });
-      if (!res.ok) throw new Error('Failed to restart stack');
+      await apiPost(`${API_BASE}/stacks/restart?name=${encodeURIComponent(name)}`);
       setSuccess('Stack restart triggered.');
-    } catch (_e) {
-      setError('Failed to restart stack.');
+    } catch (err) {
+      setError(`Failed to restart stack: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -458,23 +444,20 @@ export default function PortMonitorCard() {
                             setLoading(true);
                             setError(null);
                             try {
-                              await fetch(
+                              await apiPost(
                                 `${API_BASE}/stacks/recheck?name=${encodeURIComponent(stack.name)}`,
-                                { method: 'POST' },
                               );
                               // Wait a moment for the backend to update
                               await new Promise((resolve) => setTimeout(resolve, 100));
-                              // Fetch fresh data
-                              await fetchStacks();
-                              // Get the updated status from fresh data
-                              const freshData = await fetch('/api/port-monitor/stacks').then((r) =>
-                                r.json(),
-                              );
-                              const updated = freshData.find((s) => s.name === stack.name);
-                              const statusMsg = updated ? updated.status || 'Unknown' : 'Unknown';
-                              setSuccess(`Stack rechecked: ${stack.name} — ${statusMsg}`);
-                            } catch (_e) {
-                              setError('Failed to recheck stack.');
+                              const fresh = await fetchStacks();
+                              if (fresh) {
+                                const updated = fresh.find((s) => s.name === stack.name);
+                                setSuccess(
+                                  `Stack rechecked: ${stack.name} — ${updated?.status || 'Unknown'}`,
+                                );
+                              }
+                            } catch (err) {
+                              setError(`Failed to recheck stack: ${err.message}`);
                             }
                             setLoading(false);
                           }}

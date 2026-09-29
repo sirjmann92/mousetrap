@@ -15,42 +15,23 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { useSession } from '../context/SessionContext.jsx';
 
-export default function SessionSelector({ onLoadSession, onCreateSession, onDeleteSession, sx }) {
+export default function SessionSelector({
+  onLoadSession,
+  onCreateSession,
+  onDeleteSession,
+  sessions,
+  sx,
+}) {
   const { sessionLabel: selectedLabel, setSessionLabel: setSelectedLabel } = useSession();
-  const [sessions, setSessions] = useState([]);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  // fetch sessions from backend; callable so we can refresh after create/delete
-  const fetchSessions = useCallback(async () => {
-    try {
-      const res = await fetch('/api/sessions');
-      const data = await res.json();
-      setSessions(data.sessions || []);
-    } catch (err) {
-      // keep existing sessions on error
-      console.error('failed to fetch sessions', err);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchSessions();
-  }, [fetchSessions]);
 
   const handleChange = (e) => {
     setSelectedLabel(e.target.value);
     if (onLoadSession) onLoadSession(e.target.value);
-    // Only persist to backend if the label exists in the sessions list
-    if (sessions.includes(e.target.value)) {
-      fetch('/api/last_session', {
-        body: JSON.stringify({ label: e.target.value }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-    }
   };
 
   const handleDeleteClick = () => {
@@ -59,13 +40,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
 
   const handleDeleteConfirm = () => {
     setDeleteDialogOpen(false);
-    // call the prop and then refresh the sessions list; support promise returns
-    const maybePromise = onDeleteSession?.(selectedLabel);
-    if (maybePromise && typeof maybePromise.then === 'function') {
-      maybePromise.then(() => fetchSessions()).catch(() => fetchSessions());
-    } else {
-      fetchSessions();
-    }
+    onDeleteSession?.(selectedLabel);
   };
 
   const handleDeleteCancel = () => {
@@ -95,14 +70,7 @@ export default function SessionSelector({ onLoadSession, onCreateSession, onDele
         <IconButton
           aria-label="Create new session"
           color="success"
-          onClick={() => {
-            const maybePromise = onCreateSession?.();
-            if (maybePromise && typeof maybePromise.then === 'function') {
-              maybePromise.then(() => fetchSessions()).catch(() => fetchSessions());
-            } else {
-              fetchSessions();
-            }
-          }}
+          onClick={() => onCreateSession?.()}
           sx={{ ml: 1 }}
         >
           <AddCircleOutlineIcon />

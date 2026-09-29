@@ -30,6 +30,7 @@ import {
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import pushoverIcon from '../assets/pushover-icon.ico';
+import { apiGet, apiPost } from '../utils/apiClient';
 
 // Font Awesome icon wrapper component (keeping for Apprise since it doesn't have an official logo)
 const FontAwesomeIcon = ({ icon, color, fontSize = 20 }) => (
@@ -207,16 +208,10 @@ export default function NotificationsCard() {
   };
 
   useEffect(() => {
-    fetch('/api/notify/config')
-      .then((r) => r.json())
-      .then((cfg) => {
-        setConfig((prev) => ({ ...prev, ...(cfg || {}) }));
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Failed to load settings');
-        setLoading(false);
-      });
+    apiGet('/api/notify/config')
+      .then((cfg) => setConfig((prev) => ({ ...prev, ...(cfg || {}) })))
+      .catch((err) => setError(`Failed to load settings: ${err.message}`))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleChange = (field, value) => {
@@ -273,116 +268,45 @@ export default function NotificationsCard() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await fetch('/api/notify/config', {
-        body: JSON.stringify(config),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      if (!res.ok) throw new Error('Save failed');
+      await apiPost('/api/notify/config', config);
       setSuccess('Settings saved.');
-    } catch (_e) {
-      setError('Failed to save settings');
+    } catch (err) {
+      setError(`Failed to save settings: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleTestWebhook = async () => {
+  const createTestHandler = (channel, endpoint, payload) => async () => {
     setTestLoading(true);
     setTestResult(null);
     try {
-      const res = await fetch('/api/notify/test/webhook', {
-        body: JSON.stringify({
-          message: 'Test webhook from MouseTrap',
-          test: true,
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      const data = await res.json();
-      setTestResult(data.success ? 'Webhook sent!' : 'Webhook failed.');
-    } catch {
-      setTestResult('Webhook failed.');
+      await apiPost(endpoint, payload);
+      setTestResult({ message: `${channel} sent!`, severity: 'success' });
+    } catch (err) {
+      setTestResult({ message: `${channel} failed: ${err.message}`, severity: 'error' });
     } finally {
       setTestLoading(false);
     }
   };
 
-  const handleTestSmtp = async () => {
-    setTestLoading(true);
-    setTestResult(null);
-    try {
-      const res = await fetch('/api/notify/test/smtp', {
-        body: JSON.stringify({
-          body: 'This is a test email from MouseTrap.',
-          subject: 'MouseTrap SMTP Test',
-        }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      const data = await res.json();
-      setTestResult(data.success ? 'SMTP email sent!' : 'SMTP failed.');
-    } catch {
-      setTestResult('SMTP failed.');
-    } finally {
-      setTestLoading(false);
-    }
-  };
+  const handleTestWebhook = createTestHandler('Webhook', '/api/notify/test/webhook', {
+    message: 'Test webhook from MouseTrap',
+    test: true,
+  });
 
-  const handleTestApprise = async () => {
-    setTestLoading(true);
-    setTestResult(null);
-    try {
-      const res = await fetch('/api/notify/test/apprise', {
-        body: JSON.stringify({ test: true }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      let data = null;
-      try {
-        data = await res.json();
-      } catch (_e) {
-        data = null;
-      }
+  const handleTestSmtp = createTestHandler('SMTP email', '/api/notify/test/smtp', {
+    body: 'This is a test email from MouseTrap.',
+    subject: 'MouseTrap SMTP Test',
+  });
 
-      if (res.ok) {
-        setTestResult(data?.success ? 'Apprise sent!' : 'Apprise failed.');
-      } else {
-        const detail =
-          (data && (data.detail || data.message)) || (data ? JSON.stringify(data) : null);
-        const status = ` (HTTP ${res.status})`;
-        setTestResult(detail ? `Apprise failed${status}: ${detail}` : `Apprise failed${status}.`);
-      }
-    } catch {
-      setTestResult('Apprise failed.');
-    } finally {
-      setTestLoading(false);
-    }
-  };
+  const handleTestApprise = createTestHandler('Apprise', '/api/notify/test/apprise', {
+    test: true,
+  });
 
-  const handleTestPushover = async () => {
-    setTestLoading(true);
-    setTestResult(null);
-    try {
-      const res = await fetch('/api/notify/test/pushover', {
-        body: JSON.stringify({ message: 'Test Pushover notification from MouseTrap' }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setTestResult(data.success ? 'Pushover sent!' : 'Pushover failed.');
-      } else {
-        const detail = data?.detail || data?.message || null;
-        const status = ` (HTTP ${res.status})`;
-        setTestResult(detail ? `Pushover failed${status}: ${detail}` : `Pushover failed${status}.`);
-      }
-    } catch {
-      setTestResult('Pushover failed.');
-    } finally {
-      setTestLoading(false);
-    }
-  };
+  const handleTestPushover = createTestHandler('Pushover', '/api/notify/test/pushover', {
+    message: 'Test Pushover notification from MouseTrap',
+  });
 
   if (loading)
     return (
@@ -1204,8 +1128,8 @@ export default function NotificationsCard() {
             </Button>
           </Box>
           {testResult && (
-            <Alert severity={testResult.includes('failed') ? 'error' : 'success'} sx={{ mt: 2 }}>
-              {testResult}
+            <Alert severity={testResult.severity} sx={{ mt: 2 }}>
+              {testResult.message}
             </Alert>
           )}
         </CardContent>

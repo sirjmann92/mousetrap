@@ -806,9 +806,9 @@ adds. `status` repeats the status line and is advisory; the status line is
 authoritative.
 
 **2. `200` with a success flag** — used by the automation and indexer endpoints,
-because the frontend reads those bodies without checking the status code.
-Binding their bodies as FastAPI parameters would return `422` instead and break
-that:
+which have not been converted yet. This shape was kept because the frontend read
+those bodies without checking the status code; it no longer does, so nothing
+depends on it and it is carried only until those endpoints change:
 ```json
 { "success": false, "message": "Session 'seedbox' not found" }
 ```

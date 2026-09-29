@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
+import { apiDelete, apiGet, apiPost, apiPut } from '../utils/apiClient';
 import ConfirmDialog from './ConfirmDialog';
 
 export default function ProxyConfigCard({
@@ -106,15 +107,8 @@ export default function ProxyConfigCard({
   };
 
   const confirmDelete = () => {
-    fetch(`/api/proxies/${deleteLabel}`, { method: 'DELETE' })
-      .then(async (res) => {
-        if (res.status === 409) {
-          // The proxy is still assigned to a session. Keep the label so the
-          // message can name it, and surface why the delete was refused.
-          const body = await res.json().catch(() => ({}));
-          setDeleteBlocked(body.detail || 'This proxy is still in use by a session.');
-          return;
-        }
+    apiDelete(`/api/proxies/${deleteLabel}`)
+      .then(() => {
         setDeleteLabel(null);
         if (proxy?.label === deleteLabel && setProxy) {
           setProxy({});
@@ -122,34 +116,22 @@ export default function ProxyConfigCard({
         if (refreshProxies) refreshProxies();
         refreshUsage();
       })
-      .catch(() => {
-        setDeleteBlocked('Could not reach the server to delete this proxy.');
-      });
+      .catch((err) => setDeleteBlocked(err.message));
   };
 
   const handleSave = () => {
-    const method = isEditing ? 'PUT' : 'POST';
+    const save = isEditing ? apiPut : apiPost;
     const url = isEditing ? `/api/proxies/${editLabel}` : '/api/proxies';
     setSaveError('');
-    fetch(url, {
-      body: JSON.stringify(form),
-      headers: { 'Content-Type': 'application/json' },
-      method,
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          // Keep the form as typed so the user can correct it.
-          const body = await res.json().catch(() => ({}));
-          setSaveError(body.detail || 'The proxy could not be saved.');
-          return;
-        }
+    save(url, form)
+      .then(() => {
         setForm({ host: '', label: '', password: '', port: '', username: '' });
         setIsEditing(false);
         setEditLabel('');
         if (refreshProxies) refreshProxies();
         refreshUsage();
       })
-      .catch(() => setSaveError('Could not reach the server to save this proxy.'));
+      .catch((err) => setSaveError(err.message));
   };
 
   const handleAddNew = () => {
@@ -173,15 +155,13 @@ export default function ProxyConfigCard({
     });
 
     try {
-      const response = await fetch(`/api/proxy_test/${encodeURIComponent(label)}`);
-      const data = await response.json();
+      const data = await apiGet(`/api/proxy_test/${encodeURIComponent(label)}`);
 
       if (data.proxied_ip) {
-        const statusMsg = 'OK';
-        setSuccess(`Proxy tested: ${label} — ${statusMsg}`);
+        setSuccess(`Proxy tested: ${label} — OK`);
         setTestResults((prev) => ({
           ...prev,
-          [label]: { ...data, status: statusMsg },
+          [label]: { ...data, status: 'OK' },
         }));
       } else {
         setError(`Proxy test failed: ${label} — No IP returned`);
@@ -190,11 +170,11 @@ export default function ProxyConfigCard({
           [label]: { error: 'No IP returned', status: 'Failed' },
         }));
       }
-    } catch (_error) {
-      setError(`Proxy test failed: ${label}`);
+    } catch (err) {
+      setError(`Proxy test failed: ${label} — ${err.message}`);
       setTestResults((prev) => ({
         ...prev,
-        [label]: { error: 'Test failed', status: 'Failed' },
+        [label]: { error: err.message, status: 'Failed' },
       }));
     } finally {
       setTestingProxy(null);

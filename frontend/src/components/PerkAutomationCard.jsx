@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
-import { stringifyMessage } from '../utils/utils';
+import { apiGet, apiPost } from '../utils/apiClient';
 import AutomationSection from './AutomationSection';
 import ConfirmDialog from './ConfirmDialog';
 import FeedbackSnackbar from './FeedbackSnackbar';
@@ -100,8 +100,7 @@ export default function PerkAutomationCard(props) {
   // Load automation settings from session on mount/session change
   useEffect(() => {
     if (!sessionLabel) return;
-    fetch(`/api/session/${encodeURIComponent(sessionLabel)}`)
-      .then((res) => res.json())
+    apiGet(`/api/session/${encodeURIComponent(sessionLabel)}`)
       .then((cfg) => {
         const pa = cfg.perk_automation || {};
         setMinPoints(pa.min_points ?? 0);
@@ -135,10 +134,23 @@ export default function PerkAutomationCard(props) {
         setSessionRejected(
           Boolean(cfg.mam_invalid_since) || cfg.last_status?.mam_cookie_exists === false,
         );
-      });
-    fetch('/api/automation/guardrails')
-      .then((res) => res.json())
-      .then((data) => setGuardrails(data));
+      })
+      .catch((err) =>
+        setSnackbar({
+          message: `Could not load automation settings: ${err.message}`,
+          open: true,
+          severity: 'error',
+        }),
+      );
+    apiGet('/api/automation/guardrails')
+      .then((data) => setGuardrails(data))
+      .catch((err) =>
+        setSnackbar({
+          message: `Could not load automation guardrails: ${err.message}`,
+          open: true,
+          severity: 'error',
+        }),
+      );
   }, [sessionLabel, setAutoUploadCombined, setAutoVIPCombined, setPoints]);
 
   // Guardrail logic: check if another session with same username has automation enabled
@@ -197,89 +209,19 @@ export default function PerkAutomationCard(props) {
     return `VIP has ${daysLeft.toFixed(1)} days remaining. MAM refuses a purchase that would add less than a full week, so this becomes available ${eligibleAt.toLocaleString()}.`;
   })();
 
-  // API call helpers
-  const _triggerVIP = async () => {
-    try {
-      const res = await fetch('/api/automation/vip', { method: 'POST' });
-      const data = await res.json();
-      if (data.success) {
-        setSnackbar({
-          message: 'VIP automation triggered!',
-          open: true,
-          severity: 'success',
-        });
-        onActionComplete();
-      } else
-        setSnackbar({
-          message: stringifyMessage(data.error || 'VIP automation failed'),
-          open: true,
-          severity: 'error',
-        });
-    } catch (_e) {
-      setSnackbar({
-        message: 'VIP automation failed',
-        open: true,
-        severity: 'error',
-      });
-    }
-  };
-  // Use new endpoint for upload automation
-  const _triggerUpload = async () => {
-    try {
-      const res = await fetch('/api/automation/upload_auto', {
-        body: JSON.stringify({ amount: 1, label: sessionLabel }), // Always include label
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSnackbar({
-          message: 'Upload automation triggered!',
-          open: true,
-          severity: 'success',
-        });
-        onActionComplete();
-      } else
-        setSnackbar({
-          message: stringifyMessage(data.error || 'Upload automation failed'),
-          open: true,
-          severity: 'error',
-        });
-    } catch (_e) {
-      setSnackbar({
-        message: 'Upload automation failed',
-        open: true,
-        severity: 'error',
-      });
-    }
-  };
   const triggerVIPManual = async () => {
+    const purchase = vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`;
     try {
-      const res = await fetch('/api/automation/vip', {
-        body: JSON.stringify({ label: sessionLabel, weeks: Number(vipWeeks) }), // Always include label
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSnackbar({
-          message: `VIP purchased for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}!`,
-          open: true,
-          severity: 'success',
-        });
-        onActionComplete();
-      } else
-        setSnackbar({
-          message: stringifyMessage(
-            data.error ||
-              `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`,
-          ),
-          open: true,
-          severity: 'error',
-        });
-    } catch (_e) {
+      await apiPost('/api/automation/vip', { label: sessionLabel, weeks: Number(vipWeeks) });
       setSnackbar({
-        message: `VIP purchase for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`} failed`,
+        message: `VIP purchased for ${purchase}!`,
+        open: true,
+        severity: 'success',
+      });
+      onActionComplete();
+    } catch (e) {
+      setSnackbar({
+        message: `VIP purchase for ${purchase} failed: ${e.message}`,
         open: true,
         severity: 'error',
       });
@@ -287,35 +229,24 @@ export default function PerkAutomationCard(props) {
   };
   const triggerUploadManual = async () => {
     try {
-      const res = await fetch('/api/automation/upload_auto', {
-        body: JSON.stringify({ amount: Number(uploadAmount), label: sessionLabel }), // Always include label
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
+      await apiPost('/api/automation/upload_auto', {
+        amount: Number(uploadAmount),
+        label: sessionLabel,
       });
-      const data = await res.json();
-      if (data.success) {
-        setSnackbar({
-          message: `Upload credit purchased: ${uploadAmount}GB!`,
-          open: true,
-          severity: 'success',
-        });
-        onActionComplete();
-      } else {
-        setSnackbar({
-          message: stringifyMessage(data.error || `Upload credit purchase failed`),
-          open: true,
-          severity: 'error',
-        });
-      }
-    } catch (_e) {
       setSnackbar({
-        message: `Upload credit purchase failed`,
+        message: `Upload credit purchased: ${uploadAmount}GB!`,
+        open: true,
+        severity: 'success',
+      });
+      onActionComplete();
+    } catch (e) {
+      setSnackbar({
+        message: `Upload credit purchase failed: ${e.message}`,
         open: true,
         severity: 'error',
       });
     }
   };
-  // Save handler
   const handleSave = async () => {
     if (!sessionLabel) {
       setSnackbar({
@@ -325,32 +256,34 @@ export default function PerkAutomationCard(props) {
       });
       return;
     }
-    // Load previous automation config if available (to preserve timestamps)
-    let prevVIPTime = null,
-      prevUploadTime = null;
+    let cfg;
     try {
-      const res = await fetch(`/api/session/${encodeURIComponent(sessionLabel)}`);
-      if (res.ok) {
-        const cfg = await res.json();
-        prevVIPTime = cfg?.perk_automation?.vip_automation?.last_vip_time ?? null;
-        prevUploadTime = cfg?.perk_automation?.upload_credit?.last_upload_time ?? null;
-      }
-    } catch {}
-
-    // Helper for timestamp logic
-    function getNewTimestamp(enabled, triggerType, prevTime) {
-      if (enabled && triggerType === 'time') {
-        if (!prevTime) return Date.now();
-        return prevTime;
-      } else if (!enabled) {
-        return null;
-      } else {
-        return prevTime;
-      }
+      cfg = await apiGet(`/api/session/${encodeURIComponent(sessionLabel)}`);
+    } catch (e) {
+      setSnackbar({
+        message: `Automation settings not saved, because the current settings could not be read: ${e.message}`,
+        open: true,
+        severity: 'error',
+      });
+      return;
     }
 
-    const newVIPTime = getNewTimestamp(autoVIP, vipTriggerType, prevVIPTime);
-    const newUploadTime = getNewTimestamp(autoUpload, triggerType, prevUploadTime);
+    function getNewTimestamp(enabled, triggerType, prevTime) {
+      if (!enabled) return null;
+      if (triggerType === 'time') return prevTime || Date.now();
+      return prevTime;
+    }
+
+    const newVIPTime = getNewTimestamp(
+      autoVIP,
+      vipTriggerType,
+      cfg?.perk_automation?.vip_automation?.last_vip_time ?? null,
+    );
+    const newUploadTime = getNewTimestamp(
+      autoUpload,
+      triggerType,
+      cfg?.perk_automation?.upload_credit?.last_upload_time ?? null,
+    );
 
     const perk_automation = {
       autoUpload,
@@ -374,25 +307,21 @@ export default function PerkAutomationCard(props) {
         weeks: Number(vipWeeks),
       },
     };
-    const res = await fetch('/api/session/perkautomation/save', {
-      body: JSON.stringify({ label: sessionLabel, perk_automation }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    });
-    const data = await res.json();
-    if (data.success) {
+    try {
+      await apiPost('/api/session/perkautomation/save', { label: sessionLabel, perk_automation });
       setSnackbar({
         message: 'Automation settings saved!',
         open: true,
         severity: 'success',
       });
       onActionComplete();
-    } else
+    } catch (e) {
       setSnackbar({
-        message: stringifyMessage(data.error || 'Save failed'),
+        message: `Automation settings not saved: ${e.message}`,
         open: true,
         severity: 'error',
       });
+    }
   };
 
   return (

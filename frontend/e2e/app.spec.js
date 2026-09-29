@@ -315,11 +315,21 @@ test.describe
       await page.getByText('Session Configuration', { exact: true }).click();
       await page.getByRole('textbox', { name: 'IP Address', exact: true }).fill('192.0.2.31');
       await page.route('**/api/session/save', (route) =>
-        route.fulfill({ body: '{"detail":"simulated failure"}', status: 500 }),
+        route.fulfill({
+          body: JSON.stringify({
+            detail: 'Simulated failure.',
+            status: 500,
+            title: 'Internal Server Error',
+            type: 'about:blank',
+          }),
+          contentType: 'application/problem+json',
+          status: 500,
+        }),
       );
       const rejected = waitForPost(page, '/api/session/save');
       await page.getByRole('button', { name: 'SAVE', exact: true }).click();
       expect((await rejected).ok()).toBeFalsy();
+      await expect(page.getByRole('alert').filter({ hasText: 'Simulated failure.' })).toBeVisible();
 
       const persisted = await request.get('/api/session/FailureCase');
       expect(persisted.ok()).toBeTruthy();
@@ -445,5 +455,68 @@ test.describe
 
       await page.getByTestId('purchase-upload').locator('..').dispatchEvent('mouseover');
       await expect(page.getByRole('tooltip')).toContainText(/MAM rejected this session/);
+    });
+
+    test('reports an unreachable server instead of an empty event log', async ({ page }) => {
+      await page.goto('/');
+      await page.route('**/api/ui_event_log*', (route) => route.abort());
+      await page.getByRole('button', { name: 'View event log', exact: true }).click();
+      await expect(page.getByRole('alert')).toContainText('Could not reach the MouseTrap server.');
+    });
+
+    test('reports a response that does not follow the error contract', async ({ page }) => {
+      await page.goto('/');
+      await page.route('**/api/ui_event_log*', (route) =>
+        route.fulfill({ body: 'Internal Server Error', contentType: 'text/plain', status: 500 }),
+      );
+      await page.getByRole('button', { name: 'View event log', exact: true }).click();
+      await expect(page.getByRole('alert')).toContainText(
+        'The server returned an unexpected response (HTTP 500).',
+      );
+    });
+
+    test('treats a bodyless response as success rather than failure', async ({ page, request }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: { label: 'Logged', mam: { mam_id: 'e2e-mam-id' } },
+      });
+      expect(seeded.ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.getByRole('button', { name: 'View event log', exact: true }).click();
+      await expect(page.getByText('No events yet.')).toBeHidden();
+
+      await page.route('**/api/ui_event_log*', (route) =>
+        route.request().method() === 'DELETE' ? route.fulfill({ status: 204 }) : route.continue(),
+      );
+      await page.getByRole('button', { name: 'Clear event log' }).click();
+      await expect(page.getByText('No events yet.')).toBeVisible();
+    });
+
+    test('reports an envelope failure that states no reason', async ({ page, request }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'SilentRefusal',
+          mam: { ip_monitoring_mode: 'static', mam_id: 'e2e-mam-id', session_type: 'IP Locked' },
+          mam_ip: '192.0.2.43',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.route('**/api/automation/vip', (route) =>
+        route.fulfill({
+          body: '{"success": false}',
+          contentType: 'application/json',
+          status: 200,
+        }),
+      );
+      await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
+      await page.getByTestId('purchase-vip').click();
+      await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+      await expect(
+        page
+          .getByRole('alert')
+          .filter({ hasText: 'The server reported a failure without saying why.' }),
+      ).toBeVisible();
     });
   });

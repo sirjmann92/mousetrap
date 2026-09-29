@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { apiGet, apiPost } from '../utils/apiClient';
 
 /**
  * @typedef {Object} SessionContextType
@@ -40,6 +41,9 @@ import { createContext, useContext, useEffect, useState } from 'react';
  * @property {(a:Object)=>void} setAudiobookrequest
  * @property {Object} autobrr
  * @property {(a:Object)=>void} setAutobrr
+ * @property {string} error
+ * @property {(message:string)=>void} reportError
+ * @property {()=>void} dismissError
  */
 
 /** @type {SessionContextType} */
@@ -82,30 +86,32 @@ const defaultSessionContext = {
   setAudiobookrequest: () => {},
   autobrr: {},
   setAutobrr: () => {},
+  error: '',
+  reportError: () => {},
+  dismissError: () => {},
 };
 
 const SessionContext = createContext(defaultSessionContext);
 
 export function SessionProvider({ children }) {
   const [sessionLabel, setSessionLabel] = useState('');
+  const [error, setError] = useState('');
 
   // On mount, load last session from backend
   useEffect(() => {
-    fetch('/api/last_session')
-      .then((res) => res.json())
+    apiGet('/api/last_session')
       .then((data) => {
         if (data?.label) setSessionLabel(data.label);
-      });
+      })
+      .catch((err) => setError(`Could not restore the last session: ${err.message}`));
   }, []);
 
   // Persist sessionLabel to backend when it changes
   useEffect(() => {
     if (sessionLabel) {
-      fetch('/api/last_session', {
-        body: JSON.stringify({ label: sessionLabel }),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
+      apiPost('/api/last_session', { label: sessionLabel }).catch((err) =>
+        setError(`Could not remember the selected session: ${err.message}`),
+      );
     }
   }, [sessionLabel]);
 
@@ -133,6 +139,8 @@ export function SessionProvider({ children }) {
   const value = {
     checkFrequency,
     detectedIp,
+    dismissError: () => setError(''),
+    error,
     ipMonitoringMode,
     mamId,
     mamIp,
@@ -141,6 +149,7 @@ export function SessionProvider({ children }) {
     proxiedAsn,
     proxiedIp,
     proxy,
+    reportError: setError,
     sessionInfo,
     sessionLabel,
     sessionType,

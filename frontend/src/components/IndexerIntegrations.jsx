@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
+import { apiPost } from '../utils/apiClient';
 
 // GitHub icon SVG
 const GitHubIcon = ({ size = 16 }) => (
@@ -165,16 +166,9 @@ export default function IndexerIntegrations({
         payload.admin_password = config.admin_password || '';
       }
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-      setResult(result);
-    } catch (_error) {
-      setResult({ success: false, message: 'Network error' });
+      setResult(await apiPost(endpoint, payload));
+    } catch (err) {
+      setResult({ success: false, message: err.message });
     } finally {
       setLoading(false);
     }
@@ -224,21 +218,9 @@ export default function IndexerIntegrations({
     setUpdateLoading(true);
     try {
       // Use the unified endpoint that updates both services
-      const response = await fetch('/api/indexer/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label: sessionLabel,
-        }),
-      });
-
-      const result = await response.json();
-
-      // A refusal answered before the route ran carries its reason in
-      // `detail`, not `message`; show it rather than an empty alert.
-      setUpdateResult(result.message ? result : { ...result, message: result.detail });
-    } catch (error) {
-      setUpdateResult({ success: false, message: `Network error: ${error.message}` });
+      setUpdateResult(await apiPost('/api/indexer/update', { label: sessionLabel }));
+    } catch (err) {
+      setUpdateResult({ success: false, message: err.message });
     } finally {
       setUpdateLoading(false);
     }
