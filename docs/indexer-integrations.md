@@ -8,10 +8,11 @@ MouseTrap can automatically sync your MAM session ID with Prowlarr, Chaptarr, Ja
 
 ### Automatic MAM ID Sync
 - **Multi-service support**: Update Prowlarr, Chaptarr, Jackett, AudioBookRequest, and/or Autobrr simultaneously
-- **Smart detection**: Only updates when MAM ID actually changes
-- **Manual override**: Force update with "UPDATE" button
+- **Daily refresh**: MAM gives MouseTrap a new MAM ID on every request. Once a day, MouseTrap sends the current one to every enabled integration, so they never go stale
+- **Auto-update on save**: Also sends it straight away when you save a new MAM ID yourself
+- **Manual override**: Send it now with the "UPDATE" button
+- **Notifications**: Choose to be told when the daily refresh succeeds, fails, or both
 - **Event logging**: All operations logged for audit trail
-- **Auto-update on save**: Seamlessly syncs when you update your session
 
 ### MAM Session Validity Detection
 - **Response-based, not time-based**: a daily keepalive ping to MAM's seedbox API is classified using MAM's own documented error messages, rather than guessing from elapsed time
@@ -78,7 +79,7 @@ In your MouseTrap session configuration:
    - Confirm indexer ID is found
 
 4. **Configure Options**:
-   - **Auto-update Prowlarr on Save**: Enabled by default
+   - **Auto-update Prowlarr on Save**: Disabled by default
 
 ### 2. Configure Chaptarr
 
@@ -98,7 +99,7 @@ In the same session configuration (below Prowlarr):
    - Confirm indexer ID is found
 
 4. **Configure Options**:
-   - **Auto-update Chaptarr on Save**: Enabled by default
+   - **Auto-update Chaptarr on Save**: Disabled by default
 
 ### 3. Configure Jackett (Optional)
 
@@ -197,7 +198,7 @@ event_rules:
 | **Host** | Server IP/hostname | `192.168.1.100` |
 | **Port** | Service port | `9696` / `8789` |
 | **API Key** | Service API key | `abc123...` |
-| **Auto-update on Save** | Sync MAM ID on session save | ✅ Enabled |
+| **Auto-update on Save** | Send a MAM ID you save to this service straight away | Off |
 
 > **Note:** MAM session validity detection runs at the session level (not per-indexer) — see [Prowlarr Integration](prowlarr-integration.md#mam-session-validity-detection) for how it works.
 
@@ -205,9 +206,25 @@ event_rules:
 
 ## 🔄 Auto-Update Behavior
 
-### When MAM ID Changes
+### Daily Refresh
 
-If you enable "Auto-update on Save" for either service, MouseTrap will automatically push the new MAM ID when you save your session configuration.
+MAM rolls the MAM ID on every request, and a value that is never refreshed
+expires after about 30 days. MouseTrap keeps its own copy current, but an
+integration only holds the value it was last sent. So once a day, after the
+daily keepalive MAM accepted, MouseTrap sends the current MAM ID to **every
+enabled integration**, whatever its "Auto-update on Save" setting.
+
+Before this, an integration without "Auto-update on Save" kept the value it was
+given until it expired, then failed until the MAM ID was pushed again with the
+UPDATE button.
+
+The result can be sent as a notification: turn on **Indexer MAM ID Update** in
+Notifications for success, failure, or both. Notifications never include the
+MAM ID or an integration's API key, and failure reasons are redacted.
+
+### When You Save a New MAM ID
+
+If you enable "Auto-update on Save" for a service, MouseTrap pushes the new MAM ID to it as soon as you save your session configuration. This sends no notification, since you are looking at the result.
 
 **Example Scenarios**:
 
