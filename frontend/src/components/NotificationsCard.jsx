@@ -118,12 +118,6 @@ export default function NotificationsCard() {
       successKey: 'seedbox_update_success',
       failureKey: 'seedbox_update_failure',
     },
-    {
-      baseKey: 'indexer_sync',
-      label: 'Indexer MAM ID Update',
-      successKey: 'indexer_sync_success',
-      failureKey: 'indexer_sync_failure',
-    },
   ];
 
   // Unique events (no success/failure pair)
@@ -139,6 +133,12 @@ export default function NotificationsCard() {
       key: 'inactive_unsatisfied',
       label: 'Inactive Unsatisfied',
       tooltip: 'Pre-H&R',
+    },
+    {
+      key: 'mam_id_changed',
+      label: 'MAM ID Changed',
+      tooltip:
+        'MAM issued a new MAM ID, not one you saved. It is passed on to every enabled indexer integration.',
     },
     {
       key: 'mam_session_invalid',

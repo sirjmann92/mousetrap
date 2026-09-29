@@ -258,7 +258,7 @@ export default function IndexerIntegrations({
           </Typography>
           <Tooltip
             placement="right"
-            title="MAM gives MouseTrap a new MAM ID on every request. Once a day, MouseTrap sends the current one to every enabled integration so they never go stale. Auto-update on Save also sends it straight away when you save a new MAM ID yourself."
+            title="When MAM issues a new MAM ID, MouseTrap sends it to every enabled integration straight away. It also resends the current one once a day, so none goes stale. Auto-update on Save sends it when you save a new MAM ID yourself."
           >
             <IconButton size="small">
               <InfoOutlinedIcon fontSize="small" />
