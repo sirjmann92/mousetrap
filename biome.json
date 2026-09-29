@@ -22,6 +22,16 @@
           "level": "error",
           "fix": "safe"
         }
+      },
+      "style": {
+        "noRestrictedGlobals": {
+          "level": "error",
+          "options": {
+            "deniedGlobals": {
+              "fetch": "Reach the API through src/utils/apiClient.js, which reports a failed response as an ApiError instead of resolving."
+            }
+          }
+        }
       }
     },
     "domains": {

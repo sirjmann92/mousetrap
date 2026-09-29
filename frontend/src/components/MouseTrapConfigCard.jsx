@@ -23,8 +23,8 @@ import {
 import Snackbar from '@mui/material/Snackbar';
 import PropTypes from 'prop-types';
 import { useEffect, useState } from 'react';
-
 import { useSession } from '../context/SessionContext.jsx';
+import { apiGet, apiPost } from '../utils/apiClient';
 import IndexerIntegrations from './IndexerIntegrations.jsx';
 
 export default function MouseTrapConfigCard({
@@ -112,8 +112,7 @@ export default function MouseTrapConfigCard({
       return;
     }
     // When a proxy is selected, immediately check its public IP (without requiring save)
-    fetch(`/api/proxy_test/${encodeURIComponent(proxyLabel)}`)
-      .then((res) => res.json())
+    apiGet(`/api/proxy_test/${encodeURIComponent(proxyLabel)}`)
       .then((status) => {
         if (status?.proxied_ip) {
           setProxyStatus({
@@ -201,17 +200,7 @@ export default function MouseTrapConfigCard({
       proxy: { label: proxyLabel },
     };
     try {
-      const res = await fetch('/api/session/save', {
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' },
-        method: 'POST',
-      });
-      if (!res.ok) {
-        // The backend explains refusals in `detail` — a proxy that no longer
-        // exists, say. Discarding it leaves the user with nothing to act on.
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.detail || 'Failed to save session');
-      }
+      await apiPost('/api/session/save', payload);
       setSaveStatus('Session saved successfully.');
       setTimeout(() => setSaveStatus(''), 2000);
       if (onSessionSaved) onSessionSaved(label, oldLabel);

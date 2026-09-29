@@ -16,6 +16,7 @@ import { createTheme, ThemeProvider } from '@mui/material/styles';
 import React, { useCallback, useEffect, useState } from 'react';
 import MouseTrapIcon from './assets/mousetrap-icon.svg';
 import EventLogModalButton from './components/EventLogModalButton';
+import FeedbackSnackbar from './components/FeedbackSnackbar';
 import MouseTrapConfigCard from './components/MouseTrapConfigCard';
 import NotificationsCard from './components/NotificationsCard';
 import PerkAutomationCard from './components/PerkAutomationCard';
@@ -24,42 +25,9 @@ import ProxyConfigCard from './components/ProxyConfigCard';
 import SessionSelector from './components/SessionSelector';
 import StatusCard from './components/StatusCard';
 import { useSession } from './context/SessionContext.jsx';
+import { apiDelete, apiGet, apiPost } from './utils/apiClient';
 
 export default function App() {
-  // Application version
-  const [appVersion, setAppVersion] = useState('');
-
-  useEffect(() => {
-    fetch('/api/version')
-      .then((res) => res.json())
-      .then((data) => setAppVersion(data.version || ''))
-      .catch(() => setAppVersion(''));
-  }, []);
-
-  // Fetch all proxies and update state
-  const refreshProxies = useCallback(async () => {
-    try {
-      const res = await fetch('/api/proxies');
-      const data = await res.json();
-      setProxies(data || {});
-    } catch (_e) {
-      setProxies({});
-    }
-  }, []);
-
-  // Which sessions select which proxy, so the proxy card can disable deleting
-  // one that is in use. It lives here because it changes with *sessions*, not
-  // just proxies, and this is where session saves and deletes are handled.
-  const refreshProxyUsage = useCallback(async () => {
-    try {
-      const res = await fetch('/api/proxies/usage');
-      setProxyUsage(res.ok ? (await res.json()) || {} : {});
-    } catch (_e) {
-      setProxyUsage({});
-    }
-  }, []);
-
-  // Get context setters from SessionContext
   const {
     setSessionLabel,
     setMamId,
@@ -76,8 +44,41 @@ export default function App() {
     setJackett,
     setAudiobookrequest,
     setAutobrr,
+    error,
+    reportError,
+    dismissError,
   } = useSession();
-  // State for automation and perks
+
+  const [appVersion, setAppVersion] = useState('');
+
+  useEffect(() => {
+    apiGet('/api/version')
+      .then((data) => setAppVersion(data.version || ''))
+      .catch((err) => reportError(`Could not read the MouseTrap version: ${err.message}`));
+  }, [reportError]);
+
+  // Fetch all proxies and update state
+  const refreshProxies = useCallback(async () => {
+    try {
+      setProxies((await apiGet('/api/proxies')) || {});
+    } catch (err) {
+      setProxies({});
+      reportError(`Could not load proxies: ${err.message}`);
+    }
+  }, [reportError]);
+
+  // Which sessions select which proxy, so the proxy card can disable deleting
+  // one that is in use. It lives here because it changes with *sessions*, not
+  // just proxies, and this is where session saves and deletes are handled.
+  const refreshProxyUsage = useCallback(async () => {
+    try {
+      setProxyUsage((await apiGet('/api/proxies/usage')) || {});
+    } catch (err) {
+      setProxyUsage({});
+      reportError(`Could not check which sessions are using a proxy: ${err.message}`);
+    }
+  }, [reportError]);
+
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
   const [uploadAmount, setUploadAmount] = React.useState(0);
@@ -117,8 +118,7 @@ export default function App() {
   const loadSession = React.useCallback(
     async (labelToLoad) => {
       try {
-        const res = await fetch(`/api/session/${labelToLoad}`);
-        const cfg = await res.json();
+        const cfg = await apiGet(`/api/session/${labelToLoad}`);
         setSelectedLabel(cfg?.label ?? labelToLoad);
         setSessionLabel(cfg?.label ?? labelToLoad);
         setOldLabel(cfg?.label ?? labelToLoad);
@@ -150,8 +150,8 @@ export default function App() {
           auto_update_on_save: false,
           ...(cfg?.autobrr ?? {}),
         });
-      } catch (_e) {
-        // handle error
+      } catch (err) {
+        reportError(`Could not load session '${labelToLoad}': ${err.message}`);
       }
     },
     [
@@ -170,21 +170,19 @@ export default function App() {
       setJackett,
       setAudiobookrequest,
       setAutobrr,
+      reportError,
     ],
   );
 
   // Fetch all sessions and update state, restoring last session if available
   const refreshSessions = React.useCallback(async () => {
     try {
-      const res = await fetch('/api/sessions');
-      const data = await res.json();
+      const data = await apiGet('/api/sessions');
       setSessions(data.sessions || []);
       // Try to restore last session from backend
       if ((!selectedLabel || !data.sessions.includes(selectedLabel)) && data.sessions.length > 0) {
         try {
-          const lastSessionRes = await fetch('/api/last_session');
-          const lastSessionData = await lastSessionRes.json();
-          const lastLabel = lastSessionData.label;
+          const lastLabel = (await apiGet('/api/last_session')).label;
           if (lastLabel && data.sessions.includes(lastLabel)) {
             setSelectedLabel(lastLabel);
             loadSession(lastLabel);
@@ -196,10 +194,11 @@ export default function App() {
         setSelectedLabel(data.sessions[0]);
         loadSession(data.sessions[0]);
       }
-    } catch (_e) {
+    } catch (err) {
       setSessions([]);
+      reportError(`Could not load your sessions: ${err.message}`);
     }
-  }, [selectedLabel, loadSession]);
+  }, [selectedLabel, loadSession, reportError]);
   // Theme state and persistence
   const [mode, setMode] = React.useState(() => {
     const saved = window.localStorage.getItem('themeMode');
@@ -238,20 +237,18 @@ export default function App() {
     const base = 'Session';
     let idx = 1;
     let newLabel = base + idx;
-    // Try to avoid collisions
-    while (true) {
-      const res = await fetch('/api/sessions');
-      const data = await res.json();
-      if (!data.sessions.includes(newLabel)) break;
-      idx++;
-      newLabel = base + idx;
+    try {
+      while (true) {
+        const data = await apiGet('/api/sessions');
+        if (!data.sessions.includes(newLabel)) break;
+        idx++;
+        newLabel = base + idx;
+      }
+      await apiPost('/api/session/save', { label: newLabel });
+    } catch (err) {
+      reportError(`Could not create a session: ${err.message}`);
+      return;
     }
-    // Save a new session with default config
-    await fetch(`/api/session/save`, {
-      body: JSON.stringify({ label: newLabel }),
-      headers: { 'Content-Type': 'application/json' },
-      method: 'POST',
-    });
     loadSession(newLabel);
     refreshSessions();
     setForceExpandConfig(true); // Expand config card after creating a new session
@@ -259,15 +256,22 @@ export default function App() {
 
   // Delete session handler
   const handleDeleteSession = async (label) => {
-    await fetch(`/api/session/delete/${label}`, { method: 'DELETE' });
+    try {
+      await apiDelete(`/api/session/delete/${label}`);
+    } catch (err) {
+      reportError(`Could not delete session '${label}': ${err.message}`);
+      return;
+    }
     // After delete, load the first available session
     refreshSessions();
     // A deleted session releases whatever proxy it held.
     refreshProxyUsage();
-    const res = await fetch('/api/sessions');
-    const data = await res.json();
-    const nextLabel = data.sessions[0] || null;
-    loadSession(nextLabel);
+    try {
+      const data = await apiGet('/api/sessions');
+      loadSession(data.sessions[0] || null);
+    } catch (err) {
+      reportError(`Could not load the remaining sessions: ${err.message}`);
+    }
   };
 
   // Handler to update proxiedIp/proxiedAsn from StatusCard
@@ -324,6 +328,7 @@ export default function App() {
             onCreateSession={handleCreateSession}
             onDeleteSession={handleDeleteSession}
             onLoadSession={loadSession}
+            sessions={sessions}
             sx={{
               background: mode === 'dark' ? '#222' : '#fff',
               borderRadius: 1,
@@ -410,6 +415,12 @@ export default function App() {
           />
         </Container>
       </Box>
+      <FeedbackSnackbar
+        message={error}
+        onClose={dismissError}
+        open={Boolean(error)}
+        severity="error"
+      />
     </ThemeProvider>
   );
 }

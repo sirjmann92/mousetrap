@@ -14,7 +14,8 @@ import {
 } from '@mui/material';
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
-import { getStatusMessageColor, stringifyMessage } from '../utils/utils.jsx';
+import { apiGet, apiPost } from '../utils/apiClient';
+import { getStatusMessageColor } from '../utils/utils.jsx';
 import AutomationStatusRow from './AutomationStatusRow';
 import MamDetailsAccordion from './MamDetailsAccordion';
 import NetworkProxyDetailsAccordion from './NetworkProxyDetailsAccordion';
@@ -50,7 +51,7 @@ const StatusCard = forwardRef(
       open: false,
       severity: 'info',
     });
-    const [seedboxStatus, setSeedboxStatus] = useState(null);
+    const [seedboxResult, setSeedboxResult] = useState(null);
     const [seedboxLoading, setSeedboxLoading] = useState(false);
 
     // Keep a stable ref to onStatusUpdate so fetchStatus doesn't need to include
@@ -69,38 +70,7 @@ const StatusCard = forwardRef(
             : '/api/status';
           if (force) url += `${url.includes('?') ? '&' : '?'}force=1`;
 
-          const res = await fetch(url);
-          // Handle non-OK HTTP responses explicitly so we don't rely on json() throwing
-          let data;
-          try {
-            if (!res.ok) {
-              // Try to parse JSON error payload when available, otherwise fall back to text
-              try {
-                data = await res.json();
-              } catch (_) {
-                const text = await res.text();
-                data = { error: `HTTP ${res.status}: ${text}` };
-              }
-            } else {
-              data = await res.json();
-            }
-          } catch (err) {
-            // Defensive fallback
-            console.debug('[StatusCard] Failed to parse response from', url, err);
-            throw err;
-          }
-          // Helpful debug for development: show the raw backend response
-          console.debug('[StatusCard] fetchStatus response:', url, data);
-          if (data.success === false || data.error) {
-            setStatus({ error: data.error || 'Unknown error from backend.' });
-            setSnackbar({
-              message: stringifyMessage(data.error || 'Unknown error from backend.'),
-              open: true,
-              severity: 'error',
-            });
-            setPoints?.(null);
-            return;
-          }
+          const data = await apiGet(url);
           const detectedIp = data.detected_public_ip || '';
           const newStatus = {
             asn: data.asn || '',
@@ -132,12 +102,8 @@ const StatusCard = forwardRef(
           setDetectedIp?.(detectedIp);
           setPoints?.(data.points ?? null);
         } catch (e) {
-          setStatus({ error: e.message || 'Failed to fetch status.' });
-          setSnackbar({
-            message: stringifyMessage(e.message || 'Failed to fetch status.'),
-            open: true,
-            severity: 'error',
-          });
+          setStatus({ error: e.message });
+          setSnackbar({ message: e.message, open: true, severity: 'error' });
           setPoints?.(null);
         }
       },
@@ -153,13 +119,7 @@ const StatusCard = forwardRef(
         return undefined;
       }
 
-      const intervalId = setInterval(async () => {
-        try {
-          await fetchStatus(false);
-        } catch (error) {
-          console.error('Polling error:', error);
-        }
-      }, 5000);
+      const intervalId = setInterval(() => fetchStatus(false), 5000);
 
       return () => clearInterval(intervalId);
     }, [fetchStatus, isConfigured, isNearNextCheck]);
@@ -190,7 +150,7 @@ const StatusCard = forwardRef(
     useEffect(() => {
       // Clear status and seedbox status to show loading/blank until check completes
       setStatus(null);
-      setSeedboxStatus(null);
+      setSeedboxResult(null);
       fetchStatus(false);
       // Only run this on mount and when fetchStatus identity changes (which will
       // happen when sessionLabel or stable setters change). This avoids re-running
@@ -207,28 +167,16 @@ const StatusCard = forwardRef(
     const handleUpdateSeedbox = async () => {
       if (!sessionLabel) return;
       setSeedboxLoading(true);
-      setSeedboxStatus(null);
+      setSeedboxResult(null);
       try {
-        const res = await fetch('/api/session/update_seedbox', {
-          body: JSON.stringify({ label: sessionLabel }),
-          headers: { 'Content-Type': 'application/json' },
-          method: 'POST',
-        });
-        const data = await res.json();
-        setSeedboxStatus(data);
-        setSnackbar({
-          message: data.success ? data.msg || 'Seedbox updated!' : data.error || 'Update failed',
-          open: true,
-          severity: data.success ? 'success' : 'warning',
-        });
-        fetchStatus(); // Refresh status after update
+        const data = await apiPost('/api/session/update_seedbox', { label: sessionLabel });
+        const message = data.msg || 'Seedbox updated!';
+        setSeedboxResult({ message, severity: 'success' });
+        setSnackbar({ message, open: true, severity: 'success' });
+        fetchStatus();
       } catch (e) {
-        setSeedboxStatus({ error: e.message, success: false });
-        setSnackbar({
-          message: 'Seedbox update failed',
-          open: true,
-          severity: 'error',
-        });
+        setSeedboxResult({ message: e.message, severity: 'error' });
+        setSnackbar({ message: e.message, open: true, severity: 'error' });
       } finally {
         setSeedboxLoading(false);
       }
@@ -240,19 +188,11 @@ const StatusCard = forwardRef(
       if (!sessionLabel) return;
       setIndexerLoading(true);
       try {
-        const res = await fetch('/api/indexer/update', {
-          body: JSON.stringify({ label: sessionLabel }),
-          headers: { 'Content-Type': 'application/json' },
-          method: 'POST',
-        });
-        const data = await res.json();
-
-        const errorMessage = data.message || data.detail || 'Update failed';
-
+        const data = await apiPost('/api/indexer/update', { label: sessionLabel });
         setSnackbar({
-          message: data.success ? data.message || 'Indexer(s) updated!' : errorMessage,
+          message: data.message || 'Indexer(s) updated!',
           open: true,
-          severity: data.success ? (data.warning ? 'warning' : 'success') : 'error',
+          severity: data.warning ? 'warning' : 'success',
         });
       } catch (e) {
         setSnackbar({
@@ -587,16 +527,13 @@ const StatusCard = forwardRef(
               severity={/** @type {any} */ (snackbar.severity)}
               sx={{ width: '100%' }}
             >
-              {stringifyMessage(snackbar.message)}
+              {snackbar.message}
             </Alert>
           </Snackbar>
           <Divider sx={{ my: 2 }} />
-          {/* Seedbox update status */}
-          {seedboxStatus && (
+          {seedboxResult && (
             <Box sx={{ mb: 2 }}>
-              <Alert severity={seedboxStatus.success ? 'success' : 'warning'}>
-                {seedboxStatus.msg || seedboxStatus.error || 'Seedbox update status unknown.'}
-              </Alert>
+              <Alert severity={seedboxResult.severity}>{seedboxResult.message}</Alert>
             </Box>
           )}
           {/* Make sure this is the end of CardContent, after all conditional Boxes are closed */}

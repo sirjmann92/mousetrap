@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { useCallback, useEffect, useId, useState } from 'react';
+import { apiDelete, apiGet } from '../utils/apiClient';
 import { getStatusMessageColor, stringifyMessage } from '../utils/utils';
 
 export default function EventLogModalButton({ sessionLabel }) {
@@ -40,9 +41,7 @@ export default function EventLogModalButton({ sessionLabel }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/ui_event_log?_=${Date.now()}`);
-      if (!res.ok) throw new Error('Failed to fetch event log');
-      const data = await res.json();
+      const data = await apiGet(`/api/ui_event_log?_=${Date.now()}`);
       // Collect all unique labels (excluding 'global') and event types
       const uniqueLabels = Array.from(
         new Set(data.map((e) => e.label).filter((l) => l && l !== 'global')),
@@ -62,7 +61,7 @@ export default function EventLogModalButton({ sessionLabel }) {
       }
       setLog([...filtered].reverse());
     } catch (e) {
-      setError(e.message || 'Failed to load event log');
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -100,11 +99,10 @@ export default function EventLogModalButton({ sessionLabel }) {
       if (sessionFilter && sessionFilter !== 'all') {
         url += `/${encodeURIComponent(sessionFilter)}`;
       }
-      const res = await fetch(url, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to clear event log');
+      await apiDelete(url);
       setLog([]);
     } catch (e) {
-      setError(e.message || 'Failed to clear event log');
+      setError(e.message);
     } finally {
       setLoading(false);
     }
