@@ -20,3 +20,13 @@ updates:
         applies-to: version-updates
         patterns:
           - "*"
+    # Dependabot bumps each pin on its own and does not check it against the
+    # other pins' requirements, so it can move a dependency past the range its
+    # parent accepts. Each entry below is one of those, held until the parent
+    # accepts the new version; scripts/update-dependencies.sh re-resolves
+    # everything together and picks it up then, so delete the entry at that
+    # point.
+    ignore:
+      # aiohttp 3.14.3 requires multidict<7.0.
+      - dependency-name: "multidict"
+        versions: [">=7.0.0"]
