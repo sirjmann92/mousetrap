@@ -15,7 +15,7 @@ import {
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { useSession } from '../context/SessionContext.jsx';
 import { apiGet, apiPost } from '../utils/apiClient';
-import { getStatusMessageColor } from '../utils/utils.jsx';
+import { getStatusMessageColor, snatchSummary } from '../utils/utils.jsx';
 import AutomationStatusRow from './AutomationStatusRow';
 import MamDetailsAccordion from './MamDetailsAccordion';
 import NetworkProxyDetailsAccordion from './NetworkProxyDetailsAccordion';
@@ -295,7 +295,7 @@ const StatusCard = forwardRef(
               {/* Connectable Status - only show when valid data exists */}
               {(() => {
                 if (!status?.details?.raw) return null;
-                const connectable = status.details.raw.connectable;
+                const connectable = snatchSummary(status.details.raw).connectable;
 
                 if (connectable === undefined || connectable === null || connectable === 'N/A')
                   return null;

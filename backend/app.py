@@ -248,7 +248,10 @@ def _bucket_count(raw: dict[str, Any], key: str) -> int:
     """Read one MAM counter bucket from an unvalidated status payload.
 
     MAM reports ``sSat``, ``unsat``, ``seedHnr``, ``inactHnr`` and ``inactUnsat``
-    as ``{"count": N}`` objects. ``raw`` is the response body exactly as parsed,
+    as ``{"count": N}`` objects. Since 2026-09-23 they sit under a nested
+    ``snatch_summary`` mapping rather than at the top level of the body; the
+    top level is still read when that mapping is absent, which covers statuses
+    persisted before the change. ``raw`` is the response body exactly as parsed,
     so neither the bucket nor the count has been checked, and a non-integer count
     would raise from the comparison and subtraction the callers perform.
 
@@ -261,7 +264,8 @@ def _bucket_count(raw: dict[str, Any], key: str) -> int:
         hold a non-negative integer literal.
 
     """
-    bucket = raw.get(key)
+    summary = raw.get("snatch_summary")
+    bucket = (summary if isinstance(summary, dict) else raw).get(key)
     value = bucket.get("count", 0) if isinstance(bucket, dict) else 0
     return int(value) if isinstance(value, int | str) and str(value).isdigit() else 0
 

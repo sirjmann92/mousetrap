@@ -7,6 +7,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
+import { snatchSummary } from '../utils/utils.jsx';
 
 /**
  * Format MAM's `vip_until` timestamp for display, with days remaining.
@@ -30,6 +31,7 @@ function formatVipUntil(vipUntil) {
 export default function MamDetailsAccordion({ status }) {
   if (!status?.details?.raw) return null;
   const raw = status.details.raw;
+  const summary = snatchSummary(raw);
   return (
     <Accordion
       defaultExpanded={false}
@@ -151,7 +153,7 @@ export default function MamDetailsAccordion({ status }) {
               Connectable:
             </Typography>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.connectable ?? 'N/A'}
+              {summary.connectable ?? 'N/A'}
             </Typography>
             <Typography
               component="dt"
@@ -235,7 +237,7 @@ export default function MamDetailsAccordion({ status }) {
               Currently Seeding:
             </Typography>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.sSat && typeof raw.sSat.count === 'number' ? raw.sSat.count : 'N/A'}
+              {summary.sSat && typeof summary.sSat.count === 'number' ? summary.sSat.count : 'N/A'}
             </Typography>
             <Typography
               component="dt"
@@ -249,7 +251,9 @@ export default function MamDetailsAccordion({ status }) {
               Unsatisfied:
             </Typography>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.unsat && typeof raw.unsat.count === 'number' ? raw.unsat.count : 'N/A'}
+              {summary.unsat && typeof summary.unsat.count === 'number'
+                ? summary.unsat.count
+                : 'N/A'}
             </Typography>
             <Typography
               component="dt"
@@ -263,7 +267,9 @@ export default function MamDetailsAccordion({ status }) {
               Unsatisfied Limit:
             </Typography>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.unsat && typeof raw.unsat.limit === 'number' ? raw.unsat.limit : 'N/A'}
+              {summary.unsat && typeof summary.unsat.limit === 'number'
+                ? summary.unsat.limit
+                : 'N/A'}
             </Typography>
             <Tooltip arrow title="Seeding">
               <Typography
@@ -280,7 +286,9 @@ export default function MamDetailsAccordion({ status }) {
               </Typography>
             </Tooltip>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.seedHnr && typeof raw.seedHnr.count === 'number' ? raw.seedHnr.count : 'N/A'}
+              {summary.seedHnr && typeof summary.seedHnr.count === 'number'
+                ? summary.seedHnr.count
+                : 'N/A'}
             </Typography>
             <Tooltip arrow title="Not Seeding">
               <Typography
@@ -297,7 +305,9 @@ export default function MamDetailsAccordion({ status }) {
               </Typography>
             </Tooltip>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.inactHnr && typeof raw.inactHnr.count === 'number' ? raw.inactHnr.count : 'N/A'}
+              {summary.inactHnr && typeof summary.inactHnr.count === 'number'
+                ? summary.inactHnr.count
+                : 'N/A'}
             </Typography>
             <Tooltip arrow title="Pre-H&R">
               <Typography
@@ -314,8 +324,8 @@ export default function MamDetailsAccordion({ status }) {
               </Typography>
             </Tooltip>
             <Typography component="dd" sx={{ fontSize: '0.92rem', lineHeight: 1.3, m: 0, py: 0.2 }}>
-              {raw.inactUnsat && typeof raw.inactUnsat.count === 'number'
-                ? raw.inactUnsat.count
+              {summary.inactUnsat && typeof summary.inactUnsat.count === 'number'
+                ? summary.inactUnsat.count
                 : 'N/A'}
             </Typography>
           </Box>
