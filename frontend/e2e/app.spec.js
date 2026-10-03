@@ -374,6 +374,39 @@ test.describe
       await expect(page.getByTestId('mam-details-vip-until')).toContainText('left');
     });
 
+    test('reads the counters MAM nests under snatch_summary', async ({ page, request }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'SnatchSummary',
+          mam: {
+            ip_monitoring_mode: 'static',
+            mam_id: 'e2e-mam-id',
+            session_type: 'IP Locked',
+          },
+          mam_ip: '192.0.2.41',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+      expect((await request.get('/api/status?label=SnatchSummary&force=1')).ok()).toBeTruthy();
+
+      await page.goto('/');
+      // Connectable also moved under snatch_summary; the indicator is hidden without it.
+      await expect(page.getByRole('img', { name: 'Connectable: Yes' })).toBeVisible();
+      await page.getByText('MAM Details', { exact: true }).click();
+
+      // Since MAM nested these on 2026-09-23 every row read N/A
+      // (https://github.com/sirjmann92/mousetrap/issues/171).
+      const rowValue = (label) =>
+        page.getByText(label, { exact: true }).locator('xpath=following-sibling::dd[1]');
+      await expect(rowValue('Connectable:')).toHaveText('yes');
+      await expect(rowValue('Currently Seeding:')).toHaveText('19');
+      await expect(rowValue('Unsatisfied:')).toHaveText('2');
+      await expect(rowValue('Unsatisfied Limit:')).toHaveText('50');
+      await expect(rowValue('Active H&R:')).toHaveText('3');
+      await expect(rowValue('Inactive H&R:')).toHaveText('4');
+      await expect(rowValue('Inactive Unsatisfied:')).toHaveText('5');
+    });
+
     test('surfaces the reason MAM refused a VIP purchase in the event log', async ({
       page,
       request,

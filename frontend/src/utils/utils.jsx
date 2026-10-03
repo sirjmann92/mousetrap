@@ -43,3 +43,18 @@ export function stringifyMessage(msg) {
     return String(msg);
   }
 }
+
+/**
+ * Return the part of a jsonLoad.php body that holds MAM's snatch summary.
+ *
+ * Since 2026-09-23 MAM nests the counter buckets (`sSat`, `unsat`, `seedHnr`,
+ * `inactHnr`, `inactUnsat`, ...) and `connectable` under `snatch_summary`
+ * instead of at the top level. The top level is used when that object is
+ * absent, which covers the earlier layout.
+ * @param {Record<string, any> | null | undefined} raw The `details.raw` object from /api/status.
+ * @returns {Record<string, any>} The nested summary, or `raw` itself.
+ */
+export function snatchSummary(raw) {
+  const summary = raw?.snatch_summary;
+  return summary && typeof summary === 'object' ? summary : (raw ?? {});
+}

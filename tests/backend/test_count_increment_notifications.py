@@ -129,3 +129,65 @@ async def test_unusable_counts_read_as_zero(
     ]
     assert "increased by 2 (from 0 to 2)" in sent_notifications[0]["message"]
     assert "increased by 5 (from 0 to 5)" in sent_notifications[1]["message"]
+
+
+def _nested_status(inact_hnr: int, inact_unsat: int) -> dict[str, Any]:
+    """Build a MAM status payload in the layout MAM has sent since 2026-09-23.
+
+    MAM moved the counter buckets from the top level of the jsonLoad.php body
+    into a nested ``snatch_summary`` mapping, leaving ``uid`` and ``username``
+    where they were.
+
+    Args:
+        inact_hnr: Value for the inactive hit-and-run count.
+        inact_unsat: Value for the inactive unsatisfied count.
+
+    Returns:
+        A status mapping shaped like the one ``get_status`` now returns.
+
+    """
+    return {
+        "raw": {
+            "uid": 7,
+            "username": "reader",
+            "snatch_summary": {
+                "inactHnr": {"name": "Not Seeding - H&R - Not Yet Satisfied", "count": inact_hnr},
+                "inactUnsat": {"name": "Not Seeding - Not Yet Satisfied", "count": inact_unsat},
+            },
+        }
+    }
+
+
+async def test_counts_nested_under_snatch_summary_are_read(
+    sent_notifications: list[dict[str, Any]],
+) -> None:
+    """Counts in MAM's nested ``snatch_summary`` layout compare as they did at the top level."""
+    cfg = {"last_status": _nested_status(1, 4), "mam": {"mam_id": "cookie"}}
+
+    await app.check_and_notify_count_increments(cfg, _nested_status(3, 6), "seedbox")
+
+    assert [event["event_type"] for event in sent_notifications] == [
+        "inactive_hit_and_run",
+        "inactive_unsatisfied",
+    ]
+    assert "increased by 2 (from 1 to 3)" in sent_notifications[0]["message"]
+    assert "increased by 2 (from 4 to 6)" in sent_notifications[1]["message"]
+
+
+async def test_status_persisted_before_the_nesting_compares_against_a_nested_one(
+    sent_notifications: list[dict[str, Any]],
+) -> None:
+    """A top-level ``last_status`` saved before MAM's change still compares against a nested one.
+
+    Unchanged counts across the layout change raise nothing; reading the nested
+    side as zero would have hidden real increments, and reading the old side as
+    zero would have reported every existing count as new.
+    """
+    cfg = {"last_status": _status(3, 6), "mam": {"mam_id": "cookie"}}
+
+    await app.check_and_notify_count_increments(cfg, _nested_status(3, 6), "seedbox")
+    assert sent_notifications == []
+
+    await app.check_and_notify_count_increments(cfg, _nested_status(4, 6), "seedbox")
+    assert [event["event_type"] for event in sent_notifications] == ["inactive_hit_and_run"]
+    assert "increased by 1 (from 3 to 4)" in sent_notifications[0]["message"]

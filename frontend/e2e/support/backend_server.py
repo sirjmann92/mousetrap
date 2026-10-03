@@ -61,12 +61,21 @@ async def _mam_status(*args: Any, **kwargs: Any) -> dict[str, Any]:
         "wedge_active": False,
         # Shaped like a jsonLoad.php body so the MAM Details panel renders.
         # Not a real account: every value here is from the TEST-NET fixtures.
+        # Since 2026-09-23 MAM nests the counters and connectable under
+        # snatch_summary; the distinct counts let the E2E suite tell them apart.
         "raw": {
             "classname": "VIP",
-            "connectable": "yes",
             "downloaded": "1.00 GiB",
             "ratio": 1.0,
             "seedbonus": 0,
+            "snatch_summary": {
+                "connectable": "yes",
+                "inactHnr": {"name": "Not Seeding - H&R - Not Yet Satisfied", "count": 4},
+                "inactUnsat": {"name": "Not Seeding - Not Yet Satisfied", "count": 5},
+                "sSat": {"name": "Seeding - Satisfied", "count": 19},
+                "seedHnr": {"name": "Seeding - H&R - Not Yet Satisfied", "count": 3},
+                "unsat": {"name": "Unsatisfied", "count": 2, "limit": 50},
+            },
             "uid": 64500,
             "uploaded": "1.00 GiB",
             "username": "e2e-user",
