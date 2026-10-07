@@ -613,7 +613,7 @@ alike.
 Before opening a pull request, run the checks that match what you changed:
 
 ```bash
-./scripts/lint.sh   # Linting, formatting, types, frontend dependency audit.
+./scripts/lint.sh   # Linting, formatting, types, shipped frontend dependency audit.
 ./scripts/test.sh   # Backend pytest plus development Playwright E2E.
 ```
 
