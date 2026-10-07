@@ -6,6 +6,27 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
 
+  # Bumps the frontend lockfile. Grouped into one weekly pull request like the
+  # Python pins; security updates still arrive on their own.
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      npm:
+        applies-to: version-updates
+        patterns:
+          - "*"
+    ignore:
+      # scripts/update-dependencies.sh stays within each package's current
+      # major release; a major upgrade is a deliberate change, not a weekly bump.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # Biome is exact-pinned and its prek hook revision and configuration must
+      # move with it, which only scripts/update-dependencies.sh does.
+      - dependency-name: "@biomejs/biome"
+
   # Bumps the exact versions in requirements/constraints.txt, which every
   # Python install in this repository uses. Grouped into one weekly pull
   # request so a batch of releases is reviewed and tested together; security

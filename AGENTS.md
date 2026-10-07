@@ -202,6 +202,17 @@ Complete local test gate:
 The default and `--full` modes write coverage separately to `coverage/backend/`
 for backend pytest and `coverage/frontend/` for Playwright E2E.
 
+### Dependency advisories
+
+CI's `Dependency review` check fails a pull request only for a vulnerable
+dependency that the pull request itself adds or changes. Do not put back a bare
+`npm audit` (or any whole-lockfile audit) as a pull request gate: it failed
+every pull request, including Python-only ones, whenever an advisory was
+published against a package already on `main`, and one advisory had no fixed
+release at all. Advisories against existing dependencies arrive as Dependabot
+alerts and security update pull requests. `./scripts/lint.sh` audits only the
+dependencies that ship (`npm audit --omit=dev`).
+
 ## Testing Expectations
 
 - Add or update pytest integration or workflow coverage for changed backend behavior,
@@ -278,8 +289,8 @@ the next merge published itself. Nothing was broken by it, but the choice of
 when to release was lost.
 
 It matters more now that Dependabot security updates are on, because
-Dependabot opens pull requests unprompted, for GitHub Actions and for the
-Python pins. A security fix merged on a quiet
+Dependabot opens pull requests unprompted, for GitHub Actions, the Python
+pins and the frontend lockfile. A security fix merged on a quiet
 afternoon would publish a release nobody asked for.
 
 Release versions come only from git tags — `frontend/package.json`'s
