@@ -7,8 +7,8 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.11",
     "@mui/material": "^7.3.11",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "engines": {
     "node": ">=24.18.0",
@@ -41,17 +41,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
-    "@playwright/test": "^1.62.1",
-    "@types/node": "^24.13.3",
-    "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.7",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^24.19.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "concurrently": "^9.2.4",
     "istanbul-lib-coverage": "^3.2.2",
     "istanbul-lib-instrument": "^6.0.3",
     "istanbul-lib-report": "^3.0.1",
     "istanbul-reports": "^3.2.0",
-    "jscpd": "^5.1.2",
+    "jscpd": "^5.4.0",
     "typescript": "^7.0.2",
     "vite": "^7.3.6",
     "vite-plugin-istanbul": "^8.0.0",
