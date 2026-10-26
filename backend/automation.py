@@ -29,8 +29,7 @@ from backend.proxy_config import resolve_proxy_from_session_cfg
 
 _logger: logging.Logger = logging.getLogger(__name__)
 
-# Point costs for the enforce-minimum-points guardrail
-_VIP_POINTS_COST: dict[int, int] = {4: 5_000, 8: 10_000}  # weeks -> points; 90/max is variable
+# Point cost for the enforce-minimum-points guardrail
 _UPLOAD_POINTS_PER_GB = 500
 _shutdown_event = threading.Event()
 
@@ -374,7 +373,8 @@ async def vip_automation_job() -> None:
         retry state untouched because no purchase was attempted
     - checks session- and automation-level guardrails (min points, time,
         point thresholds, retry/cooldown logic)
-    - attempts VIP purchases via `buy_vip` when guardrails are satisfied
+    - attempts a max-duration VIP purchase via `buy_vip`, the only duration
+        MaM's API accepts, when guardrails are satisfied
     - handles retry and cooldown state, persists changes with `save_session`,
         and records events via `append_ui_event_log`.
     """
@@ -397,8 +397,9 @@ async def vip_automation_job() -> None:
             trigger_point_threshold = automation.get("trigger_point_threshold", 50000)
 
             proxy_cfg = resolve_proxy_from_session_cfg(cfg)  # Always resolve proxy
-            # Read weeks from automation config (default 4)
-            weeks = automation.get("weeks", 4)
+            # MAM's API sells VIP only as "max" (issue #187). A week count saved
+            # by an earlier release is left on disk but no longer read.
+            weeks = "max"
             status = await get_status(mam_id=mam_id, proxy_cfg=proxy_cfg)
             points = status.get("points")
             if points is None:
@@ -432,30 +433,8 @@ async def vip_automation_job() -> None:
                     )
                 # Do not check any automation-level guardrails if session minimum is not met
                 continue
-            # --- Enforce minimum points guardrail (prevent spend below minimum) ---
-            enforce_min_points_guardrail = cfg.get("perk_automation", {}).get(
-                "enforce_min_points_guardrail", False
-            )
-            if enforce_min_points_guardrail and session_min_points is not None:
-                purchase_cost = (
-                    None
-                    if str(weeks).lower() in ("max", "90")
-                    else _VIP_POINTS_COST.get(int(weeks))
-                )
-                if purchase_cost is not None and int(points) - purchase_cost < int(
-                    session_min_points
-                ):
-                    guardrail_reason = (
-                        f"Purchase would drop below minimum points: "
-                        f"{points} - {purchase_cost} = {int(points) - purchase_cost} "
-                        f"< {session_min_points}"
-                    )
-                    _log_automation_skip(_VIP_JOB, label, weeks, points, guardrail_reason, now)
-                    if "retry" in automation:
-                        _persist_automation_state(
-                            label, "vip_automation", {}, remove=("retry", "cooldown_until")
-                        )
-                    continue
+            # Max VIP is priced by how much it tops up, so the enforce-minimum-
+            # points guardrail has no fixed cost to check it against.
             # --- Time-based trigger enforcement ---
             last_vip_time = (
                 cfg.get("perk_automation", {}).get("vip_automation", {}).get("last_vip_time")
@@ -529,15 +508,12 @@ async def vip_automation_job() -> None:
                     }
                 )
                 continue
-            # Support 'max' for automation as well
-            is_max = str(weeks).lower() in ["max", "90"]
-            duration = "max" if is_max else str(weeks)
-            result = await buy_vip(mam_id, duration=duration, proxy_cfg=proxy_cfg)
+            result = await buy_vip(mam_id, duration="max", proxy_cfg=proxy_cfg)
             success = result.get("success", False) if result else False
             status_message = (
-                f"Automated purchase: VIP ({'Max me out!' if is_max else f'{weeks} weeks'})"
+                "Automated purchase: VIP (Max me out!)"
                 if success
-                else f"Automated VIP purchase failed ({'Max me out!' if is_max else f'{weeks} weeks'})"
+                else "Automated VIP purchase failed (Max me out!)"
             )
             event = {
                 "timestamp": now.isoformat(),
@@ -557,7 +533,7 @@ async def vip_automation_job() -> None:
             if success:
                 _logger.info(
                     "[VIPAuto] Automated purchase: VIP (%s) for session '%s' succeeded.",
-                    ("max" if is_max else weeks),
+                    weeks,
                     label,
                 )
                 # Update last purchase timestamp and reset retry state on success
@@ -571,13 +547,13 @@ async def vip_automation_job() -> None:
                     event_type="automation_success",
                     label=label,
                     status="SUCCESS",
-                    message=f"Automated VIP purchase succeeded: {'Max me out!' if is_max else str(weeks) + ' weeks'}",
+                    message="Automated VIP purchase succeeded: Max me out!",
                     details={"amount": weeks, "points_before": points},
                 )
             else:
                 _logger.warning(
                     "[VIPAuto] Automated purchase: VIP (%s) for session '%s' FAILED. Error: %s",
-                    ("max" if is_max else weeks),
+                    weeks,
                     label,
                     event["error"],
                 )
@@ -589,7 +565,7 @@ async def vip_automation_job() -> None:
                     retry_updates["cooldown_until"] = now_ts + 600
                     _logger.warning(
                         "[VIPAuto] Automated purchase: VIP (%s) for session '%s' retries_exceeded, cooldown_until=%s",
-                        ("max" if is_max else weeks),
+                        weeks,
                         label,
                         retry_updates["cooldown_until"],
                     )
@@ -598,7 +574,7 @@ async def vip_automation_job() -> None:
                     event_type="automation_failure",
                     label=label,
                     status="FAILED",
-                    message=f"Automated VIP purchase failed: {'Max me out!' if is_max else str(weeks) + ' weeks'}",
+                    message="Automated VIP purchase failed: Max me out!",
                     details={"amount": weeks, "points_before": points, "error": event["error"]},
                 )
             append_ui_event_log(event)

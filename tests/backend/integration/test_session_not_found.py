@@ -63,7 +63,7 @@ async def test_manual_purchases_report_the_missing_session(
     being turned away by upload-credit amount validation first.
     """
     response = await api_client.post(
-        endpoint, json={"label": "never-saved", "weeks": 4, "amount": 50}
+        endpoint, json={"label": "never-saved", "weeks": "max", "amount": 50}
     )
 
     body = response.json()

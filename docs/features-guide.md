@@ -63,10 +63,10 @@ MouseTrap also works with MAM's two session security types:
 - **Point trigger**: Minimum points before purchase
 
 **VIP Automation:**
-- **Cost**: 1,250 points per week
-- **Configurable duration**: 1-52 weeks per purchase
+- **Duration**: Always "Max me out!", which tops VIP up to 90 days. MaM's API
+  refuses any other duration.
+- **Cost**: Variable, depending on how much VIP is already banked
 - **Same trigger options** as upload credit
-- **Duration optimization**: Buy longer durations for better point efficiency
 
 ### Automation Rules & Guardrails
 
@@ -82,7 +82,7 @@ MouseTrap also works with MAM's two session security types:
 
 **Cost Verification:**
 - **Real-time checking**: Verifies sufficient points before attempting purchase
-- **Cost calculation**: Accounts for exact point costs (GB amount, VIP duration, etc.)
+- **Cost calculation**: Accounts for exact point costs (GB amount; VIP is bought as max at a variable cost, so it has no fixed price to check)
 - **Graceful failure**: Logs insufficient points without attempting purchase
 
 ### Automation Triggers

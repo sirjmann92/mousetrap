@@ -82,7 +82,6 @@ export default function App() {
   const [autoVIP, setAutoVIP] = React.useState(false);
   const [autoUpload, setAutoUpload] = React.useState(false);
   const [uploadAmount, setUploadAmount] = React.useState(0);
-  const [vipWeeks, setVipWeeks] = React.useState(0);
   const [forceExpandConfig, setForceExpandConfig] = React.useState(false);
   const [proxies, setProxies] = React.useState({});
   const [proxyUsage, setProxyUsage] = React.useState({});
@@ -397,9 +396,7 @@ export default function App() {
               setAutoUpload={setAutoUpload}
               setAutoVIP={setAutoVIP}
               setUploadAmount={setUploadAmount}
-              setVipWeeks={setVipWeeks}
               uploadAmount={uploadAmount}
-              vipWeeks={vipWeeks}
             />
           )}
           {/* 4. Notifications */}

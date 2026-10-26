@@ -43,10 +43,14 @@ This document describes all rules and guardrails for purchases (Upload Credit, V
 
 ## 5. Purchase Types and Costs
 - **Upload Credit:** 500 points per GB (50 GB or 100 GB per purchase)
-- **VIP:** 5,000 points per 4 weeks (configurable duration per automation)
+- **VIP:** "Max me out!" only, topping VIP up to 90 days at a variable points
+  cost. MaM's API refuses any other duration with `Api sessions can only buy max
+  for VIP`, so manual and automated purchases both buy max. Because the cost
+  is variable, the enforce-minimum-points guardrail cannot price a VIP
+  purchase; the session minimum points check still applies to automation.
 
 ---
-_Last updated: 2025-09-01_
+_Last updated: 2026-10-26_
 
 ## VIP Minimum-Purchase Guardrail
 
@@ -58,8 +62,8 @@ ones.
 
 MaM caps VIP at **90 days**, so once more than **83 days** remain no purchase
 can add the required week. MouseTrap reads `vip_until` from the session's last
-status check and skips the purchase above that threshold, for every duration
-rather than just "Max me out!". The Purchase VIP button is disabled while this
+status check and skips the purchase above that threshold. The Purchase VIP
+button is disabled while this
 applies, with the reason on hover, and re-enables itself once enough VIP has
 burned off without needing a page reload.
 

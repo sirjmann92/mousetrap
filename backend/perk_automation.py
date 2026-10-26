@@ -249,7 +249,7 @@ async def buy_vip(
     """Purchase VIP status via the MaM API. Returns a result dict.
 
     mam_id: required session cookie for authentication
-    duration: 'max', '4', '8', etc. (string)
+    duration: 'max', the only duration MaM's API accepts for VIP (string)
     proxy_cfg: optional proxy config dict
     """
     timestamp = int(time.time() * 1000)

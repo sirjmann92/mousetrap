@@ -20,10 +20,10 @@ import {
  * - onToggle: function
  * - toggleLabel: string
  * - toggleDisabled: boolean
- * - selectLabel: string
- * - selectValue: any
- * - selectOptions: array of { value, label }
- * - onSelectChange: function
+ * - selectLabel: string (optional; the select is omitted without one)
+ * - selectValue: any (optional)
+ * - selectOptions: array of { value, label } (optional)
+ * - onSelectChange: function (optional)
  * - extraControls: React node (optional)
  * - triggerType: string
  * - onTriggerTypeChange: function
@@ -41,10 +41,10 @@ export default function AutomationSection({
   onToggle,
   toggleLabel,
   toggleDisabled = false,
-  selectLabel,
-  selectValue,
+  selectLabel = '',
+  selectValue = undefined,
   selectOptions = [],
-  onSelectChange,
+  onSelectChange = undefined,
   extraControls = null,
   onTriggerTypeChange,
   triggerTypeValue,

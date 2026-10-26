@@ -437,6 +437,41 @@ test.describe
         'Min VIP is 1 week purchased for Automated methods',
       );
     });
+    test('offers VIP only as Max me out!, the one duration MAM accepts', async ({
+      page,
+      request,
+    }) => {
+      const seeded = await request.post('/api/session/save', {
+        data: {
+          label: 'VipMaxOnly',
+          mam: { ip_monitoring_mode: 'static', mam_id: 'e2e-mam-id', session_type: 'IP Locked' },
+          mam_ip: '192.0.2.44',
+        },
+      });
+      expect(seeded.ok()).toBeTruthy();
+
+      await page.goto('/');
+      await page.route('**/api/automation/vip', (route) =>
+        route.fulfill({
+          body: '{"success": true}',
+          contentType: 'application/json',
+          status: 200,
+        }),
+      );
+      await page.getByRole('heading', { name: 'Perk Purchase & Automation' }).click();
+      // Issue #187: MAM's API refuses 4 or 8 weeks, so there is nothing to pick.
+      await expect(page.getByRole('combobox', { name: 'VIP Duration' })).toHaveCount(0);
+      await expect(page.getByText('VIP Duration: Max me out!')).toBeVisible();
+
+      const purchased = page.waitForRequest('**/api/automation/vip');
+      await page.getByTestId('purchase-vip').click();
+      await expect(page.getByRole('dialog')).toContainText('top up VIP to 90 days');
+      await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+      expect((await purchased).postDataJSON()).toEqual({ label: 'VipMaxOnly', weeks: 'max' });
+      await expect(
+        page.getByRole('alert').filter({ hasText: 'VIP topped up to 90 days!' }),
+      ).toBeVisible();
+    });
     test('disables the VIP purchase button while no full week of VIP fits', async ({
       page,
       request,

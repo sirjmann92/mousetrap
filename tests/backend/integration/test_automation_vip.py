@@ -1,12 +1,13 @@
-"""Backend integration coverage for the manual VIP purchase route."""
+"""Backend integration coverage for VIP purchases, manual and automated."""
 
 from datetime import UTC, datetime
 from typing import Any, Self
+from unittest.mock import AsyncMock, Mock
 
 from httpx import AsyncClient
 import pytest
 
-from backend import api_automation, config
+from backend import api_automation, automation, config
 from backend.event_log import get_ui_event_log
 from backend.perk_automation import _rejection_reason
 
@@ -48,14 +49,18 @@ def purchases(monkeypatch: pytest.MonkeyPatch) -> list[str]:
 
 @pytest.mark.integration
 @pytest.mark.parametrize("guardrail", [True, False])
-@pytest.mark.parametrize("weeks", ["abc", None, 4.5, True])
-async def test_unparseable_weeks_is_rejected_without_purchasing(
+@pytest.mark.parametrize("weeks", ["abc", None, 4.5, True, 4, "8", 0, 90.0])
+async def test_a_duration_other_than_max_is_rejected_without_purchasing(
     api_client: AsyncClient,
     purchases: list[str],
     guardrail: bool,
     weeks: object,
 ) -> None:
-    """A week count that is not a whole number is a client error on every session."""
+    """Anything but max is a client error, since MAM's API refuses it (issue #187).
+
+    MAM answers a week count with "Api sessions can only buy max for VIP", so
+    sending one would spend a request on a purchase that cannot succeed.
+    """
     _save_vip_session("seedbox", guardrail=guardrail)
 
     response = await api_client.post(
@@ -63,47 +68,34 @@ async def test_unparseable_weeks_is_rejected_without_purchasing(
     )
 
     assert response.status_code == 400
-    assert repr(weeks) in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert repr(weeks) in detail
+    assert "only accepts 'max'" in detail
     assert purchases == []
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(("weeks", "duration"), [(4, "4"), ("8", "8"), ("max", "max"), (90, "max")])
-async def test_accepted_weeks_reach_the_purchase(
+@pytest.mark.parametrize("guardrail", [True, False])
+@pytest.mark.parametrize(
+    "body", [{"weeks": "max"}, {"weeks": " MAX "}, {"weeks": 90}, {"weeks": "90"}, {}]
+)
+async def test_max_and_its_equivalents_reach_the_purchase_as_max(
     api_client: AsyncClient,
     purchases: list[str],
-    weeks: object,
-    duration: str,
+    guardrail: bool,
+    body: dict[str, Any],
 ) -> None:
-    """The accepted domain still reaches MAM, with "max" and 90 weeks equivalent."""
-    _save_vip_session("seedbox", guardrail=False)
+    """Every spelling of max, and an omitted duration, buys max.
 
-    response = await api_client.post(
-        "/api/automation/vip", json={"label": "seedbox", "weeks": weeks}
-    )
+    The minimum-points guardrail has no fixed price for max to check, so it
+    lets the purchase through whether or not it is enabled.
+    """
+    _save_vip_session("seedbox", guardrail=guardrail)
+
+    response = await api_client.post("/api/automation/vip", json={"label": "seedbox", **body})
 
     assert response.json() == {"success": True}
-    assert purchases == [duration]
-
-
-@pytest.mark.integration
-async def test_guardrail_blocks_a_priced_purchase(
-    api_client: AsyncClient, purchases: list[str], monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A parsed week count still prices the purchase against the points guardrail."""
-
-    async def fake_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
-        return {"points": 5_500}
-
-    monkeypatch.setattr(api_automation, "get_status", fake_status)
-    _save_vip_session("seedbox", guardrail=True)
-
-    response = await api_client.post("/api/automation/vip", json={"label": "seedbox", "weeks": "4"})
-
-    body = response.json()
-    assert body["success"] is False
-    assert "minimum points" in body["error"]
-    assert purchases == []
+    assert purchases == ["max"]
 
 
 # MAM's verbatim refusal when a purchase would add less than a full week. See
@@ -115,12 +107,9 @@ _MIN_VIP_REFUSAL = {
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(("weeks", "amount"), [("max", "max"), (4, 4)])
 async def test_mam_refusal_reason_reaches_the_caller_and_the_event_log(
     api_client: AsyncClient,
     monkeypatch: pytest.MonkeyPatch,
-    weeks: object,
-    amount: object,
 ) -> None:
     """A 200-OK refusal surfaces MAM's wording instead of a bare failure.
 
@@ -137,7 +126,7 @@ async def test_mam_refusal_reason_reaches_the_caller_and_the_event_log(
     _save_vip_session("seedbox", guardrail=False)
 
     response = await api_client.post(
-        "/api/automation/vip", json={"label": "seedbox", "weeks": weeks}
+        "/api/automation/vip", json={"label": "seedbox", "weeks": "max"}
     )
 
     body = response.json()
@@ -146,7 +135,7 @@ async def test_mam_refusal_reason_reaches_the_caller_and_the_event_log(
 
     event = get_ui_event_log()[-1]
     assert event["result"] == "failed"
-    assert event["amount"] == amount
+    assert event["amount"] == "max"
     assert event["error"] == "Min VIP is 1 week purchased for Automated methods"
 
 
@@ -182,17 +171,17 @@ _OVER_CAP_NOW = datetime(2026, 9, 20, 14, 43, 34, tzinfo=UTC)
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("weeks", ["max", 4, 8])
+@pytest.mark.parametrize("weeks", ["max", 90])
 async def test_purchase_is_blocked_before_reaching_mam_when_over_the_cap(
     api_client: AsyncClient,
     purchases: list[str],
     monkeypatch: pytest.MonkeyPatch,
     weeks: object,
 ) -> None:
-    """Stop every duration, not just max, without spending a request.
+    """Stop the purchase without spending a request.
 
-    At 89 days banked no duration can add a full week, so the purchase is
-    refused whatever the user picked.
+    At 89 days banked a max purchase cannot add a full week, so MAM would
+    refuse it.
     """
     monkeypatch.setattr(api_automation, "datetime", _FrozenDatetime)
     config.save_session(
@@ -255,6 +244,60 @@ async def test_missing_status_does_not_block_the_purchase(
 
     assert response.json()["success"] is True
     assert purchases == ["max"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("saved_weeks", [4, 8, 90, "max", None])
+async def test_automation_buys_max_whatever_duration_was_saved(
+    monkeypatch: pytest.MonkeyPatch, saved_weeks: object
+) -> None:
+    """A week count saved by an earlier release still buys max.
+
+    Sessions default to 4 weeks, so without this every existing VIP automation
+    would send a duration MAM's API refuses, then retry it into cooldown
+    (issue #187).
+    """
+    vip: dict[str, Any] = {
+        "enabled": True,
+        "trigger_type": "points",
+        "trigger_point_threshold": 1,
+    }
+    if saved_weeks is not None:
+        vip["weeks"] = saved_weeks
+    cfg = {
+        "label": "seedbox",
+        "mam": {"mam_id": "cookie"},
+        "perk_automation": {
+            "enforce_min_points_guardrail": True,
+            "min_points": 1000,
+            "vip_automation": vip,
+        },
+    }
+    durations: list[str] = []
+    events: list[dict[str, Any]] = []
+
+    async def fake_buy_vip(
+        _mam_id: str, duration: str = "max", proxy_cfg: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        durations.append(duration)
+        return {"success": True}
+
+    monkeypatch.setattr(automation, "list_sessions", lambda: ["seedbox"])
+    monkeypatch.setattr(automation, "load_session", lambda _label: cfg)
+    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    monkeypatch.setattr(automation, "get_status", AsyncMock(return_value={"points": 50_000}))
+    monkeypatch.setattr(automation, "buy_vip", fake_buy_vip)
+    monkeypatch.setattr(automation, "save_session", Mock())
+    monkeypatch.setattr(automation, "notify_event", AsyncMock())
+    monkeypatch.setattr(automation, "append_ui_event_log", events.append)
+    automation.reset_automation_shutdown()
+
+    await automation.vip_automation_job()
+
+    assert durations == ["max"]
+    assert events[-1]["result"] == "success"
+    assert events[-1]["amount"] == "max"
+    assert events[-1]["status_message"] == "Automated purchase: VIP (Max me out!)"
 
 
 class _FrozenDatetime(datetime):

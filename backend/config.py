@@ -120,7 +120,8 @@ def load_session(label: str) -> dict[str, Any]:
         "trigger_type": "time",
         "trigger_days": 7,
         "trigger_point_threshold": 50000,
-        "weeks": 4,
+        # MAM's API sells VIP only as "max"; kept so older readers find a value.
+        "weeks": 90,
     }
     vip_auto = _ensure_mapping(
         perk_auto,
