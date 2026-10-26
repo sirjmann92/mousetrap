@@ -10,12 +10,12 @@ All manual and automated purchases are logged if and only if a purchase is attem
 ## Event Log Entries
 - **Manual Purchases:**
   - "Purchased 50GB upload credit"
-  - "Purchased VIP (4 weeks)"
+  - "Purchased VIP (Max me out!)"
 - **Automated Purchases:**
   - "Automated purchase: 50GB upload credit"
-  - "Automated purchase: VIP (4 weeks)"
+  - "Automated purchase: VIP (Max me out!)"
 - **Failures:**
-  - Will show as e.g. "Upload credit purchase failed (50GB)" or "Automated VIP purchase failed (4 weeks)"
+  - Will show as e.g. "Upload credit purchase failed (50GB)" or "Automated VIP purchase failed (Max me out!)"
   - When MaM gave a reason, it is shown beneath the entry as "Reason: ...", in MaM's own wording
 - **Skipped Automations:**
   - "Not enough points: 9133 < 20000" (session-level guardrail)
@@ -28,7 +28,7 @@ All manual and automated purchases are logged if and only if a purchase is attem
 ## Backend Log Entries
 - All purchase attempts (manual or automated) are logged with clear, explicit messages, e.g.:
   - "[ManualUpload] Purchase: 50GB upload credit for session 'Gluetun' succeeded."
-  - "[VIPAuto] Automated purchase: VIP (4 weeks) for session 'Gluetun' succeeded."
+  - "[VIPAuto] Automated purchase: VIP (max) for session 'Gluetun' succeeded."
   - Failures are also clearly logged with error details.
   - A purchase MaM refuses is reported with MaM's own wording, e.g. "[ManualVIP] Purchase: VIP (max) for session 'Gluetun' FAILED. Error: Min VIP is 1 week purchased for Automated methods."
 - Skipped automations (due to guardrails) are only logged if the automation is enabled for that session.
@@ -65,4 +65,4 @@ a MaM-side rule, not a MouseTrap limitation.
 
 ---
 
-_Last updated: 2026-09-19_
+_Last updated: 2026-10-26_

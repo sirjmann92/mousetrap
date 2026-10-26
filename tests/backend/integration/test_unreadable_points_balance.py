@@ -271,11 +271,12 @@ async def test_a_genuine_zero_balance_still_fails_the_threshold(
 
 
 @pytest.mark.integration
+# The VIP route is absent: MAM sells VIP only as max, whose variable price the
+# minimum-points guardrail cannot check, so that route never reads the balance.
 @pytest.mark.parametrize(
     ("route", "body"),
     [
         ("/api/automation/upload_auto", {"label": "seedbox", "amount": 50}),
-        ("/api/automation/vip", {"label": "seedbox", "weeks": 4}),
     ],
 )
 async def test_an_unreadable_balance_blocks_a_manual_purchase_naming_the_api_failure(

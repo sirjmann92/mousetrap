@@ -74,7 +74,7 @@ from defaults:
     },
     "vip_automation": {
       "enabled": false, "trigger_type": "time", "trigger_days": 7,
-      "trigger_point_threshold": 50000, "weeks": 4
+      "trigger_point_threshold": 50000, "weeks": 90
     }
   },
   "prowlarr": {
@@ -278,7 +278,7 @@ persisted.
     },
     "vip_automation": {
       "enabled": true,
-      "weeks": 8,
+      "weeks": 90,
       "trigger_type": "points",
       "trigger_days": 7,
       "trigger_point_threshold": 30000
@@ -287,7 +287,9 @@ persisted.
 }
 ```
 
-The VIP section is `vip_automation`, not `vip`.
+The VIP section is `vip_automation`, not `vip`. Its `weeks` is stored as sent
+but no longer read: MaM's API sells VIP only as max, so automation always buys
+max. Sessions saved by an earlier release may still hold `4` or `8`.
 
 ### GET `/api/automation/guardrails`
 Report which automations are enabled per session, keyed by label, so the UI can
@@ -326,17 +328,17 @@ Manually trigger a VIP purchase.
 ```json
 {
   "label": "session-name",
-  "weeks": 4
+  "weeks": "max"
 }
 ```
 
 - `label` is required; a missing label returns `400`.
-- `weeks` is a whole number of weeks, sent as a number or a string, and defaults
-  to `4`. `"max"` and `90` both buy the max duration. Any other value returns
-  `400`.
-- When the session enables the minimum-points guardrail and MaM returns no point
-  balance, the purchase is not attempted and the response carries the MaM failure
-  in `error`.
+- `weeks` is optional and defaults to `"max"`, which tops VIP up to its 90-day
+  cap. `90` (number or string) is accepted as an equivalent. Any other value,
+  including a week count such as `4` or `8`, returns `400`: MaM's API refuses
+  every VIP duration except max with `Api sessions can only buy max for VIP`.
+- The minimum-points guardrail does not apply, because MaM prices max by how
+  much VIP it adds, so there is no fixed cost to compare against the balance.
 - When MaM refuses the purchase it answers `200 OK` with `{"success": false,
   "error": "..."}`, and that wording is returned verbatim in `error`. A common
   refusal is `Min VIP is 1 week purchased for Automated methods`: purchases made
@@ -713,10 +715,10 @@ type. An automation event looks like:
     "event_type": "automation",
     "trigger": "automation",
     "purchase_type": "vip",
-    "amount": 4,
+    "amount": "max",
     "details": { "points_before": 51234 },
     "result": "success",
-    "status_message": "Automated VIP purchase succeeded: 4 weeks"
+    "status_message": "Automated purchase: VIP (Max me out!)"
   }
 ]
 ```

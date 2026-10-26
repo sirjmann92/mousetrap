@@ -27,12 +27,10 @@ import FeedbackSnackbar from './FeedbackSnackbar';
  * @property {function} setAutoVIP
  * @property {function} setAutoUpload
  * @property {function} setUploadAmount
- * @property {function} setVipWeeks
  * @property {boolean} [autoVIP]
  * @property {boolean} [autoUpload]
  * @property {function} [onActionComplete]
  * @property {number} [uploadAmount]
- * @property {number} [vipWeeks]
  */
 /** @param {PerkAutomationCardProps} props */
 export default function PerkAutomationCard(props) {
@@ -89,7 +87,6 @@ export default function PerkAutomationCard(props) {
   const [triggerPointThreshold, setTriggerPointThreshold] = useState(50000);
   const [expanded, setExpanded] = useState(false);
   const [uploadAmount, setUploadAmount] = useState(50);
-  const [vipWeeks, setVipWeeks] = useState(4);
   const [confirmVIPOpen, setConfirmVIPOpen] = useState(false);
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
 
@@ -121,7 +118,6 @@ export default function PerkAutomationCard(props) {
         setVipTriggerType(vip.trigger_type ?? 'time');
         setVipTriggerDays(vip.trigger_days ?? 7);
         setVipTriggerPointThreshold(vip.trigger_point_threshold ?? 50000);
-        setVipWeeks(vip.weeks ?? 4);
         // Save username for guardrails
         let username = null;
         if (cfg.last_status?.raw?.username) {
@@ -209,19 +205,19 @@ export default function PerkAutomationCard(props) {
     return `VIP has ${daysLeft.toFixed(1)} days remaining. MAM refuses a purchase that would add less than a full week, so this becomes available ${eligibleAt.toLocaleString()}.`;
   })();
 
+  // MAM's API sells VIP only as "max", topping it up to the 90-day cap.
   const triggerVIPManual = async () => {
-    const purchase = vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`;
     try {
-      await apiPost('/api/automation/vip', { label: sessionLabel, weeks: Number(vipWeeks) });
+      await apiPost('/api/automation/vip', { label: sessionLabel, weeks: 'max' });
       setSnackbar({
-        message: `VIP purchased for ${purchase}!`,
+        message: 'VIP topped up to 90 days!',
         open: true,
         severity: 'success',
       });
       onActionComplete();
     } catch (e) {
       setSnackbar({
-        message: `VIP purchase for ${purchase} failed: ${e.message}`,
+        message: `VIP purchase failed: ${e.message}`,
         open: true,
         severity: 'error',
       });
@@ -304,7 +300,7 @@ export default function PerkAutomationCard(props) {
         trigger_days: Number(vipTriggerDays),
         trigger_point_threshold: Number(vipTriggerPointThreshold),
         trigger_type: vipTriggerType,
-        weeks: Number(vipWeeks),
+        weeks: 90,
       },
     };
     try {
@@ -388,10 +384,7 @@ export default function PerkAutomationCard(props) {
             confirmButton={
               <Box sx={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                 <Tooltip
-                  title={
-                    vipPurchaseBlockMsg ||
-                    'This will instantly purchase VIP for the selected duration.'
-                  }
+                  title={vipPurchaseBlockMsg || 'This will instantly top up VIP to 90 days.'}
                 >
                   {/* The span wraps the button tightly so the tooltip still has
                       a hover target: a disabled button fires no pointer events. */}
@@ -411,35 +404,21 @@ export default function PerkAutomationCard(props) {
             }
             enabled={autoVIP}
             extraControls={
-              <Tooltip
-                title={
-                  <span>
-                    4 weeks = 5,000 points
-                    <br />8 weeks = 10,000 points
-                    <br />
-                    Max me out! = Top up to 90 days (variable points)
-                  </span>
-                }
-              >
-                <IconButton size="small" sx={{ ml: 1 }}>
-                  <InfoOutlinedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              <Box sx={{ alignItems: 'center', display: 'flex' }}>
+                <Typography variant="body2">VIP Duration: Max me out!</Typography>
+                <Tooltip title="MAM's API only sells VIP as Max me out!, which tops VIP up to 90 days. The points cost depends on how much VIP you already have.">
+                  <IconButton size="small" sx={{ ml: 1 }}>
+                    <InfoOutlinedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
             }
-            onSelectChange={(e) => setVipWeeks(parseInt(e.target.value, 10) || 0)}
             onToggle={(e) => setAutoVIPCombined(e.target.checked)}
             onTriggerDaysChange={(e) => setVipTriggerDays(parseInt(e.target.value, 10) || 0)}
             onTriggerPointThresholdChange={(e) =>
               setVipTriggerPointThreshold(parseInt(e.target.value, 10) || 0)
             }
             onTriggerTypeChange={(e) => setVipTriggerType(e.target.value)}
-            selectLabel="VIP Duration"
-            selectOptions={[
-              { label: '4 Weeks', value: 4 },
-              { label: '8 Weeks', value: 8 },
-              { label: 'Max me out!', value: 90 },
-            ]}
-            selectValue={vipWeeks}
             title={
               <span>
                 VIP Purchase
@@ -508,7 +487,7 @@ export default function PerkAutomationCard(props) {
 
           {/* Confirmation Dialogs (modularized) */}
           <ConfirmDialog
-            message={`Are you sure you want to instantly purchase VIP for ${vipWeeks === 90 ? 'up to 90 days (Max me out!)' : `${vipWeeks} weeks`}?`}
+            message="Are you sure you want to instantly top up VIP to 90 days (Max me out!)?"
             onClose={() => setConfirmVIPOpen(false)}
             onConfirm={triggerVIPManual}
             open={confirmVIPOpen}
