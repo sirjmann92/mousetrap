@@ -63,6 +63,7 @@ addopts = """
 """
 testpaths = ["tests/backend"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["error"]
 markers = [
     "integration: public API tests spanning multiple backend modules",
