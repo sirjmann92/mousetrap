@@ -4,9 +4,10 @@ The API calls live in :mod:`backend.servarr_client`, which Prowlarr shares. This
 module supplies Chaptarr's service description and keeps the public functions
 the rest of the app imports.
 
-Chaptarr differs from Prowlarr in three ways, all captured in `CHAPTARR` below:
+Chaptarr differs from Prowlarr in two ways, both captured in `CHAPTARR` below:
 it names the implementation in `implementation` and matches case-insensitively,
-it spells the indexer "MyAnonaMouse", and its update PUT needs `forceSave=true`.
+and it spells the indexer "MyAnonaMouse". Its update PUT forces a save, as
+Prowlarr's does.
 The MAM ID field is `mamId` on both, lowercase.
 """
 

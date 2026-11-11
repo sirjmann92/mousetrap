@@ -10,7 +10,12 @@ The differences are deliberately narrow and each is load-bearing:
 
 - **How the MAM indexer is recognised.** Prowlarr matches ``definitionName``
   exactly; Chaptarr matches ``implementation`` case-insensitively.
-- **Whether the update forces a save.** Chaptarr appends ``?forceSave=true``.
+- **Whether the update forces a save.** Both append ``?forceSave=true`` today.
+  Without it the service tests the indexer against MAM inside the PUT and
+  rejects the save if that test fails, so a slow MAM made Prowlarr's PUT
+  outlast the client timeout (issue #195) and a MAM outage would block the
+  save outright. The ID being written came from MAM itself, so the test adds
+  nothing.
 - **The spelling used in messages.** Prowlarr says "MyAnonamouse", Chaptarr
   says "MyAnonaMouse", and both spellings are user-visible.
 
@@ -27,6 +32,7 @@ from typing import Any
 import aiohttp
 
 from backend.url_builder import build_service_url
+from backend.utils import describe_error
 
 _logger: logging.Logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
@@ -95,7 +101,7 @@ async def test_connection(
         return {"success": False, "message": "Connection timeout"}
     except Exception as e:
         _logger.error("%s connection test failed: %s", service.name, e)
-        return {"success": False, "message": str(e)}
+        return {"success": False, "message": describe_error(e)}
 
 
 def _is_mam_indexer(service: ServarrService, indexer: dict[str, Any]) -> bool:
@@ -161,7 +167,7 @@ async def find_indexer_id(
 
     except Exception as e:
         _logger.exception("Failed to find MAM indexer")
-        return {"success": False, "message": f"Error: {e!s}"}
+        return {"success": False, "message": f"Error: {describe_error(e)}"}
 
 
 async def get_indexer_config(
@@ -202,7 +208,7 @@ async def get_indexer_config(
             }
     except Exception as e:
         _logger.exception("Failed to fetch indexer config")
-        return {"success": False, "message": f"Error: {e!s}"}
+        return {"success": False, "message": f"Error: {describe_error(e)}"}
 
 
 async def update_mam_id(
@@ -290,7 +296,7 @@ async def update_mam_id(
                 }
     except Exception as e:
         _logger.exception("Failed to update MAM ID in %s", service.name)
-        return {"success": False, "message": f"Error: {e!s}"}
+        return {"success": False, "message": f"Error: {describe_error(e)}"}
 
 
 async def sync_mam_id(

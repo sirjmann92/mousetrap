@@ -19,6 +19,7 @@ import aiohttp
 from yarl import URL
 
 from backend.url_builder import build_service_url
+from backend.utils import describe_error
 
 _logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
@@ -182,10 +183,10 @@ async def test_jackett_connection(
 
     except aiohttp.ClientError as e:
         _logger.exception("Jackett connection error")
-        return {"success": False, "message": f"Connection error: {e}"}
+        return {"success": False, "message": f"Connection error: {describe_error(e)}"}
     except Exception as e:
         _logger.exception("Unexpected error testing Jackett")
-        return {"success": False, "message": f"Error: {e}"}
+        return {"success": False, "message": f"Error: {describe_error(e)}"}
 
 
 async def get_indexer_config(
@@ -368,4 +369,4 @@ async def sync_mam_id_to_jackett(
 
     except Exception as e:
         _logger.exception("Error syncing MAM ID to Jackett")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": describe_error(e)}
