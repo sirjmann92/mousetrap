@@ -17,7 +17,7 @@ from typing import Any
 import aiohttp
 
 from backend.url_builder import build_service_url
-from backend.utils import handle_http_error
+from backend.utils import describe_error, handle_http_error
 
 _logger = logging.getLogger(__name__)
 _TIMEOUT = aiohttp.ClientTimeout(total=10)
@@ -77,7 +77,7 @@ async def test_autobrr_connection(host: str, port: int, api_key: str) -> dict[st
         return {"success": False, "message": "Connection timeout"}
     except Exception as e:
         _logger.exception("Autobrr connection test failed")
-        return {"success": False, "message": str(e)}
+        return {"success": False, "message": describe_error(e)}
 
 
 async def sync_mam_id_to_autobrr(
@@ -169,4 +169,4 @@ async def sync_mam_id_to_autobrr(
         return {"success": False, "error": "Connection timeout"}
     except Exception as e:
         _logger.exception("Autobrr MAM ID sync failed")
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": describe_error(e)}

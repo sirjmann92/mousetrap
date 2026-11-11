@@ -106,6 +106,27 @@ def build_proxy_dict(proxy_cfg: dict[str, Any]) -> dict[str, Any] | None:
     return {"http": proxy_url, "https": proxy_url}
 
 
+def describe_error(exc: BaseException) -> str:
+    """Return a message for an exception that is never empty.
+
+    Some exceptions carry no text. ``str(TimeoutError())`` is ``""``, so an
+    indexer push that timed out used to report just ``"Error: "``. Those are
+    described by what happened instead.
+
+    Args:
+        exc: The exception caught.
+
+    Returns:
+        The exception's own text, or a description from its type when it has none.
+    """
+    text = str(exc).strip()
+    if text:
+        return text
+    if isinstance(exc, TimeoutError):
+        return "Request timed out"
+    return type(exc).__name__
+
+
 def handle_http_error(status: int, text: str = "", indexer_name: str = "Indexer") -> dict[str, Any]:
     """Handle common HTTP error status codes for indexer integrations.
 

@@ -2,7 +2,7 @@
 
 These two modules are 91.5% identical once the service name is normalised, and
 neither had any direct test coverage. The tests below pin current behaviour —
-including the three places the modules genuinely diverge — so that the shared
+including the places the modules genuinely diverge — so that the shared
 implementation they are heading towards can be shown to preserve it.
 
 They are characterisation tests, not a specification: they were written against
@@ -204,23 +204,23 @@ async def test_chaptarr_ignores_definition_name(monkeypatch: pytest.MonkeyPatch)
     assert found["success"] is False
 
 
-# --- update: same field name, different URL --------------------------------
+# --- update: same field name, same forced save ----------------------------
 
 
 @pytest.mark.parametrize(
-    ("module", "func", "expects_force_save"),
+    ("module", "func"),
     [
-        (prowlarr_integration, "update_mam_id_in_prowlarr", False),
-        (chaptarr_integration, "update_mam_id_in_chaptarr", True),
+        (prowlarr_integration, "update_mam_id_in_prowlarr"),
+        (chaptarr_integration, "update_mam_id_in_chaptarr"),
     ],
 )
-async def test_update_writes_the_mamid_field_and_puts_it_back(
-    monkeypatch: pytest.MonkeyPatch, module: Any, func: str, expects_force_save: bool
+async def test_update_writes_the_mamid_field_and_forces_the_save(
+    monkeypatch: pytest.MonkeyPatch, module: Any, func: str
 ) -> None:
-    """Both modules write the lowercase `mamId` field; only Chaptarr forces a save.
+    """Both modules write the lowercase `mamId` field and force the save.
 
-    The `MamId` spelling in Chaptarr's module docstring is not what the code
-    does — both check `field["name"] == "mamId"`.
+    Without `forceSave=true`, Prowlarr tests the indexer against MAM inside the
+    PUT, which outlasted the client timeout whenever MAM was slow (#195).
     """
     config = {"id": 3, "fields": [{"name": "mamId", "value": "old-cookie"}]}
     session = _install(
@@ -235,5 +235,37 @@ async def test_update_writes_the_mamid_field_and_puts_it_back(
     put_calls = [c for c in session.calls if c[0] == "PUT"]
     assert len(put_calls) == 1
     url, body = put_calls[0][1], put_calls[0][2]
-    assert ("forceSave=true" in url) is expects_force_save
+    assert url.endswith("/api/v1/indexer/3?forceSave=true")
     assert [f for f in body["fields"] if f["name"] == "mamId"][0]["value"] == "new-cookie"
+
+
+class _TimingOutResponse(_StubResponse):
+    """Stub response whose request times out before any reply arrives."""
+
+    async def __aenter__(self) -> Self:
+        """Raise the bare ``TimeoutError`` aiohttp raises on a total timeout.
+
+        Raises:
+            TimeoutError: Always, with no message, as aiohttp raises it.
+        """
+        raise TimeoutError
+
+
+async def test_update_reports_a_timeout_with_a_message(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A timed-out PUT says it timed out, not just "Error: " (#195).
+
+    aiohttp raises ``TimeoutError`` with no text, so the message used to end
+    after the colon and the warning logged for the push said nothing.
+    """
+    config = {"id": 3, "fields": [{"name": "mamId", "value": "old-cookie"}]}
+    _install(
+        monkeypatch,
+        prowlarr_integration,
+        {"GET": _StubResponse(config), "PUT": _TimingOutResponse({})},
+    )
+
+    result = await prowlarr_integration.update_mam_id_in_prowlarr(
+        HOST, PORT, API_KEY, 3, "new-cookie"
+    )
+
+    assert result == {"success": False, "message": "Error: Request timed out"}

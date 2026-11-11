@@ -16,15 +16,16 @@ from backend.servarr_client import (
     update_mam_id,
 )
 
-# Prowlarr names the implementation in `definitionName` and matches it exactly,
-# and does not need forceSave on the update.
+# Prowlarr names the implementation in `definitionName` and matches it exactly.
+# The update forces a save: without it Prowlarr tests the indexer against MAM
+# before saving, which can outlast the PUT timeout when MAM is slow (#195).
 PROWLARR = ServarrService(
     name="Prowlarr",
     config_key="prowlarr",
     indexer_match_field="definitionName",
     indexer_label="MyAnonamouse",
     match_case_insensitive=False,
-    force_save=False,
+    force_save=True,
 )
 
 

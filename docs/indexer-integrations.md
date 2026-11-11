@@ -187,9 +187,11 @@ event_rules:
 |---------|----------|----------|
 | Default Port | `9696` | `8789` |
 | Implementation Name | `MyAnonamouse` | `MyAnonaMouse` (case-insensitive) |
-| MAM ID Field | `mamId` | `MamId` |
+| MAM ID Field | `mamId` | `mamId` |
 | API Endpoint | `/api/v1/indexer` | `/api/v1/indexer` |
-| Force Save | No | Yes (`?forceSave=true`) |
+| Force Save | Yes (`?forceSave=true`) | Yes (`?forceSave=true`) |
+
+Both updates force the save, so Prowlarr and Chaptarr store the new MAM ID without first testing the indexer against MAM. Before this, Prowlarr ran that test inside the update request, and when MAM was slow the update could outlast MouseTrap's 10-second timeout. It then reported a failure even though Prowlarr went on to save the ID. Because the test is skipped, a MAM ID typed in by hand is not checked when it is saved. Use the indexer's **Test** button in Prowlarr or Chaptarr to check it.
 
 ### Configuration Fields
 
@@ -240,7 +242,7 @@ If you enable "Auto-update on Save" for a service, MouseTrap pushes the new MAM 
 
 **Event Log Messages**:
 - Success: `"MAM ID synced to Prowlarr, Chaptarr"`
-- Partial: `"MAM ID synced to Prowlarr. Failed: Chaptarr (connection timeout)"`
+- Partial: `"MAM ID synced to Prowlarr. Failed: Chaptarr (Error: Request timed out)"`
 - Failure: `"Failed to sync MAM ID: Prowlarr (401 Unauthorized), Chaptarr (404 Not Found)"`
 
 ---
