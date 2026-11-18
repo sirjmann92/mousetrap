@@ -57,6 +57,12 @@
     "vite-plugin-istanbul": "^8.0.0",
     "vite-plugin-svgr": "^4.5.0"
   },
+  "overrides": {
+    "test-exclude": {
+      "glob": "^14.0.6",
+      "minimatch": "^11.0.1"
+    }
+  },
   "allowScripts": {
     "esbuild": true,
     "fsevents": true
