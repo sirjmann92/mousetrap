@@ -151,6 +151,7 @@ extend-select = [
     "D", # docstrings
     "DTZ", # flake8-datetimez
     "E", # pycodestyle
+    "ERA",
     "EXE", # flake8-executable
     "F", # pyflakes/autoflake
     "FIX", # flake8-fixme

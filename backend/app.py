@@ -148,7 +148,6 @@ scheduler = BackgroundScheduler()
 
 session_status_cache: dict[str, Any] = {}
 # Global cache for notification deduplication by UID (MAM account ID)
-# Format: {uid: {event_type: {count_change_key: timestamp}}}
 # Note: Uses UID not mam_id, since multiple sessions can share the same MAM account
 notification_dedup_cache: dict[str, dict[str, dict[str, float]]] = {}
 
