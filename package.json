@@ -22,7 +22,7 @@
     "check": "npm run lint && npm run audit",
     "tsc": "npm --prefix frontend run tsc",
     "coverage:summary": "node scripts/coverage-summary.mjs",
-    "backend": "npm --prefix frontend run backend",
+    "backend": "CONFIG_DIR=\"${CONFIG_DIR:-$PWD/config}\" uv run uvicorn backend.app:app --host 127.0.0.1 --port \"${VITE_BACKEND_PORT:-${PORT:-39842}}\" --reload",
     "dev": "npm --prefix frontend run dev",
     "test": "ALLOW_MISSING_COVERAGE=true npm --prefix frontend exec -- concurrently -m 1 --names backend,e2e,coverage \"npm:test:backend\" \"npm:test:e2e\" \"npm:coverage:summary\"",
     "test:backend": "uv run pytest tests/backend",

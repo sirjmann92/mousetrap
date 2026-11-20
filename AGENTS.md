@@ -24,8 +24,9 @@ account management.
 - `tests/backend/`: Python pytest suite, including integration and workflow coverage.
 - `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: container-smoke, coverage-summary, backend launch, and
-  dependency-maintenance helpers; production containers use `start.sh`.
+- `scripts/`: container-smoke, coverage-summary, and dependency-maintenance
+  helpers; production containers use `start.sh`.
+- `package.json`: the named commands for setup, lint, tests, and local runs.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
@@ -192,14 +193,14 @@ npm run backend
 npm run dev
 ```
 
-The local backend helper defaults `CONFIG_DIR` to the repository's ignored
+`npm run backend` defaults `CONFIG_DIR` to the repository's ignored
 `config/` directory. An explicit `CONFIG_DIR` or per-file path override takes
 precedence and can direct configuration, session state, notifications, proxies,
 port-monitor state, and the SQLite event log anywhere, including production's
 `/config`; check overrides before running local commands. Use
 `VITE_BACKEND_PORT` to change the backend port for the combined `npm run dev`
-command; the helper also accepts `PORT` when starting only the backend. Do not
-use `scripts/start-backend.sh` as a production entrypoint.
+command; `npm run backend` also accepts `PORT` when starting only the backend.
+Do not use it as a production entrypoint.
 
 For routine dependency maintenance, run:
 
