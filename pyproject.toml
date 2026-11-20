@@ -74,7 +74,6 @@ addopts = """
   --quiet
   --timeout=20
   --durations=10
-  -o console_output_style=progress
   --cov=backend
   --cov-report=term-missing
   --cov-report=html:coverage/backend/html
@@ -94,7 +93,6 @@ markers = [
 branch = true
 data_file = "coverage/backend/.coverage"
 relative_files = true
-parallel = false
 
 [tool.coverage.report]
 show_missing = true
