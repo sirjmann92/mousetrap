@@ -30,9 +30,11 @@ typecheck = [
 ]
 lint = [
     { include-group = "typecheck" },
+    "codespell",
     "mypy",
     "prek",
     "ruff",
+    "shellcheck-py",
 ]
 test = [
     "httpx",

@@ -165,9 +165,14 @@ preview feature, enabled by name in `preview-features`.
 `astral-sh/setup-uv` reads it in CI, and the Dockerfile copies one uv release
 from the uv image by digest.
 
-The prek mypy hook installs its own copy of the typecheck and runtime packages,
-by name only. They are not pinned there, because Dependabot does not edit
-`prek.toml` and pins in two places would drift apart.
+The Python-distributed prek hooks (shellcheck, codespell, mypy and Ruff) are
+local `system` hooks whose entries start with `uv run`, so they run the
+versions in `uv.lock` from the same `.venv` as everything else; their packages
+are in the `lint` group. A local hook inherits nothing from an upstream
+manifest, so `prek.toml` states each hook's arguments and file filters itself.
+The file hygiene checks are prek's own built-in hooks (`repo = "builtin"`),
+which need no download and no pin. actionlint and Biome are not Python
+packages and keep their own `rev`.
 
 The root `package.json` forwards frontend commands into `frontend/`.
 
