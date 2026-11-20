@@ -22,16 +22,18 @@ def test_invalid_content_raises(tmp_path: Path, content: str) -> None:
     """Reject empty and malformed YAML instead of silently using defaults."""
     path = tmp_path / "settings.yaml"
     path.write_text(content, encoding="utf-8")
+    default: dict[str, object] = {}
     with pytest.raises(YamlStoreError):
-        load_yaml_file(path, {})
+        load_yaml_file(path, default)
 
 
 def test_invalid_utf8_raises(tmp_path: Path) -> None:
     """Report invalid UTF-8 through the public store exception."""
     path = tmp_path / "settings.yaml"
     path.write_bytes(b"\xff")
+    default: dict[str, object] = {}
     with pytest.raises(YamlStoreError):
-        load_yaml_file(path, {})
+        load_yaml_file(path, default)
 
 
 def test_yaml_null_is_preserved_without_expected_type(tmp_path: Path) -> None:
@@ -45,8 +47,9 @@ def test_wrong_top_level_type_raises(tmp_path: Path) -> None:
     """Reject parsed data that violates the requested top-level type."""
     path = tmp_path / "settings.yaml"
     path.write_text("- value\n", encoding="utf-8")
+    default: dict[str, object] = {}
     with pytest.raises(YamlStoreError, match="expected dict"):
-        load_yaml_file(path, {}, expected_type=dict)
+        load_yaml_file(path, default, expected_type=dict)
 
 
 def test_write_round_trips_and_creates_owner_only_file(tmp_path: Path) -> None:

@@ -33,11 +33,15 @@ test.describe
       expect((await request.delete('/api/ui_event_log')).ok()).toBeTruthy();
     });
 
-    test('starts with backend version and persists the selected theme', async ({ page }) => {
+    test('starts with backend version and persists the selected theme', async ({
+      page,
+      request,
+    }) => {
+      const { version } = await (await request.get('/api/version')).json();
       await page.goto('/');
 
       await expect(page.getByText('MouseTrap').first()).toBeVisible();
-      await expect(page.getByText('ve2e', { exact: true })).toBeVisible();
+      await expect(page.getByText(`v${version}`, { exact: true })).toBeVisible();
       await expect(page.getByText('Create a new session to get started.')).toBeVisible();
 
       await page.getByLabel('toggle dark mode').check();

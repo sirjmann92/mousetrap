@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
@@ -9,8 +9,7 @@ const frontendPort = '5174';
 const repoRoot = resolve(process.cwd(), '..');
 const playwrightReportDir = resolve(repoRoot, 'coverage/playwright-report');
 const testResultsDir = resolve(repoRoot, 'coverage/test-results');
-const localPython = resolve('../.venv/bin/python');
-const python = process.env.E2E_PYTHON || (existsSync(localPython) ? localPython : 'python3');
+const python = process.env.E2E_PYTHON || 'uv run python';
 const configDir = externalBaseUrl
   ? undefined
   : mkdtempSync(join(tmpdir(), 'mousetrap-playwright-'));
@@ -54,7 +53,6 @@ export default defineConfig({
           cwd: '..',
           env: {
             ...process.env,
-            APP_VERSION: 'e2e',
             CONFIG_DIR: configDir,
             E2E_BACKEND_PORT: backendPort,
             NOTIFY_CONFIG_PATH: join(configDir, 'notify.yaml'),

@@ -57,7 +57,7 @@ def extract_asn_number(asn_str: str) -> str | None:
     return None
 
 
-def build_status_message(status: dict, ip_monitoring_mode: str = "auto") -> str:
+def build_status_message(status: dict[str, Any], ip_monitoring_mode: str = "auto") -> str:
     """Generate a user-friendly status message for the session based on the status dict."""
     # If error present, always show error
     if status.get("error"):

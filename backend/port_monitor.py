@@ -53,7 +53,7 @@ class PortMonitorStack:
         interval: int = 60,
         public_ip: str | None = None,
         public_ip_detected: bool | None = None,
-    ):
+    ) -> None:
         """Initialize a PortMonitorStack.
 
         Args:
@@ -593,10 +593,9 @@ class PortMonitorStackManager:
                 return
             result = self.check_port(stack.primary_container, stack.primary_port)
             # Re-checked after the blocking call above: another thread can request
-            # shutdown while check_port() runs. mypy narrows self.running to True
-            # from the earlier guard and cannot model that, hence the ignore.
+            # shutdown while check_port() runs.
             if not self.running:
-                return  # type: ignore[unreachable]
+                return
             stack.last_checked = time.time()
             stack.last_result = result
             stack.status = "OK" if result else "Failed"
@@ -623,10 +622,9 @@ class PortMonitorStackManager:
                     manual_ip = stack.public_ip
                     result = self.check_port(stack.primary_container, stack.primary_port)
                     # Re-checked after the blocking call above: another thread can request
-                    # shutdown while check_port() runs. mypy narrows self.running to True
-                    # from the earlier guard and cannot model that, hence the ignore.
+                    # shutdown while check_port() runs.
                     if not self.running:
-                        return  # type: ignore[unreachable]
+                        return
                     stack.last_checked = time.time()
                     stack.last_result = result
                     stack.status = "OK" if result else "Failed"
@@ -753,10 +751,9 @@ class PortMonitorStackManager:
             if self.thread is not None:
                 # Second half of a double-checked lock: the worker lock is released for
                 # load_stacks() above, so a concurrent start() can assign self.thread in
-                # that window. mypy narrows it to None from the first check and cannot
-                # model the re-acquire, so it calls this unreachable. Removing it would
+                # that window. Removing it would
                 # let two callers each spawn a monitor thread.
-                if self.thread.is_alive():  # type: ignore[unreachable]
+                if self.thread.is_alive():
                     return
                 self.thread = None
             with self._restart_tasks_lock:

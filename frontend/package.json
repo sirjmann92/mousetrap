@@ -10,9 +10,15 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
-  "engines": {
-    "node": ">=24.18.0",
-    "npm": ">=11.16.0"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.18.0"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.16.0"
+    }
   },
   "scripts": {
     "start": "vite",
@@ -24,7 +30,7 @@
     "test:e2e": "node e2e/support/run-development-tests.mjs",
     "test:e2e:container": "playwright test --grep @container",
     "test:e2e:install": "playwright install --with-deps chromium",
-    "backend": "cd .. && ./scripts/start-backend.sh",
+    "backend": "npm --prefix .. run backend",
     "dev": "concurrently \"npm:backend\" \"npm:start\" -k --names \"backend,frontend\" --prefix \"[{name}]\""
   },
   "browserslist": {

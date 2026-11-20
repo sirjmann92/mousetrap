@@ -95,9 +95,12 @@ def stub_session(monkeypatch: pytest.MonkeyPatch) -> Any:
 
         """
         session = _StubSession(outcome)
-        monkeypatch.setattr(
-            mam_api.aiohttp, "ClientSession", lambda **_kwargs: session, raising=True
-        )
+
+        def open_session(**_kwargs: object) -> _StubSession:
+            """Hand the lookup the stub session in place of a real one."""
+            return session
+
+        monkeypatch.setattr(mam_api.aiohttp, "ClientSession", open_session, raising=True)
         return session
 
     return install
@@ -265,8 +268,12 @@ async def test_mam_seen_ip_info_reports_a_non_object_response() -> None:
         async def __aexit__(self, *_exc: object) -> None:
             """Leave the session context."""
 
+    def open_session(**_k: object) -> _Session:
+        """Open a stub session whose reply decodes to a list."""
+        return _Session()
+
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(mam_api.aiohttp, "ClientSession", lambda **_k: _Session(), raising=True)
+        mp.setattr(mam_api.aiohttp, "ClientSession", open_session, raising=True)
         result = await mam_api.get_mam_seen_ip_info("cookie", proxy_cfg={})
 
     assert "error" in result

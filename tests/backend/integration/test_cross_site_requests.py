@@ -6,18 +6,24 @@ reached handlers that read JSON without checking its content type, and a
 cross-site page could overwrite a session's MAM ID.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 from starlette.datastructures import Headers
 
 from backend import app
 from backend.cross_site import REFUSED_DETAIL, cross_site_reason
 
+if TYPE_CHECKING:
+    from httpx import AsyncClient
+
 # The API client's requests are addressed to this host.
 _HOST = "testserver"
 _ATTACKER = "https://attacker.example"
+
+
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
 
 
 @pytest.mark.parametrize(
@@ -103,7 +109,7 @@ async def test_a_forged_session_save_is_refused_and_changes_nothing(
     The body is sent as `text/plain`, the content type a page can send without
     a CORS preflight, which is how it reached the handler before.
     """
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     await _save_session(api_client, "real-cookie")
 
     forged = await api_client.post(
@@ -166,7 +172,7 @@ async def test_this_apps_own_pages_and_non_browser_clients_still_save(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch, headers: dict[str, str]
 ) -> None:
     """The UI over LAN HTTP, the UI over HTTPS, and a script all keep working."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     await _save_session(api_client, "real-cookie")
 
     saved = await api_client.post(

@@ -1,11 +1,18 @@
 """Backend public-API integration coverage for sessions, proxies, and event persistence."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app, config
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
+
+
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
 
 
 @pytest.mark.integration
@@ -13,7 +20,7 @@ async def test_session_lifecycle_persists_events(
     api_client: AsyncClient, isolated_backend: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Create, read, update, and delete a session through HTTP."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     mam = {"mam_id": "cookie-one"}
     payload: dict[str, object] = {"label": "seedbox", "mam": mam, "proxy": {}}
 
@@ -56,7 +63,7 @@ async def test_deleting_a_proxy_a_session_uses_is_refused(
     all, which means its MaM traffic quietly continues over a direct
     connection.
     """
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     proxy = {"label": "vpn", "host": "proxy.local", "port": 1080}
     assert (await api_client.post("/api/proxies", json=proxy)).json() == {"success": True}
     session = {"label": "seedbox", "mam": {"mam_id": "cookie"}, "proxy": {"label": "vpn"}}
@@ -76,7 +83,7 @@ async def test_deleting_a_proxy_succeeds_once_the_session_releases_it(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The documented way out of the refusal actually works."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     proxy = {"label": "vpn", "host": "proxy.local", "port": 1080}
     assert (await api_client.post("/api/proxies", json=proxy)).json() == {"success": True}
     session = {"label": "seedbox", "mam": {"mam_id": "cookie"}, "proxy": {"label": "vpn"}}
@@ -101,7 +108,7 @@ async def test_status_survives_a_saved_proxy_label_that_is_not_a_string(
     written before the reference was validated. The read path has to survive it
     either way.
     """
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
 
     async def detected_ipinfo(
         ip: str | None = None, proxy_cfg: dict[str, str] | None = None

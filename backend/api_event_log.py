@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/ui_event_log")
-def api_ui_event_log() -> list:
+def api_ui_event_log() -> list[Any]:
     """Retrieve the UI event log.
 
     Returns:

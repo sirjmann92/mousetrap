@@ -5,18 +5,24 @@ saved a proxy that could never connect, and a body with no host saved one that
 resolved to no proxy at all, sending a session's traffic direct.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app
 from backend.proxy_config import load_proxies, resolve_proxy_from_session_cfg, save_proxies
 from backend.utils import build_proxy_dict
 
+if TYPE_CHECKING:
+    from httpx import AsyncClient
+
 _PORT_MESSAGE = "Proxy port must be a whole number from 1 to 65535."
 # A fake credential; the test checks its surrounding spaces survive storage.
 _SPACED_PASSWORD = "  pass with spaces  "  # noqa: S105
+
+
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
 
 
 def _body(**overrides: Any) -> dict[str, Any]:
@@ -140,7 +146,7 @@ async def test_a_proxy_saved_before_validation_still_resolves(
     Validation applies to writes only, so an entry written by an earlier
     version keeps working until it is next edited.
     """
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     save_proxies({"vpn": {"label": "vpn", "host": "proxy.local", "port": "8080"}})
     session = {"label": "s", "mam": {"mam_id": "cookie"}, "proxy": {"label": "vpn"}}
     assert (await api_client.post("/api/session/save", json=session)).is_success

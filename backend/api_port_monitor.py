@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import logging
 import threading
 import time
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 # List Docker containers endpoint
-@router.get("/containers", response_model=list[str])
+@router.get("/containers")
 def list_containers() -> list[str]:
     """Returns a list of running Docker container names."""
     client = port_monitor_manager.get_docker_client()
@@ -66,7 +66,8 @@ class UpdatePortMonitorStackRequest(BaseModel):
 
 @router.put("/stacks", response_model=dict)
 def update_stack(
-    name: str = Query(..., description="Stack name"), req: UpdatePortMonitorStackRequest = Body(...)
+    name: Annotated[str, Query(description="Stack name")],
+    req: Annotated[UpdatePortMonitorStackRequest, Body()],
 ) -> dict[str, Any]:
     """Update fields for a named port monitor stack and trigger a recheck.
 
@@ -133,7 +134,7 @@ class PortMonitorStackModel(BaseModel):
     name: str = Field(..., description="Stack name")
     primary_container: str = Field(..., description="Primary container name")
     primary_port: int = Field(..., ge=1, le=65535, description="Primary container port")
-    secondary_containers: list[str] = Field([], description="Secondary containers")
+    secondary_containers: Annotated[list[str], Field(description="Secondary containers")] = []
     interval: int = Field(60, description="Check interval in minutes")
     status: str = Field(..., description="Current status")
     last_checked: float | None = Field(None, description="Last checked timestamp (epoch)")
@@ -160,7 +161,7 @@ class AddPortMonitorStackRequest(BaseModel):
 # Add update model and endpoint after router definition
 
 
-@router.get("/stacks", response_model=list[PortMonitorStackModel])
+@router.get("/stacks")
 def list_stacks() -> list[PortMonitorStackModel]:
     """Return the configured port monitor stacks in the API response model."""
     return [
@@ -214,7 +215,7 @@ def add_stack(req: AddPortMonitorStackRequest) -> dict[str, Any]:
 
 
 @router.post("/stacks/recheck", response_model=dict)
-def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
+def recheck_stack(name: Annotated[str, Query(description="Stack name")]) -> dict[str, Any]:
     """Trigger an immediate recheck of the named stack.
 
     Returns success if the stack exists and was rechecked; otherwise raises
@@ -227,7 +228,7 @@ def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str,
 
 
 @router.delete("/stacks", response_model=dict)
-def delete_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
+def delete_stack(name: Annotated[str, Query(description="Stack name")]) -> dict[str, Any]:
     """Remove a configured stack by name and emit a UI event about deletion."""
     port_monitor_manager.remove_stack(name)
     append_ui_event_log(
@@ -247,7 +248,7 @@ def delete_stack(name: str = Query(..., description="Stack name")) -> dict[str, 
 
 
 @router.post("/stacks/restart", response_model=dict)
-def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
+def restart_stack(name: Annotated[str, Query(description="Stack name")]) -> dict[str, Any]:
     """Initiate a restart for a stack's primary container in background.
 
     Marks the stack restarting and runs the restart work in a daemon

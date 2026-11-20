@@ -174,9 +174,12 @@ def stub_lookup_chain(monkeypatch: pytest.MonkeyPatch) -> Any:
 
         """
         session = _StubSession(response_factory)
-        monkeypatch.setattr(
-            ip_lookup.aiohttp, "ClientSession", lambda **_kwargs: session, raising=True
-        )
+
+        def open_session(**_kwargs: object) -> _StubSession:
+            """Hand the lookup the stub session in place of a real one."""
+            return session
+
+        monkeypatch.setattr(ip_lookup.aiohttp, "ClientSession", open_session, raising=True)
         return session
 
     return install

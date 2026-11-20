@@ -24,7 +24,9 @@ _logger: logging.Logger = logging.getLogger(__name__)
 NOTIFY_CONFIG_PATH = os.environ.get("NOTIFY_CONFIG_PATH") or CONFIG_DIR / "notify.yaml"
 
 
-async def send_webhook_notification(url: str, payload: dict, discord: bool = False) -> bool:
+async def send_webhook_notification(
+    url: str, payload: dict[str, Any], discord: bool = False
+) -> bool:
     """Send a JSON webhook notification.
 
     Parameters
@@ -121,7 +123,7 @@ def send_smtp_notification(
 async def send_apprise_notification(
     apprise_url: str,
     notify_url_string: str,
-    payload: dict,
+    payload: dict[str, Any],
     include_prefix: bool = False,
     *,
     mode: str = "stateless",
@@ -364,13 +366,8 @@ async def notify_event(
 
         # Check if config is valid based on mode
         config_valid = False
-        if (
-            mode == "stateful"
-            and apprise_url
-            and key
-            or mode == "stateless"
-            and apprise_url
-            and notify_url_string
+        if (mode == "stateful" and apprise_url and key) or (
+            mode == "stateless" and apprise_url and notify_url_string
         ):
             config_valid = True
 

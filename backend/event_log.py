@@ -49,7 +49,7 @@ def get_ui_event_log() -> list[dict[str, Any]]:
         with db.connection() as conn:
             rows = conn.execute("SELECT data FROM events ORDER BY id").fetchall()
         return [json.loads(row["data"]) for row in rows]
-    except (json.JSONDecodeError, sqlite3.Error):
+    except json.JSONDecodeError, sqlite3.Error:
         return []
 
 

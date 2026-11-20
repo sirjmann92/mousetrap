@@ -14,13 +14,15 @@ from http.cookies import SimpleCookie
 import json
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app, config, mam_api
 from backend.mam_api import rotated_mam_id
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _WORKING = "working-cookie"
 _ROLLED = "rolled-cookie"
@@ -40,6 +42,10 @@ _REFUSED_CLEARING: dict[str, Any] = {
     "body": {"Success": False, "msg": "Invalid session - Invalid Cookie"},
     "cookie": ("deleted", {"max-age": "0"}),
 }
+
+
+def _no_proxy(_cfg: dict[str, Any]) -> None:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session with no proxy."""
 
 
 def _cookies(value: str, attributes: dict[str, str]) -> SimpleCookie:
@@ -224,8 +230,13 @@ async def test_the_keepalive(
         refreshes.append(cfg["mam"]["mam_id"])
 
     monkeypatch.setattr(app, "refresh_indexer_mam_ids", refresh)
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
-    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(reply))
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session replaying the parametrised reply."""
+        return _Session(reply)
+
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", _no_proxy)
+    monkeypatch.setattr(app.aiohttp, "ClientSession", open_session)
     _save_session()
 
     await app.keepalive_mam_session(config.load_session("seedbox"), "seedbox", _NOW)
@@ -255,8 +266,13 @@ async def test_the_automatic_seedbox_update(
         return "198.51.100.7"
 
     monkeypatch.setattr(app, "get_public_ip", detected)
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
-    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(reply))
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session replaying the parametrised reply."""
+        return _Session(reply)
+
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", _no_proxy)
+    monkeypatch.setattr(app.aiohttp, "ClientSession", open_session)
     _save_session()
 
     await app.auto_update_seedbox_if_needed(
@@ -291,8 +307,13 @@ async def test_the_update_seedbox_button(
         return ("AS64500 Example", None)
 
     monkeypatch.setattr(app, "get_asn_and_timezone_from_ip", asn)
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
-    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(reply))
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session replaying the parametrised reply."""
+        return _Session(reply)
+
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", _no_proxy)
+    monkeypatch.setattr(app.aiohttp, "ClientSession", open_session)
     _save_session()
 
     await api_client.post("/api/session/update_seedbox", json={"label": "seedbox"})
@@ -312,9 +333,12 @@ async def test_the_status_check(
 ) -> None:
     """The status check was already safe; this keeps it that way."""
     body = {"seedbonus": 1000} if reply is _ACCEPTED else reply["body"]
-    monkeypatch.setattr(
-        mam_api.aiohttp, "ClientSession", lambda **_kwargs: _Session({**reply, "body": body})
-    )
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session replaying the reply with the chosen body."""
+        return _Session({**reply, "body": body})
+
+    monkeypatch.setattr(mam_api.aiohttp, "ClientSession", open_session)
 
     result = await mam_api.get_status(_WORKING)
 
@@ -353,10 +377,15 @@ async def test_the_scheduled_check_keeps_a_new_mam_id_through_the_keepalive(
     monkeypatch.setattr(app, "get_asn_and_timezone_from_ip", asn)
     monkeypatch.setattr(app, "auto_update_seedbox_if_needed", no_update)
     monkeypatch.setattr(app, "refresh_indexer_mam_ids", refresh)
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", _no_proxy)
     # The keepalive is real; MAM accepts it and issues nothing new.
-    no_cookie = {**_ACCEPTED, "cookie": (_ROLLED, {})}
-    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(no_cookie))
+    no_cookie: dict[str, object] = {**_ACCEPTED, "cookie": (_ROLLED, {})}
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session whose reply sets no new cookie."""
+        return _Session(no_cookie)
+
+    monkeypatch.setattr(app.aiohttp, "ClientSession", open_session)
     _save_session()
 
     await app.session_check_job("seedbox")

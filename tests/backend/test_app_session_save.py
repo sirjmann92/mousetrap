@@ -3,13 +3,28 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pytest
 from starlette.requests import Request
-from starlette.types import Message
 
 from backend import app, config
+
+if TYPE_CHECKING:
+    import pytest
+    from starlette.types import Message
+
+
+def _no_stored_session(_label: str) -> dict[str, Any]:
+    """Stand in for ``load_session`` when nothing is stored under the label."""
+    return {}
+
+
+def _discard_event(_event: dict[str, Any]) -> None:
+    """Stand in for ``append_ui_event_log`` so no event is written."""
+
+
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
 
 
 def json_request(payload: dict[str, Any]) -> Request:
@@ -31,12 +46,33 @@ def test_save_persists_once_before_side_effects(
     """Persist exactly once before event, scheduler, and integration work."""
     calls: list[str] = []
     path = tmp_path / "session-example.yaml"
-    monkeypatch.setattr(app, "load_session", lambda _label: {})
-    monkeypatch.setattr(app, "get_session_path", lambda _label: path)
-    monkeypatch.setattr(app, "save_session", lambda *_a, **_k: calls.append("save"))
-    monkeypatch.setattr(app, "clear_ui_event_log_for_session", lambda _label: calls.append("clear"))
-    monkeypatch.setattr(app, "append_ui_event_log", lambda _event: calls.append("event"))
-    monkeypatch.setattr(app, "register_session_job", lambda _label: calls.append("job"))
+
+    def session_path(_label: str) -> Path:
+        """Place the session at the path under test."""
+        return path
+
+    def save(*_a: object, **_k: object) -> None:
+        """Record the save test double."""
+        calls.append("save")
+
+    def clear(_label: str) -> None:
+        """Record the event-log clear test double."""
+        calls.append("clear")
+
+    def log_event(_event: dict[str, Any]) -> None:
+        """Record the event-log append test double."""
+        calls.append("event")
+
+    def register_job(_label: str) -> None:
+        """Record the job registration test double."""
+        calls.append("job")
+
+    monkeypatch.setattr(app, "load_session", _no_stored_session)
+    monkeypatch.setattr(app, "get_session_path", session_path)
+    monkeypatch.setattr(app, "save_session", save)
+    monkeypatch.setattr(app, "clear_ui_event_log_for_session", clear)
+    monkeypatch.setattr(app, "append_ui_event_log", log_event)
+    monkeypatch.setattr(app, "register_session_job", register_job)
 
     async def sync(*_args: Any) -> None:
         """Record the integration sync test double."""
@@ -58,8 +94,8 @@ def test_save_replaces_corrupt_existing_session(
     corrupt = config.get_session_path("Existing")
     corrupt.write_text("mam: [unterminated\n", encoding="utf-8")
     monkeypatch.setattr(app, "get_session_path", config.get_session_path)
-    monkeypatch.setattr(app, "append_ui_event_log", lambda _event: None)
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "append_ui_event_log", _discard_event)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
 
     async def sync(*_args: Any) -> None:
         """Provide a no-op integration sync test double."""
@@ -87,9 +123,18 @@ def test_post_save_side_effect_failure_returns_success(
 ) -> None:
     """Report success once persistence committed even if later work fails."""
     calls: list[str] = []
-    monkeypatch.setattr(app, "load_session", lambda _label: {})
-    monkeypatch.setattr(app, "get_session_path", lambda _label: tmp_path / "session.yaml")
-    monkeypatch.setattr(app, "save_session", lambda *_a, **_k: calls.append("save"))
+
+    def session_path(_label: str) -> Path:
+        """Place the session inside the temporary directory."""
+        return tmp_path / "session.yaml"
+
+    def save(*_a: object, **_k: object) -> None:
+        """Record the save test double."""
+        calls.append("save")
+
+    monkeypatch.setattr(app, "load_session", _no_stored_session)
+    monkeypatch.setattr(app, "get_session_path", session_path)
+    monkeypatch.setattr(app, "save_session", save)
 
     def fail_clear(_label: str) -> None:
         """Simulate an unavailable event log after persistence."""

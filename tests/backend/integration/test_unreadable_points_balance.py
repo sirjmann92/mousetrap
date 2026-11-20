@@ -9,18 +9,24 @@ stale copy.
 """
 
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 from unittest.mock import AsyncMock, Mock
 
 import aiohttp
-from httpx import AsyncClient
 import pytest
 
 from backend import api_automation, automation, config, mam_api
 
+if TYPE_CHECKING:
+    from httpx import AsyncClient
+
 # A points guardrail every consumer fails when the balance is fabricated as zero.
 _MIN_POINTS = 1_000
 _POINT_THRESHOLD = 50_000
+
+
+def _no_proxy(_cfg: dict[str, Any]) -> None:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session with no proxy."""
 
 
 class _Response:
@@ -108,8 +114,13 @@ async def _produce(path: str) -> dict[str, Any]:
     if path == "no_mam_id":
         return await mam_api.get_status("")
     outcome = _TRANSPORT_OUTCOMES[path]
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session replaying the outcome for this path."""
+        return _Session(outcome)
+
     with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(mam_api.aiohttp, "ClientSession", lambda **_kwargs: _Session(outcome))
+        mp.setattr(mam_api.aiohttp, "ClientSession", open_session)
         return await mam_api.get_status("cookie")
 
 
@@ -179,9 +190,13 @@ def _install(
         purchases.append("bought")
         return {"success": True}
 
+    def load_session(_label: str) -> dict[str, Any]:
+        """Hand back the session under test whatever label is asked for."""
+        return cfg
+
     monkeypatch.setattr(automation, "list_sessions", lambda: ["seedbox"])
-    monkeypatch.setattr(automation, "load_session", lambda _label: cfg)
-    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    monkeypatch.setattr(automation, "load_session", load_session)
+    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", _no_proxy)
     monkeypatch.setattr(automation, "get_status", AsyncMock(return_value=status))
     monkeypatch.setattr(automation, "buy_upload_credit", _buy)
     monkeypatch.setattr(automation, "buy_vip", _buy)

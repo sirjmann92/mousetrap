@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from http import HTTPStatus
+from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
 from httpx import ASGITransport, AsyncClient
@@ -48,7 +49,7 @@ def problem_app() -> FastAPI:
         raise RuntimeError("/config/session.yaml is unreadable")
 
     @app.post("/stack")
-    def stack(name: str = Query(...), body: dict[str, int] | None = None) -> dict[str, str]:
+    def stack(name: Annotated[str, Query()], body: dict[str, int] | None = None) -> dict[str, str]:
         """Accept a value in the query and a value in the body, so both can be rejected.
 
         Args:
@@ -144,7 +145,7 @@ async def test_the_catch_all_still_lets_the_exception_reach_the_server(
     """
     transport = ASGITransport(app=problem_app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        with pytest.raises(RuntimeError, match="session.yaml is unreadable"):
+        with pytest.raises(RuntimeError, match=r"session\.yaml is unreadable"):
             await client.get("/unhandled")
 
 
@@ -209,7 +210,7 @@ def test_a_problem_cannot_be_constructed_without_a_detail() -> None:
 def test_a_problem_rejects_a_member_no_model_declared() -> None:
     """Every member on the wire is one a model named, which keeps the rest off it.
 
-    Validated rather than constructed: mypy already rejects the keyword form,
+    Validated rather than constructed: pyrefly already rejects the keyword form,
     so this covers the path that takes keys it did not choose.
     """
     with pytest.raises(ValueError, match="stack_trace"):

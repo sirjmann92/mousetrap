@@ -757,9 +757,10 @@ Return the running application version.
 { "version": "2.4.6" }
 ```
 
-The value comes from the `APP_VERSION` build argument injected during the Docker
-build, and is `dev` for a local source run. Release versions come from git tags;
-`frontend/package.json`'s `version` field is inert.
+The value is the version of the installed MouseTrap distribution, which
+`project.version` in `pyproject.toml` declares, so the Docker image and a local
+source run report the same one. `frontend/package.json`'s `version` field is
+inert.
 
 ### GET `/api/server_time`
 Return the server's current time in its local timezone, ISO formatted. The UI

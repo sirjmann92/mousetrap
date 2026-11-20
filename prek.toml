@@ -6,8 +6,7 @@
 include_tags = ["v2.*"]
 
 [[repos]]
-repo = "https://github.com/pre-commit/pre-commit-hooks"
-rev = "v6.0.0"
+repo = "builtin"
 
 [[repos.hooks]]
 id = "trailing-whitespace"
@@ -49,65 +48,48 @@ rev = "v1.7.12"
 id = "actionlint"
 
 [[repos]]
-repo = "https://github.com/shellcheck-py/shellcheck-py"
-rev = "v0.11.0.1"
+repo = "local"
 
 [[repos.hooks]]
 id = "shellcheck"
+name = "shellcheck"
+entry = "uv run shellcheck"
+language = "system"
 args = ["-x"]
-
-[[repos]]
-repo = "https://github.com/codespell-project/codespell"
-rev = "v2.4.3"
+types = ["shell"]
+require_serial = true
 
 [[repos.hooks]]
 id = "codespell"
-additional_dependencies = ["tomli"]
-
-[[repos]]
-repo = "https://github.com/pre-commit/mirrors-mypy"
-rev = "v2.3.0"
+name = "codespell"
+entry = "uv run codespell"
+language = "system"
+types = ["text"]
 
 [[repos.hooks]]
-id = "mypy"
-language_version = ">=3.13"
-args = []
-additional_dependencies = [
-  "aiohttp",
-  "apscheduler",
-  "docker",
-  "fastapi",
-  "httpx",
-  "pydantic",
-  "pytest",
-  "pyyaml",
-  "starlette",
-  "types-cffi",
-  "types-docker",
-  "types-PyMySQL",
-  "types-pyRFC3339",
-  "types-PySocks",
-  "types-python-dateutil",
-  "types-PyYAML",
-  "types-requests",
-  "types-setuptools",
-  "uvicorn",
-  "yarl",
-]
-
-[[repos]]
-repo = "https://github.com/astral-sh/ruff-pre-commit"
-rev = "v0.16.1"
+id = "pyrefly"
+name = "pyrefly"
+entry = "uv run pyrefly check"
+language = "system"
+files = '(^pyproject\.toml|\.pyi?)$'
+pass_filenames = false
 
 [[repos.hooks]]
 id = "ruff-check"
+name = "ruff check"
+entry = "uv run ruff check --force-exclude"
+language = "system"
 args = ["--fix"]
+types_or = ["python", "pyi", "jupyter"]
+require_serial = true
 
 [[repos.hooks]]
 id = "ruff-format"
-
-[[repos]]
-repo = "local"
+name = "ruff format"
+entry = "uv run ruff format --force-exclude"
+language = "system"
+types_or = ["python", "pyi", "jupyter"]
+require_serial = true
 
 [[repos.hooks]]
 id = "tsc"
@@ -118,9 +100,36 @@ files = "^(frontend|scripts)/"
 types_or = ["ts", "tsx", "javascript", "json", "jsx"]
 pass_filenames = false
 
+[[repos.hooks]]
+id = "frontend-build"
+name = "frontend build"
+entry = "npm --prefix frontend run build"
+language = "system"
+files = "^frontend/"
+pass_filenames = false
+
 [[repos]]
 repo = "https://github.com/biomejs/pre-commit"
 rev = "v2.5.7"
 
 [[repos.hooks]]
 id = "biome-check"
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "musl-wheels-x86_64"
+name = "musl wheels for x86_64"
+entry = "uv sync --locked --no-dev --no-install-project --no-build --python-platform x86_64-unknown-linux-musl --dry-run"
+language = "system"
+files = '^(pyproject\.toml|uv\.lock)$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "musl-wheels-aarch64"
+name = "musl wheels for aarch64"
+entry = "uv sync --locked --no-dev --no-install-project --no-build --python-platform aarch64-unknown-linux-musl --dry-run"
+language = "system"
+files = '^(pyproject\.toml|uv\.lock)$'
+pass_filenames = false

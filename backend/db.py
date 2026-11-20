@@ -7,7 +7,7 @@ the single shared connection with a lock, so it is safe to use from the FastAPI
 threadpool and worker threads alike.
 """
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from functools import cache
 import sqlite3
@@ -49,7 +49,7 @@ def _get_conn() -> sqlite3.Connection:
 
 
 @contextmanager
-def connection() -> Iterator[sqlite3.Connection]:
+def connection() -> Generator[sqlite3.Connection]:
     """Yield the process-wide SQLite connection under a lock (created lazily, once)."""
     with _lock:
         yield _get_conn()

@@ -1,9 +1,17 @@
 """Backend integration tests for deterministic external-service seams."""
 
-from httpx import AsyncClient
+from typing import TYPE_CHECKING, Any
+
 import pytest
 
 from backend import api_notifications, app
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
+
+
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
 
 
 @pytest.mark.integration
@@ -11,9 +19,9 @@ async def test_notification_config_and_webhook_dispatch(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Persist notification settings and dispatch through the fake webhook seam."""
-    sent: list[tuple[str, dict, bool]] = []
+    sent: list[tuple[str, dict[str, Any], bool]] = []
 
-    async def fake_send(url: str, payload: dict, discord: bool = False) -> bool:
+    async def fake_send(url: str, payload: dict[str, Any], discord: bool = False) -> bool:
         sent.append((url, payload, discord))
         return True
 
@@ -35,10 +43,10 @@ async def test_prowlarr_public_api_composes_connection_and_indexer_results(
 ) -> None:
     """Exercise representative indexer behavior without a live Prowlarr server."""
 
-    async def connected(_host: str, _port: int, _api_key: str) -> dict:
+    async def connected(_host: str, _port: int, _api_key: str) -> dict[str, Any]:
         return {"success": True, "message": "Connected", "indexer_count": 3}
 
-    async def found(_host: str, _port: int, _api_key: str) -> dict:
+    async def found(_host: str, _port: int, _api_key: str) -> dict[str, Any]:
         return {"success": True, "indexer_id": 42}
 
     monkeypatch.setattr(app, "test_prowlarr_connection", connected)
@@ -74,8 +82,8 @@ async def test_unified_indexer_update_reports_partial_success(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Keep one successful MAM-ID sync observable when another integration times out."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
-    session = {
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
+    session: dict[str, object] = {
         "label": "seedbox",
         "mam": {"mam_id": "new-cookie"},
         "proxy": {},
@@ -84,11 +92,11 @@ async def test_unified_indexer_update_reports_partial_success(
     }
     assert (await api_client.post("/api/session/save", json=session)).is_success
 
-    async def prowlarr_success(_cfg: dict, mam_id: str) -> dict:
+    async def prowlarr_success(_cfg: dict[str, Any], mam_id: str) -> dict[str, Any]:
         assert mam_id == "new-cookie"
         return {"success": True, "message": "updated"}
 
-    async def chaptarr_timeout(_cfg: dict, mam_id: str) -> dict:
+    async def chaptarr_timeout(_cfg: dict[str, Any], mam_id: str) -> dict[str, Any]:
         assert mam_id == "new-cookie"
         raise TimeoutError("service timed out")
 
@@ -106,7 +114,7 @@ async def test_unified_indexer_update_reports_partial_success(
     assert events[-1]["event_type"] == "indexer_update"
 
 
-AUTH_DISABLED_JACKETT_SESSION = {
+AUTH_DISABLED_JACKETT_SESSION: dict[str, object] = {
     "label": "seedbox",
     "mam": {"mam_id": "new-cookie"},
     "proxy": {},
@@ -125,7 +133,7 @@ async def test_jackett_update_accepts_an_auth_disabled_instance(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Sync a Jackett instance that has authentication disabled, so no admin password."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     assert (
         await api_client.post("/api/session/save", json=AUTH_DISABLED_JACKETT_SESSION)
     ).is_success
@@ -133,7 +141,7 @@ async def test_jackett_update_accepts_an_auth_disabled_instance(
 
     async def jackett_success(
         host: str, port: int, api_key: str, admin_password: str, mam_id: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         synced.append((host, port, api_key, admin_password, mam_id))
         return {"success": True, "message": "updated"}
 
@@ -149,7 +157,7 @@ async def test_unified_indexer_update_accepts_an_auth_disabled_jackett(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Reach the same auth-disabled Jackett through the unified indexer endpoint."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
     assert (
         await api_client.post("/api/session/save", json=AUTH_DISABLED_JACKETT_SESSION)
     ).is_success
@@ -157,7 +165,7 @@ async def test_unified_indexer_update_accepts_an_auth_disabled_jackett(
 
     async def jackett_success(
         host: str, port: int, api_key: str, admin_password: str, mam_id: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         synced.append((host, port, api_key, admin_password, mam_id))
         return {"success": True, "message": "updated"}
 

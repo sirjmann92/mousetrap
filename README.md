@@ -526,19 +526,19 @@ services:
 Use the local development commands when changing the Python backend or React frontend.
 
 ```bash
-# Requires Python 3.13+, Node.js 24.18.0+, and npm 11.16.0+.
-./scripts/setup.sh
+# Requires uv, Node.js 24.18.0+, and npm 11.16.0+.
+npm run setup
 
 # Start both the FastAPI backend and Vite frontend with live reload
 npm run dev
 ```
 
-The setup helper creates or reuses `.venv`, installs the Python `dev` dependency group, installs the prek Git hook, validates the Node.js version, validates the npm version, and installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`.
+The setup command runs `uv sync`, which creates `.venv` and installs the project and the Python `dev` dependency group exactly as pinned in `uv.lock`, installs the prek Git hook, installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`, and installs Playwright's Chromium. npm refuses to install them on a Node.js or npm older than `devEngines` in `frontend/package.json` allows.
 
 Run linting, formatting, type, and frontend dependency-security checks:
 
 ```bash
-./scripts/lint.sh
+npm run check
 ```
 
 Some hooks apply safe fixes and formatting changes. Review any modified files before committing.
@@ -547,14 +547,14 @@ For routine dependency maintenance:
 
 ```bash
 ./scripts/update-dependencies.sh
-./scripts/lint.sh
+npm run check
 ```
 
-The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin and configuration schema aligned, then selects the newest published stable Biome prek tag in the same major version that is no newer than the npm package. It then normalizes the frontend lockfile, applies compatible security remediations, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11.16.0 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
+The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin and configuration schema aligned, then selects the newest published stable Biome prek tag in the same major version that is no newer than the npm package. It then normalizes the frontend lockfile, applies compatible security remediations, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11.16.0 or newer so the frontend's install-script policy is enforced. It also re-resolves `uv.lock` to the newest Python dependencies and synchronizes `.venv` with it. Review generated configuration and lockfile changes before committing.
 
 Open the Vite URL printed by npm, normally `http://localhost:5173`. The backend runs on `http://localhost:39842`.
 
-The `npm run dev` command uses `scripts/start-backend.sh`. That helper defaults local configuration, sessions, notifications, proxies, port-monitor state, and the SQLite event log to the repository's ignored `config/` directory. An explicit `CONFIG_DIR` or per-file path override takes precedence and can direct data anywhere, including production's `/config`; check overrides before running local commands.
+The `npm run dev` command uses `npm run backend`. That command defaults local configuration, sessions, notifications, proxies, port-monitor state, and the SQLite event log to the repository's ignored `config/` directory. An explicit `CONFIG_DIR` or per-file path override takes precedence and can direct data anywhere, including production's `/config`; check overrides before running local commands.
 
 - Use `npm run backend` when only the FastAPI service is needed.
 - Set `CONFIG_DIR` to use a different local data directory.
@@ -569,22 +569,21 @@ The `npm run dev` command uses `scripts/start-backend.sh`. That helper defaults 
 Install the backend and frontend dependencies, including Chromium, once:
 
 ```bash
-./scripts/setup.sh
+npm run setup
 ```
 
 Then run the complete backend and frontend test gate with one command:
 
 ```bash
-./scripts/test.sh
+npm test
 ```
 
-The script runs the full backend pytest suite, then starts isolated Vite and FastAPI development servers for the Playwright suite using a temporary configuration directory. It reports backend and frontend line and branch coverage separately.
+The command runs the full backend pytest suite, then starts isolated Vite and FastAPI development servers for the Playwright suite using a temporary configuration directory. Both suites run even when the first fails. It reports backend and frontend line and branch coverage separately.
 
-To add the production-image smoke test, or run only that test:
+To run the production-image smoke test:
 
 ```bash
-./scripts/test.sh --full
-./scripts/test.sh --container
+npm run test:container
 ```
 
 The container test requires a running Docker daemon. It builds the production image, mounts temporary configuration, verifies persistence across a restart, runs the tagged Playwright scenario, captures failure diagnostics, and cleans up its container and image.
@@ -613,16 +612,16 @@ alike.
 Before opening a pull request, run the checks that match what you changed:
 
 ```bash
-./scripts/lint.sh   # Linting, formatting, types, shipped frontend dependency audit.
-./scripts/test.sh   # Backend pytest plus development Playwright E2E.
+npm run check   # Linting, formatting, types, shipped frontend dependency audit.
+npm test        # Backend pytest plus development Playwright E2E.
 ```
 
 ### Release Versioning
 
-Merging to `main` publishes a new image and GitHub Release automatically. The
-version is a patch bump by default. To request a larger bump, include `#minor`
-(new feature) or `#major` (breaking change) as a standalone word in a commit
-message — the maintainer confirms or adjusts this when merging. Only commit
-messages are scanned, so mentioning the keywords in a file such as this one has
-no effect. See [Releases and Versioning](AGENTS.md#releases-and-versioning) for
-the full rules.
+The release version is `project.version` in `pyproject.toml`. The maintainer
+cuts a release with a pull request that bumps it, using
+`uv version --bump patch`, `minor` (new feature) or `major` (breaking change),
+and then publishes the image and GitHub Release for that version. Commit
+messages do not affect the version. See
+[Releases and Versioning](AGENTS.md#releases-and-versioning) for the full
+rules.

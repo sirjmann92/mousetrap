@@ -31,6 +31,7 @@ outside this gate with it.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -145,7 +146,7 @@ def _success_schemas(operation: dict[str, Any]) -> list[Any]:
     ]
 
 
-def _violations(predicate: Any) -> set[str]:
+def _violations(predicate: Callable[[str, dict[str, Any]], bool]) -> set[str]:
     """Return the routes for which a check does not hold.
 
     Args:
@@ -185,7 +186,7 @@ def _assert_exactly(violating: set[str], waived: frozenset[str], remedy: str) ->
 ROUTES_THAT_CANNOT_FAIL = frozenset(
     {
         "GET /api/server_time",  # TZ, falling back to ZoneInfo("UTC") on any value
-        "GET /api/version",  # APP_VERSION, defaulting to "dev"
+        "GET /api/version",  # the installed distribution's version
     }
 )
 

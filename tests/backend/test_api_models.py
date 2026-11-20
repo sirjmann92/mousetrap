@@ -10,13 +10,13 @@ from backend.api_models import IndexerTestRequest, IndexerUpdateRequest
     ("raw_port", "expected"),
     [(9117, 9117), ("9117", 9117), ("443", 443), (443, 443)],
 )
-def test_port_accepts_a_number_however_it_is_spelled(raw_port: object, expected: int) -> None:
+def test_port_accepts_a_number_however_it_is_spelled(raw_port: int | str, expected: int) -> None:
     """A quoted port resolves to the same integer as an unquoted one.
 
     This is the defect behind the `coerce_port` helper: `"443"` compares
     unequal to `443`, so the URL builder chose http for a TLS service.
     """
-    model = IndexerTestRequest(host="h", port=raw_port, api_key="k")  # type: ignore[arg-type]
+    model = IndexerTestRequest(host="h", port=raw_port, api_key="k")
 
     assert model.port == expected
     assert isinstance(model.port, int)
@@ -30,7 +30,7 @@ def test_port_rejects_anything_that_is_not_a_number(raw_port: object) -> None:
     builder and produced `http://host:abc`.
     """
     with pytest.raises(ValidationError):
-        IndexerTestRequest(host="h", port=raw_port, api_key="k")  # type: ignore[arg-type]
+        IndexerTestRequest.model_validate({"host": "h", "port": raw_port, "api_key": "k"})
 
 
 @pytest.mark.parametrize(("field", "value"), [("host", ""), ("host", "   "), ("api_key", "")])

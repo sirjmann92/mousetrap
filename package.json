@@ -1,23 +1,24 @@
 {
   "name": "mousetrap",
   "private": true,
-  "engines": {
-    "node": ">=24.18.0",
-    "npm": ">=11.16.0"
-  },
   "scripts": {
+    "setup": "uv sync && uv run prek install -f && npm ci --prefix frontend --strict-allow-scripts --no-fund && npm --prefix frontend run test:e2e:install",
     "start": "npm --prefix frontend run start",
     "build": "npm --prefix frontend run build",
     "serve": "npm --prefix frontend run serve",
-    "lint": "npm --prefix frontend run lint",
+    "lint": "uv run prek run --all-files",
     "lint:fix": "npm --prefix frontend run lint:fix",
+    "audit": "npm --prefix frontend audit --omit=dev --no-fund",
+    "check": "npm run lint && npm run audit",
     "tsc": "npm --prefix frontend run tsc",
     "coverage:summary": "node scripts/coverage-summary.mjs",
-    "backend": "npm --prefix frontend run backend",
+    "backend": "CONFIG_DIR=\"${CONFIG_DIR:-$PWD/config}\" uv run uvicorn backend.app:app --host 127.0.0.1 --port \"${VITE_BACKEND_PORT:-${PORT:-39842}}\" --reload",
     "dev": "npm --prefix frontend run dev",
-    "test:backend:integration": ".venv/bin/python -m pytest tests/backend -m integration",
-    "test:backend:workflow": ".venv/bin/python -m pytest tests/backend -m workflow",
-    "test:backend:all": ".venv/bin/python -m pytest tests/backend",
+    "test": "ALLOW_MISSING_COVERAGE=true npm --prefix frontend exec -- concurrently -m 1 --names backend,e2e,coverage \"npm:test:backend\" \"npm:test:e2e\" \"npm:coverage:summary\"",
+    "test:backend": "uv run pytest tests/backend",
+    "test:backend:integration": "uv run pytest tests/backend -m integration",
+    "test:backend:workflow": "uv run pytest tests/backend -m workflow",
+    "test:container": "./scripts/test-container.sh",
     "test:e2e": "npm --prefix frontend run test:e2e",
     "test:e2e:container": "npm --prefix frontend run test:e2e:container"
   }

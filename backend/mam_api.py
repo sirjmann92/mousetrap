@@ -65,7 +65,7 @@ def rotated_mam_id(status: int, cookies: Mapping[str, Morsel[str]]) -> str | Non
     if expires:
         try:
             when = parsedate_to_datetime(expires)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         if when.tzinfo is None:
             when = when.replace(tzinfo=UTC)
@@ -91,7 +91,7 @@ def classify_mam_response(status_code: int, msg: str) -> MamResponseClass:
     return "other_error"
 
 
-async def get_proxied_public_ip(proxy_cfg: dict) -> str | None:
+async def get_proxied_public_ip(proxy_cfg: dict[str, Any]) -> str | None:
     """Returns the public IP as seen through the given proxy config."""
     proxies = build_proxy_dict(proxy_cfg)
     if not proxies:

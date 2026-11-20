@@ -99,34 +99,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  type-check:
-    name: Pyright
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python 3.13
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.13"
-          cache: pip
-          cache-dependency-path: |
-            pyproject.toml
-            requirements/constraints.txt
-
-      # [tool.pyright] resolves imports through .venv, so CI builds the same
-      # virtualenv a developer has rather than duplicating the dependency list
-      # the way the prek mypy hook has to.
-      - name: Install type-check dependencies
-        run: |
-          python -m venv .venv
-          .venv/bin/python -m pip install --upgrade pip
-          .venv/bin/python -m pip install --group typecheck --constraint requirements/constraints.txt
-
-      - name: Run pyright
-        run: npx --yes pyright@1.1.413 backend
-
   linters:
     name: Run Linters
     runs-on: ubuntu-latest
@@ -148,8 +120,11 @@ jobs:
         working-directory: frontend
         run: npm ci --strict-allow-scripts --no-fund
 
-      - name: Run prek
-        uses: j178/prek-action@44924fe9ef4a6f88253c4b6b1bf11c689d3ce53d # v3.1.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - name: Build frontend production bundle
-        run: npm --prefix frontend run build
+      - name: Install lint dependencies
+        run: uv sync --locked
+
+      - name: Run prek
+        run: npm run lint -- --show-diff-on-failure --color=always

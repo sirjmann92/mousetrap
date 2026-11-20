@@ -8,7 +8,7 @@ MouseTrap. It is intended to stand alone for the upstream repository.
 MouseTrap is a Docker-first web app for automating MyAnonaMouse seedbox and
 account management.
 
-- Backend: Python 3.13, FastAPI, YAML-backed configuration/state files, and a
+- Backend: Python 3.14, FastAPI, YAML-backed configuration/state files, and a
   SQLite-backed event log.
 - Frontend: React 19, Vite, Material UI, TypeScript checking, Biome formatting.
 - Runtime: Docker image serving the built frontend and FastAPI backend on port
@@ -24,13 +24,15 @@ account management.
 - `tests/backend/`: Python pytest suite, including integration and workflow coverage.
 - `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: setup, test-gate, container-smoke, coverage-summary, lint, backend
-  launch, and dependency-maintenance helpers; production containers use `start.sh`.
+- `scripts/`: container-smoke, coverage-summary, and dependency-maintenance
+  helpers; production containers use `start.sh`.
+- `package.json`: the named commands for setup, lint, tests, and local runs.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
-- `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
-  configuration.
+- `pyproject.toml`: Python project metadata, including the release version,
+  and dependencies plus uv, pytest, coverage, pyrefly, and Ruff configuration.
+- `uv.lock`: exact version and hashes of every Python dependency.
 - `prek.toml`: repository hook configuration.
 
 ## General Working Rules
@@ -112,44 +114,74 @@ from backend.app import app
 Set up both backend and frontend development environments:
 
 ```bash
-./scripts/setup.sh
+npm run setup
 ```
 
-The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm
-11.16.0 or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
-group at the pinned versions, and runs `npm ci` against the frontend lockfile.
-Rerunning it brings an existing `.venv` back in line with the pins.
+The command requires uv, Node.js 24.18.0 or newer, and npm 11.16.0 or newer.
+`devEngines` in `frontend/package.json` states the Node.js and npm floors, and
+npm refuses to install or run anything in `frontend/` below them. It runs
+`uv sync`, which creates `.venv` with the Python version `pyproject.toml`
+requires and installs the project and the `dev` dependency group at the locked
+versions, installs the prek Git hook, runs `npm ci` against the frontend
+lockfile, and installs Playwright's Chromium. Rerunning it brings an existing
+`.venv` back in line with the lock, removing anything the lock does not name.
 
 ### Python dependency pins
 
-`pyproject.toml` names each dependency group without versions.
-`requirements/constraints.txt` pins every Python dependency to an exact version,
-and **every `pip install --group ...` passes it with `--constraint`**: the
-Dockerfile, both CI workflows, and the setup and maintenance scripts. Add the
-same flag to any new install site.
+`pyproject.toml` is a uv project. The backend's runtime dependencies are in
+`project.dependencies` and the development tools are in `[dependency-groups]`,
+all named without versions. `uv.lock` is the single version source: it records
+the exact version and the hashes of every Python dependency, resolved together
+for Python 3.14, the only version `requires-python` accepts.
 
-Without it, each fresh install took whatever was newest that day, so the Docker
-image, CI and local environments ran different code. A FastAPI release once
-silently changed what `app.routes` returns and broke the API drift check in
+**Every install in the Dockerfile and the CI workflows is `uv sync --locked`**,
+with `--no-dev` in the Dockerfile and the group each CI job needs. `--locked`
+refuses to install when `uv.lock` no longer matches `pyproject.toml`, so a
+dependency added without re-locking fails every job that installs. Use the same
+command at any new install site. The local commands use plain `uv sync` and
+`uv run`, which re-lock after a `pyproject.toml` edit; commit the resulting
+`uv.lock` change with it.
+
+Without a lock, each fresh install took whatever was newest that day, so the
+Docker image, CI and local environments ran different code. A FastAPI release
+once silently changed what `app.routes` returns and broke the API drift check in
 Documentation Guidelines, while a stale local environment kept it looking
-correct.
+correct. `uv sync` installs exactly what the lock names and removes everything
+else, so a stale environment cannot hide a change like that.
 
-The file is generated. Change it through `./scripts/update-dependencies.sh`, or
-let Dependabot bump pins in its weekly pull request; do not add or remove
-entries by hand. The generator resolves for the Python version in the
-Dockerfile, and checks that the runtime pins install from wheels on both
-production platforms, since the image has no compiler.
+`uv.lock` is generated; do not edit it by hand. Run `uv lock` after changing
+`pyproject.toml`, `uv lock --upgrade-package <name>` to move one dependency, or
+`./scripts/update-dependencies.sh` to move all of them. Dependabot's `uv`
+ecosystem moves them in its weekly pull request by running
+`uv lock --upgrade-package`, so every bump goes through the resolver instead
+of editing one line of a flat list.
 
-A package that another pin requires at one exact version, such as
-`pydantic-core` under `pydantic`, is deliberately left out: it is pinned through
-its parent. Dependabot bumps lines independently, so listing both let a bump to
-either alone produce a pair pip cannot install.
+The image has no compiler, so every runtime dependency must have a wheel for
+Alpine on both production platforms. `[tool.uv] required-environments` names
+Linux on `x86_64` and `aarch64`, and `minimum-libc-version` sets the libc those
+wheels must support to musl 1.2, the series the Alpine base image ships.
+`uv lock` then fails when a dependency is published only as wheels and has none
+for musl on either platform. A dependency that also publishes a source
+distribution still locks without such a wheel, so the two `musl-wheels` prek
+hooks resolve the runtime install for each platform with building forbidden,
+whenever `pyproject.toml` or `uv.lock` changes. `minimum-libc-version` is a uv
+preview feature, enabled by name in `preview-features`.
 
-The prek mypy hook installs its own copy of the typecheck and runtime packages,
-by name only. They are not pinned there, because Dependabot does not edit
-`prek.toml` and pins in two places would drift apart.
+`[tool.uv] required-version` sets the oldest uv the project accepts.
+`astral-sh/setup-uv` reads it in CI, and the Dockerfile copies one uv release
+from the uv image by digest.
 
-The root `package.json` forwards frontend commands into `frontend/`.
+The Python-distributed prek hooks (shellcheck, codespell, pyrefly and Ruff) are
+local `system` hooks whose entries start with `uv run`, so they run the
+versions in `uv.lock` from the same `.venv` as everything else; their packages
+are in the `lint` group. A local hook inherits nothing from an upstream
+manifest, so `prek.toml` states each hook's arguments and file filters itself.
+The file hygiene checks are prek's own built-in hooks (`repo = "builtin"`),
+which need no download and no pin. actionlint and Biome are not Python
+packages and keep their own `rev`.
+
+The root `package.json` holds the named commands and forwards the frontend
+ones into `frontend/`.
 
 For local source development:
 
@@ -161,14 +193,14 @@ npm run backend
 npm run dev
 ```
 
-The local backend helper defaults `CONFIG_DIR` to the repository's ignored
+`npm run backend` defaults `CONFIG_DIR` to the repository's ignored
 `config/` directory. An explicit `CONFIG_DIR` or per-file path override takes
 precedence and can direct configuration, session state, notifications, proxies,
 port-monitor state, and the SQLite event log anywhere, including production's
 `/config`; check overrides before running local commands. Use
 `VITE_BACKEND_PORT` to change the backend port for the combined `npm run dev`
-command; the helper also accepts `PORT` when starting only the backend. Do not
-use `scripts/start-backend.sh` as a production entrypoint.
+command; `npm run backend` also accepts `PORT` when starting only the backend.
+Do not use it as a production entrypoint.
 
 For routine dependency maintenance, run:
 
@@ -176,10 +208,10 @@ For routine dependency maintenance, run:
 ./scripts/update-dependencies.sh
 ```
 
-The helper re-resolves the newest Python dependencies and rewrites
-`requirements/constraints.txt`, updates the frontend dependencies, and keeps
-their generated tool configuration synchronized. Review configuration and
-lockfile changes, then run `./scripts/lint.sh` before committing.
+The helper re-resolves the newest Python dependencies and rewrites `uv.lock`,
+updates the frontend dependencies, and keeps their generated tool configuration
+synchronized. Review configuration and
+lockfile changes, then run `npm run check` before committing.
 
 ## Validation Commands
 
@@ -188,19 +220,39 @@ the same repository-wide checks as CI. Some hooks apply safe fixes and
 formatting changes, so review the working tree afterward.
 
 ```bash
-./scripts/lint.sh
+npm run check
 ```
+
+`npm run lint` runs every prek hook, the frontend production build included,
+and is the command CI's lint job runs. `npm run check` adds the audit of the
+dependencies that ship.
 
 Complete local test gate:
 
 ```bash
-./scripts/test.sh              # Backend pytest plus development Playwright E2E.
-./scripts/test.sh --full       # Default gate plus production container smoke test.
-./scripts/test.sh --container  # Production container smoke test only.
+npm test                # Backend pytest plus development Playwright E2E.
+npm run test:container  # Production container smoke test.
 ```
 
-The default and `--full` modes write coverage separately to `coverage/backend/`
-for backend pytest and `coverage/frontend/` for Playwright E2E.
+`npm test` runs both suites even when the first fails, then prints the coverage
+summary. It writes coverage separately to `coverage/backend/` for backend
+pytest and `coverage/frontend/` for Playwright E2E. CI runs the same
+`test:backend`, `test:e2e`, and `test:container` commands as separate jobs.
+
+### Type checking
+
+pyrefly checks every Python file at its `all` preset, which makes every error
+kind an error. The kinds set to `ignore` under `[tool.pyrefly.errors]` in
+`pyproject.toml` are the ones the code does not pass yet. Do not add to that
+list or suppress a finding inline; delete an entry once the code passes it.
+
+### Lint rules
+
+Ruff selects every rule (`select = ["ALL"]`). The `ignore` list in
+`pyproject.toml` holds the rules that conflict with the formatter, the
+copyright-header rule this project does not use, and the rules the code does
+not pass yet. Do not add to that list or suppress a finding inline; delete an
+entry once the code passes it.
 
 ### Dependency advisories
 
@@ -210,7 +262,7 @@ dependency that the pull request itself adds or changes. Do not put back a bare
 every pull request, including Python-only ones, whenever an advisory was
 published against a package already on `main`, and one advisory had no fixed
 release at all. Advisories against existing dependencies arrive as Dependabot
-alerts and security update pull requests. `./scripts/lint.sh` audits only the
+alerts and security update pull requests. `npm run check` audits only the
 dependencies that ship (`npm audit --omit=dev`).
 
 ## Testing Expectations
@@ -278,10 +330,10 @@ requested, disable it and say so.
 
 That is a standing instruction, not a per-batch technique. Left enabled, the
 workflow publishes on *every* merge to `main`: a push runs `Tests`, and a
-successful run triggers `Publish Docker image`, which builds the image,
-derives the next version, creates the GitHub Release, and notifies everyone
-watching the repository. Each unwanted merge is a release that cannot be
-recalled.
+successful run triggers `Publish Docker image`, which builds the image, pushes
+it under the version `pyproject.toml` carries, creates the GitHub Release, and
+notifies everyone watching the repository. Each unwanted merge is a publish
+that cannot be recalled.
 
 This has already gone wrong once. `v2.4.3` was cut unintentionally because
 the workflow was re-enabled to dispatch `v2.4.2` and never disabled again;
@@ -293,32 +345,30 @@ Dependabot opens pull requests unprompted, for GitHub Actions, the Python
 pins and the frontend lockfile. A security fix merged on a quiet
 afternoon would publish a release nobody asked for.
 
-Release versions come only from git tags — `frontend/package.json`'s
-`version` field is inert and must not be treated as the release version.
+Release versions come only from `project.version` in `pyproject.toml`. The
+backend reports it at `/api/version` from the installed distribution's
+metadata, and the publish workflow tags the image and the GitHub Release with
+what `uv version --short` prints. `frontend/package.json`'s `version` field is
+inert and must not be treated as the release version.
 
-The default is a patch bump. To cut a larger release, include a keyword as a
-standalone word in a commit message landing since the previous release:
+A release is a pull request that bumps the version:
 
-| Keyword  | Effect on `X.Y.Z` | Use for         |
-| -------- | ----------------- | --------------- |
-| `#major` | `(X+1).0.0`       | Breaking change |
-| `#minor` | `X.(Y+1).0`       | New feature     |
-| *none*   | `X.Y.(Z+1)`       | Everything else |
+```bash
+uv version --bump patch
+```
 
-- Only **commit messages** are scanned, never file contents, so documenting
-  the keywords in a file like this one is safe.
-- Writing a keyword into a commit message *about* the mechanism will promote
-  that release. Refer to them indirectly ("hash-minor") when that is not
-  intended.
-- Keywords are matched as whole words, so `#minority`, `#majorly` and issue
-  references such as `#123` do not promote a release.
-- `#major` wins when both appear.
-- Squash merges keep the PR title and the squashed commit bodies, so a
-  contributor can signal intent in a commit and a reviewer can add or remove
-  the keyword in the squash message at merge time. **When merging, check the
-  squash message for an unintended keyword.**
-- A release scans every commit since the last tag, so one flagged commit
-  promotes the whole batch.
+| Bump    | Effect on `X.Y.Z` | Use for         |
+| ------- | ----------------- | --------------- |
+| `major` | `(X+1).0.0`       | Breaking change |
+| `minor` | `X.(Y+1).0`       | New feature     |
+| `patch` | `X.Y.(Z+1)`       | Everything else |
+
+- `uv version --bump` rewrites the version in `pyproject.toml` and in `uv.lock`.
+  Commit both.
+- Commit messages do not affect the version. Nothing scans them.
+- The publish workflow does not bump anything. It publishes the version `main`
+  carries, and fails before building anything when that version already has a
+  tag, so the bump has to merge before the workflow runs.
 
 Merge freely while it is disabled — that is the normal state, and any number
 of pull requests can land without publishing anything. When the maintainer

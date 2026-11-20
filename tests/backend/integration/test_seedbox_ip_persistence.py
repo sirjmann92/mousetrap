@@ -17,12 +17,14 @@ normalising an entered value.
 from datetime import UTC, datetime
 import logging
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app, config
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _DETECTED_IP = "198.51.100.7"
 _PROXIED_IP = "203.0.113.9"
@@ -37,6 +39,10 @@ _ACCEPTED_REPLIES = [
     {"Success": True, "msg": "Completed"},
     {"Success": False, "msg": "No change"},
 ]
+
+
+def _no_proxy(_cfg: dict[str, Any]) -> None:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session with no proxy."""
 
 
 class _Response:
@@ -141,12 +147,24 @@ def _install_scheduled_check(
     async def noop(*_args: Any, **_kwargs: Any) -> None:
         return None
 
+    def resolve_proxy(_cfg: dict[str, Any]) -> dict[str, Any] | None:
+        """Resolve every session to the proxy under test."""
+        return proxy
+
+    def save(cfg: dict[str, Any], **_kwargs: object) -> None:
+        """Record a snapshot of the config instead of writing it."""
+        saved.append(dict(cfg))
+
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session answering with the stubbed MaM reply."""
+        return _Session(payload)
+
     monkeypatch.setattr(app, "get_public_ip", detected_ip)
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: proxy)
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", resolve_proxy)
     monkeypatch.setattr(app, "apply_mam_validity_classification", noop)
     monkeypatch.setattr(app, "safe_notify_event", noop)
-    monkeypatch.setattr(app, "save_session", lambda cfg, **_kwargs: saved.append(dict(cfg)))
-    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(payload))
+    monkeypatch.setattr(app, "save_session", save)
+    monkeypatch.setattr(app.aiohttp, "ClientSession", open_session)
     return saved, direct_lookups
 
 
@@ -164,9 +182,13 @@ def _install_manual_route(monkeypatch: pytest.MonkeyPatch, payload: dict[str, An
     ) -> tuple[str | None, str | None]:
         return (f"AS{_ASN} Example", None)
 
+    def open_session(**_kwargs: object) -> _Session:
+        """Open a stub session answering with the stubbed MaM reply."""
+        return _Session(payload)
+
     monkeypatch.setattr(app, "get_asn_and_timezone_from_ip", asn_lookup)
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: None)
-    monkeypatch.setattr(app.aiohttp, "ClientSession", lambda **_kwargs: _Session(payload))
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", _no_proxy)
+    monkeypatch.setattr(app.aiohttp, "ClientSession", open_session)
 
 
 @pytest.mark.integration

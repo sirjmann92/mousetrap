@@ -11,33 +11,37 @@ COPY frontend/ ./
 # Build the frontend using devDependencies (Vite and plugins).
 RUN npm run build
 
-# Stage 2: Backend (FastAPI)
-FROM python:3.13-alpine AS backend
+FROM python:3.14-alpine AS backend-build
+COPY --from=ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 /uv /bin/uv
+ENV UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
 
 # Copy dependency metadata first for better caching.
-COPY pyproject.toml /app/pyproject.toml
-COPY requirements/constraints.txt /app/requirements/constraints.txt
+COPY pyproject.toml uv.lock /app/
+RUN uv sync --locked --no-dev --no-install-project --compile-bytecode
 
-# Install system dependencies, create users/groups, and install Python deps
+COPY backend/*.py /app/backend/
+RUN uv sync --locked --no-dev --compile-bytecode
+
+FROM python:3.14-alpine AS backend
+WORKDIR /app
+
 RUN apk add --no-cache gettext su-exec shadow \
     && (getent group 992 || addgroup -g 992 docker) \
     && addgroup -g 1000 appgroup \
     && adduser -u 1000 -G appgroup -D -s /bin/sh appuser \
     && adduser appuser docker \
-    && python -m pip install --no-cache-dir --upgrade "pip>=25.1" \
-    && python -m pip install --no-cache-dir --group runtime --constraint requirements/constraints.txt \
-    && rm -rf /root/.cache/pip /tmp/* /var/cache/apk/*
+    && rm -rf /tmp/* /var/cache/apk/*
 
 # Set environment variables
-ARG APP_VERSION=dev
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     ENV=production \
     PUID=1000 \
     PGID=1000 \
-    APP_VERSION=${APP_VERSION}
+    PATH=/app/.venv/bin:$PATH
 
+COPY --from=backend-build /app/.venv /app/.venv
 # Copy the rest of the backend code and config (exclude dev files)
 COPY backend/*.py /app/backend/
 COPY backend/app.py logconfig.yaml.template /app/

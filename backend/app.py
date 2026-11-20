@@ -8,19 +8,20 @@ registration (APScheduler), and related helpers.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+import importlib.metadata
 import logging
 import os
 from pathlib import Path
 import re
 import time
-from typing import Any
+from typing import Annotated, Any, TypedDict
 
 import aiohttp
-from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
-from apscheduler.triggers.interval import IntervalTrigger  # type: ignore[import-untyped]
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
@@ -99,7 +100,7 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def app_lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Start and stop application-owned background services and persistence."""
     try:
         start_port_monitor_manager()
@@ -147,7 +148,6 @@ scheduler = BackgroundScheduler()
 
 session_status_cache: dict[str, Any] = {}
 # Global cache for notification deduplication by UID (MAM account ID)
-# Format: {uid: {event_type: {count_change_key: timestamp}}}
 # Note: Uses UID not mam_id, since multiple sessions can share the same MAM account
 notification_dedup_cache: dict[str, dict[str, dict[str, float]]] = {}
 
@@ -270,7 +270,9 @@ def _bucket_count(raw: dict[str, Any], key: str) -> int:
     return int(value) if isinstance(value, int | str) and str(value).isdigit() else 0
 
 
-async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: str) -> None:
+async def check_and_notify_count_increments(
+    cfg: dict[str, Any], new_status: dict[str, Any], label: str
+) -> None:
     """Check for increments in hit & run and unsatisfied counts and send notifications."""
     # Get the previous status
     old_status = cfg.get("last_status", {})
@@ -540,6 +542,13 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
     return classification == "ok"
 
 
+class _NonJsonSeedboxReply(TypedDict):
+    """Stand-in for a dynamicSeedbox.php reply whose body could not be decoded as JSON."""
+
+    Success: bool
+    msg: str
+
+
 def _record_seedbox_update(
     cfg: dict[str, Any], ip: str | None, asn: str | None, now: datetime
 ) -> None:
@@ -747,7 +756,7 @@ async def auto_update_seedbox_if_needed(
                         e_json,
                     )
                     text = await resp.text()
-                    result = {"Success": False, "msg": f"Non-JSON response: {text}"}
+                    result = _NonJsonSeedboxReply(Success=False, msg=f"Non-JSON response: {text}")
 
                 # MAM may return a new MAM ID; adopt it only from a response it
                 # accepted (see rotated_mam_id). Saved immediately, because not
@@ -941,7 +950,9 @@ async def auto_update_seedbox_if_needed(
 
 
 @app.get("/api/status")
-async def api_status(label: str | None = Query(None), force: int = Query(0)) -> dict[str, Any]:
+async def api_status(
+    label: Annotated[str | None, Query()] = None, force: Annotated[int, Query()] = 0
+) -> dict[str, Any]:
     """Return the current status for a session label.
 
     If `force` is truthy, a fresh status check is performed even if a cached
@@ -2095,7 +2106,9 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
                 try:
                     result = await resp.json()
                 except Exception:
-                    result = {"Success": False, "msg": f"Non-JSON response: {resp_text}"}
+                    result = _NonJsonSeedboxReply(
+                        Success=False, msg=f"Non-JSON response: {resp_text}"
+                    )
         except Exception as e:
             _logger.warning("[SeedboxUpdate] HTTP request failed: %s", e)
             return {"success": False, "error": str(e)}
@@ -2899,11 +2912,13 @@ def api_server_time() -> dict[str, Any]:
 def api_version() -> dict[str, str]:
     """Return the application version.
 
-    The version is set via the APP_VERSION environment variable which is
-    injected during the Docker build. Defaults to 'dev' for local builds.
+    The version is the installed distribution's, which `project.version` in
+    `pyproject.toml` declares.
+
+    Returns:
+        The version, under the `version` key.
     """
-    version = os.environ.get("APP_VERSION", "dev")
-    return {"version": version}
+    return {"version": importlib.metadata.version("mousetrap")}
 
 
 def _serve_favicon(filename: str, media_type: str) -> FileResponse:
@@ -3076,7 +3091,7 @@ async def session_check_job(label: str) -> None:
             # Check for increments in hit & run and unsatisfied counts before auto-update logic
             await check_and_notify_count_increments(cfg, status, label)
             # Auto-update logic
-            auto_update_triggered, auto_update_result = await auto_update_seedbox_if_needed(
+            _auto_update_triggered, auto_update_result = await auto_update_seedbox_if_needed(
                 cfg, label, ip_to_use, asn, now
             )
             if auto_update_result is not None:
