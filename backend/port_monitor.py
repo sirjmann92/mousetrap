@@ -53,7 +53,7 @@ class PortMonitorStack:
         interval: int = 60,
         public_ip: str | None = None,
         public_ip_detected: bool | None = None,
-    ):
+    ) -> None:
         """Initialize a PortMonitorStack.
 
         Args:

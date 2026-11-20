@@ -366,13 +366,8 @@ async def notify_event(
 
         # Check if config is valid based on mode
         config_valid = False
-        if (
-            mode == "stateful"
-            and apprise_url
-            and key
-            or mode == "stateless"
-            and apprise_url
-            and notify_url_string
+        if (mode == "stateful" and apprise_url and key) or (
+            mode == "stateless" and apprise_url and notify_url_string
         ):
             config_valid = True
 

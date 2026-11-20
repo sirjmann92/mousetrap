@@ -145,7 +145,7 @@ async def test_the_catch_all_still_lets_the_exception_reach_the_server(
     """
     transport = ASGITransport(app=problem_app)
     async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        with pytest.raises(RuntimeError, match="session.yaml is unreadable"):
+        with pytest.raises(RuntimeError, match=r"session\.yaml is unreadable"):
             await client.get("/unhandled")
 
 

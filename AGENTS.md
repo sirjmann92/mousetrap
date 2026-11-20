@@ -246,6 +246,14 @@ kind an error. The kinds set to `ignore` under `[tool.pyrefly.errors]` in
 `pyproject.toml` are the ones the code does not pass yet. Do not add to that
 list or suppress a finding inline; delete an entry once the code passes it.
 
+### Lint rules
+
+Ruff selects every rule (`select = ["ALL"]`). The `ignore` list in
+`pyproject.toml` holds the rules that conflict with the formatter, the
+copyright-header rule this project does not use, and the rules the code does
+not pass yet. Do not add to that list or suppress a finding inline; delete an
+entry once the code passes it.
+
 ### Dependency advisories
 
 CI's `Dependency review` check fails a pull request only for a vulnerable
