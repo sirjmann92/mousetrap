@@ -538,7 +538,7 @@ The setup helper runs `uv sync`, which creates `.venv` and installs the project 
 Run linting, formatting, type, and frontend dependency-security checks:
 
 ```bash
-./scripts/lint.sh
+npm run check
 ```
 
 Some hooks apply safe fixes and formatting changes. Review any modified files before committing.
@@ -547,7 +547,7 @@ For routine dependency maintenance:
 
 ```bash
 ./scripts/update-dependencies.sh
-./scripts/lint.sh
+npm run check
 ```
 
 The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin and configuration schema aligned, then selects the newest published stable Biome prek tag in the same major version that is no newer than the npm package. It then normalizes the frontend lockfile, applies compatible security remediations, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11.16.0 or newer so the frontend's install-script policy is enforced. It also re-resolves `uv.lock` to the newest Python dependencies and synchronizes `.venv` with it. Review generated configuration and lockfile changes before committing.
@@ -613,7 +613,7 @@ alike.
 Before opening a pull request, run the checks that match what you changed:
 
 ```bash
-./scripts/lint.sh   # Linting, formatting, types, shipped frontend dependency audit.
+npm run check   # Linting, formatting, types, shipped frontend dependency audit.
 ./scripts/test.sh   # Backend pytest plus development Playwright E2E.
 ```
 

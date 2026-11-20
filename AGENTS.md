@@ -24,8 +24,8 @@ account management.
 - `tests/backend/`: Python pytest suite, including integration and workflow coverage.
 - `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: setup, test-gate, container-smoke, coverage-summary, lint, backend
-  launch, and dependency-maintenance helpers; production containers use `start.sh`.
+- `scripts/`: setup, test-gate, container-smoke, coverage-summary, backend launch,
+  and dependency-maintenance helpers; production containers use `start.sh`.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
@@ -177,7 +177,8 @@ The file hygiene checks are prek's own built-in hooks (`repo = "builtin"`),
 which need no download and no pin. actionlint and Biome are not Python
 packages and keep their own `rev`.
 
-The root `package.json` forwards frontend commands into `frontend/`.
+The root `package.json` holds the named commands and forwards the frontend
+ones into `frontend/`.
 
 For local source development:
 
@@ -207,7 +208,7 @@ For routine dependency maintenance, run:
 The helper re-resolves the newest Python dependencies and rewrites `uv.lock`,
 updates the frontend dependencies, and keeps their generated tool configuration
 synchronized. Review configuration and
-lockfile changes, then run `./scripts/lint.sh` before committing.
+lockfile changes, then run `npm run check` before committing.
 
 ## Validation Commands
 
@@ -216,8 +217,12 @@ the same repository-wide checks as CI. Some hooks apply safe fixes and
 formatting changes, so review the working tree afterward.
 
 ```bash
-./scripts/lint.sh
+npm run check
 ```
+
+`npm run lint` runs every prek hook, the frontend production build included,
+and is the command CI's lint job runs. `npm run check` adds the audit of the
+dependencies that ship.
 
 Complete local test gate:
 
@@ -238,7 +243,7 @@ dependency that the pull request itself adds or changes. Do not put back a bare
 every pull request, including Python-only ones, whenever an advisory was
 published against a package already on `main`, and one advisory had no fixed
 release at all. Advisories against existing dependencies arrive as Dependabot
-alerts and security update pull requests. `./scripts/lint.sh` audits only the
+alerts and security update pull requests. `npm run check` audits only the
 dependencies that ship (`npm audit --omit=dev`).
 
 ## Testing Expectations
