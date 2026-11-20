@@ -1,16 +1,6 @@
 {
   "name": "mousetrap",
   "private": true,
-  "devEngines": {
-    "runtime": {
-      "name": "node",
-      "version": ">=24.18.0"
-    },
-    "packageManager": {
-      "name": "npm",
-      "version": ">=11.16.0"
-    }
-  },
   "scripts": {
     "setup": "uv sync && uv run prek install -f && npm ci --prefix frontend --strict-allow-scripts --no-fund && npm --prefix frontend run test:e2e:install",
     "start": "npm --prefix frontend run start",

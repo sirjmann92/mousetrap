@@ -533,7 +533,7 @@ npm run setup
 npm run dev
 ```
 
-The setup command runs `uv sync`, which creates `.venv` and installs the project and the Python `dev` dependency group exactly as pinned in `uv.lock`, installs the prek Git hook, installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`, and installs Playwright's Chromium. npm refuses to run it on a Node.js or npm older than `devEngines` in `package.json` allows.
+The setup command runs `uv sync`, which creates `.venv` and installs the project and the Python `dev` dependency group exactly as pinned in `uv.lock`, installs the prek Git hook, installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`, and installs Playwright's Chromium. npm refuses to install them on a Node.js or npm older than `devEngines` in `frontend/package.json` allows.
 
 Run linting, formatting, type, and frontend dependency-security checks:
 

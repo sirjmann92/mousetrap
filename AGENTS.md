@@ -118,13 +118,13 @@ npm run setup
 ```
 
 The command requires uv, Node.js 24.18.0 or newer, and npm 11.16.0 or newer.
-`devEngines` in both `package.json` files states the Node.js and npm floors,
-and npm refuses to run a command below them. It runs `uv sync`, which creates
-`.venv` with the Python version `pyproject.toml` requires and installs the
-project and the `dev` dependency group at the locked versions, installs the
-prek Git hook, runs `npm ci` against the frontend lockfile, and installs
-Playwright's Chromium. Rerunning it brings an existing `.venv` back in line
-with the lock, removing anything the lock does not name.
+`devEngines` in `frontend/package.json` states the Node.js and npm floors, and
+npm refuses to install or run anything in `frontend/` below them. It runs
+`uv sync`, which creates `.venv` with the Python version `pyproject.toml`
+requires and installs the project and the `dev` dependency group at the locked
+versions, installs the prek Git hook, runs `npm ci` against the frontend
+lockfile, and installs Playwright's Chromium. Rerunning it brings an existing
+`.venv` back in line with the lock, removing anything the lock does not name.
 
 ### Python dependency pins
 

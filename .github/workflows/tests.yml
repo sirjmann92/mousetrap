@@ -47,9 +47,6 @@ jobs:
         with:
           node-version: "lts/Krypton"
 
-      - name: Install npm with script approval support
-        run: npm install --global "npm@>=11.16.0" --ignore-scripts --no-audit --no-fund
-
       - name: Run all backend tests
         env:
           UV_NO_SYNC: "1"
