@@ -343,15 +343,14 @@ uv version --bump patch
   Commit both.
 - Commit messages do not affect the version. Nothing scans them.
 - The publish workflow does not bump anything. It publishes the version `main`
-  carries, so the bump has to merge before the workflow is enabled. **Check
-  that the version has no tag yet before publishing.**
+  carries, and fails before building anything when that version already has a
+  tag, so the bump has to merge before the workflow runs.
 
 Merge freely while it is disabled — that is the normal state, and any number
 of pull requests can land without publishing anything. When the maintainer
 asks for a release:
 
 ```bash
-git tag --list "v$(uv version --short)"                 # expect no output: not released yet
 gh workflow list | grep -i publish                      # expect it absent, i.e. disabled
 gh run list --workflow=Tests --branch main --limit 1    # Tests must be green on HEAD
 gh workflow enable "Publish Docker image"

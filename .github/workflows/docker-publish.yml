@@ -48,6 +48,20 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing version: $VERSION"
 
+      - name: Refuse a version that is already released
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          status=0
+          git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" >/dev/null || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "::error::v${VERSION} is already released. Bump project.version before publishing."
+            exit 1
+          fi
+          if [ "$status" -ne 2 ]; then
+            exit "$status"
+          fi
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
