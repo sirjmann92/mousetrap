@@ -1,9 +1,15 @@
 {
   "name": "mousetrap",
   "private": true,
-  "engines": {
-    "node": ">=24.18.0",
-    "npm": ">=11.16.0"
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.18.0"
+    },
+    "packageManager": {
+      "name": "npm",
+      "version": ">=11.16.0"
+    }
   },
   "scripts": {
     "start": "npm --prefix frontend run start",
@@ -15,9 +21,9 @@
     "coverage:summary": "node scripts/coverage-summary.mjs",
     "backend": "npm --prefix frontend run backend",
     "dev": "npm --prefix frontend run dev",
+    "test:backend:all": "uv run pytest tests/backend",
     "test:backend:integration": "uv run pytest tests/backend -m integration",
     "test:backend:workflow": "uv run pytest tests/backend -m workflow",
-    "test:backend:all": "uv run pytest tests/backend",
     "test:e2e": "npm --prefix frontend run test:e2e",
     "test:e2e:container": "npm --prefix frontend run test:e2e:container"
   }
