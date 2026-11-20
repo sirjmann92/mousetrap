@@ -236,7 +236,8 @@ async def test_update_writes_the_mamid_field_and_forces_the_save(
     assert len(put_calls) == 1
     url, body = put_calls[0][1], put_calls[0][2]
     assert url.endswith("/api/v1/indexer/3?forceSave=true")
-    assert [f for f in body["fields"] if f["name"] == "mamId"][0]["value"] == "new-cookie"
+    mam_id_fields = [f for f in body["fields"] if f["name"] == "mamId"]
+    assert mam_id_fields[0]["value"] == "new-cookie"
 
 
 class _TimingOutResponse(_StubResponse):

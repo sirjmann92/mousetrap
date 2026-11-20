@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 import logging
 import threading
 import time
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -66,7 +66,8 @@ class UpdatePortMonitorStackRequest(BaseModel):
 
 @router.put("/stacks", response_model=dict)
 def update_stack(
-    name: str = Query(..., description="Stack name"), req: UpdatePortMonitorStackRequest = Body(...)
+    name: Annotated[str, Query(description="Stack name")],
+    req: Annotated[UpdatePortMonitorStackRequest, Body()],
 ) -> dict[str, Any]:
     """Update fields for a named port monitor stack and trigger a recheck.
 

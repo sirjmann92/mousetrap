@@ -3079,7 +3079,7 @@ async def session_check_job(label: str) -> None:
             # Check for increments in hit & run and unsatisfied counts before auto-update logic
             await check_and_notify_count_increments(cfg, status, label)
             # Auto-update logic
-            auto_update_triggered, auto_update_result = await auto_update_seedbox_if_needed(
+            _auto_update_triggered, auto_update_result = await auto_update_seedbox_if_needed(
                 cfg, label, ip_to_use, asn, now
             )
             if auto_update_result is not None:

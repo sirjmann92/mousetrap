@@ -133,34 +133,18 @@ warn_unreachable = true
 
 [tool.ruff]
 line-length = 100
-required-version = ">=0.15.0"
+required-version = ">=0.17.0"
 
 [tool.ruff.format]
 line-ending = "lf"
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = [
+extend-select = [
     "A", # flake8-builtins
-    "ASYNC210", # Async functions should not call blocking HTTP methods
-    "ASYNC220", # Async functions should not create subprocesses with blocking methods
-    "ASYNC221", # Async functions should not run processes with blocking methods
-    "ASYNC222", # Async functions should not wait on processes with blocking methods
-    "ASYNC230", # Async functions should not open files with blocking methods like open
-    "ASYNC251", # Async functions should not call time.sleep
-    "B002", # Python does not support the unary prefix increment
-    "B005", # Using .strip() with multi-character strings is misleading
     "B007", # Loop control variable {name} not used within loop body
-    "B014", # Exception handler with duplicate exception
-    "B015", # Pointless comparison. Did you mean to assign a value? Otherwise, prepend assert or remove it.
-    "B017", # pytest.raises(BaseException) should be considered evil
-    "B018", # Found useless attribute access. Either assign it to a variable or remove it.
-    "B023", # Function definition does not bind loop variable {name}
-    "B026", # Star-arg unpacking after a keyword argument is strongly discouraged
-    "B032", # Possible unintentional type annotation (using :). Did you mean to assign (using =)?
     "B904", # Use raise from to specify exception cause
     "B905", # zip() without an explicit strict= parameter
-    "BLE",
     #"C", # complexity
     "C4", # flake8-comprehensions
     "COM818", # Trailing comma on bare tuple prohibited
@@ -169,22 +153,17 @@ select = [
     "E", # pycodestyle
     "EXE", # flake8-executable
     "F", # pyflakes/autoflake
-    "F541", # f-string without any placeholders
-    "FA", # flake8-future-annotations
     "FIX", # flake8-fixme
-    "FLY", # flynt
     "FURB", # refurb
     "G", # flake8-logging-format
     "I", # isort
     "ICN", # flake8-import-conventions
     "INP", # flake8-no-pep420
-    "INT", # flake8-gettext
     "ISC", # flake8-implicit-str-concat
     "LOG", # flake8-logging
     "N", # pep8-naming
     "PERF", # Perflint
     "PGH", # pygrep-hooks
-    "PIE", # flake8-pie
     "PL", # pylint
     "PT", # flake8-pytest-style
     "PTH", # flake8-pathlib
@@ -193,27 +172,17 @@ select = [
     "RSE", # flake8-raise
     "RUF005", # Consider iterable unpacking instead of concatenation
     "RUF006", # Store a reference to the return value of asyncio.create_task
-    "RUF010", # Use explicit conversion flag
-    "RUF013", # PEP 484 prohibits implicit Optional
-    "RUF017", # Avoid quadratic list summation
-    "RUF018", # Avoid assignment expressions in assert statements
-    "RUF019", # Unnecessary key check before dictionary access
-    "RUF100", # Unused `noqa` directive
     "S", # flake8-bandit
     "SIM", # flake8-simplify
     "SLF", # flake8-self
     "SLOT", # flake8-slots
-    "T10", # flake8-debugger
     "T20", # flake8-print
     "TC", # flake8-type-checking
     "TD", # flake8-todos
     "TID", # Tidy imports
     "TRY", # tryceratops
     "UP", # pyupgrade
-    "UP031", # Use format specifiers instead of percent format
-    "UP032", # Use f-string instead of `format` call
     "W", # pycodestyle
-    "YTT", # flake8-2020
 ]
 
 ignore = [
