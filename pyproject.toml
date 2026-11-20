@@ -18,15 +18,8 @@ dependencies = [
 typecheck = [
     "httpx",
     "pytest",
-    "types-cffi",
     "types-docker",
-    "types-PyMySQL",
-    "types-pyRFC3339",
-    "types-python-dateutil",
-    "types-PySocks",
     "types-PyYAML",
-    "types-requests",
-    "types-setuptools",
 ]
 lint = [
     { include-group = "typecheck" },

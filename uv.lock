@@ -389,15 +389,8 @@ dev = [
     { name = "pytest-timeout" },
     { name = "ruff" },
     { name = "shellcheck-py" },
-    { name = "types-cffi" },
     { name = "types-docker" },
-    { name = "types-pymysql" },
-    { name = "types-pyrfc3339" },
-    { name = "types-pysocks" },
-    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-setuptools" },
 ]
 lint = [
     { name = "codespell" },
@@ -407,15 +400,8 @@ lint = [
     { name = "pytest" },
     { name = "ruff" },
     { name = "shellcheck-py" },
-    { name = "types-cffi" },
     { name = "types-docker" },
-    { name = "types-pymysql" },
-    { name = "types-pyrfc3339" },
-    { name = "types-pysocks" },
-    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-setuptools" },
 ]
 test = [
     { name = "httpx" },
@@ -427,15 +413,8 @@ test = [
 typecheck = [
     { name = "httpx" },
     { name = "pytest" },
-    { name = "types-cffi" },
     { name = "types-docker" },
-    { name = "types-pymysql" },
-    { name = "types-pyrfc3339" },
-    { name = "types-pysocks" },
-    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-setuptools" },
 ]
 
 [package.metadata]
@@ -463,15 +442,8 @@ dev = [
     { name = "pytest-timeout" },
     { name = "ruff" },
     { name = "shellcheck-py" },
-    { name = "types-cffi" },
     { name = "types-docker" },
-    { name = "types-pymysql" },
-    { name = "types-pyrfc3339" },
-    { name = "types-pysocks" },
-    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-setuptools" },
 ]
 lint = [
     { name = "codespell" },
@@ -481,15 +453,8 @@ lint = [
     { name = "pytest" },
     { name = "ruff" },
     { name = "shellcheck-py" },
-    { name = "types-cffi" },
     { name = "types-docker" },
-    { name = "types-pymysql" },
-    { name = "types-pyrfc3339" },
-    { name = "types-pysocks" },
-    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-setuptools" },
 ]
 test = [
     { name = "httpx" },
@@ -501,15 +466,8 @@ test = [
 typecheck = [
     { name = "httpx" },
     { name = "pytest" },
-    { name = "types-cffi" },
     { name = "types-docker" },
-    { name = "types-pymysql" },
-    { name = "types-pyrfc3339" },
-    { name = "types-pysocks" },
-    { name = "types-python-dateutil" },
     { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-setuptools" },
 ]
 
 [[package]]
@@ -837,18 +795,6 @@ wheels = [
 ]
 
 [[package]]
-name = "types-cffi"
-version = "2.1.0.20260827"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "types-setuptools" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/04/bb/dbb844365103e4dc6ea52cdae0946c3ca55a7b8587e6f351710d7ee5bb78/types_cffi-2.1.0.20260827.tar.gz", hash = "sha256:53d1604771ad4ff09a1a90d6f6980ab36bebb6c39476dcc5bbf4896fa510d736", size = 18150, upload-time = "2026-08-27T12:07:21.754Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0c/fc/690c243ddac627901f1448f5cb29ca3b5463774a00ac932862c60d7ce5cf/types_cffi-2.1.0.20260827-py3-none-any.whl", hash = "sha256:851b6ffa5b962c577a2330b98ac0b60c56c904d086726276946388f58a0cffaf", size = 20525, upload-time = "2026-08-27T12:07:20.836Z" },
-]
-
-[[package]]
 name = "types-docker"
 version = "7.2.0.20261102"
 source = { registry = "https://pypi.org/simple" }
@@ -862,69 +808,12 @@ wheels = [
 ]
 
 [[package]]
-name = "types-pymysql"
-version = "1.2.4.20261111"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d2/6e/7b4c4a89106c15db935db34d61a980384914c4c82937228e811ad4b05579/types_pymysql-1.2.4.20261111.tar.gz", hash = "sha256:d1049db232c533a22dbcc11aab2685673cdf52f1051249b88e2fc93840851026", size = 22927, upload-time = "2026-11-11T08:32:39.098Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/c9/4c715f733f01bc21afb7439a5ef99c8d3adceec4fcea16068560286efcd7/types_pymysql-1.2.4.20261111-py3-none-any.whl", hash = "sha256:9d5ec6aba675e283a58b9f8144583c8d2ecaf8b372a36a64cb66eb80915eabfa", size = 23392, upload-time = "2026-11-11T08:32:38.273Z" },
-]
-
-[[package]]
-name = "types-pyrfc3339"
-version = "2.0.1.20250825"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5b/30/1c61eb624f765f64e3ed85db909de0e96f9b702c64fbe77beaeb06b9de29/types_pyrfc3339-2.0.1.20250825.tar.gz", hash = "sha256:954797ad8262e93eca99a6015efdbbf6d4028a0e9e460ab82ef8d440dd7b5480", size = 7646, upload-time = "2025-08-25T03:08:33.767Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c5/23/0be8db612a6b90b9c04901f5e0a7435cf8f9f3112ce72b101a581e6bf6f8/types_pyrfc3339-2.0.1.20250825-py3-none-any.whl", hash = "sha256:59a9be99e1ef9f3520af94e438d799148715433ae89539413439361664bdf56b", size = 8155, upload-time = "2025-08-25T03:08:32.706Z" },
-]
-
-[[package]]
-name = "types-pysocks"
-version = "1.7.1.20261115"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/9c/12/fe02ae18010707a62469d40c7532174d202925876b37a4ea23b886d30e51/types_pysocks-1.7.1.20261115.tar.gz", hash = "sha256:45359c6e948abae4837e37c82cc4c36c2e4ccdd519f74e300d5c93791cdaf856", size = 9109, upload-time = "2026-11-15T08:33:42.389Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e2/4e/ca518e30f0ff51b4a8e863528004398ae98609e0090dd87180a80aa75133/types_pysocks-1.7.1.20261115-py3-none-any.whl", hash = "sha256:5b3cc8cb647963aa5e6e7e7443339c54fbdad7be54d4e12dfcf1e56fb86aa1b2", size = 9667, upload-time = "2026-11-15T08:33:41.425Z" },
-]
-
-[[package]]
-name = "types-python-dateutil"
-version = "2.9.0.20261104"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8c/da/aaf5b20ea6c9e714fae9fdc611b68bde4edcba0aa4b1b853fc157d3d7b37/types_python_dateutil-2.9.0.20261104.tar.gz", hash = "sha256:5d0495702a5f7343741f5d842c531bcd1c941da8b4a85307d52ef43ba80252db", size = 17861, upload-time = "2026-11-04T08:14:27.977Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/4d/f9beea6da46a838025209b06d91374c8af9fbb82c599167ae99ee59cfb7a/types_python_dateutil-2.9.0.20261104-py3-none-any.whl", hash = "sha256:f6ee76c91c547716b4795373a53d4c07e8e06cf98384ecb89fcf134d212de2ad", size = 18509, upload-time = "2026-11-04T08:14:26.989Z" },
-]
-
-[[package]]
 name = "types-pyyaml"
 version = "6.0.12.20261113"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4d/8b/ba599d956693dbc98e170f32097128bdea0a17f9d42b0b490fa749c12b1a/types_pyyaml-6.0.12.20261113.tar.gz", hash = "sha256:0828be2580fd94151182364f4d0158e4de62fdbeeb8d4296f7f7d2b6c22bb640", size = 19017, upload-time = "2026-11-13T08:51:21.488Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fd/2e/36fc0941a40ef066dbc8abac41bbbefb41389f547c779aef832aea6b873d/types_pyyaml-6.0.12.20261113-py3-none-any.whl", hash = "sha256:3600749e613748afdc4327f0b17c3296cf880cdbc7335f320007abd9dd815f67", size = 21321, upload-time = "2026-11-13T08:51:20.417Z" },
-]
-
-[[package]]
-name = "types-requests"
-version = "2.33.0.20261030"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a6/15/63ec82f647272ae3df5124def156344ab8856d29d8c4931947f1f15c003b/types_requests-2.33.0.20261030.tar.gz", hash = "sha256:42d75eb02ed0f8220904c8fc08d3129742e7fce42fd5cf706395c8bb4c0ad990", size = 25538, upload-time = "2026-10-30T07:50:39.413Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/95/35/77ed86be430bd179d34905d62cdb5ba6747c635737092088fcf03c753c61/types_requests-2.33.0.20261030-py3-none-any.whl", hash = "sha256:06cfc2e92399bf46eda78a65cd0e2203d29ebbeede78b4ab0a5922f749ce1492", size = 21450, upload-time = "2026-10-30T07:50:38.247Z" },
-]
-
-[[package]]
-name = "types-setuptools"
-version = "84.2.0.20261104"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d9/08/fe21d9b3e02c6a612ef01ee0212ef82619aec8d2373d74d69c4144ac2934/types_setuptools-84.2.0.20261104.tar.gz", hash = "sha256:1ec758bbeddf88d52f963fe663beabc2117b6aae73cf3d2902d7dd0df81bd76e", size = 46708, upload-time = "2026-11-04T08:14:06.537Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/50/84d3ea21646c5039660e9fa08d9fb180ac43a8cb93a8f45e045d312c7e2d/types_setuptools-84.2.0.20261104-py3-none-any.whl", hash = "sha256:23e9bf876adca8df2285a68f76c355128b1e679b27cfec4854faf350cd7999e5", size = 70377, upload-time = "2026-11-04T08:14:05.067Z" },
 ]
 
 [[package]]
