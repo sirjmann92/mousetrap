@@ -134,7 +134,7 @@ class PortMonitorStackModel(BaseModel):
     name: str = Field(..., description="Stack name")
     primary_container: str = Field(..., description="Primary container name")
     primary_port: int = Field(..., ge=1, le=65535, description="Primary container port")
-    secondary_containers: list[str] = Field([], description="Secondary containers")
+    secondary_containers: Annotated[list[str], Field(description="Secondary containers")] = []
     interval: int = Field(60, description="Check interval in minutes")
     status: str = Field(..., description="Current status")
     last_checked: float | None = Field(None, description="Last checked timestamp (epoch)")

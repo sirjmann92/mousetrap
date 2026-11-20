@@ -10,7 +10,7 @@ the modules as they stand and assert what those modules do today.
 """
 
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, override
 
 import pytest
 
@@ -92,9 +92,12 @@ def _install(
     only this seam moved, and no assertion in this file changed with it.
     """
     session = _StubSession(responses)
-    monkeypatch.setattr(
-        servarr_client.aiohttp, "ClientSession", lambda *a, **k: session, raising=True
-    )
+
+    def open_session(*a: object, **k: object) -> _StubSession:
+        """Hand the shared client the stub session in place of a real one."""
+        return session
+
+    monkeypatch.setattr(servarr_client.aiohttp, "ClientSession", open_session, raising=True)
     return session
 
 
@@ -243,6 +246,7 @@ async def test_update_writes_the_mamid_field_and_forces_the_save(
 class _TimingOutResponse(_StubResponse):
     """Stub response whose request times out before any reply arrives."""
 
+    @override
     async def __aenter__(self) -> Self:
         """Raise the bare ``TimeoutError`` aiohttp raises on a total timeout.
 

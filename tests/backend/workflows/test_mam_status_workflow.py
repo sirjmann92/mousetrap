@@ -8,13 +8,17 @@ import pytest
 from backend import app
 
 
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
+
+
 @pytest.mark.workflow
 async def test_forced_status_fetches_mam_account_and_persists_result(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Fetch MAM status through the public endpoint and persist the returned account state."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
-    session = {
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
+    session: dict[str, object] = {
         "label": "seedbox",
         "mam": {
             "mam_id": "mam-cookie",
@@ -38,7 +42,7 @@ async def test_forced_status_fetches_mam_account_and_persists_result(
         """Return deterministic MAM-observed network metadata."""
         return {"ASN": 64500, "AS": "AS64500 TEST-NET"}
 
-    async def mam_status(mam_id: str, proxy_cfg: dict | None = None) -> dict[str, Any]:
+    async def mam_status(mam_id: str, proxy_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         """Return deterministic MAM account status."""
         assert mam_id == "mam-cookie"
         assert proxy_cfg is None
@@ -71,8 +75,8 @@ async def test_logged_status_event_reports_the_fetched_auto_update_result(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Log the event-log entry from the fetched status rather than from an empty mapping."""
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
-    session = {
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
+    session: dict[str, object] = {
         "label": "seedbox",
         "mam": {
             "mam_id": "mam-cookie",

@@ -22,6 +22,10 @@ _MAM_ID = "current-mam-id"
 _JACKETT_KEY = "jackett-api-key"
 
 
+def _skip_job_registration(_label: str) -> None:
+    """Stand in for ``register_session_job`` so saving a session schedules nothing."""
+
+
 def _cfg(**indexers: dict[str, Any]) -> dict[str, Any]:
     """Build a session holding the given indexer integration settings."""
     return {"label": "seedbox", "mam": {"mam_id": _MAM_ID}, **indexers}
@@ -250,7 +254,7 @@ async def test_a_status_check_that_gets_a_new_mam_id_passes_it_on_and_announces_
         notified.append(kwargs)
 
     monkeypatch.setattr(app, "sync_mam_id_to_chaptarr", chaptarr)
-    monkeypatch.setattr(app, "register_session_job", lambda _label: None)
+    monkeypatch.setattr(app, "register_session_job", _skip_job_registration)
 
     async def status(**_kwargs: Any) -> dict[str, Any]:
         return {"mam_cookie_exists": True, "points": 1, "raw": {}, "updated_mam_id": "issued"}

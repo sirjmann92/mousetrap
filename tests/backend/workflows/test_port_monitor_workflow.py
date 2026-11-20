@@ -6,12 +6,17 @@ import pytest
 from backend.port_monitor import port_monitor_manager
 
 
+def _port_open(_container: str, _port: int) -> bool:
+    """Stand in for ``check_port`` and report every port reachable."""
+    return True
+
+
 @pytest.mark.workflow
 async def test_port_monitor_create_edit_recheck_delete(
     api_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Run the complete stack-management workflow through HTTP."""
-    monkeypatch.setattr(port_monitor_manager, "check_port", lambda _container, _port: True)
+    monkeypatch.setattr(port_monitor_manager, "check_port", _port_open)
     created = await api_client.post(
         "/api/port-monitor/stacks",
         json={

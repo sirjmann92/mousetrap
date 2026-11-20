@@ -5,12 +5,38 @@ from collections.abc import Callable
 import logging
 from pathlib import Path
 import threading
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock
 
+from docker.errors import APIError, DockerException
 import pytest
 
 from backend import api_port_monitor, notifications_backend, port_monitor
 from backend.yaml_store import YamlStoreError
+
+
+def _fail_on_load(_self: port_monitor.PortMonitorStackManager) -> None:
+    """Stand in for ``load_stacks`` and fail the test if construction calls it."""
+    pytest.fail("must not load")
+
+
+def _port_open(*_args: object) -> bool:
+    """Stand in for ``check_port`` and report the port reachable."""
+    return True
+
+
+def _port_closed(*_args: object) -> bool:
+    """Stand in for ``check_port`` and report the port unreachable."""
+    return False
+
+
+def _restart_succeeds(_name: str) -> bool:
+    """Stand in for ``restart_container`` and report the restart done."""
+    return True
+
+
+def _discard_event(_event: dict[str, Any]) -> None:
+    """Stand in for ``append_ui_event_log`` so no event is written."""
 
 
 def _raise_yaml_store_error(*_args: object, **_kwargs: object) -> None:
@@ -38,11 +64,7 @@ def test_stack_defines_every_attribute_from_four_arguments() -> None:
 
 def test_constructor_does_not_load(monkeypatch: pytest.MonkeyPatch) -> None:
     """Construction has no configuration I/O side effect."""
-    monkeypatch.setattr(
-        port_monitor.PortMonitorStackManager,
-        "load_stacks",
-        lambda _self: pytest.fail("must not load"),
-    )
+    monkeypatch.setattr(port_monitor.PortMonitorStackManager, "load_stacks", _fail_on_load)
     manager = port_monitor.PortMonitorStackManager()
     assert manager.stacks == []
     assert not manager._config_loaded
@@ -73,7 +95,7 @@ def test_loaded_manager_writes_with_shared_store(
     monkeypatch.setattr(port_monitor, "PORT_MONITOR_CONFIG_PATH", path)
     manager = port_monitor.PortMonitorStackManager()
     manager.load_stacks()
-    monkeypatch.setattr(manager, "check_port", lambda *_args: True)
+    monkeypatch.setattr(manager, "check_port", _port_open)
     manager.add_stack("x", "container", 80, [])
     assert "name: x" in path.read_text(encoding="utf-8")
 
@@ -98,7 +120,7 @@ def test_recheck_updates_status_when_background_save_fails(
     manager = port_monitor.PortMonitorStackManager()
     stack = port_monitor.PortMonitorStack("x", "container", 80, [])
     manager.stacks = [stack]
-    monkeypatch.setattr(manager, "check_port", lambda *_args: True)
+    monkeypatch.setattr(manager, "check_port", _port_open)
     monkeypatch.setattr(manager, "save_stacks", _raise_yaml_store_error)
 
     assert manager.recheck_stack("x")
@@ -233,7 +255,7 @@ def test_shutdown_event_replacement_and_restart_registration_share_lock(
             assert release_registration.wait(timeout=1)
             return False
 
-    manager._shutdown_event = BlockingEvent()  # type: ignore[assignment]
+    monkeypatch.setattr(manager, "_shutdown_event", BlockingEvent())
     monkeypatch.setattr(manager, "load_stacks", lambda: None)
     monkeypatch.setattr(manager, "_run_monitor_loop", lambda: None)
 
@@ -287,7 +309,7 @@ def test_concurrent_stop_signals_worker_published_by_start(
         def __exit__(self, *_args: object) -> None:
             self._lock.release()
 
-    manager._worker_lock = TrackingWorkerLock()  # type: ignore[assignment]
+    monkeypatch.setattr(manager, "_worker_lock", TrackingWorkerLock())
     monkeypatch.setattr(manager, "load_stacks", lambda: None)
 
     def wait_for_shutdown() -> None:
@@ -361,10 +383,10 @@ def test_monitor_cycle_failure_does_not_block_restart(
     manager.running = True
     stack = port_monitor.PortMonitorStack("x", "container", 80, [], 0)
     manager.stacks = [stack]
-    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
+    monkeypatch.setattr(manager, "check_port", _port_closed)
     restart = AsyncMock(return_value=True)
     monkeypatch.setattr(manager, "restart_stack", restart)
-    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", _discard_event)
     saves: list[bool] = []
     if failure_case == "notification":
         manager._config_loaded = True
@@ -401,8 +423,8 @@ def test_monitor_exits_without_persisting_after_cancelled_restart(
     manager.running = True
     stack = port_monitor.PortMonitorStack("x", "container", 80, [], 0)
     manager.stacks = [stack]
-    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
-    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(manager, "check_port", _port_closed)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", _discard_event)
     monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
     restart = AsyncMock(return_value=False)
     save = Mock()
@@ -426,7 +448,7 @@ def test_docker_client_failure_reports_the_endpoint_it_tried(
         monkeypatch.delenv("DOCKER_HOST", raising=False)
     else:
         monkeypatch.setenv("DOCKER_HOST", docker_host)
-    from_env = Mock(side_effect=port_monitor.docker.errors.DockerException("socket unreachable"))
+    from_env = Mock(side_effect=DockerException("socket unreachable"))
     monkeypatch.setattr(port_monitor.docker, "from_env", from_env)
     manager = port_monitor.PortMonitorStackManager()
 
@@ -448,11 +470,16 @@ def test_restart_rechecks_once_on_completion_paths(
     manager = port_monitor.PortMonitorStackManager()
     stack = port_monitor.PortMonitorStack("x", "container", 80, ["secondary"])
     manager.stacks = [stack]
-    monkeypatch.setattr(manager, "restart_container", lambda _name: True)
-    monkeypatch.setattr(manager, "check_port", lambda *_args: port_ok)
+
+    def check_port(*_args: object) -> bool:
+        """Report the parametrised port state."""
+        return port_ok
+
+    monkeypatch.setattr(manager, "restart_container", _restart_succeeds)
+    monkeypatch.setattr(manager, "check_port", check_port)
     monkeypatch.setattr(manager, "get_docker_client", lambda: None)
     monkeypatch.setattr(port_monitor.asyncio, "sleep", AsyncMock())
-    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", _discard_event)
     monkeypatch.setattr(port_monitor, "safe_notify_event", AsyncMock())
     recheck = Mock(return_value=True)
     monkeypatch.setattr(manager, "recheck_stack", recheck)
@@ -468,13 +495,13 @@ def test_restart_inspection_failure_logs_and_treats_container_as_not_running(
     manager = port_monitor.PortMonitorStackManager()
     stack = port_monitor.PortMonitorStack("x", "primary", 80, ["secondary"])
     manager.stacks = [stack]
-    inspection_error = port_monitor.docker.errors.APIError("inspection failed")
+    inspection_error = APIError("inspection failed")
     client = Mock()
     client.containers.get.side_effect = inspection_error
     restart_container = Mock(return_value=True)
     recheck = Mock(return_value=False)
     monkeypatch.setattr(manager, "restart_container", restart_container)
-    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
+    monkeypatch.setattr(manager, "check_port", _port_closed)
     monkeypatch.setattr(manager, "get_docker_client", lambda: client)
     monkeypatch.setattr(manager, "recheck_stack", recheck)
     monkeypatch.setattr(port_monitor.asyncio, "sleep", AsyncMock())
@@ -530,9 +557,9 @@ def test_restart_retry_wait_is_interrupted_by_shutdown(
     """Shutdown cancels a background retry without waiting five seconds."""
     manager = port_monitor.PortMonitorStackManager()
     stack = port_monitor.PortMonitorStack("x", "primary", 80, [])
-    monkeypatch.setattr(manager, "restart_container", lambda _name: True)
-    monkeypatch.setattr(manager, "check_port", lambda *_args: False)
-    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(manager, "restart_container", _restart_succeeds)
+    monkeypatch.setattr(manager, "check_port", _port_closed)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", _discard_event)
 
     async def run_restart() -> None:
         task = asyncio.create_task(manager.restart_stack(stack, cancel_on_shutdown=True))
@@ -550,8 +577,8 @@ def test_restart_propagates_external_cancellation(
     """Propagate cancellation not initiated by manager shutdown."""
     manager = port_monitor.PortMonitorStackManager()
     stack = port_monitor.PortMonitorStack("x", "primary", 80, [])
-    monkeypatch.setattr(manager, "restart_container", lambda _name: True)
-    monkeypatch.setattr(port_monitor, "append_ui_event_log", lambda _event: None)
+    monkeypatch.setattr(manager, "restart_container", _restart_succeeds)
+    monkeypatch.setattr(port_monitor, "append_ui_event_log", _discard_event)
     monkeypatch.setattr(
         port_monitor.asyncio,
         "sleep",
@@ -590,11 +617,11 @@ def test_api_restart_omits_completion_events_after_shutdown_cancellation(
         thread.start.side_effect = lambda: target(*args)
         return thread
 
-    monkeypatch.setattr(
-        api_port_monitor.port_monitor_manager,
-        "get_stack",
-        lambda _name: stack,
-    )
+    def get_stack(_name: str) -> port_monitor.PortMonitorStack:
+        """Hand back the stack under test whatever name is asked for."""
+        return stack
+
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "get_stack", get_stack)
     monkeypatch.setattr(api_port_monitor.port_monitor_manager, "restart_stack", restart)
     monkeypatch.setattr(api_port_monitor, "append_ui_event_log", events)
     monkeypatch.setattr(api_port_monitor.threading, "Thread", immediate_thread)
@@ -616,7 +643,7 @@ def test_config_mutation_rolls_back_on_save_failure(
     manager._config_loaded = True
     existing = port_monitor.PortMonitorStack("existing", "container", 80, [])
     manager.stacks = [existing]
-    monkeypatch.setattr(manager, "check_port", lambda *_args: True)
+    monkeypatch.setattr(manager, "check_port", _port_open)
     monkeypatch.setattr(manager, "save_stacks", _raise_yaml_store_error)
 
     def mutate() -> None:
@@ -636,7 +663,12 @@ def test_update_stack_logs_override_change_with_symmetric_details(
     """An override-only edit is logged, and both detail sides describe the same fields."""
     stack = port_monitor.PortMonitorStack("x", "old", 80, ["secondary"], 60, "1.1.1.1")
     events = Mock()
-    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "get_stack", lambda _name: stack)
+
+    def get_stack(_name: str) -> port_monitor.PortMonitorStack:
+        """Hand back the stack under test whatever name is asked for."""
+        return stack
+
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "get_stack", get_stack)
     monkeypatch.setattr(api_port_monitor.port_monitor_manager, "save_stacks", Mock())
     monkeypatch.setattr(api_port_monitor.port_monitor_manager, "recheck_stack", Mock())
     monkeypatch.setattr(api_port_monitor, "append_ui_event_log", events)
@@ -658,7 +690,12 @@ def test_update_stack_logs_override_change_with_symmetric_details(
 def test_update_stack_restores_values_on_save_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     """The update endpoint leaves no unpersisted configuration in memory."""
     stack = port_monitor.PortMonitorStack("x", "old", 80, ["secondary"], 60, "1.1.1.1")
-    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "get_stack", lambda _name: stack)
+
+    def get_stack(_name: str) -> port_monitor.PortMonitorStack:
+        """Hand back the stack under test whatever name is asked for."""
+        return stack
+
+    monkeypatch.setattr(api_port_monitor.port_monitor_manager, "get_stack", get_stack)
     monkeypatch.setattr(
         api_port_monitor.port_monitor_manager,
         "save_stacks",

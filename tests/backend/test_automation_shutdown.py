@@ -3,12 +3,16 @@
 import asyncio
 from datetime import UTC, datetime, tzinfo
 import threading
-from typing import Self
+from typing import Any, Self, override
 from unittest.mock import AsyncMock, Mock
 
 import pytest
 
 from backend import automation
+
+
+def _no_proxy(_cfg: dict[str, Any]) -> None:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session with no proxy."""
 
 
 def test_shutdown_finishes_current_purchase_and_skips_later_work(
@@ -51,9 +55,10 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
         """Provide a deterministic automation timestamp for persistence assertions."""
 
         @classmethod
-        def now(cls, current_tz: tzinfo | None = None) -> Self:
+        @override
+        def now(cls, tz: tzinfo | None = None) -> Self:
             """Return the fixed test timestamp in the requested timezone."""
-            assert current_tz is UTC
+            assert tz is UTC
             return cls(2026, 8, 3, 12, 34, 56, tzinfo=UTC)
 
     async def buy_then_request_shutdown(
@@ -69,13 +74,13 @@ def test_shutdown_finishes_current_purchase_and_skips_later_work(
         assert config == expected_first_config
         saved_labels.append(old_label)
 
+    def load_session(label: str) -> dict[str, Any]:
+        """Hand back the config saved under the label."""
+        return first_config if label == "first" else second_config
+
     monkeypatch.setattr(automation, "list_sessions", lambda: ["first", "second"])
-    monkeypatch.setattr(
-        automation,
-        "load_session",
-        lambda label: first_config if label == "first" else second_config,
-    )
-    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    monkeypatch.setattr(automation, "load_session", load_session)
+    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", _no_proxy)
     monkeypatch.setattr(automation, "get_status", AsyncMock(return_value={"points": 100_000}))
     monkeypatch.setattr(automation, "buy_upload_credit", buy_then_request_shutdown)
     monkeypatch.setattr(automation, "save_session", save)

@@ -195,7 +195,7 @@ async def get_indexer_config(
     api_key: str,
     session_cookie: str | None,
     indexer_name: str = "myanonamouse",
-) -> list | None:
+) -> list[object] | None:
     """Get indexer configuration from Jackett API.
 
     Args:
@@ -247,7 +247,7 @@ async def update_indexer_config(
     port: int,
     api_key: str,
     session_cookie: str | None,
-    config: list,
+    config: list[object],
     indexer_name: str = "myanonamouse",
 ) -> bool:
     """Update indexer configuration via Jackett API.
@@ -292,7 +292,7 @@ async def update_indexer_config(
         return False
 
 
-def update_mam_id_in_config(config: list, new_mam_id: str) -> list:
+def update_mam_id_in_config(config: list[object], new_mam_id: str) -> list[object]:
     """Update the mam_id field in the configuration array.
 
     Args:

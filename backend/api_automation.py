@@ -115,7 +115,7 @@ async def manual_upload_credit(request: Request) -> dict[str, Any]:
         if success
         else f"Upload Credit purchase failed ({amount}GB)"
     )
-    event = {
+    event: dict[str, object] = {
         "timestamp": now.isoformat(),
         "label": label,
         "event_type": "manual",
@@ -240,7 +240,7 @@ async def manual_vip(request: Request) -> dict[str, Any]:
     status_message = (
         "Purchased VIP (Max me out!)" if success else "VIP purchase failed (Max me out!)"
     )
-    event = {
+    event: dict[str, object] = {
         "timestamp": now.isoformat(),
         "label": label,
         "event_type": "manual",

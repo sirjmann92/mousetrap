@@ -8,7 +8,7 @@ registration (APScheduler), and related helpers.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 import importlib.metadata
@@ -17,11 +17,11 @@ import os
 from pathlib import Path
 import re
 import time
-from typing import Annotated, Any
+from typing import Annotated, Any, TypedDict
 
 import aiohttp
-from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
-from apscheduler.triggers.interval import IntervalTrigger  # type: ignore[import-untyped]
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.staticfiles import StaticFiles
 from pydantic import ValidationError
@@ -100,7 +100,7 @@ _logger: logging.Logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def app_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def app_lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Start and stop application-owned background services and persistence."""
     try:
         start_port_monitor_manager()
@@ -270,7 +270,9 @@ def _bucket_count(raw: dict[str, Any], key: str) -> int:
     return int(value) if isinstance(value, int | str) and str(value).isdigit() else 0
 
 
-async def check_and_notify_count_increments(cfg: dict, new_status: dict, label: str) -> None:
+async def check_and_notify_count_increments(
+    cfg: dict[str, Any], new_status: dict[str, Any], label: str
+) -> None:
     """Check for increments in hit & run and unsatisfied counts and send notifications."""
     # Get the previous status
     old_status = cfg.get("last_status", {})
@@ -540,6 +542,13 @@ async def keepalive_mam_session(cfg: dict[str, Any], label: str, now: datetime) 
     return classification == "ok"
 
 
+class _NonJsonSeedboxReply(TypedDict):
+    """Stand-in for a dynamicSeedbox.php reply whose body could not be decoded as JSON."""
+
+    Success: bool
+    msg: str
+
+
 def _record_seedbox_update(
     cfg: dict[str, Any], ip: str | None, asn: str | None, now: datetime
 ) -> None:
@@ -747,7 +756,7 @@ async def auto_update_seedbox_if_needed(
                         e_json,
                     )
                     text = await resp.text()
-                    result = {"Success": False, "msg": f"Non-JSON response: {text}"}
+                    result = _NonJsonSeedboxReply(Success=False, msg=f"Non-JSON response: {text}")
 
                 # MAM may return a new MAM ID; adopt it only from a response it
                 # accepted (see rotated_mam_id). Saved immediately, because not
@@ -2097,7 +2106,9 @@ async def api_update_seedbox(request: Request) -> dict[str, Any]:
                 try:
                     result = await resp.json()
                 except Exception:
-                    result = {"Success": False, "msg": f"Non-JSON response: {resp_text}"}
+                    result = _NonJsonSeedboxReply(
+                        Success=False, msg=f"Non-JSON response: {resp_text}"
+                    )
         except Exception as e:
             _logger.warning("[SeedboxUpdate] HTTP request failed: %s", e)
             return {"success": False, "error": str(e)}

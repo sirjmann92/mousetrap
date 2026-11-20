@@ -67,12 +67,12 @@ language = "system"
 types = ["text"]
 
 [[repos.hooks]]
-id = "mypy"
-name = "mypy"
-entry = "uv run mypy"
+id = "pyrefly"
+name = "pyrefly"
+entry = "uv run pyrefly check"
 language = "system"
-types_or = ["python", "pyi"]
-require_serial = true
+files = '(^pyproject\.toml|\.pyi?)$'
+pass_filenames = false
 
 [[repos.hooks]]
 id = "ruff-check"

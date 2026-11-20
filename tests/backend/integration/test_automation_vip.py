@@ -1,7 +1,7 @@
 """Backend integration coverage for VIP purchases, manual and automated."""
 
 from datetime import UTC, datetime
-from typing import Any, Self
+from typing import Any, Self, override
 from unittest.mock import AsyncMock, Mock
 
 from httpx import AsyncClient
@@ -10,6 +10,10 @@ import pytest
 from backend import api_automation, automation, config
 from backend.event_log import get_ui_event_log
 from backend.perk_automation import _rejection_reason
+
+
+def _no_proxy(_cfg: dict[str, Any]) -> None:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session with no proxy."""
 
 
 def _save_vip_session(label: str, *, guardrail: bool) -> None:
@@ -282,9 +286,13 @@ async def test_automation_buys_max_whatever_duration_was_saved(
         durations.append(duration)
         return {"success": True}
 
+    def load_session(_label: str) -> dict[str, Any]:
+        """Hand back the session under test whatever label is asked for."""
+        return cfg
+
     monkeypatch.setattr(automation, "list_sessions", lambda: ["seedbox"])
-    monkeypatch.setattr(automation, "load_session", lambda _label: cfg)
-    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    monkeypatch.setattr(automation, "load_session", load_session)
+    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", _no_proxy)
     monkeypatch.setattr(automation, "get_status", AsyncMock(return_value={"points": 50_000}))
     monkeypatch.setattr(automation, "buy_vip", fake_buy_vip)
     monkeypatch.setattr(automation, "save_session", Mock())
@@ -304,6 +312,7 @@ class _FrozenDatetime(datetime):
     """Pin ``datetime.now`` to the instant hobesman's reading was taken."""
 
     @classmethod
+    @override
     def now(cls, tz: Any = None) -> Self:
         """Return the frozen instant regardless of the requested timezone."""
         return cls.fromtimestamp(_OVER_CAP_NOW.timestamp(), tz=tz or UTC)

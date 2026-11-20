@@ -16,6 +16,24 @@ _PROXIED_IP = "203.0.113.9"
 _PROXY = {"label": "vpn", "host": "proxy.internal", "port": 8080}
 
 
+def _resolve_proxy(_cfg: dict[str, Any]) -> dict[str, str | int]:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session bound to the proxy."""
+    return _PROXY
+
+
+def _load_session(_label: str) -> dict[str, Any]:
+    """Stand in for ``load_session`` with a fresh copy of the proxied session."""
+    return _cfg()
+
+
+def _discard_save(*_a: object, **_k: object) -> None:
+    """Stand in for ``save_session`` so nothing is persisted."""
+
+
+def _discard_event(_event: dict[str, Any]) -> None:
+    """Stand in for ``append_ui_event_log`` so no event is written."""
+
+
 def _cfg() -> dict[str, Any]:
     """Build a session bound to a resolvable proxy with a known proxied IP."""
     return {
@@ -54,19 +72,23 @@ def _install(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, bool]]:
     async def noop(*_args: Any, **_kwargs: Any) -> Any:
         return None
 
+    async def proxied_ip(_cfg: dict[str, Any]) -> None:
+        """Report that the proxied address could not be looked up."""
+        await noop()
+
     monkeypatch.setattr(app, "get_asn_and_timezone_from_ip", asn)
     monkeypatch.setattr(app, "get_ipinfo_with_fallback", ipinfo)
-    monkeypatch.setattr(app, "get_proxied_public_ip", lambda _cfg: noop())
-    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", lambda _cfg: _PROXY)
-    monkeypatch.setattr(app, "load_session", lambda _label: _cfg())
+    monkeypatch.setattr(app, "get_proxied_public_ip", proxied_ip)
+    monkeypatch.setattr(app, "resolve_proxy_from_session_cfg", _resolve_proxy)
+    monkeypatch.setattr(app, "load_session", _load_session)
     monkeypatch.setattr(app, "list_sessions", lambda: ["seedbox"])
-    monkeypatch.setattr(app, "save_session", lambda *_a, **_k: None)
+    monkeypatch.setattr(app, "save_session", _discard_save)
 
     async def status(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
         return {"mam_cookie_exists": True, "points": 1000, "raw": {}}
 
     monkeypatch.setattr(app, "get_status", status)
-    monkeypatch.setattr(app, "append_ui_event_log", lambda _e: None)
+    monkeypatch.setattr(app, "append_ui_event_log", _discard_event)
     monkeypatch.setattr(app, "safe_notify_event", noop)
     return seen
 

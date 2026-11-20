@@ -31,8 +31,8 @@ typecheck = [
 lint = [
     { include-group = "typecheck" },
     "codespell",
-    "mypy",
     "prek",
+    "pyrefly",
     "ruff",
     "shellcheck-py",
 ]
@@ -102,32 +102,20 @@ show_missing = true
 # exists to stop that surface growing rather than to certify the current number.
 fail_under = 40
 
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-pythonVersion = "3.13"
+[tool.pyrefly]
+preset = "all"
 
-[tool.mypy]
-python_version = "3.13"
-platform = "linux"
-local_partial_types = true
-strict_equality = true
-no_implicit_optional = true
-warn_incomplete_stub = true
-warn_redundant_casts = true
-warn_unused_configs = true
-warn_unused_ignores = true
-enable_error_code = ["deprecated", "ignore-without-code", "redundant-expr", "redundant-self", "truthy-iterable"]
-disable_error_code = ["annotation-unchecked"]
-extra_checks = true
-check_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_subclassing_any = true
-disallow_untyped_calls = true
-disallow_untyped_decorators = true
-disallow_untyped_defs = true
-warn_return_any = true
-warn_unreachable = true
+[tool.pyrefly.errors]
+explicit-any = "ignore"
+explicit-any-use = "ignore"
+implicit-bool = "ignore"
+partially-unknown-type = "ignore"
+protected-access = "ignore"
+unknown-argument-type = "ignore"
+unknown-attribute-access = "ignore"
+unknown-variable-type = "ignore"
+unnecessary-type-conversion = "ignore"
+unused-call-result = "ignore"
 
 [tool.ruff]
 line-length = 100

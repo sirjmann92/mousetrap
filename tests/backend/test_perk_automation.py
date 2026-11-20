@@ -2,7 +2,7 @@
 
 from datetime import UTC, datetime, timedelta
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, override
 
 import pytest
 
@@ -104,9 +104,12 @@ class _StubSession:
 def bonus_buy_session(monkeypatch: pytest.MonkeyPatch) -> _StubSession:
     """Replace the purchase transport with a double that records its headers."""
     session = _StubSession()
-    monkeypatch.setattr(
-        perk_automation.aiohttp, "ClientSession", lambda **_kwargs: session, raising=True
-    )
+
+    def open_session(**_kwargs: object) -> _StubSession:
+        """Hand the purchase the recording session in place of a real one."""
+        return session
+
+    monkeypatch.setattr(perk_automation.aiohttp, "ClientSession", open_session, raising=True)
     return session
 
 
@@ -147,6 +150,7 @@ class _RefusingResponse(_StubResponse):
         """
         self._payload = payload
 
+    @override
     async def json(self) -> Any:
         """Return the refusal body."""
         return self._payload
@@ -165,6 +169,7 @@ class _RefusingSession(_StubSession):
         super().__init__()
         self._payload = payload
 
+    @override
     def get(self, _url: str, *, headers: dict[str, str], **_kwargs: Any) -> _StubRequest:
         """Record the headers and hand back a refusal.
 
@@ -193,9 +198,12 @@ MIN_VIP_REFUSAL = {
 def refusing_session(monkeypatch: pytest.MonkeyPatch) -> _RefusingSession:
     """Replace the purchase transport with one that refuses every purchase."""
     session = _RefusingSession(MIN_VIP_REFUSAL)
-    monkeypatch.setattr(
-        perk_automation.aiohttp, "ClientSession", lambda **_kwargs: session, raising=True
-    )
+
+    def open_session(**_kwargs: object) -> _RefusingSession:
+        """Hand the purchase the refusing session in place of a real one."""
+        return session
+
+    monkeypatch.setattr(perk_automation.aiohttp, "ClientSession", open_session, raising=True)
     return session
 
 

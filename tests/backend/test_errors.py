@@ -210,7 +210,7 @@ def test_a_problem_cannot_be_constructed_without_a_detail() -> None:
 def test_a_problem_rejects_a_member_no_model_declared() -> None:
     """Every member on the wire is one a model named, which keeps the rest off it.
 
-    Validated rather than constructed: mypy already rejects the keyword form,
+    Validated rather than constructed: pyrefly already rejects the keyword form,
     so this covers the path that takes keys it did not choose.
     """
     with pytest.raises(ValueError, match="stack_trace"):

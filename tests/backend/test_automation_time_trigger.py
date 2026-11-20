@@ -10,7 +10,7 @@ asserting current behaviour, not a specification of what it ought to be.
 """
 
 from datetime import UTC, datetime, timedelta, tzinfo
-from typing import Any, Self
+from typing import Any, Self, override
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -20,13 +20,18 @@ from backend import automation
 NOW = datetime(2026, 9, 6, 12, 0, 0, tzinfo=UTC)
 
 
+def _no_proxy(_cfg: dict[str, Any]) -> None:
+    """Stand in for ``resolve_proxy_from_session_cfg`` on a session with no proxy."""
+
+
 class _FixedDateTime(datetime):
     """datetime whose `now` is pinned, so trigger arithmetic is deterministic."""
 
     @classmethod
-    def now(cls, current_tz: tzinfo | None = None) -> Self:
+    @override
+    def now(cls, tz: tzinfo | None = None) -> Self:
         """Return the pinned instant in the requested timezone."""
-        return cls.fromtimestamp(NOW.timestamp(), tz=current_tz or UTC)
+        return cls.fromtimestamp(NOW.timestamp(), tz=tz or UTC)
 
 
 def _install(
@@ -45,9 +50,13 @@ def _install(
         purchases.append("bought")
         return {"success": True}
 
+    def load_session(_label: str) -> dict[str, Any]:
+        """Hand back the session under test whatever label is asked for."""
+        return cfg
+
     monkeypatch.setattr(automation, "list_sessions", lambda: ["seedbox"])
-    monkeypatch.setattr(automation, "load_session", lambda _label: cfg)
-    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", lambda _cfg: None)
+    monkeypatch.setattr(automation, "load_session", load_session)
+    monkeypatch.setattr(automation, "resolve_proxy_from_session_cfg", _no_proxy)
     monkeypatch.setattr(automation, "get_status", AsyncMock(return_value={"points": points}))
     monkeypatch.setattr(automation, "buy_upload_credit", _buy)
     monkeypatch.setattr(automation, "buy_vip", _buy)

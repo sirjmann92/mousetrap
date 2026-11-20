@@ -31,7 +31,7 @@ account management.
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
 - `pyproject.toml`: Python project metadata, including the release version,
-  and dependencies plus uv, pytest, coverage, mypy, and Ruff configuration.
+  and dependencies plus uv, pytest, coverage, pyrefly, and Ruff configuration.
 - `uv.lock`: exact version and hashes of every Python dependency.
 - `prek.toml`: repository hook configuration.
 
@@ -171,7 +171,7 @@ preview feature, enabled by name in `preview-features`.
 `astral-sh/setup-uv` reads it in CI, and the Dockerfile copies one uv release
 from the uv image by digest.
 
-The Python-distributed prek hooks (shellcheck, codespell, mypy and Ruff) are
+The Python-distributed prek hooks (shellcheck, codespell, pyrefly and Ruff) are
 local `system` hooks whose entries start with `uv run`, so they run the
 versions in `uv.lock` from the same `.venv` as everything else; their packages
 are in the `lint` group. A local hook inherits nothing from an upstream
@@ -238,6 +238,13 @@ npm run test:container  # Production container smoke test.
 summary. It writes coverage separately to `coverage/backend/` for backend
 pytest and `coverage/frontend/` for Playwright E2E. CI runs the same
 `test:backend`, `test:e2e`, and `test:container` commands as separate jobs.
+
+### Type checking
+
+pyrefly checks every Python file at its `all` preset, which makes every error
+kind an error. The kinds set to `ignore` under `[tool.pyrefly.errors]` in
+`pyproject.toml` are the ones the code does not pass yet. Do not add to that
+list or suppress a finding inline; delete an entry once the code passes it.
 
 ### Dependency advisories
 
