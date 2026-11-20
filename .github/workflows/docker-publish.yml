@@ -37,52 +37,16 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
-          fetch-depth: 0  # full history needed to read existing tags
 
-      # Auto-bumps the patch version on every publish: X.Y.Z becomes X.Y.(Z+1).
-      # To cut a minor or major release instead, include "#minor" or
-      # "#major" as a standalone word in any commit message landing since
-      # the previous release:
-      #   #minor → X.Y.Z becomes X.(Y+1).0   (new feature)
-      #   #major → X.Y.Z becomes (X+1).0.0   (breaking change)
-      # Written without concrete version numbers so the example cannot go
-      # stale as the project releases.
-      # Squash merges keep the PR title and the squashed commit bodies, so
-      # a contributor can put the keyword in a commit message and a
-      # reviewer can add one to the squash message at merge time. A batched
-      # release scans every commit since the last tag, so one flagged
-      # commit promotes the whole batch.
-      - name: Determine next version from tags
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Read the release version from pyproject.toml
         id: version
         run: |
-          LATEST_TAG=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n 1)
-
-          if [ -n "$LATEST_TAG" ]; then
-            CURRENT="${LATEST_TAG#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-
-            # Scan commit messages since the last release for a bump keyword.
-            # Anchored to word boundaries so an incidental substring cannot
-            # promote a release.
-            COMMITS=$(git log "${LATEST_TAG}..HEAD" --pretty=%B)
-            if printf '%s' "$COMMITS" | grep -qiE '(^|[^[:alnum:]_])#major([^[:alnum:]_]|$)'; then
-              MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
-              echo "Bump keyword found: major"
-            elif printf '%s' "$COMMITS" | grep -qiE '(^|[^[:alnum:]_])#minor([^[:alnum:]_]|$)'; then
-              MINOR=$((MINOR + 1)); PATCH=0
-              echo "Bump keyword found: minor"
-            else
-              PATCH=$((PATCH + 1))
-              echo "No bump keyword found; defaulting to patch"
-            fi
-            NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
-          else
-            # No tags yet — start at 2.3.6
-            NEW_VERSION="2.3.6"
-          fi
-
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "Publishing version: $NEW_VERSION"
+          VERSION="$(uv version --short)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION"
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -124,8 +88,6 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          build-args: |
-            APP_VERSION=${{ steps.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           tags: ${{ steps.meta.outputs.tags }}
           # Pinned: unset, the action's provenance mode follows repo visibility.

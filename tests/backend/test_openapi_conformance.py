@@ -185,7 +185,7 @@ def _assert_exactly(violating: set[str], waived: frozenset[str], remedy: str) ->
 ROUTES_THAT_CANNOT_FAIL = frozenset(
     {
         "GET /api/server_time",  # TZ, falling back to ZoneInfo("UTC") on any value
-        "GET /api/version",  # APP_VERSION, defaulting to "dev"
+        "GET /api/version",  # the installed distribution's version
     }
 )
 

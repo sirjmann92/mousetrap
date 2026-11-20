@@ -53,7 +53,6 @@ export default defineConfig({
           cwd: '..',
           env: {
             ...process.env,
-            APP_VERSION: 'e2e',
             CONFIG_DIR: configDir,
             E2E_BACKEND_PORT: backendPort,
             NOTIFY_CONFIG_PATH: join(configDir, 'notify.yaml'),

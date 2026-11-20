@@ -29,8 +29,8 @@ account management.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
-- `pyproject.toml`: Python project metadata and dependencies plus uv, pytest,
-  coverage, mypy, and Ruff configuration.
+- `pyproject.toml`: Python project metadata, including the release version,
+  and dependencies plus uv, pytest, coverage, mypy, and Ruff configuration.
 - `uv.lock`: exact version and hashes of every Python dependency.
 - `prek.toml`: repository hook configuration.
 
@@ -298,10 +298,10 @@ requested, disable it and say so.
 
 That is a standing instruction, not a per-batch technique. Left enabled, the
 workflow publishes on *every* merge to `main`: a push runs `Tests`, and a
-successful run triggers `Publish Docker image`, which builds the image,
-derives the next version, creates the GitHub Release, and notifies everyone
-watching the repository. Each unwanted merge is a release that cannot be
-recalled.
+successful run triggers `Publish Docker image`, which builds the image, pushes
+it under the version `pyproject.toml` carries, creates the GitHub Release, and
+notifies everyone watching the repository. Each unwanted merge is a publish
+that cannot be recalled.
 
 This has already gone wrong once. `v2.4.3` was cut unintentionally because
 the workflow was re-enabled to dispatch `v2.4.2` and never disabled again;
@@ -313,38 +313,37 @@ Dependabot opens pull requests unprompted, for GitHub Actions, the Python
 pins and the frontend lockfile. A security fix merged on a quiet
 afternoon would publish a release nobody asked for.
 
-Release versions come only from git tags — `frontend/package.json`'s
-`version` field is inert and must not be treated as the release version.
+Release versions come only from `project.version` in `pyproject.toml`. The
+backend reports it at `/api/version` from the installed distribution's
+metadata, and the publish workflow tags the image and the GitHub Release with
+what `uv version --short` prints. `frontend/package.json`'s `version` field is
+inert and must not be treated as the release version.
 
-The default is a patch bump. To cut a larger release, include a keyword as a
-standalone word in a commit message landing since the previous release:
+A release is a pull request that bumps the version:
 
-| Keyword  | Effect on `X.Y.Z` | Use for         |
-| -------- | ----------------- | --------------- |
-| `#major` | `(X+1).0.0`       | Breaking change |
-| `#minor` | `X.(Y+1).0`       | New feature     |
-| *none*   | `X.Y.(Z+1)`       | Everything else |
+```bash
+uv version --bump patch
+```
 
-- Only **commit messages** are scanned, never file contents, so documenting
-  the keywords in a file like this one is safe.
-- Writing a keyword into a commit message *about* the mechanism will promote
-  that release. Refer to them indirectly ("hash-minor") when that is not
-  intended.
-- Keywords are matched as whole words, so `#minority`, `#majorly` and issue
-  references such as `#123` do not promote a release.
-- `#major` wins when both appear.
-- Squash merges keep the PR title and the squashed commit bodies, so a
-  contributor can signal intent in a commit and a reviewer can add or remove
-  the keyword in the squash message at merge time. **When merging, check the
-  squash message for an unintended keyword.**
-- A release scans every commit since the last tag, so one flagged commit
-  promotes the whole batch.
+| Bump    | Effect on `X.Y.Z` | Use for         |
+| ------- | ----------------- | --------------- |
+| `major` | `(X+1).0.0`       | Breaking change |
+| `minor` | `X.(Y+1).0`       | New feature     |
+| `patch` | `X.Y.(Z+1)`       | Everything else |
+
+- `uv version --bump` rewrites the version in `pyproject.toml` and in `uv.lock`.
+  Commit both.
+- Commit messages do not affect the version. Nothing scans them.
+- The publish workflow does not bump anything. It publishes the version `main`
+  carries, so the bump has to merge before the workflow is enabled. **Check
+  that the version has no tag yet before publishing.**
 
 Merge freely while it is disabled — that is the normal state, and any number
 of pull requests can land without publishing anything. When the maintainer
 asks for a release:
 
 ```bash
+git tag --list "v$(uv version --short)"                 # expect no output: not released yet
 gh workflow list | grep -i publish                      # expect it absent, i.e. disabled
 gh run list --workflow=Tests --branch main --limit 1    # Tests must be green on HEAD
 gh workflow enable "Publish Docker image"

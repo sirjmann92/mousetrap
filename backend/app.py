@@ -11,6 +11,7 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+import importlib.metadata
 import logging
 import os
 from pathlib import Path
@@ -2899,11 +2900,13 @@ def api_server_time() -> dict[str, Any]:
 def api_version() -> dict[str, str]:
     """Return the application version.
 
-    The version is set via the APP_VERSION environment variable which is
-    injected during the Docker build. Defaults to 'dev' for local builds.
+    The version is the installed distribution's, which `project.version` in
+    `pyproject.toml` declares.
+
+    Returns:
+        The version, under the `version` key.
     """
-    version = os.environ.get("APP_VERSION", "dev")
-    return {"version": version}
+    return {"version": importlib.metadata.version("mousetrap")}
 
 
 def _serve_favicon(filename: str, media_type: str) -> FileResponse:

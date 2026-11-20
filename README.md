@@ -619,10 +619,10 @@ Before opening a pull request, run the checks that match what you changed:
 
 ### Release Versioning
 
-Merging to `main` publishes a new image and GitHub Release automatically. The
-version is a patch bump by default. To request a larger bump, include `#minor`
-(new feature) or `#major` (breaking change) as a standalone word in a commit
-message — the maintainer confirms or adjusts this when merging. Only commit
-messages are scanned, so mentioning the keywords in a file such as this one has
-no effect. See [Releases and Versioning](AGENTS.md#releases-and-versioning) for
-the full rules.
+The release version is `project.version` in `pyproject.toml`. The maintainer
+cuts a release with a pull request that bumps it, using
+`uv version --bump patch`, `minor` (new feature) or `major` (breaking change),
+and then publishes the image and GitHub Release for that version. Commit
+messages do not affect the version. See
+[Releases and Versioning](AGENTS.md#releases-and-versioning) for the full
+rules.
