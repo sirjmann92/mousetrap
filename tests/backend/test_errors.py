@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from http import HTTPStatus
+from typing import Annotated
 
 from fastapi import FastAPI, HTTPException, Query
 from httpx import ASGITransport, AsyncClient
@@ -48,7 +49,7 @@ def problem_app() -> FastAPI:
         raise RuntimeError("/config/session.yaml is unreadable")
 
     @app.post("/stack")
-    def stack(name: str = Query(...), body: dict[str, int] | None = None) -> dict[str, str]:
+    def stack(name: Annotated[str, Query()], body: dict[str, int] | None = None) -> dict[str, str]:
         """Accept a value in the query and a value in the body, so both can be rejected.
 
         Args:

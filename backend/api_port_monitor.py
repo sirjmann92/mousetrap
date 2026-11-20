@@ -26,7 +26,7 @@ router = APIRouter()
 
 
 # List Docker containers endpoint
-@router.get("/containers", response_model=list[str])
+@router.get("/containers")
 def list_containers() -> list[str]:
     """Returns a list of running Docker container names."""
     client = port_monitor_manager.get_docker_client()
@@ -161,7 +161,7 @@ class AddPortMonitorStackRequest(BaseModel):
 # Add update model and endpoint after router definition
 
 
-@router.get("/stacks", response_model=list[PortMonitorStackModel])
+@router.get("/stacks")
 def list_stacks() -> list[PortMonitorStackModel]:
     """Return the configured port monitor stacks in the API response model."""
     return [
@@ -215,7 +215,7 @@ def add_stack(req: AddPortMonitorStackRequest) -> dict[str, Any]:
 
 
 @router.post("/stacks/recheck", response_model=dict)
-def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
+def recheck_stack(name: Annotated[str, Query(description="Stack name")]) -> dict[str, Any]:
     """Trigger an immediate recheck of the named stack.
 
     Returns success if the stack exists and was rechecked; otherwise raises
@@ -228,7 +228,7 @@ def recheck_stack(name: str = Query(..., description="Stack name")) -> dict[str,
 
 
 @router.delete("/stacks", response_model=dict)
-def delete_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
+def delete_stack(name: Annotated[str, Query(description="Stack name")]) -> dict[str, Any]:
     """Remove a configured stack by name and emit a UI event about deletion."""
     port_monitor_manager.remove_stack(name)
     append_ui_event_log(
@@ -248,7 +248,7 @@ def delete_stack(name: str = Query(..., description="Stack name")) -> dict[str, 
 
 
 @router.post("/stacks/restart", response_model=dict)
-def restart_stack(name: str = Query(..., description="Stack name")) -> dict[str, Any]:
+def restart_stack(name: Annotated[str, Query(description="Stack name")]) -> dict[str, Any]:
     """Initiate a restart for a stack's primary container in background.
 
     Marks the stack restarting and runs the restart work in a daemon

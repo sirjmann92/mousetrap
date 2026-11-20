@@ -154,6 +154,7 @@ extend-select = [
     "ERA",
     "EXE", # flake8-executable
     "F", # pyflakes/autoflake
+    "FAST",
     "FIX", # flake8-fixme
     "FURB", # refurb
     "G", # flake8-logging-format

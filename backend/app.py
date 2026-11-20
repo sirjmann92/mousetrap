@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 import re
 import time
-from typing import Any
+from typing import Annotated, Any
 
 import aiohttp
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore[import-untyped]
@@ -941,7 +941,9 @@ async def auto_update_seedbox_if_needed(
 
 
 @app.get("/api/status")
-async def api_status(label: str | None = Query(None), force: int = Query(0)) -> dict[str, Any]:
+async def api_status(
+    label: Annotated[str | None, Query()] = None, force: Annotated[int, Query()] = 0
+) -> dict[str, Any]:
     """Return the current status for a session label.
 
     If `force` is truthy, a fresh status check is performed even if a cached
