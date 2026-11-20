@@ -142,9 +142,7 @@ docstring-code-format = true
 [tool.ruff.lint]
 extend-select = [
     "A", # flake8-builtins
-    "B007", # Loop control variable {name} not used within loop body
-    "B904", # Use raise from to specify exception cause
-    "B905", # zip() without an explicit strict= parameter
+    "B",
     #"C", # complexity
     "C4", # flake8-comprehensions
     "COM818", # Trailing comma on bare tuple prohibited
