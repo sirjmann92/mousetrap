@@ -124,3 +124,22 @@ rev = "v2.5.7"
 
 [[repos.hooks]]
 id = "biome-check"
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "musl-wheels-x86_64"
+name = "musl wheels for x86_64"
+entry = "uv sync --locked --no-dev --no-install-project --no-build --python-platform x86_64-unknown-linux-musl --dry-run"
+language = "system"
+files = '^(pyproject\.toml|uv\.lock)$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "musl-wheels-aarch64"
+name = "musl wheels for aarch64"
+entry = "uv sync --locked --no-dev --no-install-project --no-build --python-platform aarch64-unknown-linux-musl --dry-run"
+language = "system"
+files = '^(pyproject\.toml|uv\.lock)$'
+pass_filenames = false

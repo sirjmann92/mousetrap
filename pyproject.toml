@@ -52,6 +52,12 @@ build-backend = "uv_build"
 
 [tool.uv]
 required-version = ">=0.13.7"
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
+minimum-libc-version = { musl = "1.2" }
+preview-features = ["minimum-libc-version"]
 
 [tool.uv.build-backend]
 module-name = "backend"

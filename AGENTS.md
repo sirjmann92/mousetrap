@@ -150,6 +150,17 @@ else, so a stale environment cannot hide a change like that.
 `pyproject.toml`, `uv lock --upgrade-package <name>` to move one dependency, or
 `./scripts/update-dependencies.sh` to move all of them.
 
+The image has no compiler, so every runtime dependency must have a wheel for
+Alpine on both production platforms. `[tool.uv] required-environments` names
+Linux on `x86_64` and `aarch64`, and `minimum-libc-version` sets the libc those
+wheels must support to musl 1.2, the series the Alpine base image ships.
+`uv lock` then fails when a dependency is published only as wheels and has none
+for musl on either platform. A dependency that also publishes a source
+distribution still locks without such a wheel, so the two `musl-wheels` prek
+hooks resolve the runtime install for each platform with building forbidden,
+whenever `pyproject.toml` or `uv.lock` changes. `minimum-libc-version` is a uv
+preview feature, enabled by name in `preview-features`.
+
 `[tool.uv] required-version` sets the oldest uv the project accepts.
 `astral-sh/setup-uv` reads it in CI, and the Dockerfile copies one uv release
 from the uv image by digest.
