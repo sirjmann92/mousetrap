@@ -24,8 +24,8 @@ account management.
 - `tests/backend/`: Python pytest suite, including integration and workflow coverage.
 - `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: setup, test-gate, container-smoke, coverage-summary, backend launch,
-  and dependency-maintenance helpers; production containers use `start.sh`.
+- `scripts/`: setup, container-smoke, coverage-summary, backend launch, and
+  dependency-maintenance helpers; production containers use `start.sh`.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
@@ -227,13 +227,14 @@ dependencies that ship.
 Complete local test gate:
 
 ```bash
-./scripts/test.sh              # Backend pytest plus development Playwright E2E.
-./scripts/test.sh --full       # Default gate plus production container smoke test.
-./scripts/test.sh --container  # Production container smoke test only.
+npm test                # Backend pytest plus development Playwright E2E.
+npm run test:container  # Production container smoke test.
 ```
 
-The default and `--full` modes write coverage separately to `coverage/backend/`
-for backend pytest and `coverage/frontend/` for Playwright E2E.
+`npm test` runs both suites even when the first fails, then prints the coverage
+summary. It writes coverage separately to `coverage/backend/` for backend
+pytest and `coverage/frontend/` for Playwright E2E. CI runs the same
+`test:backend`, `test:e2e`, and `test:container` commands as separate jobs.
 
 ### Dependency advisories
 

@@ -23,9 +23,11 @@
     "coverage:summary": "node scripts/coverage-summary.mjs",
     "backend": "npm --prefix frontend run backend",
     "dev": "npm --prefix frontend run dev",
-    "test:backend:all": "uv run pytest tests/backend",
+    "test": "ALLOW_MISSING_COVERAGE=true npm --prefix frontend exec -- concurrently -m 1 --names backend,e2e,coverage \"npm:test:backend\" \"npm:test:e2e\" \"npm:coverage:summary\"",
+    "test:backend": "uv run pytest tests/backend",
     "test:backend:integration": "uv run pytest tests/backend -m integration",
     "test:backend:workflow": "uv run pytest tests/backend -m workflow",
+    "test:container": "./scripts/test-container.sh",
     "test:e2e": "npm --prefix frontend run test:e2e",
     "test:e2e:container": "npm --prefix frontend run test:e2e:container"
   }

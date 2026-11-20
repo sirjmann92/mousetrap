@@ -575,16 +575,15 @@ Install the backend and frontend dependencies, including Chromium, once:
 Then run the complete backend and frontend test gate with one command:
 
 ```bash
-./scripts/test.sh
+npm test
 ```
 
-The script runs the full backend pytest suite, then starts isolated Vite and FastAPI development servers for the Playwright suite using a temporary configuration directory. It reports backend and frontend line and branch coverage separately.
+The command runs the full backend pytest suite, then starts isolated Vite and FastAPI development servers for the Playwright suite using a temporary configuration directory. Both suites run even when the first fails. It reports backend and frontend line and branch coverage separately.
 
-To add the production-image smoke test, or run only that test:
+To run the production-image smoke test:
 
 ```bash
-./scripts/test.sh --full
-./scripts/test.sh --container
+npm run test:container
 ```
 
 The container test requires a running Docker daemon. It builds the production image, mounts temporary configuration, verifies persistence across a restart, runs the tagged Playwright scenario, captures failure diagnostics, and cleans up its container and image.
@@ -614,7 +613,7 @@ Before opening a pull request, run the checks that match what you changed:
 
 ```bash
 npm run check   # Linting, formatting, types, shipped frontend dependency audit.
-./scripts/test.sh   # Backend pytest plus development Playwright E2E.
+npm test        # Backend pytest plus development Playwright E2E.
 ```
 
 ### Release Versioning
