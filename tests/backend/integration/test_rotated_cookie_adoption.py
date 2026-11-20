@@ -14,13 +14,15 @@ from http.cookies import SimpleCookie
 import json
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app, config, mam_api
 from backend.mam_api import rotated_mam_id
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _WORKING = "working-cookie"
 _ROLLED = "rolled-cookie"

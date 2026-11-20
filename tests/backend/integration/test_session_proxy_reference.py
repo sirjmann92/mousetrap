@@ -7,12 +7,14 @@ but before the session was ever saved could still be persisted, and the session
 would connect directly with nothing saying so.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _PROXY = {"label": "vpn", "host": "proxy.local", "port": 1080}
 

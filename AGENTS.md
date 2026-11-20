@@ -8,7 +8,7 @@ MouseTrap. It is intended to stand alone for the upstream repository.
 MouseTrap is a Docker-first web app for automating MyAnonaMouse seedbox and
 account management.
 
-- Backend: Python 3.13, FastAPI, YAML-backed configuration/state files, and a
+- Backend: Python 3.14, FastAPI, YAML-backed configuration/state files, and a
   SQLite-backed event log.
 - Frontend: React 19, Vite, Material UI, TypeScript checking, Biome formatting.
 - Runtime: Docker image serving the built frontend and FastAPI backend on port
@@ -132,7 +132,7 @@ with the lock, removing anything the lock does not name.
 `project.dependencies` and the development tools are in `[dependency-groups]`,
 all named without versions. `uv.lock` is the single version source: it records
 the exact version and the hashes of every Python dependency, resolved together
-for Python 3.13, the only version `requires-python` accepts.
+for Python 3.14, the only version `requires-python` accepts.
 
 **Every install in the Dockerfile and the CI workflows is `uv sync --locked`**,
 with `--no-dev` in the Dockerfile and the group each CI job needs. `--locked`

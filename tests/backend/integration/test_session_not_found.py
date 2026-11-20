@@ -1,9 +1,13 @@
 """Backend integration tests for reporting a session that does not exist."""
 
-from httpx import AsyncClient
+from typing import TYPE_CHECKING
+
 import pytest
 
 from backend.config import session_exists
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 # Endpoints that take a session label in the body and answer 200 with a
 # success flag rather than raising, which is this API's existing convention.

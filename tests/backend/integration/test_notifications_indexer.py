@@ -1,11 +1,13 @@
 """Backend integration tests for deterministic external-service seams."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 
 from backend import api_notifications, app
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 def _skip_job_registration(_label: str) -> None:

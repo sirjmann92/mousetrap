@@ -3,12 +3,13 @@
 import asyncio
 from datetime import UTC, datetime, tzinfo
 import threading
-from typing import Any, Self, override
+from typing import TYPE_CHECKING, Any, Self, override
 from unittest.mock import AsyncMock, Mock
 
-import pytest
-
 from backend import automation
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def _no_proxy(_cfg: dict[str, Any]) -> None:

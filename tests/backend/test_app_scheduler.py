@@ -3,11 +3,13 @@
 import asyncio
 import logging
 import threading
-
-import pytest
+from typing import TYPE_CHECKING
 
 from backend import app
 from backend.yaml_store import YamlStoreError
+
+if TYPE_CHECKING:
+    import pytest
 
 
 def test_initialize_scheduler_resets_automation_shutdown_before_start(

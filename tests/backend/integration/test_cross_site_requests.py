@@ -6,14 +6,16 @@ reached handlers that read JSON without checking its content type, and a
 cross-site page could overwrite a session's MAM ID.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 from starlette.datastructures import Headers
 
 from backend import app
 from backend.cross_site import REFUSED_DETAIL, cross_site_reason
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 # The API client's requests are addressed to this host.
 _HOST = "testserver"

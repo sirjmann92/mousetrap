@@ -11,12 +11,14 @@ behind.
 """
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _MAM_ID = "current-mam-id"
 _JACKETT_KEY = "jackett-api-key"

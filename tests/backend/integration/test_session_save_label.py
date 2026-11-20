@@ -1,9 +1,12 @@
 """Backend integration tests for the session-save label requirement."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from httpx import AsyncClient
 import pytest
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 @pytest.mark.integration

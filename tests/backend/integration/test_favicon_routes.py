@@ -1,11 +1,14 @@
 """Backend public-API integration coverage for the favicon routes."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 @pytest.mark.integration

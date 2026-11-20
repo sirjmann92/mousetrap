@@ -9,14 +9,16 @@ stale copy.
 """
 
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 from unittest.mock import AsyncMock, Mock
 
 import aiohttp
-from httpx import AsyncClient
 import pytest
 
 from backend import api_automation, automation, config, mam_api
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 # A points guardrail every consumer fails when the balance is fabricated as zero.
 _MIN_POINTS = 1_000

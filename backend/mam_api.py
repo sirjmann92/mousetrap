@@ -65,7 +65,7 @@ def rotated_mam_id(status: int, cookies: Mapping[str, Morsel[str]]) -> str | Non
     if expires:
         try:
             when = parsedate_to_datetime(expires)
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             return None
         if when.tzinfo is None:
             when = when.replace(tzinfo=UTC)

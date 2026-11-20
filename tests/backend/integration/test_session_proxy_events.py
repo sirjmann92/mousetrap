@@ -1,11 +1,14 @@
 """Backend public-API integration coverage for sessions, proxies, and event persistence."""
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app, config
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 def _skip_job_registration(_label: str) -> None:

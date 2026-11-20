@@ -5,14 +5,16 @@ saved a proxy that could never connect, and a body with no host saved one that
 resolved to no proxy at all, sending a session's traffic direct.
 """
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app
 from backend.proxy_config import load_proxies, resolve_proxy_from_session_cfg, save_proxies
 from backend.utils import build_proxy_dict
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _PORT_MESSAGE = "Proxy port must be a whole number from 1 to 65535."
 # A fake credential; the test checks its surrounding spaces survive storage.

@@ -11,7 +11,7 @@ COPY frontend/ ./
 # Build the frontend using devDependencies (Vite and plugins).
 RUN npm run build
 
-FROM python:3.13-alpine AS backend-build
+FROM python:3.14-alpine AS backend-build
 COPY --from=ghcr.io/astral-sh/uv:0.13.7@sha256:96f40d3904aad8d0bd010539001d36c8e2188b981e1334471a90c4a1d93bb490 /uv /bin/uv
 ENV UV_PYTHON_DOWNLOADS=0
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN uv sync --locked --no-dev --no-install-project --compile-bytecode
 COPY backend/*.py /app/backend/
 RUN uv sync --locked --no-dev --compile-bytecode
 
-FROM python:3.13-alpine AS backend
+FROM python:3.14-alpine AS backend
 WORKDIR /app
 
 RUN apk add --no-cache gettext su-exec shadow \

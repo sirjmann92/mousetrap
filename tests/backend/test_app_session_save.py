@@ -3,13 +3,15 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pytest
 from starlette.requests import Request
-from starlette.types import Message
 
 from backend import app, config
+
+if TYPE_CHECKING:
+    import pytest
+    from starlette.types import Message
 
 
 def _no_stored_session(_label: str) -> dict[str, Any]:

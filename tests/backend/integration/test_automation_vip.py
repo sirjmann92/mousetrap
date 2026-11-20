@@ -1,15 +1,17 @@
 """Backend integration coverage for VIP purchases, manual and automated."""
 
 from datetime import UTC, datetime
-from typing import Any, Self, override
+from typing import TYPE_CHECKING, Any, Self, override
 from unittest.mock import AsyncMock, Mock
 
-from httpx import AsyncClient
 import pytest
 
 from backend import api_automation, automation, config
 from backend.event_log import get_ui_event_log
 from backend.perk_automation import _rejection_reason
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 def _no_proxy(_cfg: dict[str, Any]) -> None:

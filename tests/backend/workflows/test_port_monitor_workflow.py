@@ -1,9 +1,13 @@
 """Backend workflow coverage for port-monitor stack management."""
 
-from httpx import AsyncClient
+from typing import TYPE_CHECKING
+
 import pytest
 
 from backend.port_monitor import port_monitor_manager
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 def _port_open(_container: str, _port: int) -> bool:

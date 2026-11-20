@@ -1,9 +1,12 @@
 """Backend public-API integration coverage for the version route."""
 
 from importlib.metadata import version
+from typing import TYPE_CHECKING
 
-from httpx import AsyncClient
 import pytest
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 @pytest.mark.integration

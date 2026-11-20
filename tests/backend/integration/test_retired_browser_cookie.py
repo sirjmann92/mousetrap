@@ -1,9 +1,13 @@
 """The session endpoint never returns the retired vault-era browser cookie."""
 
-from httpx import AsyncClient
+from typing import TYPE_CHECKING
+
 import pytest
 
 from backend import config
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 
 @pytest.mark.integration

@@ -17,12 +17,14 @@ normalising an entered value.
 from datetime import UTC, datetime
 import logging
 from types import TracebackType
-from typing import Any, Self
+from typing import TYPE_CHECKING, Any, Self
 
-from httpx import AsyncClient
 import pytest
 
 from backend import app, config
+
+if TYPE_CHECKING:
+    from httpx import AsyncClient
 
 _DETECTED_IP = "198.51.100.7"
 _PROXIED_IP = "203.0.113.9"
