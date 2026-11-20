@@ -148,7 +148,10 @@ else, so a stale environment cannot hide a change like that.
 
 `uv.lock` is generated; do not edit it by hand. Run `uv lock` after changing
 `pyproject.toml`, `uv lock --upgrade-package <name>` to move one dependency, or
-`./scripts/update-dependencies.sh` to move all of them.
+`./scripts/update-dependencies.sh` to move all of them. Dependabot's `uv`
+ecosystem moves them in its weekly pull request by running
+`uv lock --upgrade-package`, so every bump goes through the resolver instead
+of editing one line of a flat list.
 
 The image has no compiler, so every runtime dependency must have a wheel for
 Alpine on both production platforms. `[tool.uv] required-environments` names
