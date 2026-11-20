@@ -527,13 +527,13 @@ Use the local development commands when changing the Python backend or React fro
 
 ```bash
 # Requires uv, Node.js 24.18.0+, and npm 11.16.0+.
-./scripts/setup.sh
+npm run setup
 
 # Start both the FastAPI backend and Vite frontend with live reload
 npm run dev
 ```
 
-The setup helper runs `uv sync`, which creates `.venv` and installs the project and the Python `dev` dependency group exactly as pinned in `uv.lock`, installs the prek Git hook, validates the Node.js version, validates the npm version, and installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`.
+The setup command runs `uv sync`, which creates `.venv` and installs the project and the Python `dev` dependency group exactly as pinned in `uv.lock`, installs the prek Git hook, installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`, and installs Playwright's Chromium. npm refuses to run it on a Node.js or npm older than `devEngines` in `package.json` allows.
 
 Run linting, formatting, type, and frontend dependency-security checks:
 
@@ -569,7 +569,7 @@ The `npm run dev` command uses `scripts/start-backend.sh`. That helper defaults 
 Install the backend and frontend dependencies, including Chromium, once:
 
 ```bash
-./scripts/setup.sh
+npm run setup
 ```
 
 Then run the complete backend and frontend test gate with one command:

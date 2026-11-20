@@ -172,7 +172,7 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
-  echo "Missing frontend dependencies. Run ./scripts/setup.sh before running tests." >&2
+  echo "Missing frontend dependencies. Run npm run setup before running tests." >&2
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then

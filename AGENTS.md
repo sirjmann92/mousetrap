@@ -24,7 +24,7 @@ account management.
 - `tests/backend/`: Python pytest suite, including integration and workflow coverage.
 - `frontend/e2e/`: Playwright end-to-end coverage.
 - `docs/`: user and implementation documentation.
-- `scripts/`: setup, container-smoke, coverage-summary, backend launch, and
+- `scripts/`: container-smoke, coverage-summary, backend launch, and
   dependency-maintenance helpers; production containers use `start.sh`.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
@@ -113,15 +113,17 @@ from backend.app import app
 Set up both backend and frontend development environments:
 
 ```bash
-./scripts/setup.sh
+npm run setup
 ```
 
-The helper requires uv, Node.js 24.18.0 or newer, and npm 11.16.0 or newer. It
-runs `uv sync`, which creates `.venv` with the Python version `pyproject.toml`
-requires and installs the project and the `dev` dependency group at the locked
-versions, and runs `npm ci` against the frontend lockfile. Rerunning it brings
-an existing `.venv` back in line with the lock, removing anything the lock does
-not name.
+The command requires uv, Node.js 24.18.0 or newer, and npm 11.16.0 or newer.
+`devEngines` in both `package.json` files states the Node.js and npm floors,
+and npm refuses to run a command below them. It runs `uv sync`, which creates
+`.venv` with the Python version `pyproject.toml` requires and installs the
+project and the `dev` dependency group at the locked versions, installs the
+prek Git hook, runs `npm ci` against the frontend lockfile, and installs
+Playwright's Chromium. Rerunning it brings an existing `.venv` back in line
+with the lock, removing anything the lock does not name.
 
 ### Python dependency pins
 
@@ -135,7 +137,7 @@ for Python 3.13, the only version `requires-python` accepts.
 with `--no-dev` in the Dockerfile and the group each CI job needs. `--locked`
 refuses to install when `uv.lock` no longer matches `pyproject.toml`, so a
 dependency added without re-locking fails every job that installs. Use the same
-command at any new install site. The local scripts use plain `uv sync` and
+command at any new install site. The local commands use plain `uv sync` and
 `uv run`, which re-lock after a `pyproject.toml` edit; commit the resulting
 `uv.lock` change with it.
 

@@ -12,6 +12,7 @@
     }
   },
   "scripts": {
+    "setup": "uv sync && uv run prek install -f && npm ci --prefix frontend --strict-allow-scripts --no-fund && npm --prefix frontend run test:e2e:install",
     "start": "npm --prefix frontend run start",
     "build": "npm --prefix frontend run build",
     "serve": "npm --prefix frontend run serve",

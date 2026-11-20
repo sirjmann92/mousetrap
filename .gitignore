@@ -52,9 +52,6 @@ venv.bak/
 venv/
 
 # Personal/local scratch files — not part of the project, never tracked.
-# scripts/ and tests/ also hold real project files (setup.sh, the pytest
-# suite, etc.), so personal scripts/data live under local/ subdirectories
-# that get ignored wholesale instead of listing individual filenames.
 .claude/
 scripts/local/
 tests/local/
