@@ -526,14 +526,14 @@ services:
 Use the local development commands when changing the Python backend or React frontend.
 
 ```bash
-# Requires Python 3.13+, Node.js 24.18.0+, and npm 11.16.0+.
+# Requires uv, Node.js 24.18.0+, and npm 11.16.0+.
 ./scripts/setup.sh
 
 # Start both the FastAPI backend and Vite frontend with live reload
 npm run dev
 ```
 
-The setup helper creates or reuses `.venv`, installs the Python `dev` dependency group, installs the prek Git hook, validates the Node.js version, validates the npm version, and installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`.
+The setup helper runs `uv sync`, which creates `.venv` and installs the project and the Python `dev` dependency group exactly as pinned in `uv.lock`, installs the prek Git hook, validates the Node.js version, validates the npm version, and installs the frontend dependencies exactly as pinned in `frontend/package-lock.json`.
 
 Run linting, formatting, type, and frontend dependency-security checks:
 
@@ -550,7 +550,7 @@ For routine dependency maintenance:
 ./scripts/lint.sh
 ```
 
-The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin and configuration schema aligned, then selects the newest published stable Biome prek tag in the same major version that is no newer than the npm package. It then normalizes the frontend lockfile, applies compatible security remediations, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11.16.0 or newer so the frontend's install-script policy is enforced. It also upgrades and checks `.venv` when it exists, or skips that step when local Python setup has not been run. Review generated configuration and lockfile changes before committing.
+The dependency helper updates available prek hooks and frontend dependency declarations within their existing version constraints. It keeps the exact Biome package pin and configuration schema aligned, then selects the newest published stable Biome prek tag in the same major version that is no newer than the npm package. It then normalizes the frontend lockfile, applies compatible security remediations, performs a clean frontend install, and runs dependency consistency and security checks. It requires npm 11.16.0 or newer so the frontend's install-script policy is enforced. It also re-resolves `uv.lock` to the newest Python dependencies and synchronizes `.venv` with it. Review generated configuration and lockfile changes before committing.
 
 Open the Vite URL printed by npm, normally `http://localhost:5173`. The backend runs on `http://localhost:39842`.
 

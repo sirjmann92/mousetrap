@@ -1,5 +1,8 @@
-[dependency-groups]
-runtime = [
+[project]
+name = "mousetrap"
+version = "2.6.3"
+requires-python = "==3.13.*"
+dependencies = [
     "aiohttp",
     "apscheduler",
     "docker",
@@ -10,8 +13,9 @@ runtime = [
     "uvicorn",
     "yarl",
 ]
+
+[dependency-groups]
 typecheck = [
-    { include-group = "runtime" },
     "httpx",
     "pytest",
     "types-cffi",
@@ -31,7 +35,6 @@ lint = [
     "ruff",
 ]
 test = [
-    { include-group = "runtime" },
     "httpx",
     "pytest",
     "pytest-asyncio",
@@ -41,9 +44,18 @@ test = [
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
-    # scripts/lock-python-dependencies.py reads requirement markers with it.
-    "packaging",
 ]
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+required-version = ">=0.13.7"
+
+[tool.uv.build-backend]
+module-name = "backend"
+module-root = ""
 
 [tool.codespell]
 skip = "*.py,*.toml,*.json"

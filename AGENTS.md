@@ -29,8 +29,9 @@ account management.
 - `.github/workflows/`: backend, development Playwright, Docker smoke, and
   coverage-reporting workflows.
 - `Dockerfile`: production image build.
-- `pyproject.toml`: Python dependencies plus pytest, coverage, mypy, and Ruff
-  configuration.
+- `pyproject.toml`: Python project metadata and dependencies plus uv, pytest,
+  coverage, mypy, and Ruff configuration.
+- `uv.lock`: exact version and hashes of every Python dependency.
 - `prek.toml`: repository hook configuration.
 
 ## General Working Rules
@@ -115,35 +116,43 @@ Set up both backend and frontend development environments:
 ./scripts/setup.sh
 ```
 
-The helper requires Python 3.13 or newer, Node.js 24.18.0 or newer, and npm
-11.16.0 or newer. It creates or reuses `.venv`, installs the Python `dev` dependency
-group at the pinned versions, and runs `npm ci` against the frontend lockfile.
-Rerunning it brings an existing `.venv` back in line with the pins.
+The helper requires uv, Node.js 24.18.0 or newer, and npm 11.16.0 or newer. It
+runs `uv sync`, which creates `.venv` with the Python version `pyproject.toml`
+requires and installs the project and the `dev` dependency group at the locked
+versions, and runs `npm ci` against the frontend lockfile. Rerunning it brings
+an existing `.venv` back in line with the lock, removing anything the lock does
+not name.
 
 ### Python dependency pins
 
-`pyproject.toml` names each dependency group without versions.
-`requirements/constraints.txt` pins every Python dependency to an exact version,
-and **every `pip install --group ...` passes it with `--constraint`**: the
-Dockerfile, both CI workflows, and the setup and maintenance scripts. Add the
-same flag to any new install site.
+`pyproject.toml` is a uv project. The backend's runtime dependencies are in
+`project.dependencies` and the development tools are in `[dependency-groups]`,
+all named without versions. `uv.lock` is the single version source: it records
+the exact version and the hashes of every Python dependency, resolved together
+for Python 3.13, the only version `requires-python` accepts.
 
-Without it, each fresh install took whatever was newest that day, so the Docker
-image, CI and local environments ran different code. A FastAPI release once
-silently changed what `app.routes` returns and broke the API drift check in
+**Every install in the Dockerfile and the CI workflows is `uv sync --locked`**,
+with `--no-dev` in the Dockerfile and the group each CI job needs. `--locked`
+refuses to install when `uv.lock` no longer matches `pyproject.toml`, so a
+dependency added without re-locking fails every job that installs. Use the same
+command at any new install site. The local scripts use plain `uv sync` and
+`uv run`, which re-lock after a `pyproject.toml` edit; commit the resulting
+`uv.lock` change with it.
+
+Without a lock, each fresh install took whatever was newest that day, so the
+Docker image, CI and local environments ran different code. A FastAPI release
+once silently changed what `app.routes` returns and broke the API drift check in
 Documentation Guidelines, while a stale local environment kept it looking
-correct.
+correct. `uv sync` installs exactly what the lock names and removes everything
+else, so a stale environment cannot hide a change like that.
 
-The file is generated. Change it through `./scripts/update-dependencies.sh`, or
-let Dependabot bump pins in its weekly pull request; do not add or remove
-entries by hand. The generator resolves for the Python version in the
-Dockerfile, and checks that the runtime pins install from wheels on both
-production platforms, since the image has no compiler.
+`uv.lock` is generated; do not edit it by hand. Run `uv lock` after changing
+`pyproject.toml`, `uv lock --upgrade-package <name>` to move one dependency, or
+`./scripts/update-dependencies.sh` to move all of them.
 
-A package that another pin requires at one exact version, such as
-`pydantic-core` under `pydantic`, is deliberately left out: it is pinned through
-its parent. Dependabot bumps lines independently, so listing both let a bump to
-either alone produce a pair pip cannot install.
+`[tool.uv] required-version` sets the oldest uv the project accepts.
+`astral-sh/setup-uv` reads it in CI, and the Dockerfile copies one uv release
+from the uv image by digest.
 
 The prek mypy hook installs its own copy of the typecheck and runtime packages,
 by name only. They are not pinned there, because Dependabot does not edit
@@ -176,9 +185,9 @@ For routine dependency maintenance, run:
 ./scripts/update-dependencies.sh
 ```
 
-The helper re-resolves the newest Python dependencies and rewrites
-`requirements/constraints.txt`, updates the frontend dependencies, and keeps
-their generated tool configuration synchronized. Review configuration and
+The helper re-resolves the newest Python dependencies and rewrites `uv.lock`,
+updates the frontend dependencies, and keeps their generated tool configuration
+synchronized. Review configuration and
 lockfile changes, then run `./scripts/lint.sh` before committing.
 
 ## Validation Commands

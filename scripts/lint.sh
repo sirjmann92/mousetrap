@@ -6,7 +6,6 @@ set -eu
 
 SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
-VENV_PREK="$REPO_ROOT/.venv/bin/prek"
 FRONTEND_TSC="$REPO_ROOT/frontend/node_modules/.bin/tsc"
 
 cd "$REPO_ROOT"
@@ -19,20 +18,14 @@ if ! command -v npm >/dev/null 2>&1 || [ ! -x "$FRONTEND_TSC" ]; then
   exit 1
 fi
 
-# Prefer the project environment used by local development, with a global prek
-# installation as a convenience fallback.
-if [ -x "$VENV_PREK" ]; then
-  PREK="$VENV_PREK"
-elif command -v prek >/dev/null 2>&1; then
-  PREK="$(command -v prek)"
-else
-  echo "prek was not found. Install the development dependency group:" >&2
-  echo "  .venv/bin/python -m pip install --group dev --constraint requirements/constraints.txt" >&2
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv was not found. Install it, then install the development dependency group:" >&2
+  echo "  uv sync" >&2
   exit 1
 fi
 
 echo "Running repository lint, format, and type checks..."
-"$PREK" run --all-files
+uv run prek run --all-files
 
 # Only what ships: the production image carries the built bundle, so advisories
 # against build and test tools would fail every local run with nothing to fix.

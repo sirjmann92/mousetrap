@@ -10,7 +10,6 @@ set -eu
 
 SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
 FRONTEND_DIR="$REPO_ROOT/frontend"
 RUN_DEVELOPMENT=true
 RUN_CONTAINER=false
@@ -55,9 +54,8 @@ case "${1:-}" in
 esac
 
 # Fail early with actionable setup instructions instead of partially running the gate.
-if [ "$RUN_DEVELOPMENT" = true ] && [ ! -x "$VENV_PYTHON" ]; then
-  echo "Missing repository virtual environment: $VENV_PYTHON" >&2
-  echo "Run ./scripts/setup.sh before running tests." >&2
+if [ "$RUN_DEVELOPMENT" = true ] && ! command -v uv >/dev/null 2>&1; then
+  echo "uv is required to run the backend test suite." >&2
   exit 1
 fi
 
@@ -76,7 +74,7 @@ if [ "$RUN_DEVELOPMENT" = true ]; then
   if (
     # Run from the repository root so pytest uses the project configuration.
     cd "$REPO_ROOT"
-    "$VENV_PYTHON" -m pytest tests/backend
+    uv run pytest tests/backend
   ); then
     BACKEND_STATUS="PASS"
   else

@@ -8,7 +8,6 @@ set -eu
 
 SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
-VENV_PY="$REPO_ROOT/.venv/bin/python"
 
 # Run from the repository root so imports and relative environment overrides
 # behave consistently even when this script is invoked by absolute path.
@@ -30,35 +29,16 @@ fi
 # direct backend fallback. Defaults keep both services aligned on port 39842.
 PORT="${VITE_BACKEND_PORT:-${PORT:-39842}}"
 
-# Prefer the repository virtual environment so local runs use the dependencies
-# declared in pyproject.toml.
-if [ -x "$VENV_PY" ]; then
-  PYTHON="$VENV_PY"
-elif command -v python3 >/dev/null 2>&1; then
-  PYTHON="$(command -v python3)"
-else
-  echo "Python 3 was not found. Install Python 3.13 and create .venv." >&2
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv was not found. Install it, then create the development environment with:" >&2
+  echo "  uv sync" >&2
   exit 1
 fi
 
-if ! "$PYTHON" -c "import sys; raise SystemExit(sys.version_info < (3, 13))"; then
-  echo "Python 3.13 or newer is required; $PYTHON is too old." >&2
-  exit 1
-fi
-
-if ! "$PYTHON" -c "import uvicorn" >/dev/null 2>&1; then
-  echo "Uvicorn is not installed for $PYTHON." >&2
-  echo "Create the development environment with:" >&2
-  echo "  python3 -m venv .venv" >&2
-  echo "  .venv/bin/python -m pip install --upgrade 'pip>=25.1'" >&2
-  echo "  .venv/bin/python -m pip install --group dev --constraint requirements/constraints.txt" >&2
-  exit 1
-fi
-
-echo "Starting MouseTrap with $PYTHON"
+echo "Starting MouseTrap"
 echo "Backend: http://127.0.0.1:$PORT"
 echo "Local configuration: $CONFIG_DIR"
-exec "$PYTHON" -m uvicorn backend.app:app \
+exec uv run uvicorn backend.app:app \
   --host 127.0.0.1 \
   --port "$PORT" \
   --reload

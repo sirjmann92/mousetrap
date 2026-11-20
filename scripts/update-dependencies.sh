@@ -6,54 +6,21 @@ set -eu
 
 SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
-VENV_PYTHON="$REPO_ROOT/.venv/bin/python"
-VENV_PREK="$REPO_ROOT/.venv/bin/prek"
 
 cd "$REPO_ROOT"
 
-# Update the local Python environment when present, but keep the remaining
-# maintenance useful from a checkout that has not run setup.sh.
-if [ -x "$VENV_PYTHON" ]; then
-  # The lock script needs the dev group's tools, so sync to the current pins
-  # first, then resolve the newest versions and install what that pinned.
-  "$VENV_PYTHON" -m pip install --group dev --constraint requirements/constraints.txt
-  echo "Resolving the newest Python dependencies and rewriting the pins..."
-  "$VENV_PYTHON" scripts/lock-python-dependencies.py
-  echo "Installing the new pins..."
-  "$VENV_PYTHON" -m pip install --group dev --constraint requirements/constraints.txt
-  "$VENV_PYTHON" -m pip check
-else
-  echo "Skipping Python dependency updates and pins because .venv is not set up."
-fi
-
-# Prefer the project installation. A global prek can still update hook
-# revisions when .venv is absent; otherwise leave that step explicitly skipped.
-if [ -x "$VENV_PREK" ]; then
-  PREK="$VENV_PREK"
-elif command -v prek >/dev/null 2>&1; then
-  PREK="$(command -v prek)"
-else
-  PREK=""
-fi
-
-if [ -n "$PREK" ]; then
-  echo "Updating prek hook revisions..."
-  # The Biome hook is synchronized to a compatible published tag after the
-  # frontend update, rather than blindly using the npm package version.
-  "$PREK" update --exclude-repo https://github.com/biomejs/pre-commit
-else
-  echo "Skipping prek hook updates because prek is not installed."
-fi
-
-echo "Synchronizing prek mypy hook dependencies..."
-if [ -x "$VENV_PYTHON" ]; then
-  "$VENV_PYTHON" scripts/sync-mypy-hook-dependencies.py
-elif command -v python3 >/dev/null 2>&1; then
-  python3 scripts/sync-mypy-hook-dependencies.py
-else
-  echo "Python 3 is required to synchronize mypy hook dependencies." >&2
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv is required." >&2
   exit 1
 fi
+
+echo "Resolving the newest Python dependencies and rewriting uv.lock..."
+uv lock --upgrade
+echo "Installing the new lock..."
+uv sync
+
+echo "Updating prek hook revisions..."
+uv run prek update --exclude-repo https://github.com/biomejs/pre-commit
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "Node.js 24.18.0 or newer and npm 11.16.0 or newer are required." >&2

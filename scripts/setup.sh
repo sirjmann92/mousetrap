@@ -6,34 +6,11 @@ set -eu
 
 SCRIPT_DIR="$(CDPATH='' cd -P "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(CDPATH='' cd -P "$SCRIPT_DIR/.." && pwd)"
-VENV_DIR="$REPO_ROOT/.venv"
-VENV_PYTHON="$VENV_DIR/bin/python"
-VENV_PREK="$VENV_DIR/bin/prek"
 
 cd "$REPO_ROOT"
 
-# Reuse an existing environment. Otherwise, prefer the versioned interpreter
-# from the documentation and fall back to python3 after checking its version.
-if [ ! -x "$VENV_PYTHON" ]; then
-  if command -v python3.13 >/dev/null 2>&1; then
-    PYTHON="$(command -v python3.13)"
-  elif command -v python3 >/dev/null 2>&1; then
-    PYTHON="$(command -v python3)"
-  else
-    echo "Python 3.13 or newer was not found." >&2
-    exit 1
-  fi
-
-  if ! "$PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 13))'; then
-    echo "Python 3.13 or newer is required: $PYTHON" >&2
-    exit 1
-  fi
-fi
-
-if [ -x "$VENV_PYTHON" ] &&
-  ! "$VENV_PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 13))'; then
-  echo "The existing .venv uses Python older than 3.13." >&2
-  echo "Recreate it with Python 3.13 or newer." >&2
+if ! command -v uv >/dev/null 2>&1; then
+  echo "uv is required." >&2
   exit 1
 fi
 
@@ -69,21 +46,13 @@ process.exit(
   exit 1
 fi
 
-if [ ! -x "$VENV_PYTHON" ]; then
-  echo "Creating Python virtual environment at $VENV_DIR..."
-  "$PYTHON" -m venv "$VENV_DIR"
-fi
-
 echo "Installing Python development dependencies..."
-"$VENV_PYTHON" -m pip install --upgrade "pip>=25.1"
-# The constraints file pins every version, so rerunning this also brings an
-# existing .venv back in line with the pins rather than keeping whatever it has.
-"$VENV_PYTHON" -m pip install --group dev --constraint "$REPO_ROOT/requirements/constraints.txt"
+uv sync
 
 # Install the repository-managed Git hook, replacing a pre-commit shim left by
 # an older checkout when necessary.
 echo "Installing the prek Git hook..."
-"$VENV_PREK" install -f
+uv run prek install -f
 
 # Finder can leave .DS_Store files inside generated dependency directories.
 # npm ci removes installed packages before reinstalling them, but these
