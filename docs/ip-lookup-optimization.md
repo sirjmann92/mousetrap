@@ -12,7 +12,8 @@ The IP lookup system now uses an **intelligent token-aware fallback chain** that
 2. ipdata.co (with API key) → Higher limits with key  
 3. ip-api.com (free HTTP) → Unlimited but HTTP only
 4. IPinfo Standard (free) → 1,000 requests/month
-5. ipify.org (IP-only) → Final fallback
+5. InternetData (free HTTPS) → ASN and timezone, no key
+6. ipify.org (IP-only) → Final fallback
 ```
 
 #### **Scenario 2: Only IPinfo Token**
@@ -21,7 +22,8 @@ The IP lookup system now uses an **intelligent token-aware fallback chain** that
 2. ipdata.co (free tier) → 1,500 requests/day  
 3. ip-api.com (free HTTP) → Unlimited but HTTP only
 4. IPinfo Standard (free) → 1,000 requests/month
-5. ipify.org (IP-only) → Final fallback
+5. InternetData (free HTTPS) → ASN and timezone, no key
+6. ipify.org (IP-only) → Final fallback
 ```
 
 #### **Scenario 3: Only ipdata Token**
@@ -29,7 +31,8 @@ The IP lookup system now uses an **intelligent token-aware fallback chain** that
 1. ipdata.co (with API key) → Higher limits with key
 2. ip-api.com (free HTTP) → Unlimited but HTTP only
 3. IPinfo Standard (free) → 1,000 requests/month
-4. ipify.org (IP-only) → Final fallback
+4. InternetData (free HTTPS) → ASN and timezone, no key
+5. ipify.org (IP-only) → Final fallback
 ```
 
 #### **Scenario 4: No Tokens**
@@ -37,7 +40,8 @@ The IP lookup system now uses an **intelligent token-aware fallback chain** that
 1. ipdata.co (free tier) → 1,500 requests/day
 2. ip-api.com (free HTTP) → Unlimited but HTTP only  
 3. IPinfo Standard (free) → 1,000 requests/month
-4. ipify.org (IP-only) → Final fallback
+4. InternetData (free HTTPS) → ASN and timezone, no key
+5. ipify.org (IP-only) → Final fallback
 ```
 
 ## API Token Configuration 🔧
@@ -69,6 +73,7 @@ environment:
 | **IPinfo Standard** | None | 1,000/month | Excellent (IP, ASN, timezone) | HTTPS |
 | **ipdata.co** | API key | 1,500/day free | Excellent (IP, ASN, timezone) | HTTPS |
 | **ip-api.com** | None | Unlimited | Good (IP, ASN, timezone) | HTTP |
+| **InternetData** | None ([terms](https://internetdata.io/terms), [privacy](https://internetdata.io/privacy)) | Unlimited | Good (IP, ASN, timezone) | HTTPS |
 | **ipify.org** | None | Unlimited | IP only | HTTPS |
 
 ## Performance Optimizations ⚡

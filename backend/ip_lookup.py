@@ -1,7 +1,7 @@
 """IP lookup helpers with multiple-provider fallback and normalization.
 
 This module provides functions to query external IP information providers with a
-fallback chain (ipinfo, ipdata, ip-api, ipify and hardcoded-IP fallbacks). Results
+fallback chain (ipinfo, ipdata, ip-api, InternetData, ipify and hardcoded-IP fallbacks). Results
 are normalized into a common dictionary containing keys: ip, asn, org, timezone.
 A small in-memory cache is used to avoid rapid duplicate requests that may cause
 rate-limiting or 403 errors.
@@ -62,7 +62,7 @@ def _format_asn(asn_num: Any, name: Any) -> Any:
 async def get_ipinfo_with_fallback(
     ip: str | None = None, proxy_cfg: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    """Try ipinfo.io, ipdata.co, ip-api.com, and ipify.org in order. Return normalized dict with keys: ip, asn, org, timezone."""
+    """Try ipinfo.io, ipdata.co, ip-api.com, internetdata.io, and ipify.org in order. Return normalized dict with keys: ip, asn, org, timezone."""
     # Simple caching to prevent rapid duplicate requests that cause 403 errors
     cache_key = f"{ip or 'self'}_{proxy_cfg.get('label') if proxy_cfg else 'no_proxy'}"
     current_time = time.time()
@@ -137,12 +137,21 @@ async def get_ipinfo_with_fallback(
         url_ipinfo_std = "https://ipinfo.io/json"
     providers.append((url_ipinfo_std, "ipinfo_standard", headers))
 
-    # 5. ipify.org - Very reliable HTTPS but IP-only (final fallback to prevent total failure)
+    # 5. InternetData - Keyless HTTPS fallback with ASN and timezone, ahead of the
+    # IP-only providers. Terms: https://internetdata.io/terms, privacy:
+    # https://internetdata.io/privacy
+    if ip:
+        url_internetdata = f"https://api.internetdata.io/{ip}"
+    else:
+        url_internetdata = "https://api.internetdata.io/myip"
+    providers.append((url_internetdata, "internetdata", headers))
+
+    # 6. ipify.org - Very reliable HTTPS but IP-only (final fallback to prevent total failure)
     if not ip:  # Only for own IP lookup, not specific IP lookup
         url_ipify = "https://api.ipify.org?format=json"
         providers.append((url_ipify, "ipify", headers))
 
-    # 6. DNS-free IP fallbacks using hardcoded IPs (for VPN/DNS issues)
+    # 7. DNS-free IP fallbacks using hardcoded IPs (for VPN/DNS issues)
     if not ip:  # Only for own IP lookup
         # ipinfo.io hardcoded IP as final DNS-free fallback
         url_ipinfo_ip = "https://34.102.136.180/json"
@@ -271,6 +280,18 @@ async def get_ipinfo_with_fallback(
                             "org": org_name,
                             "timezone": data.get("time_zone", None),
                         }
+                    elif provider == "internetdata":
+                        # internetdata: ip, asn{asn, name}, company{name}, location{timezone}
+                        body: dict[str, Any] = data
+                        asn_info: dict[str, Any] = body.get("asn") or {}
+                        company: dict[str, Any] = body.get("company") or {}
+                        location: dict[str, Any] = body.get("location") or {}
+                        result = {
+                            "ip": body.get("ip"),
+                            "asn": _format_asn(asn_info.get("asn"), asn_info.get("name")),
+                            "org": company.get("name") or "",
+                            "timezone": location.get("timezone") or None,
+                        }
 
                     # Cache the successful result
                     if result:
@@ -282,7 +303,7 @@ async def get_ipinfo_with_fallback(
                 continue
 
     _logger.error(
-        "All IP lookup providers failed for IP %s. Fallback chain: ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded IPs",
+        "All IP lookup providers failed for IP %s. Fallback chain: ipinfo.io → ipdata.co → ip-api.com → internetdata.io → ipify.org → hardcoded IPs",
         ip or "self",
     )
     return {"ip": None, "asn": None, "org": "", "timezone": None}

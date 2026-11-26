@@ -9,12 +9,12 @@ import pytest
 
 from backend import ip_lookup
 
-# ip-api.com, ipinfo.io standard, and ipdata.co: the providers offered for a
-# specific IP once the two token-gated entries are removed from the chain.
-PROVIDERS_FOR_A_SPECIFIC_IP = 3
-# Those three plus ipify.org and the two hardcoded-IP fallbacks, which join the
+# ip-api.com, ipinfo.io standard, ipdata.co and InternetData: the providers offered
+# for a specific IP once the two token-gated entries are removed from the chain.
+PROVIDERS_FOR_A_SPECIFIC_IP = 4
+# Those four plus ipify.org and the two hardcoded-IP fallbacks, which join the
 # chain only when no IP is supplied.
-PROVIDERS_FOR_A_SELF_LOOKUP = 6
+PROVIDERS_FOR_A_SELF_LOOKUP = 7
 
 
 class _Noop:
@@ -270,7 +270,7 @@ async def test_ipinfo_standard_reports_its_combined_org_field_as_the_asn(
     """Normalize an ipinfo Standard payload, which combines the two into one field."""
     session = stub_lookup_chain(
         _answered_only_at(
-            PROVIDERS_FOR_A_SPECIFIC_IP - 1,
+            PROVIDERS_FOR_A_SPECIFIC_IP - 2,
             {"ip": "203.0.113.7", "org": "AS64500 TEST-NET", "timezone": "Etc/UTC"},
         )
     )
@@ -283,11 +283,60 @@ async def test_ipinfo_standard_reports_its_combined_org_field_as_the_asn(
         "org": "AS64500 TEST-NET",
         "timezone": "Etc/UTC",
     }
+    assert len(session.responses) == PROVIDERS_FOR_A_SPECIFIC_IP - 1
+
+
+async def test_internetdata_reads_the_asn_org_and_timezone_from_its_nested_objects(
+    stub_lookup_chain: Any,
+) -> None:
+    """Normalize an InternetData payload, which nests the ASN, company and timezone."""
+    session = stub_lookup_chain(
+        _answered_only_at(
+            PROVIDERS_FOR_A_SPECIFIC_IP - 1,
+            {
+                "ip": "203.0.113.7",
+                "asn": {"asn": 64500, "name": "TEST-NET"},
+                "company": {"name": "Test Net Inc."},
+                "location": {"timezone": "Etc/UTC"},
+            },
+        )
+    )
+
+    result = await ip_lookup.get_ipinfo_with_fallback("203.0.113.7")
+
+    assert result == {
+        "ip": "203.0.113.7",
+        "asn": "AS64500 TEST-NET",
+        "org": "Test Net Inc.",
+        "timezone": "Etc/UTC",
+    }
+    assert len(session.responses) == PROVIDERS_FOR_A_SPECIFIC_IP
+
+
+async def test_internetdata_leaves_the_fields_it_has_no_answer_for_empty(
+    stub_lookup_chain: Any,
+) -> None:
+    """Normalize an InternetData payload for an address it holds no ASN or location for."""
+    session = stub_lookup_chain(
+        _answered_only_at(
+            PROVIDERS_FOR_A_SPECIFIC_IP - 1,
+            {
+                "ip": "203.0.113.7",
+                "asn": {"asn": 0, "name": ""},
+                "company": {"name": ""},
+                "location": {"timezone": ""},
+            },
+        )
+    )
+
+    result = await ip_lookup.get_ipinfo_with_fallback("203.0.113.7")
+
+    assert result == {"ip": "203.0.113.7", "asn": "", "org": "", "timezone": None}
     assert len(session.responses) == PROVIDERS_FOR_A_SPECIFIC_IP
 
 
 async def test_a_self_lookup_offers_every_provider_in_the_chain(stub_lookup_chain: Any) -> None:
-    """Offer all six self-lookup providers before reporting total failure."""
+    """Offer all seven self-lookup providers before reporting total failure."""
     session = stub_lookup_chain(lambda: _StubResponse({}, status=503))
 
     result = await ip_lookup.get_ipinfo_with_fallback()
@@ -300,13 +349,13 @@ async def test_a_self_lookup_offers_every_provider_in_the_chain(stub_lookup_chai
     ("index", "payload", "expected"),
     [
         pytest.param(
-            3,
+            4,
             {"ip": "203.0.113.7"},
             {"ip": "203.0.113.7", "asn": None, "org": "", "timezone": None},
             id="ipify",
         ),
         pytest.param(
-            4,
+            5,
             {"ip": "203.0.113.7", "org": "AS64500 TEST-NET", "timezone": "Etc/UTC"},
             {
                 "ip": "203.0.113.7",
@@ -317,7 +366,7 @@ async def test_a_self_lookup_offers_every_provider_in_the_chain(stub_lookup_chai
             id="ipinfo_hardcoded",
         ),
         pytest.param(
-            5,
+            6,
             "203.0.113.7\n",
             {"ip": "203.0.113.7", "asn": None, "org": "", "timezone": None},
             id="httpbin_hardcoded",

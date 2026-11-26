@@ -126,7 +126,7 @@ MouseTrap offers three IP monitoring modes to suit different use cases and netwo
 
 **🔄 Auto (Full) - Default Mode:**
 - **Automatic IP detection**: Uses multiple IP lookup services with fallbacks
-- **Fallback chain**: ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded endpoints
+- **Fallback chain**: ipinfo.io → ipdata.co → ip-api.com → internetdata.io → ipify.org → hardcoded endpoints
 - **DNS-free fallbacks**: Hardcoded IP endpoints (34.102.136.180, 54.230.100.253) bypass DNS issues
 - **Smart ASN handling**: Preserves previous ASN when fallback providers don't support ASN data
 - **Rate limiting**: Respects MaM's rate limits (1 update per hour)

@@ -298,7 +298,7 @@ Some VPN configurations (especially unRAID Wireguard) block DNS resolution to IP
    - Consider using VPN provider's DNS servers
 
 4. **Use Hardcoded Fallbacks**: Auto mode includes DNS-free endpoints
-   - ipinfo.io → ipdata.co → ip-api.com → ipify.org → hardcoded IPs
+   - ipinfo.io → ipdata.co → ip-api.com → internetdata.io → ipify.org → hardcoded IPs
    - Hardcoded endpoints (34.102.136.180, 54.230.100.253) bypass DNS issues
 
 ---

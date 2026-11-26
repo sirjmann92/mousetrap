@@ -138,14 +138,15 @@ environment:
 | **IPinfo Standard** | HTTPS | IP, ASN, Geo | 1,000/month | None (free tier) |
 | **ipdata.co** | HTTPS | IP, ASN, Geo | 1,500/day free | API key improves limits |
 | **ip-api.com** | HTTP | IP, ASN, Geo | Unlimited | None |
+| **InternetData** | HTTPS | IP, ASN, Geo | Unlimited | None ([terms](https://internetdata.io/terms), [privacy](https://internetdata.io/privacy)) |
 | **ipify.org** | HTTPS | IP only | Unlimited | None |
 | **Hardcoded endpoints** | HTTPS | IP only | Unlimited | DNS-free for restricted networks |
 
 **Smart Provider Selection:** The system automatically adapts based on available tokens:
-- **Both tokens**: IPinfo Lite → ipdata.co → ip-api → IPinfo Standard → ipify → hardcoded
-- **IPinfo only**: IPinfo Lite → ipdata (free) → ip-api → IPinfo Standard → ipify → hardcoded
-- **ipdata only**: ipdata.co → ip-api → IPinfo Standard → ipify → hardcoded  
-- **No tokens**: ipdata (free) → ip-api → IPinfo Standard → ipify → hardcoded
+- **Both tokens**: IPinfo Lite → ipdata.co → ip-api → IPinfo Standard → InternetData → ipify → hardcoded
+- **IPinfo only**: IPinfo Lite → ipdata (free) → ip-api → IPinfo Standard → InternetData → ipify → hardcoded
+- **ipdata only**: ipdata.co → ip-api → IPinfo Standard → InternetData → ipify → hardcoded  
+- **No tokens**: ipdata (free) → ip-api → IPinfo Standard → InternetData → ipify → hardcoded
 
 > **💡 Recommendation:** Get both tokens for maximum resilience, but IPinfo token alone provides excellent reliability.
 > 
